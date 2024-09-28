@@ -3,7 +3,7 @@
 
 #include <U8g2lib.h>
 #include <Wire.h>
-#include "../defines.h"
+#include "../config.h"
 
 class Display : public U8G2_SH1106_128X64_NONAME_1_HW_I2C
 {

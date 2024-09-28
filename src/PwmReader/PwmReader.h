@@ -1,7 +1,7 @@
 #ifndef PwmReader_h
 #define PwmReader_h
 
-#include "../defines.h"
+#include "../config.h"
 
 #define NUM_READINGS 16
 
