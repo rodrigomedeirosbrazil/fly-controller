@@ -1,3 +1,5 @@
+#include <Arduino.h>
+
 /*  Kelvin Nelson 24/07/2019
  *
  *  Pulse Width Modulation (PWM)  decoding of RC Receiver with failsafe
@@ -141,6 +143,10 @@ if (PWM_read(1)){                                      // if a new pulse is  det
 }
 
 */
+
+// DECLARATION OF FUNCTIONS USED IN THIS CODE
+boolean FAILSAFE(int CH);
+float calibrate(float Rx, int Min, int Mid, int Max);
 
 /*
  *  USER DEFINED VARIABLES (MODIFY TO SUIT YOUR APPLICATION)
