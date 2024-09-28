@@ -1,0 +1,17 @@
+#define SERIAL_DEBUG false
+
+#define ENABLED_CRUISE_CONTROL true
+
+#define THROTTLE_PIN 2
+
+#define THROTTLE_CHANNEL 1
+
+#define CALIBRATION_PULSES_MIN 916
+#define CALIBRATION_PULSES_MID 1492
+#define CALIBRATION_PULSES_MAX 1800
+
+#define PWM_FRAME_TIME_MS 56
+
+#define SMALL_FONT u8g_font_5x7
+// #define BIG_FONT u8g2_font_10x20_tr
+#define BIG_FONT u8g2_font_7x14_mf
