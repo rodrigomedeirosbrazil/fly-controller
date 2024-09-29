@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "author": "Maverick",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-nano", "id": "nano", "top": 0, "left": 0, "attrs": {} },
+    { "type": "board-ssd1306", "id": "oled1", "top": 89.5, "left": 19.05, "attrs": {} }
+  ],
+  "connections": [
+    [ "nano:A4", "oled1:SDA", "gold", [ "v0" ] ],
+    [ "oled1:SCL", "nano:A5", "cyan", [ "v-20.36", "h20.38" ] ],
+    [ "oled1:VCC", "nano:3.3V", "red", [ "v-20.07", "h-37.37" ] ],
+    [ "oled1:GND", "nano:GND.1", "black", [ "v-12.82", "h87.28" ] ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = '.pio/build/pro16MHzatmega328/firmware.hex'
+elf = '.pio/build/pro16MHzatmega328/firmware.elf'

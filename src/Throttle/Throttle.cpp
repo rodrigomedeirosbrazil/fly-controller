@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "Throttle.h"
 
-Throttle::Throttle() {
+Throttle::Throttle(PwmReader *pwmReader) {
     throttleArmed = false;
     throttleFullReverseTime = 0;
     throttleFullReverseFirstTime = false;
@@ -13,13 +13,15 @@ Throttle::Throttle() {
     cruisingStartTime = 0;
 }
 
-void Throttle::tick(int throttlePercentage, unsigned int now)
+void Throttle::tick()
 {
+  unsigned int now = millis();
+  int throttlePercentage = pwmReader->getThrottlePercentage();
   checkIfChangedArmedState(throttlePercentage, now);
   
   #if ENABLED_CRUISE_CONTROL
   checkIfChangedCruiseState(
-    isCruising() ? throttlePercentage : getThrottlePercentageFiltered(throttlePercentage), 
+    isCruising() ? throttlePercentage : getThrottlePercentageFiltered(), 
     now
   );
   #endif
@@ -150,8 +152,10 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
   }
 }
 
-unsigned int Throttle::getThrottlePercentageFiltered(int throttlePercentage)
+unsigned int Throttle::getThrottlePercentageFiltered()
 {
+  int throttlePercentage = pwmReader->getThrottlePercentage();
+
   if (throttlePercentage < 10)
   {
     return 0;

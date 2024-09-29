@@ -2,15 +2,18 @@
 #include "SoftPWM.h"
 
 #include "config.h"
-#include "PWMread_RCfailsafe.cpp"
+#include "main.h"
+#include "PWMread_RCfailsafe.h"
 
 #include "Throttle/Throttle.h"
 #include "PwmReader/PwmReader.h"
 #include "Display/Display.h"
+#include "Screen/Screen.h"
 
-Throttle throttle;
 PwmReader pwmReader;
+Throttle throttle(&pwmReader);
 Display display;
+Screen screen(&display, &throttle);
 
 unsigned long lastRcUpdate;
 unsigned long lastDisplayUpdate;
@@ -34,7 +37,7 @@ void setup()
 void loop()
 {
   unsigned long now = millis();
-  draw();
+  drawScreen();
 
   if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS)
   {
@@ -42,7 +45,7 @@ void loop()
 
     pwmReader.tick(RC_decode(THROTTLE_CHANNEL) * 100);
 
-    throttle.tick(pwmReader.getThrottlePercentage(), now);
+    throttle.tick();
 
     setLed(now);
 
@@ -61,7 +64,7 @@ void loop()
   }
 }
 
-void draw()
+void drawScreen()
 {
   if (millis() - lastDisplayUpdate < 1000)
   {
@@ -72,19 +75,7 @@ void draw()
 
   display.firstPage();
     do {
-      display.setFont(BIG_FONT);
-
-      display.setCursor(0, 12);
-      display.print("87% 58.8V 43C");
-
-      display.setCursor(0, 12 * 2);
-      display.print("25% 47.5A 2726W");
-
-      display.setCursor(0, 12 * 3);
-      display.print("1200 RPM 56C");
-
-      display.setCursor(0, 12 * 4);
-      display.print("ESC 56C");
+      screen.draw();
     } while (display.nextPage());
 }
 
@@ -114,7 +105,7 @@ void setLed(unsigned long now)
   {
     SoftPWMSetPercent(
       LED_BUILTIN, 
-      throttle.getThrottlePercentageFiltered(pwmReader.getThrottlePercentage())
+      throttle.getThrottlePercentageFiltered()
     );
   }
 }

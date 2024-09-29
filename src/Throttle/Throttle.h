@@ -1,17 +1,21 @@
 #ifndef Throttle_h
 #define Throttle_h
 
+#include "../PwmReader/PwmReader.h"
+
 class Throttle {
     public:
-        Throttle();
-        void tick(int throttlePercentage, unsigned int now);
+        Throttle(PwmReader *pwmReader);
+        void tick();
         bool isArmed() { return throttleArmed; }
         bool isCruising() { return cruising; }
+        unsigned int getThrottlePercentageFiltered();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
         unsigned long getCruisingStartTime() { return cruisingStartTime; }
-        unsigned int getThrottlePercentageFiltered(int throttlePercentage);
 
     private:
+        PwmReader *pwmReader;
+
         bool throttleArmed;
         unsigned long throttleFullReverseTime;
         bool throttleFullReverseFirstTime;
