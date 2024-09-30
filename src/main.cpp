@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "SoftPWM.h"
 
 #include "config.h"
 #include "main.h"
@@ -18,9 +17,6 @@ Screen screen(&display, &throttle);
 unsigned long lastRcUpdate;
 unsigned long lastDisplayUpdate;
 
-unsigned long ledTimer = 0;
-bool ledState = false;
-
 void setup()
 {
 #if SERIAL_DEBUG
@@ -30,8 +26,9 @@ void setup()
 
   setup_pwmRead();
 
-  SoftPWMBegin();
-  SoftPWMSet(LED_BUILTIN, 0);
+  // just to power the receiver
+  pinMode(3, OUTPUT);
+  digitalWrite(3, HIGH);
 }
 
 void loop()
@@ -46,8 +43,6 @@ void loop()
     pwmReader.tick(RC_decode(THROTTLE_CHANNEL) * 100);
 
     throttle.tick();
-
-    setLed(now);
 
     #if SERIAL_DEBUG
       Serial.print(throttle.isArmed());
@@ -66,7 +61,7 @@ void loop()
 
 void drawScreen()
 {
-  if (millis() - lastDisplayUpdate < 1000)
+  if (millis() - lastDisplayUpdate < 250)
   {
     return;
   }
@@ -77,35 +72,4 @@ void drawScreen()
     do {
       screen.draw();
     } while (display.nextPage());
-}
-
-void setLed(unsigned long now)
-{
-  if (!throttle.isArmed())
-  {
-    if (now - ledTimer > 250)
-    {
-      ledTimer = now;
-      ledState = !ledState;
-      SoftPWMSetPercent(LED_BUILTIN, ledState == true ? 100 : 0);
-    }
-  }
-
-  if (throttle.isArmed() && throttle.isCruising())
-  {
-    if (now - ledTimer > 100)
-    {
-      ledTimer = now;
-      ledState = !ledState;
-      SoftPWMSetPercent(LED_BUILTIN, ledState == true ? 100 : 0);
-    }
-  }
-
-  if (throttle.isArmed() && !throttle.isCruising())
-  {
-    SoftPWMSetPercent(
-      LED_BUILTIN, 
-      throttle.getThrottlePercentageFiltered()
-    );
-  }
 }
