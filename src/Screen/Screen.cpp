@@ -53,7 +53,7 @@ void Screen::draw() {
 }
 
 void Screen::drawThrottleBar() {
-    int throttlePercentage = this->throttle->getThrottlePercentageFiltered();
+    unsigned int throttlePercentage = this->throttle->getThrottlePercentageFiltered();
 
     this->display->setDrawColor(1);
     this->display->setCursor(70, 29);
