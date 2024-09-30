@@ -2,6 +2,7 @@
 #include "Throttle.h"
 
 Throttle::Throttle(PwmReader *pwmReader) {
+    this->pwmReader = pwmReader;
     throttleArmed = false;
     throttleFullReverseTime = 0;
     throttleFullReverseFirstTime = false;
@@ -17,6 +18,7 @@ void Throttle::tick()
 {
   unsigned int now = millis();
   int throttlePercentage = pwmReader->getThrottlePercentage();
+
   checkIfChangedArmedState(throttlePercentage, now);
   
   #if ENABLED_CRUISE_CONTROL
