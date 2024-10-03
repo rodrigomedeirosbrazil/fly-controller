@@ -15,7 +15,6 @@ Display display;
 Screen screen(&display, &throttle);
 
 unsigned long lastRcUpdate;
-unsigned long lastDisplayUpdate;
 
 void setup()
 {
@@ -34,7 +33,7 @@ void setup()
 void loop()
 {
   unsigned long now = millis();
-  drawScreen();
+  screen.draw();
 
   if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS)
   {
@@ -59,17 +58,3 @@ void loop()
   }
 }
 
-void drawScreen()
-{
-  if (millis() - lastDisplayUpdate < 250)
-  {
-    return;
-  }
-
-  lastDisplayUpdate = millis();
-
-  display.firstPage();
-    do {
-      screen.draw();
-    } while (display.nextPage());
-}

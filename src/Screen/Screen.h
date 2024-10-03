@@ -15,10 +15,13 @@ class Screen
             Throttle* throttle
         );
         void draw();
+        void drawUi();
 
     private:
         Display* display;
         Throttle* throttle;
+        unsigned long lastScreenUpdate;
+
 
         void drawThrottleBar();
 

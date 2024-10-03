@@ -9,7 +9,22 @@ Screen::Screen(
     this->throttle = throttle;
 }
 
-void Screen::draw() {
+void Screen::draw()
+{
+  if (millis() - lastScreenUpdate < 250)
+  {
+    return;
+  }
+
+  lastScreenUpdate = millis();
+
+  this->display->firstPage();
+    do {
+      drawUi();
+    } while (this->display->nextPage());
+}
+
+void Screen::drawUi() {
     this->display->clearBuffer();
     this->display->setFontMode(1);
     this->display->setBitmapMode(1);
