@@ -22,8 +22,9 @@ class Screen
         Throttle* throttle;
         unsigned long lastScreenUpdate;
 
-
         void drawThrottleBar();
+        void drawArmed();
+        void drawCruise();
 
 };
 

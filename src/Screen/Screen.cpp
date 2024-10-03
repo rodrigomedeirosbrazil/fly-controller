@@ -53,15 +53,8 @@ void Screen::drawUi() {
     this->display->drawStr(2, 46, "ESC");
     this->display->drawStr(25, 46, "--C");
 
-    if (this->throttle->isArmed()) {
-        this->display->drawStr(10, 61, "ARMED");
-    } else {
-        this->display->drawStr(10, 61, "DISARMED");
-    }
-
-    if (this->throttle->isCruising()) {
-        this->display->drawStr(78, 61, "CRUISE");
-    }
+    drawArmed();
+    drawCruise();
 
     this->display->drawStr(100, 46, "----");
     this->display->sendBuffer();
@@ -81,4 +74,28 @@ void Screen::drawThrottleBar() {
 
     int throttleBarWidth = map(throttlePercentage, 0, 100, 0, 80);
     this->display->drawBox(42, 19, throttleBarWidth, 11);
+}
+
+void Screen::drawArmed() {
+    if (!this->throttle->isArmed()) {
+        this->display->drawStr(9, 61, "DISARMED");
+        return;
+    }
+
+    this->display->drawBox(1, 50, 64, 13);
+    this->display->setDrawColor(2);
+    this->display->drawStr(18, 61, "ARMED");
+    this->display->setDrawColor(1);
+}
+
+void Screen::drawCruise() {
+    if (! this->throttle->isCruising()) {
+        return;
+    }
+
+    this->display->drawBox(64, 50, 62, 13);
+    this->display->setDrawColor(2);
+    this->display->drawStr(78, 61, "CRUISE");
+    this->display->setDrawColor(1);
+
 }
