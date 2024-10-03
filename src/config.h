@@ -6,6 +6,10 @@
 
 #define THROTTLE_PIN 3
 
+#define ESC_PIN 9
+#define ESC_MIN 1050
+#define ESC_MAX 1950
+
 #define CANBUS_INT_PIN 2
 #define CANBUS_SCK_PIN 13
 #define CANBUS_SI_PIN 11

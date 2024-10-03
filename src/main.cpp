@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <Servo.h>
+
 #include "config.h"
 #include "main.h"
 #include "PWMread_RCfailsafe.h"
@@ -9,6 +11,7 @@
 #include "Display/Display.h"
 #include "Screen/Screen.h"
 
+Servo esc;
 PwmReader pwmReader;
 Throttle throttle(&pwmReader);
 Display display;
@@ -18,12 +21,14 @@ unsigned long lastRcUpdate;
 
 void setup()
 {
-#if SERIAL_DEBUG
-  Serial.begin(9600);
-#endif
+  #if SERIAL_DEBUG
+    Serial.begin(9600);
+  #endif
+
   display.begin();
 
   setup_pwmRead();
+  esc.attach(ESC_PIN, ESC_MIN, ESC_MAX);
 
   // just to power the receiver
   pinMode(3, OUTPUT);
@@ -43,6 +48,8 @@ void loop()
 
     throttle.tick();
 
+    handleEsc();
+
     #if SERIAL_DEBUG
       Serial.print(throttle.isArmed());
       Serial.print(" ");
@@ -58,3 +65,26 @@ void loop()
   }
 }
 
+void handleEsc()
+{
+  int pulseWidth = ESC_MIN;
+
+  if (!throttle.isArmed())
+  {
+    esc.writeMicroseconds(pulseWidth);
+    return;
+  }
+
+  pulseWidth = map(
+    throttle.isCruising() 
+      ? throttle.getCruisingThrottlePosition()
+      : throttle.getThrottlePercentageFiltered(),
+    0, 
+    100, 
+    ESC_MIN, 
+    ESC_MAX
+  );
+
+    esc.writeMicroseconds(pulseWidth);
+    return;
+}
