@@ -25,6 +25,7 @@ class Screen
         void drawThrottleBar();
         void drawArmed();
         void drawCruise();
+        void drawBatteryBar();
 
 };
 

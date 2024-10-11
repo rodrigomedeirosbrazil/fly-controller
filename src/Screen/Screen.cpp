@@ -29,22 +29,17 @@ void Screen::drawUi() {
     this->display->setFontMode(1);
     this->display->setBitmapMode(1);
     this->display->setFont(u8g2_font_6x13_tr);
-    this->display->drawStr(49, 12, "---%");
-    this->display->drawFrame(40, 0, 84, 15);
-    this->display->setDrawColor(2);
-    this->display->drawFrame(123, 3, 3, 9);
-    this->display->setDrawColor(1);
-    this->display->drawStr(97, 12, "--V");
+
+    drawBatteryBar();
+    
     this->display->drawStr(15, 12, "--C");
     this->display->drawStr(15, 30, "--C");
-    this->display->drawFrame(40, 17, 84, 15);
 
     drawThrottleBar();
         
     this->display->drawXBMP(-1, 0, 16, 16, image_voltage_bits);
     this->display->drawLine(0, 0, 0, 0);
     this->display->setDrawColor(2);
-    this->display->drawBox(42, 2, 80, 11);
 
     this->display->setDrawColor(1);
 
@@ -74,6 +69,7 @@ void Screen::drawThrottleBar() {
 
     int throttleBarWidth = map(throttlePercentage, 0, 100, 0, 80);
     this->display->drawBox(42, 19, throttleBarWidth, 11);
+    this->display->drawFrame(40, 17, 84, 15); // throttle frame
 }
 
 void Screen::drawArmed() {
@@ -97,5 +93,31 @@ void Screen::drawCruise() {
     this->display->setDrawColor(2);
     this->display->drawStr(78, 61, "CRUISE");
     this->display->setDrawColor(1);
+}
 
+void Screen::drawBatteryBar() {
+    int batteryMilliVolts = 5634;
+    int batteryPercentage = map(batteryMilliVolts, 4760, 5880, 0, 100);
+
+    char buffer[7];
+    sprintf(buffer, "%3d%%", batteryPercentage);
+    this->display->setCursor(49, 12);
+    this->display->print(buffer);
+
+    dtostrf(batteryMilliVolts / 100.0, 2, 1, buffer);
+    this->display->setCursor(90, 12);
+    this->display->print(buffer);
+    this->display->print("V");
+
+    this->display->drawFrame(40, 0, 84, 15); // battery frame
+
+    this->display->setDrawColor(2);
+
+    int batteryBarWidth = map(batteryPercentage, 0, 100, 0, 80);
+    this->display->drawBox(42, 2, batteryBarWidth, 11); // battery bar
+    this->display->drawBox(123, 3, 3, 9); // ponta da pilha
+
+    this->display->setDrawColor(1);
+
+    
 }
