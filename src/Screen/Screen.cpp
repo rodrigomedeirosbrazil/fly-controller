@@ -115,9 +115,7 @@ void Screen::drawBatteryBar() {
 
     int batteryBarWidth = map(batteryPercentage, 0, 100, 0, 80);
     this->display->drawBox(42, 2, batteryBarWidth, 11); // battery bar
-    this->display->drawBox(123, 3, 3, 9); // ponta da pilha
+    this->display->drawBox(123, 3, 3, 9); // battery head
 
     this->display->setDrawColor(1);
-
-    
 }
