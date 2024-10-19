@@ -31,8 +31,8 @@ void setup()
   esc.attach(ESC_PIN, ESC_MIN, ESC_MAX);
 
   // just to power the receiver
-  pinMode(3, OUTPUT);
-  digitalWrite(3, HIGH);
+  // pinMode(2, OUTPUT);
+  // digitalWrite(2, HIGH);
 }
 
 void loop()

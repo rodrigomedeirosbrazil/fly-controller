@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "PWMread_RCfailsafe.h"
+#include "config.h"
 
 /*  Kelvin Nelson 24/07/2019
  *
@@ -151,7 +152,7 @@ if (PWM_read(1)){                                      // if a new pulse is  det
 
 // PWM  input pins, any of the following pins can be used: digital 0 - 13 or analog A0 -  A5
 
-const int pwmPIN[] = {2}; // an array to identify the PWM input  pins (the array can be any length)
+const int pwmPIN[] = {THROTTLE_PIN}; // an array to identify the PWM input  pins (the array can be any length)
                           // first  pin is channel 1, second is channel 2...etc
 
 int RC_inputs = 1; //  The number of pins in pwmPIN that are connected to an RC receiver. Addition pins  not connected to an RC receiver could be used for any other purpose i.e. detecting  the echo pulse on an HC-SR04 ultrasonic distance sensor

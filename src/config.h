@@ -1,12 +1,12 @@
 #define SERIAL_DEBUG false
 
-#define ENABLED_CRUISE_CONTROL true
+#define ENABLED_CRUISE_CONTROL false
 
 #define THROTTLE_CHANNEL 1
 
-#define THROTTLE_PIN 3
+#define THROTTLE_PIN 9
 
-#define ESC_PIN 9
+#define ESC_PIN 3
 #define ESC_MIN 1050
 #define ESC_MAX 1950
 
