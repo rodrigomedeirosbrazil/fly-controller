@@ -26,6 +26,7 @@ void setup()
   #endif
 
   display.begin();
+  display.setFlipMode(1);
 
   setup_pwmRead();
   esc.attach(ESC_PIN, ESC_MIN, ESC_MAX);
