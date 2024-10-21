@@ -10,12 +10,14 @@
 #include "PwmReader/PwmReader.h"
 #include "Display/Display.h"
 #include "Screen/Screen.h"
+#include "Canbus/Canbus.h"
 
 Servo esc;
 PwmReader pwmReader;
 Throttle throttle(&pwmReader);
 Display display;
 Screen screen(&display, &throttle);
+Canbus canbus;
 
 unsigned long lastRcUpdate;
 
@@ -39,7 +41,9 @@ void setup()
 void loop()
 {
   unsigned long now = millis();
+
   screen.draw();
+  canbus.tick();
 
   if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS)
   {
@@ -50,19 +54,6 @@ void loop()
     throttle.tick();
 
     handleEsc();
-
-    #if SERIAL_DEBUG
-      Serial.print(throttle.isArmed());
-      Serial.print(" ");
-      Serial.print(throttle.isCruising());
-      Serial.print(" ");
-      Serial.print(pwmReader.getThrottlePercentage());
-      Serial.print(" ");
-      Serial.print(throttle.getThrottlePercentageFiltered(pwmReader.getThrottlePercentage()));
-      Serial.print(" ");
-      Serial.print(throttle.getCruisingThrottlePosition());
-      Serial.println();
-    #endif
   }
 }
 
