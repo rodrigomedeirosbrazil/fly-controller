@@ -158,15 +158,15 @@ unsigned int Throttle::getThrottlePercentageFiltered()
 {
   int throttlePercentage = pwmReader->getThrottlePercentage();
 
-  if (throttlePercentage < 10)
+  if (throttlePercentage < 5)
   {
     return 0;
   }
 
-  if (throttlePercentage > 90)
+  if (throttlePercentage > 95)
   {
     return 100;
   }
 
-  return trunc(throttlePercentage / 10) * 10;
+  return throttlePercentage;
 }
