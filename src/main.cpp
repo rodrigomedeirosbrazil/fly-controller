@@ -77,6 +77,11 @@ void handleEsc()
     ESC_MAX
   );
 
-    esc.writeMicroseconds(pulseWidth);
+    esc.writeMicroseconds(
+      throttle.isArmed()
+      ? pulseWidth
+      : 0
+    );
+
     return;
 }
