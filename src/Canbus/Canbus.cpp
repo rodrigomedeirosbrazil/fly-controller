@@ -4,10 +4,7 @@
 
 #include "Canbus.h"
 
-Canbus::Canbus() {
-    mcp2515.reset();
-    mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
-    mcp2515.setNormalMode();
+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
 
     #if SERIAL_DEBUG
         Serial.println("------- CAN Read ----------");
@@ -35,4 +32,20 @@ void Canbus::tick() {
         Serial.println();
     }
     #endif
+}
+
+uint8_t getPriorityFromCanId(uint32_t canId) {
+    return (canId >> 24) & 0xFF;
+}
+
+uint16_t getDataTypeIdFromCanId(uint32_t canId) {
+    return (canId >> 8) & 0xFFFF;
+}
+
+uint8_t getNodeIdFromCanId(uint32_t canId) {
+    return canId & 0xFF;
+}
+
+uint32_t createCanId(uint8_t priority, uint16_t dataTypeId, uint8_t nodeId) {
+    return ((uint32_t)priority << 24) | ((uint32_t)dataTypeId << 8) | (uint32_t)nodeId;
 }
