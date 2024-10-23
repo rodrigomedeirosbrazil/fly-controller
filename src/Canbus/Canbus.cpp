@@ -2,50 +2,121 @@
 #include <SPI.h>
 #include <mcp2515.h>
 
+#include "../config.h"
 #include "Canbus.h"
 
-#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
-
-    #if SERIAL_DEBUG
-        Serial.println("------- CAN Read ----------");
-        Serial.println("ID  DLC   DATA");
-    #endif
+Canbus::Canbus() {
+    lastReadStatusMsg1 = 0;
+    lastReadStatusMsg2 = 0;
+    temperature = 0;
+    milliCurrent = 0;
+    milliVoltage = 0;
+    rpm = 0;
 }
 
-void Canbus::tick() {
-    #if SERIAL_DEBUG
-    if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-        // canMsg.can_id
-        // canMsg.can_dlc = data length
-        // canMsg.data
+void Canbus::parseCanMsg(struct can_frame *canMsg) {
 
-        Serial.print(canMsg.can_id, HEX); // print ID
-        Serial.print(" "); 
-        Serial.print(canMsg.can_dlc, HEX); // print DLC
-        Serial.print(" ");
-        
-        for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
-            Serial.print(canMsg.data[i],HEX);
-            Serial.print(" ");
-        }
+    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
 
-        Serial.println();
+    if (
+        dataTypeId != STATUS_MSG1
+        || dataTypeId != STATUS_MSG2
+    ) {
+        return;
     }
-    #endif
+    
+    uint8_t tailByte = getTailByFromPayload(canMsg->data, canMsg->can_dlc);
+
+    if (
+        ! isStartOfFrame(tailByte) &&
+        ! isEndOfFrame(tailByte) &&
+        isToggleFrame(tailByte)
+    ) {
+        return;
+    }
+
+    switch (dataTypeId) {
+        case STATUS_MSG1:
+            handleStatusMsg1(canMsg);
+            break;
+        case STATUS_MSG2:
+            handleStatusMsg2(canMsg);
+            break;
+    }
 }
 
-uint8_t getPriorityFromCanId(uint32_t canId) {
+bool Canbus::isReady() {
+    return millis() - lastReadStatusMsg1 < 1000 && millis() - lastReadStatusMsg2 < 1000;
+}
+
+void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
+    if (canMsg->can_dlc != 6) {
+        return;
+    }
+
+    rpm = getRpmFromPayload(canMsg->data);
+    lastReadStatusMsg2 = millis();
+}
+
+void Canbus::handleStatusMsg2(struct can_frame *canMsg) {
+    if (canMsg->can_dlc != 7) {
+        return;
+    }
+
+    temperature = getTemperatureFromPayload(canMsg->data);
+    milliCurrent = getMiliCurrentFromPayload(canMsg->data);
+    milliVoltage = getMiliVoltageFromPayload(canMsg->data);
+    lastReadStatusMsg1 = millis();
+}
+
+uint8_t Canbus::getPriorityFromCanId(uint32_t canId) {
     return (canId >> 24) & 0xFF;
 }
 
-uint16_t getDataTypeIdFromCanId(uint32_t canId) {
+uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
     return (canId >> 8) & 0xFFFF;
 }
 
-uint8_t getNodeIdFromCanId(uint32_t canId) {
-    return canId & 0xFF;
+uint8_t Canbus::getNodeIdFromCanId(uint32_t canId) {
+    return canId & 0x7F;
 }
 
-uint32_t createCanId(uint8_t priority, uint16_t dataTypeId, uint8_t nodeId) {
-    return ((uint32_t)priority << 24) | ((uint32_t)dataTypeId << 8) | (uint32_t)nodeId;
+bool Canbus::isServiceFrame(uint32_t canId) {
+    return (canId & 0x80) >> 7 == 1;
+}
+
+uint8_t Canbus::getTailByFromPayload(uint8_t *payload, uint8_t canDlc) {
+    return payload[canDlc - 1];
+}
+
+bool Canbus::isStartOfFrame(uint8_t tailByte) {
+    return (tailByte & 0x80) >> 7 == 1;
+}
+
+bool Canbus::isEndOfFrame(uint8_t tailByte) {
+    return (tailByte & 0x40) >> 6 == 1;
+}
+
+bool Canbus::isToggleFrame(uint8_t tailByte) {
+    return (tailByte & 0x20) >> 5 == 1;
+}
+
+uint8_t Canbus::getTransferId(uint8_t tailByte) {
+    return tailByte & 0x1F;
+}
+
+uint8_t Canbus::getTemperatureFromPayload(uint8_t *payload) {
+    return payload[4];
+}
+
+uint16_t Canbus::getMiliCurrentFromPayload(uint8_t *payload) {
+    return (payload[3] << 8) | payload[2];
+}
+
+uint16_t Canbus::getMiliVoltageFromPayload(uint8_t *payload) {
+    return (payload[1] << 8) | payload[0];
+}
+
+uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
+    return (payload[1] << 8) | payload[0];
 }
