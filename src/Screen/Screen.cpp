@@ -3,10 +3,12 @@
 
 Screen::Screen(
     Display *display,
-    Throttle *throttle
+    Throttle *throttle,
+    Canbus *canbus
 ) {
     this->display = display;
     this->throttle = throttle;
+    this->canbus = canbus;
 }
 
 void Screen::draw()
@@ -31,34 +33,65 @@ void Screen::drawUi() {
     this->display->setFont(u8g2_font_6x13_tr);
 
     drawBatteryBar();
-    
-    this->display->drawStr(15, 12, "--C");
-    this->display->drawStr(15, 30, "--C");
+    drawCurrent();
+
+    this->display->drawXBMP(0, 17, 11, 16, image_refresh_bits);
+    this->display->drawStr(15, 30, "--C"); // motor temperature
 
     drawThrottleBar();
-        
-    this->display->drawXBMP(-1, 0, 16, 16, image_voltage_bits);
-    this->display->drawLine(0, 0, 0, 0);
-    this->display->setDrawColor(2);
-
-    this->display->setDrawColor(1);
-
-    this->display->drawStr(72, 46, "RPM");
-    this->display->drawXBMP(0, 17, 11, 16, image_refresh_bits);
-    this->display->drawStr(2, 46, "ESC");
-    this->display->drawStr(25, 46, "--C");
-
+    drawEscInfo();
+    drawRpm();
     drawArmed();
     drawCruise();
 
-    this->display->drawStr(100, 46, "----");
     this->display->sendBuffer();
+}
+
+void Screen::drawCurrent() {
+    this->display->setCursor(2, 12);
+
+    if (! canbus->isReady()) {
+        this->display->print("  ---A");
+        return;
+    }
+
+    char buffer[6];
+    dtostrf(canbus->getMiliCurrent() / 10.0, 3, 1, buffer);
+    this->display->print(buffer);
+    this->display->print("A");
+}
+
+void Screen::drawEscInfo() {
+    this->display->drawStr(2, 46, "ESC");
+    this->display->setCursor(25, 46);
+
+    if (! canbus->isReady()) {
+        this->display->print("--C");
+        return;
+    }
+
+    char buffer[5];
+    sprintf(buffer, "%3dC", canbus->getTemperature());
+    this->display->print(buffer);
+}
+
+void Screen::drawRpm() {
+    this->display->drawStr(72, 46, "RPM");
+    this->display->setCursor(100, 46);
+
+    if (! canbus->isReady()) {
+        this->display->print("----");
+        return;
+    }
+
+    char buffer[5];
+    sprintf(buffer, "%4d", canbus->getRpm());
+    this->display->print(buffer);
 }
 
 void Screen::drawThrottleBar() {
     unsigned int throttlePercentage = this->throttle->getThrottlePercentageFiltered();
 
-    this->display->setDrawColor(1);
     this->display->setCursor(70, 29);
 
     char buffer[5];
@@ -70,6 +103,8 @@ void Screen::drawThrottleBar() {
     int throttleBarWidth = map(throttlePercentage, 0, 100, 0, 80);
     this->display->drawBox(42, 19, throttleBarWidth, 11);
     this->display->drawFrame(40, 17, 84, 15); // throttle frame
+
+    this->display->setDrawColor(1);
 }
 
 void Screen::drawArmed() {
@@ -96,15 +131,19 @@ void Screen::drawCruise() {
 }
 
 void Screen::drawBatteryBar() {
-    int batteryMilliVolts = 5634;
-    int batteryPercentage = map(batteryMilliVolts, 4760, 5880, 0, 100);
+    if (! canbus->isReady()) {
+        return;
+    }
+
+    int batteryMilliVolts = canbus->getMiliVoltage();
+    int batteryPercentage = map(batteryMilliVolts, 476, 588, 0, 100);
 
     char buffer[7];
     sprintf(buffer, "%3d%%", batteryPercentage);
     this->display->setCursor(49, 12);
     this->display->print(buffer);
 
-    dtostrf(batteryMilliVolts / 100.0, 2, 1, buffer);
+    dtostrf(batteryMilliVolts / 10.0, 2, 1, buffer);
     this->display->setCursor(90, 12);
     this->display->print(buffer);
     this->display->print("V");

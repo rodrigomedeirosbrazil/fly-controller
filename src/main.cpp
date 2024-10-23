@@ -18,8 +18,8 @@ Servo esc;
 PwmReader pwmReader;
 Throttle throttle(&pwmReader);
 Display display;
-Screen screen(&display, &throttle);
 Canbus canbus;
+Screen screen(&display, &throttle, &canbus);
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
