@@ -2,5 +2,6 @@
 #define MAIN_H
 
 void handleEsc();
+void checkCanbus();
 
 #endif

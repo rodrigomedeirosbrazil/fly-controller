@@ -1,6 +1,8 @@
 #include <Arduino.h>
 
 #include <Servo.h>
+#include <SPI.h>
+#include <mcp2515.h>
 
 #include "config.h"
 #include "main.h"
@@ -19,6 +21,9 @@ Display display;
 Screen screen(&display, &throttle);
 Canbus canbus;
 
+MCP2515 mcp2515(CANBUS_CS_PIN);
+struct can_frame canMsg;
+
 unsigned long lastRcUpdate;
 
 void setup()
@@ -27,15 +32,20 @@ void setup()
     Serial.begin(9600);
   #endif
 
+  mcp2515.reset();
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
+  mcp2515.setNormalMode();
+
+  #if SERIAL_DEBUG
+    Serial.println("------- CAN Read ----------");
+    Serial.println("ID  DLC   DATA");
+  #endif
+
   display.begin();
   display.setFlipMode(1);
 
   setup_pwmRead();
-  esc.attach(ESC_PIN, ESC_MIN, ESC_MAX);
-
-  // just to power the receiver
-  // pinMode(2, OUTPUT);
-  // digitalWrite(2, HIGH);
+  esc.attach(ESC_PIN);
 }
 
 void loop()
@@ -43,7 +53,7 @@ void loop()
   unsigned long now = millis();
 
   screen.draw();
-  canbus.tick();
+  checkCanbus();
 
   if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS)
   {
@@ -84,4 +94,27 @@ void handleEsc()
     );
 
     return;
+}
+
+void checkCanbus() 
+{
+    if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
+        #if SERIAL_DEBUG 
+        Serial.print(millis());
+        Serial.print(" "); 
+        Serial.print(canMsg.can_id, HEX); // print ID
+        Serial.print(" "); 
+        Serial.print(canMsg.can_dlc, HEX); // print DLC
+        Serial.print(" ");
+        
+        for (int i = 0; i<canMsg.can_dlc; i++)  {  // print the data
+            Serial.print(canMsg.data[i],HEX);
+            Serial.print(" ");
+        }
+
+        Serial.println();
+        #endif
+
+        canbus.parseCanMsg(&canMsg);
+    }
 }
