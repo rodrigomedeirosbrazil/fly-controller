@@ -50,7 +50,7 @@ bool Canbus::isReady() {
 }
 
 void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 6) {
+    if (canMsg->can_dlc != 7) {
         return;
     }
 
@@ -59,7 +59,7 @@ void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
 }
 
 void Canbus::handleStatusMsg2(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 7) {
+    if (canMsg->can_dlc != 6) {
         return;
     }
 
