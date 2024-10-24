@@ -45,7 +45,6 @@ void setup()
   display.setFlipMode(1);
 
   setup_pwmRead();
-  esc.attach(ESC_PIN);
 }
 
 void loop()
@@ -69,13 +68,20 @@ void loop()
 
 void handleEsc()
 {
-  int pulseWidth = ESC_MIN;
-
   if (!throttle.isArmed())
   {
-    esc.writeMicroseconds(pulseWidth);
+    if (esc.attached()) {
+      esc.detach();
+    }
     return;
   }
+
+  if (!esc.attached())
+  {
+    esc.attach(ESC_PIN);
+  }
+
+  int pulseWidth = ESC_MIN;
 
   pulseWidth = map(
     throttle.isCruising() 
@@ -87,13 +93,9 @@ void handleEsc()
     ESC_MAX
   );
 
-    esc.writeMicroseconds(
-      throttle.isArmed()
-      ? pulseWidth
-      : 0
-    );
+  esc.writeMicroseconds(pulseWidth);
 
-    return;
+  return;
 }
 
 void checkCanbus() 
