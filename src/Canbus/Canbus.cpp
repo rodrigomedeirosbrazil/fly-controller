@@ -20,7 +20,7 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
 
     if (
         dataTypeId != STATUS_MSG1
-        || dataTypeId != STATUS_MSG2
+        && dataTypeId != STATUS_MSG2
     ) {
         return;
     }
