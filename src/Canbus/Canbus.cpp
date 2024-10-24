@@ -25,7 +25,7 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
         return;
     }
     
-    uint8_t tailByte = getTailByFromPayload(canMsg->data, canMsg->can_dlc);
+    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->can_dlc);
 
     if (
         ! isStartOfFrame(tailByte) &&
@@ -85,7 +85,7 @@ bool Canbus::isServiceFrame(uint32_t canId) {
     return (canId & 0x80) >> 7 == 1;
 }
 
-uint8_t Canbus::getTailByFromPayload(uint8_t *payload, uint8_t canDlc) {
+uint8_t Canbus::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
     return payload[canDlc - 1];
 }
 
