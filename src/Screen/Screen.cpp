@@ -51,7 +51,7 @@ void Screen::drawCurrent() {
     this->display->setCursor(2, 12);
 
     if (! canbus->isReady()) {
-        this->display->print("  ---A");
+        this->display->print("---.-A");
         return;
     }
 
