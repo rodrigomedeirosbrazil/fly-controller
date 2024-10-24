@@ -46,7 +46,11 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
 }
 
 bool Canbus::isReady() {
-    return millis() - lastReadStatusMsg1 < 1000 && millis() - lastReadStatusMsg2 < 1000;
+    return 
+        lastReadStatusMsg1 != 0
+        && lastReadStatusMsg2 != 0
+        && millis() - lastReadStatusMsg1 < 1000 
+        && millis() - lastReadStatusMsg2 < 1000;
 }
 
 void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
