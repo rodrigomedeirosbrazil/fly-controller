@@ -76,7 +76,7 @@ void handleEsc()
     esc.attach(ESC_PIN);
   }
 
-  int pulseWidth = ESC_MIN;
+  int pulseWidth = ESC_MIN_PWM;
 
   pulseWidth = map(
     throttle.isCruising() 
@@ -84,8 +84,8 @@ void handleEsc()
       : throttle.getThrottlePercentageFiltered(),
     0, 
     100, 
-    ESC_MIN, 
-    ESC_MAX
+    ESC_MIN_PWM, 
+    ESC_MAX_PWM
   );
 
   esc.writeMicroseconds(pulseWidth);
