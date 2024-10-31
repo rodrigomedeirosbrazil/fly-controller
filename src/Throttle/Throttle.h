@@ -9,6 +9,8 @@ class Throttle {
         void tick();
         bool isArmed() { return throttleArmed; }
         bool isCruising() { return cruising; }
+        void cancelCruise() { cruising = false; timeThrottlePosition = millis(); }
+
         unsigned int getThrottlePercentageFiltered();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
         unsigned long getCruisingStartTime() { return cruisingStartTime; }
