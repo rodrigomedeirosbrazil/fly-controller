@@ -55,8 +55,7 @@ void loop()
   screen.draw();
   checkCanbus();
 
-  if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS)
-  {
+  if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS) {
     lastRcUpdate = now;
 
     pwmReader.tick(RC_decode(THROTTLE_CHANNEL) * 100);
@@ -69,6 +68,14 @@ void loop()
 
 void handleEsc()
 {
+  if (canbus.isReady() && canbus.getMiliVoltage() <= BATTERY_MIN_VOLTAGE)
+  {
+    if (esc.attached()) {
+      esc.detach();
+    }
+    return;
+  }
+
   if (!throttle.isArmed())
   {
     if (esc.attached()) {

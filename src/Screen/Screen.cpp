@@ -136,7 +136,13 @@ void Screen::drawBatteryBar() {
     }
 
     int batteryMilliVolts = canbus->getMiliVoltage();
-    int batteryPercentage = map(batteryMilliVolts, 476, 588, 0, 100);
+    int batteryPercentage = map(
+        batteryMilliVolts, 
+        BATTERY_MIN_VOLTAGE, 
+        BATTERY_MAX_VOLTAGE,
+        0, 
+        100
+    );
 
     char buffer[7];
     sprintf(buffer, "%3d%%", batteryPercentage);
