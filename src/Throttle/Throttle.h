@@ -1,6 +1,8 @@
 #ifndef Throttle_h
 #define Throttle_h
 
+#define MAX_SAMPLES 10
+
 #include "../PwmReader/PwmReader.h"
 
 class Throttle {
@@ -18,6 +20,7 @@ class Throttle {
     private:
         PwmReader *pwmReader;
 
+        int throttlePercentageSamples[MAX_SAMPLES];
         bool throttleArmed;
         unsigned long throttleFullReverseTime;
         bool throttleFullReverseFirstTime;

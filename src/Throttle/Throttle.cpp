@@ -12,6 +12,10 @@ Throttle::Throttle(PwmReader *pwmReader) {
     lastThrottlePosition = 0;
     cruisingThrottlePosition = 0;
     cruisingStartTime = 0;
+
+    for (unsigned int i = 0; i < MAX_SAMPLES; i++) {
+      throttlePercentageSamples[i] = 0;
+    };
 }
 
 void Throttle::tick()
@@ -158,15 +162,26 @@ unsigned int Throttle::getThrottlePercentageFiltered()
 {
   int throttlePercentage = pwmReader->getThrottlePercentage();
 
-  if (throttlePercentage < 5)
-  {
+  for (unsigned int i = 1; i <= MAX_SAMPLES; i++) {
+    throttlePercentageSamples[(i - 1)] = throttlePercentageSamples[i];
+  };
+
+  throttlePercentageSamples[MAX_SAMPLES] = throttlePercentage;
+
+  unsigned int sum = 0;
+  for (unsigned int i = 0; i < MAX_SAMPLES; i++) {
+    sum += throttlePercentageSamples[i];
+  }
+
+  int averageThrottlePercentage = sum / MAX_SAMPLES;
+
+  if (averageThrottlePercentage < 5) {
     return 0;
   }
 
-  if (throttlePercentage > 95)
-  {
+  if (averageThrottlePercentage > 95) {
     return 100;
   }
 
-  return throttlePercentage;
+  return averageThrottlePercentage;
 }
