@@ -32,6 +32,8 @@ class Throttle {
 
         void checkIfChangedArmedState(int throttlePercentage, unsigned int now);
         void checkIfChangedCruiseState(int throttlePercentage, unsigned int now);
+        int getAverageThrottlePercentage();
+        void addThrottlePercentageSample(int throttlePercentage);
 };
 
 #endif

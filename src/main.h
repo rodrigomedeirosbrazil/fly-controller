@@ -3,5 +3,6 @@
 
 void handleEsc();
 void checkCanbus();
+unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage);
 
 #endif

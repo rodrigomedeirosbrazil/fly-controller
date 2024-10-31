@@ -21,7 +21,8 @@ Throttle::Throttle(PwmReader *pwmReader) {
 void Throttle::tick()
 {
   unsigned int now = millis();
-  int throttlePercentage = pwmReader->getThrottlePercentage();
+  addThrottlePercentageSample(pwmReader->getThrottlePercentage());
+  int throttlePercentage = getAverageThrottlePercentage();
 
   checkIfChangedArmedState(throttlePercentage, now);
   
@@ -113,7 +114,6 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
   }
 
   unsigned int delayToBeOnCruising = 5000;
-  unsigned int delayToBeOnIdle = 2000;
   unsigned int throttleRange = 5;
   unsigned int minCrusingThrottle = 30;
 
@@ -158,22 +158,28 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
   }
 }
 
-unsigned int Throttle::getThrottlePercentageFiltered()
+void Throttle::addThrottlePercentageSample(int throttlePercentage)
 {
-  int throttlePercentage = pwmReader->getThrottlePercentage();
-
-  for (unsigned int i = 1; i <= MAX_SAMPLES; i++) {
+  for (unsigned int i = 1; i < MAX_SAMPLES; i++) {
     throttlePercentageSamples[(i - 1)] = throttlePercentageSamples[i];
   };
 
   throttlePercentageSamples[MAX_SAMPLES] = throttlePercentage;
+}
 
-  unsigned int sum = 0;
+int Throttle::getAverageThrottlePercentage()
+{
+  int sum = 0;
   for (unsigned int i = 0; i < MAX_SAMPLES; i++) {
     sum += throttlePercentageSamples[i];
   }
 
-  int averageThrottlePercentage = sum / MAX_SAMPLES;
+  return sum / MAX_SAMPLES;
+}
+
+unsigned int Throttle::getThrottlePercentageFiltered()
+{
+  int averageThrottlePercentage = getAverageThrottlePercentage();
 
   if (averageThrottlePercentage < 5) {
     return 0;
@@ -184,4 +190,4 @@ unsigned int Throttle::getThrottlePercentageFiltered()
   }
 
   return averageThrottlePercentage;
-}
+} 
