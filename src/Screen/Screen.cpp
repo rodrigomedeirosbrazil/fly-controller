@@ -4,11 +4,13 @@
 Screen::Screen(
     Display *display,
     Throttle *throttle,
-    Canbus *canbus
+    Canbus *canbus,
+    Temperature *motorTemp
 ) {
     this->display = display;
     this->throttle = throttle;
     this->canbus = canbus;
+    this->motorTemp = motorTemp;
 }
 
 void Screen::draw()
@@ -34,10 +36,7 @@ void Screen::drawUi() {
 
     drawBatteryBar();
     drawCurrent();
-
-    this->display->drawXBMP(0, 17, 11, 16, image_refresh_bits);
-    this->display->drawStr(15, 30, "--C"); // motor temperature
-
+    drawMotorTemp();
     drawThrottleBar();
     drawEscInfo();
     drawRpm();
@@ -45,6 +44,16 @@ void Screen::drawUi() {
     drawCruise();
 
     this->display->sendBuffer();
+}
+
+void Screen::drawMotorTemp() {
+    this->display->drawXBMP(0, 17, 11, 16, image_refresh_bits);
+    this->display->setCursor(15, 30);
+
+    char buffer[3];
+    dtostrf(motorTemp->readTemperature(), 2, 0, buffer);
+    this->display->print(buffer);
+    this->display->print("C");
 }
 
 void Screen::drawCurrent() {

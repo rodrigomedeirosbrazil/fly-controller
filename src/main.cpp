@@ -13,13 +13,15 @@
 #include "Display/Display.h"
 #include "Screen/Screen.h"
 #include "Canbus/Canbus.h"
+#include "Temperature/Temperature.h"
 
 Servo esc;
 PwmReader pwmReader;
 Throttle throttle(&pwmReader);
 Display display;
 Canbus canbus;
-Screen screen(&display, &throttle, &canbus);
+Temperature motorTemp;
+Screen screen(&display, &throttle, &canbus, &motorTemp);
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
@@ -40,7 +42,7 @@ void setup()
   mcp2515.setNormalMode();
 
   display.begin();
-  display.setFlipMode(1);
+  display.setFlipMode(0);
 
   setup_pwmRead();
 
