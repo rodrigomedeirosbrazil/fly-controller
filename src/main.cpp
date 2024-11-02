@@ -129,6 +129,14 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
       : THROTTLE_RECOVERY_PERCENTAGE;
   }
 
+  if (motorTemp.readTemperature() >= MOTOR_MAX_TEMP) {
+    throttle.cancelCruise();
+
+    return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
+      ? throttlePercentage
+      : THROTTLE_RECOVERY_PERCENTAGE;
+  }
+
   unsigned int miliCurrentLimit = ESC_MAX_CURRENT < BATTERY_MAX_CURRENT
     ? ESC_MAX_CURRENT * 10
     : BATTERY_MAX_CURRENT * 10;
