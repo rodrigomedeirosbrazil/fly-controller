@@ -1,5 +1,3 @@
-#define SERIAL_DEBUG false
-
 #define ENABLED_CRUISE_CONTROL false
 #define ENABLED_LIMIT_THROTTLE false
 

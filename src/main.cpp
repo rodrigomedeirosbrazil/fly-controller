@@ -27,15 +27,15 @@ MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
 
 unsigned long lastRcUpdate;
+unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
 
 void setup()
 {
-  #if SERIAL_DEBUG
-    Serial.begin(9600);
-  #endif
+  Serial.begin(9600);
+  Serial.println("throttle,armed,throttleFiltered,motorTemp,voltage,current,temp,rpm");
 
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
@@ -56,6 +56,7 @@ void loop()
 
   screen.draw();
   checkCanbus();
+  handleSerialLog();
 
   if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS) {
     lastRcUpdate = now;
@@ -66,6 +67,46 @@ void loop()
 
     handleEsc();
   }
+}
+
+void handleSerialLog() {
+  if (millis() - lastSerialUpdate < 1000) {
+    return;
+  }
+
+  lastSerialUpdate = millis();
+
+  Serial.print(pwmReader.getThrottlePercentage());
+  Serial.print(",");
+
+  Serial.print(throttle.isArmed());
+  Serial.print(",");
+
+  Serial.print(throttle.getThrottlePercentageFiltered());
+  Serial.print(",");
+
+  Serial.print(motorTemp.readTemperature());
+  Serial.print(",");
+
+  if (canbus.isReady()) {
+    Serial.print(canbus.getMiliVoltage());
+    Serial.print(",");
+
+    Serial.print(canbus.getMiliCurrent());
+    Serial.print(",");
+
+    Serial.print(canbus.getTemperature());
+    Serial.print(",");
+
+    Serial.print(canbus.getRpm());
+    Serial.print(",");
+  }
+
+  if (!canbus.isReady()) {
+    Serial.print(",,,,");
+  }
+
+  Serial.println();
 }
 
 void handleEsc()
