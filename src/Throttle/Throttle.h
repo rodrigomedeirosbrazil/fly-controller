@@ -31,7 +31,6 @@ class Throttle {
         unsigned long cruisingStartTime;
 
         void readThrottlePin();
-        void checkIfChangedArmedState(int throttlePercentage, unsigned int now);
         void checkIfChangedCruiseState(int throttlePercentage, unsigned int now);
 };
 
