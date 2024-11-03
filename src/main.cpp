@@ -51,6 +51,7 @@ void loop()
   checkCanbus();
   handleSerialLog();
   throttle.tick();
+  motorTemp.tick();
   handleEsc();
 }
 
@@ -67,7 +68,7 @@ void handleSerialLog() {
   Serial.print(throttle.getThrottlePercentage());
   Serial.print(",");
 
-  Serial.print(motorTemp.readTemperature());
+  Serial.print(motorTemp.getTemperature());
   Serial.print(",");
 
   if (canbus.isReady()) {
@@ -152,7 +153,7 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
       : THROTTLE_RECOVERY_PERCENTAGE;
   }
 
-  if (motorTemp.readTemperature() >= MOTOR_MAX_TEMP) {
+  if (motorTemp.getTemperature() >= MOTOR_MAX_TEMP) {
     throttle.cancelCruise();
 
     return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE

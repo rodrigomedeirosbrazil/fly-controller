@@ -1,7 +1,6 @@
 #ifndef Temperature_h
 #define Temperature_h
 
-#include <Arduino.h>
 #include "../config.h"
 
 const double beta = 3600.0;
@@ -15,7 +14,16 @@ const double R = 10000.0;
 class Temperature
 {
     public:
-        double readTemperature();
+        Temperature();
+        void tick();
+        double getTemperature() { return temperature; }
+
+    private:
+        int pinValues[SAMPLES_FOR_FILTER];
+        double temperature;
+        unsigned long lastPinRead;
+
+        void readTemperature();
 };
 
 #endif
