@@ -8,6 +8,8 @@ class Throttle {
         Throttle();
         void tick();
         bool isArmed() { return throttleArmed; }
+        void setArmed() { throttleArmed = true; }
+        void setDisarmed() { throttleArmed = false; }
         bool isCruising() { return cruising; }
         void cancelCruise() { cruising = false; timeThrottlePosition = millis(); }
 
