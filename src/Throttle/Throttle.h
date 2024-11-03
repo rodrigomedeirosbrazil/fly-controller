@@ -1,6 +1,7 @@
 #ifndef Throttle_h
 #define Throttle_h
 
+#include "../config.h"
 
 class Throttle {
     public:
@@ -16,6 +17,10 @@ class Throttle {
 
     private:
 
+        int throttlePinValues[SAMPLES_FOR_FILTER];
+        int throttlePinValueFiltered;
+        unsigned long lastThrottleRead;
+
         bool throttleArmed;
         unsigned long throttleFullReverseTime;
         bool throttleFullReverseFirstTime;
@@ -25,6 +30,7 @@ class Throttle {
         unsigned int cruisingThrottlePosition;
         unsigned long cruisingStartTime;
 
+        void readThrottlePin();
         void checkIfChangedArmedState(int throttlePercentage, unsigned int now);
         void checkIfChangedCruiseState(int throttlePercentage, unsigned int now);
 };

@@ -12,8 +12,6 @@ const double rx = r0 * exp(-beta/t0);
 const double vcc = 5.0;
 const double R = 10000.0;
 
-const int nSamples = 5;
-
 class Temperature
 {
     public:
