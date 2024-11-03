@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include "Throttle.h"
 
-Throttle::Throttle(PwmReader *pwmReader) {
-    this->pwmReader = pwmReader;
+Throttle::Throttle() {
     throttleArmed = false;
     throttleFullReverseTime = 0;
     throttleFullReverseFirstTime = false;
@@ -17,13 +16,13 @@ Throttle::Throttle(PwmReader *pwmReader) {
 void Throttle::tick()
 {
   unsigned int now = millis();
-  int throttlePercentage = pwmReader->getThrottlePercentage();
+  int throttlePercentage = 0; // TODO: get it from hall sensor
 
   checkIfChangedArmedState(throttlePercentage, now);
   
   #if ENABLED_CRUISE_CONTROL
   checkIfChangedCruiseState(
-    isCruising() ? throttlePercentage : getThrottlePercentageFiltered(), 
+    isCruising() ? throttlePercentage : getThrottlePercentage(), 
     now
   );
   #endif
@@ -116,9 +115,9 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
     if (throttlePercentage > 0) {
 
       if (
-        throttlePercentage > lastThrottlePosition + throttleRange
-        || throttlePercentage < lastThrottlePosition - throttleRange
-        || throttlePercentage < minCrusingThrottle
+        throttlePercentage > lastThrottlePosition + (int) throttleRange
+        || throttlePercentage < lastThrottlePosition - (int) throttleRange
+        || throttlePercentage < (int) minCrusingThrottle
       ) {
         timeThrottlePosition = now;
         lastThrottlePosition = throttlePercentage;
@@ -128,7 +127,7 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
 
       if (
         now - timeThrottlePosition > delayToBeOnCruising
-        && throttlePercentage > minCrusingThrottle
+        && throttlePercentage > (int) minCrusingThrottle
       ) {
         cruising = true;
         cruisingThrottlePosition = throttlePercentage;
@@ -153,9 +152,9 @@ void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int no
   }
 }
 
-unsigned int Throttle::getThrottlePercentageFiltered()
+unsigned int Throttle::getThrottlePercentage()
 {
-  int throttlePercentage = pwmReader->getThrottlePercentage();
+  int throttlePercentage = 0; // TODO: get it from hall sensor
 
   if (throttlePercentage < 5) {
     return 0;

@@ -99,7 +99,7 @@ void Screen::drawRpm() {
 }
 
 void Screen::drawThrottleBar() {
-    unsigned int throttlePercentage = this->throttle->getThrottlePercentageFiltered();
+    unsigned int throttlePercentage = this->throttle->getThrottlePercentage();
 
     this->display->setCursor(70, 29);
 

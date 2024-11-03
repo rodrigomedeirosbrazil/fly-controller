@@ -6,18 +6,15 @@
 
 #include "config.h"
 #include "main.h"
-#include "PWMread_RCfailsafe.h"
 
 #include "Throttle/Throttle.h"
-#include "PwmReader/PwmReader.h"
 #include "Display/Display.h"
 #include "Screen/Screen.h"
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
 
 Servo esc;
-PwmReader pwmReader;
-Throttle throttle(&pwmReader);
+Throttle throttle;
 Display display;
 Canbus canbus;
 Temperature motorTemp;
@@ -26,7 +23,6 @@ Screen screen(&display, &throttle, &canbus, &motorTemp);
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
 
-unsigned long lastRcUpdate;
 unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
@@ -35,7 +31,7 @@ bool isCurrentLimitReached;
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("throttle,armed,throttleFiltered,motorTemp,voltage,current,temp,rpm");
+  Serial.println("armed,throttleFiltered,motorTemp,voltage,current,temp,rpm");
 
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
@@ -45,29 +41,17 @@ void setup()
   display.begin();
   display.setFlipMode(0);
 
-  setup_pwmRead();
-
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
 }
 
 void loop()
 {
-  unsigned long now = millis();
-
   screen.draw();
   checkCanbus();
   handleSerialLog();
-
-  if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS) {
-    lastRcUpdate = now;
-
-    pwmReader.tick(RC_decode(THROTTLE_CHANNEL) * 100);
-
-    throttle.tick();
-
-    handleEsc();
-  }
+  throttle.tick();
+  handleEsc();
 }
 
 void handleSerialLog() {
@@ -77,13 +61,10 @@ void handleSerialLog() {
 
   lastSerialUpdate = millis();
 
-  Serial.print(pwmReader.getThrottlePercentage());
-  Serial.print(",");
-
   Serial.print(throttle.isArmed());
   Serial.print(",");
 
-  Serial.print(throttle.getThrottlePercentageFiltered());
+  Serial.print(throttle.getThrottlePercentage());
   Serial.print(",");
 
   Serial.print(motorTemp.readTemperature());
@@ -137,7 +118,7 @@ void handleEsc()
 
   pulseWidth = map(
     analizeTelemetryToThrottleOutput(
-      throttle.getThrottlePercentageFiltered()
+      throttle.getThrottlePercentage()
     ),
     0, 
     100, 
