@@ -3,6 +3,7 @@
 #include <Servo.h>
 #include <SPI.h>
 #include <mcp2515.h>
+#include <AceButton.h>
 
 #include "config.h"
 #include "main.h"
@@ -13,12 +14,15 @@
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
 
+using namespace ace_button;
+
 Servo esc;
 Throttle throttle;
 Display display;
 Canbus canbus;
 Temperature motorTemp;
 Screen screen(&display, &throttle, &canbus, &motorTemp);
+AceButton aceButton(BUTTON_PIN);
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
@@ -27,6 +31,10 @@ unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
+
+unsigned long releaseButtonTime = 0;
+bool buttonWasClicked = false;
+const unsigned long longClickThreshold = 3500;
 
 void setup()
 {
@@ -43,6 +51,15 @@ void setup()
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  ButtonConfig* buttonConfig = aceButton.getButtonConfig();
+  buttonConfig->setEventHandler(handleButtonEvent);
+  buttonConfig->setFeature(ButtonConfig::kFeatureClick);
+  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
+  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
+  buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
 }
 
 void loop()
@@ -53,6 +70,31 @@ void loop()
   throttle.handle();
   motorTemp.handle();
   handleEsc();
+  aceButton.check();
+}
+
+void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
+{
+  switch (eventType) {
+  case AceButton::kEventClicked:
+    buttonWasClicked = true;
+    break;
+  case AceButton::kEventReleased:
+    if (buttonWasClicked) {
+      releaseButtonTime = millis();
+      buttonWasClicked = false;
+    }
+    break;
+  case AceButton::kEventDoubleClicked:
+    break;
+  case AceButton::kEventLongPressed:
+    if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
+      throttle.setArmed();
+    } else {
+      throttle.setDisarmed();
+    }
+    break;
+  }
 }
 
 void handleSerialLog() {
