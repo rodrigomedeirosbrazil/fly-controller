@@ -14,14 +14,11 @@ Throttle::Throttle() {
   lastThrottleRead = 0;
 
   throttleArmed = false;
-  throttleFullReverseTime = 0;
-  throttleFullReverseFirstTime = false;
 
   cruising = false;
-  timeThrottlePosition = 0;
-  lastThrottlePosition = 0;
   cruisingThrottlePosition = 0;
-  cruisingStartTime = 0;
+  lastThrottlePosition = 0;
+  timeThrottlePosition = 0;
 }
 
 void Throttle::tick()
@@ -36,10 +33,7 @@ void Throttle::tick()
   readThrottlePin();
 
   #if ENABLED_CRUISE_CONTROL
-  checkIfChangedCruiseState(
-    isCruising() ? throttlePercentage : getThrottlePercentage(), 
-    now
-  );
+  checkIfChangedCruiseState();
   #endif
 }
 
@@ -61,52 +55,55 @@ void Throttle::readThrottlePin()
   throttlePinValueFiltered = sum / SAMPLES_FOR_FILTER;
 }
 
-void Throttle::checkIfChangedCruiseState(int throttlePercentage, unsigned int now)
+void Throttle::checkIfChangedCruiseState()
 {
   if (! throttleArmed) {
     return;
   }
 
-  unsigned int delayToBeOnCruising = 5000;
-  unsigned int throttleRange = 5;
-  unsigned int minCrusingThrottle = 30;
+  unsigned long now = millis();
+  unsigned int throttlePercentage = getThrottlePercentage();
 
   if (!cruising) {
-    if (throttlePercentage > 0) {
+    if (throttlePercentage < minCrusingThrottle) {
+      return;
+    }
 
-      if (
-        throttlePercentage > lastThrottlePosition + (int) throttleRange
-        || throttlePercentage < lastThrottlePosition - (int) throttleRange
-        || throttlePercentage < (int) minCrusingThrottle
-      ) {
-        timeThrottlePosition = now;
-        lastThrottlePosition = throttlePercentage;
+    if (
+      throttlePercentage > lastThrottlePosition + throttleRange
+      || throttlePercentage < lastThrottlePosition - throttleRange
+    ) {
+      timeThrottlePosition = now;
+      lastThrottlePosition = throttlePercentage;
 
-        return;
-      }
+      return;
+    }
 
-      if (
-        now - timeThrottlePosition > delayToBeOnCruising
-        && throttlePercentage > (int) minCrusingThrottle
-      ) {
-        cruising = true;
-        cruisingThrottlePosition = throttlePercentage;
-        cruisingStartTime = now;
+    if ((now - timeThrottlePosition) > timeToBeOnCruising) {
+      cruising = true;
+      cruisingThrottlePosition = throttlePercentage;
 
-        return;
-      }
+      return;
     }
 
     return;
   }
 
   if (
-    throttlePercentage > lastThrottlePosition
-    || throttlePercentage < -30
+    throttlePercentage < lastThrottlePosition + throttleRange
+    && throttlePercentage > throttleRange
   ) {
+    lastThrottlePosition = throttlePercentage < throttleRange 
+      ? throttleRange
+      : throttlePercentage + throttleRange;
+
+    return;
+  }
+
+  if (throttlePercentage > lastThrottlePosition) {
     cruising = false;
     cruisingThrottlePosition = 0;
-    cruisingStartTime = 0;
+    lastThrottlePosition = 0;
 
     return;
   }

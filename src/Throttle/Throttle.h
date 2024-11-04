@@ -11,29 +11,29 @@ class Throttle {
         void setArmed() { throttleArmed = true; }
         void setDisarmed() { throttleArmed = false; }
         bool isCruising() { return cruising; }
-        void cancelCruise() { cruising = false; timeThrottlePosition = millis(); }
+        void cancelCruise() { cruising = false; }
 
         unsigned int getThrottlePercentage();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
-        unsigned long getCruisingStartTime() { return cruisingStartTime; }
 
     private:
+
+        const unsigned int timeToBeOnCruising = 5000;
+        const unsigned int throttleRange = 5;
+        const unsigned int minCrusingThrottle = 30;
 
         int throttlePinValues[SAMPLES_FOR_FILTER];
         int throttlePinValueFiltered;
         unsigned long lastThrottleRead;
 
         bool throttleArmed;
-        unsigned long throttleFullReverseTime;
-        bool throttleFullReverseFirstTime;
-        unsigned long timeThrottlePosition;
-        int lastThrottlePosition;
         unsigned int cruising;
         unsigned int cruisingThrottlePosition;
-        unsigned long cruisingStartTime;
+        unsigned int lastThrottlePosition;
+        unsigned long timeThrottlePosition;
 
         void readThrottlePin();
-        void checkIfChangedCruiseState(int throttlePercentage, unsigned int now);
+        void checkIfChangedCruiseState();
 };
 
 #endif
