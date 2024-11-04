@@ -21,7 +21,7 @@ Throttle::Throttle() {
   timeThrottlePosition = 0;
 }
 
-void Throttle::tick()
+void Throttle::handle()
 {
   unsigned long now = millis();
 

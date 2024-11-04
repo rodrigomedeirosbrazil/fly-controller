@@ -14,7 +14,7 @@ Temperature::Temperature() {
   lastPinRead = 0;
 }
 
-void Temperature::tick()
+void Temperature::handle()
 {
   unsigned long now = millis();
 

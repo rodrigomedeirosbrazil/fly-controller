@@ -6,7 +6,7 @@
 class Throttle {
     public:
         Throttle();
-        void tick();
+        void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed() { throttleArmed = true; }
         void setDisarmed() { throttleArmed = false; }

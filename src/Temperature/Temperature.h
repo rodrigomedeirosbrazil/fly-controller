@@ -15,7 +15,7 @@ class Temperature
 {
     public:
         Temperature();
-        void tick();
+        void handle();
         double getTemperature() { return temperature; }
 
     private:

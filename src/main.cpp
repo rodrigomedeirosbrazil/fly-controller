@@ -31,7 +31,7 @@ bool isCurrentLimitReached;
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("armed,throttleFiltered,motorTemp,voltage,current,temp,rpm");
+  Serial.println("armed,throttlePercentage,motorTemp,voltage,current,temp,rpm");
 
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
@@ -50,8 +50,8 @@ void loop()
   screen.draw();
   checkCanbus();
   handleSerialLog();
-  throttle.tick();
-  motorTemp.tick();
+  throttle.handle();
+  motorTemp.handle();
   handleEsc();
 }
 
