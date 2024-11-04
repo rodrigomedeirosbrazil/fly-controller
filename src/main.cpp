@@ -76,24 +76,22 @@ void loop()
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
 {
   switch (eventType) {
-  case AceButton::kEventClicked:
-    buttonWasClicked = true;
-    break;
-  case AceButton::kEventReleased:
-    if (buttonWasClicked) {
-      releaseButtonTime = millis();
-      buttonWasClicked = false;
-    }
-    break;
-  case AceButton::kEventDoubleClicked:
-    break;
-  case AceButton::kEventLongPressed:
-    if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
-      throttle.setArmed();
-    } else {
-      throttle.setDisarmed();
-    }
-    break;
+    case AceButton::kEventClicked:
+      buttonWasClicked = true;
+      break;
+    case AceButton::kEventReleased:
+      if (buttonWasClicked) {
+        releaseButtonTime = millis();
+        buttonWasClicked = false;
+      }
+      break;
+    case AceButton::kEventLongPressed:
+      if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
+        throttle.setArmed();
+      } else {
+        throttle.setDisarmed();
+      }
+      break;
   }
 }
 
