@@ -123,3 +123,16 @@ unsigned int Throttle::getThrottlePercentage()
 
   return throttlePercentage;
 } 
+
+void Throttle::setArmed()
+{
+  if (throttleArmed) {
+    return;
+  }
+
+  if (getThrottlePercentage() > 0) {
+    return;
+  }
+
+  throttleArmed = true;
+}

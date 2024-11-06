@@ -8,7 +8,7 @@ class Throttle {
         Throttle();
         void handle();
         bool isArmed() { return throttleArmed; }
-        void setArmed() { throttleArmed = true; }
+        void setArmed();
         void setDisarmed() { throttleArmed = false; }
         bool isCruising() { return cruising; }
         void cancelCruise() { cruising = false; }
