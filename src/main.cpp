@@ -55,22 +55,25 @@ void setup()
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   ButtonConfig* buttonConfig = aceButton.getButtonConfig();
+
   buttonConfig->setEventHandler(handleButtonEvent);
-  buttonConfig->setFeature(ButtonConfig::kFeatureClick);
   buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
   buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
-  buttonConfig->setFeature(ButtonConfig::kFeatureRepeatPress);
+  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterDoubleClick);
+  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
+  buttonConfig->setLongPressDelay(2000);
+  buttonConfig->setClickDelay(300);
 }
 
 void loop()
 {
+  aceButton.check();
   screen.draw();
   checkCanbus();
   handleSerialLog();
   throttle.handle();
   motorTemp.handle();
   handleEsc();
-  aceButton.check();
 }
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
@@ -87,10 +90,12 @@ void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonSt
       break;
     case AceButton::kEventLongPressed:
       if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
-        throttle.setArmed();
-      } else {
-        throttle.setDisarmed();
-      }
+        if (throttle.isArmed()) {
+          throttle.setDisarmed();
+        } else {
+          throttle.setArmed();
+        }
+      } 
       break;
   }
 }
