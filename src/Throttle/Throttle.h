@@ -21,8 +21,9 @@ class Throttle {
         const unsigned int timeToBeOnCruising = 5000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
+        const static int samples = 5;
 
-        int throttlePinValues[SAMPLES_FOR_FILTER];
+        int throttlePinValues[samples];
         int throttlePinValueFiltered;
         unsigned long lastThrottleRead;
 

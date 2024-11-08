@@ -7,7 +7,7 @@ Throttle::Throttle() {
   memset(
     &throttlePinValues, 
     0,
-    sizeof(throttlePinValues[0]) * SAMPLES_FOR_FILTER
+    sizeof(throttlePinValues[0]) * samples
   );
 
   throttlePinValueFiltered = 0;
@@ -42,17 +42,17 @@ void Throttle::readThrottlePin()
   memcpy(
     &throttlePinValues[1], 
     &throttlePinValues, 
-    sizeof(throttlePinValues[0]) * (SAMPLES_FOR_FILTER - 1)
+    sizeof(throttlePinValues[0]) * (samples - 1)
   );
 
-  throttlePinValues[SAMPLES_FOR_FILTER - 1] = analogRead(THROTTLE_PIN);
+  throttlePinValues[samples - 1] = analogRead(THROTTLE_PIN);
 
   int sum = 0;
-  for (int i = 0; i < SAMPLES_FOR_FILTER; i++) {
+  for (int i = 0; i < samples; i++) {
     sum += throttlePinValues[i];
   }
 
-  throttlePinValueFiltered = sum / SAMPLES_FOR_FILTER;
+  throttlePinValueFiltered = sum / samples;
 }
 
 void Throttle::checkIfChangedCruiseState()
