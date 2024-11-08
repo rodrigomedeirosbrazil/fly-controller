@@ -3,7 +3,6 @@
 #include <Servo.h>
 #include <SPI.h>
 #include <mcp2515.h>
-#include <AceButton.h>
 
 #include "config.h"
 #include "main.h"
@@ -13,16 +12,15 @@
 #include "Screen/Screen.h"
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
-
-using namespace ace_button;
+#include "Button/Button.h"
 
 Servo esc;
 Throttle throttle;
 Display display;
 Canbus canbus;
+Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 Screen screen(&display, &throttle, &canbus, &motorTemp);
-AceButton aceButton(BUTTON_PIN);
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
@@ -31,10 +29,6 @@ unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
-
-unsigned long releaseButtonTime = 0;
-bool buttonWasClicked = false;
-const unsigned long longClickThreshold = 3500;
 
 void setup()
 {
@@ -51,53 +45,17 @@ void setup()
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
-
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-  ButtonConfig* buttonConfig = aceButton.getButtonConfig();
-
-  buttonConfig->setEventHandler(handleButtonEvent);
-  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
-  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterDoubleClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-  buttonConfig->setLongPressDelay(2000);
-  buttonConfig->setClickDelay(300);
 }
 
 void loop()
 {
-  aceButton.check();
+  button.check();
   screen.draw();
   checkCanbus();
   handleSerialLog();
   throttle.handle();
   motorTemp.handle();
   handleEsc();
-}
-
-void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
-{
-  switch (eventType) {
-    case AceButton::kEventClicked:
-      buttonWasClicked = true;
-      break;
-    case AceButton::kEventReleased:
-      if (buttonWasClicked) {
-        releaseButtonTime = millis();
-        buttonWasClicked = false;
-      }
-      break;
-    case AceButton::kEventLongPressed:
-      if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
-        if (throttle.isArmed()) {
-          throttle.setDisarmed();
-        } else {
-          throttle.setArmed();
-        }
-      } 
-      break;
-  }
 }
 
 void handleSerialLog() {
