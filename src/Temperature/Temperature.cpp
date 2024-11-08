@@ -3,7 +3,9 @@
 #include "../config.h"
 #include "Temperature.h"
 
-Temperature::Temperature() {
+Temperature::Temperature(uint8_t pin) {
+  this->pin = pin;
+
   memset(
     &pinValues, 
     0,
@@ -33,7 +35,7 @@ void Temperature::readTemperature() {
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  pinValues[samples - 1] = analogRead(MOTOR_TEMPERATURE_PIN);
+  pinValues[samples - 1] = analogRead(pin);
 
   int sum = 0;
   for (int i = 0; i < samples; i++) {

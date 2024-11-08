@@ -6,7 +6,7 @@
 class Temperature
 {
     public:
-        Temperature();
+        Temperature(uint8_t pin);
         void handle();
         double getTemperature() { return temperature; }
 
@@ -19,6 +19,7 @@ class Temperature
         const double R = 10000.0;
         const static int samples = 5;
 
+        uint8_t pin;
         int pinValues[samples];
         double temperature;
         unsigned long lastPinRead;

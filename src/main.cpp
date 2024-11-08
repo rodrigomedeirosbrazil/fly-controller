@@ -20,7 +20,7 @@ Servo esc;
 Throttle throttle;
 Display display;
 Canbus canbus;
-Temperature motorTemp;
+Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 Screen screen(&display, &throttle, &canbus, &motorTemp);
 AceButton aceButton(BUTTON_PIN);
 
