@@ -39,7 +39,7 @@ void setup()
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  display.setBusClock(300000);
+  display.setBusClock(200000);
   display.begin();
   display.setFlipMode(0);
 
