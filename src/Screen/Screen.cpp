@@ -57,15 +57,17 @@ void Screen::drawMotorTemp() {
 }
 
 void Screen::drawCurrent() {
-    this->display->setCursor(2, 12);
+    this->display->drawXBMP(-1, 0, 16, 16, image_voltage_bits);
+
+    this->display->setCursor(15, 12);
 
     if (! canbus->isReady()) {
-        this->display->print("---.-A");
+        this->display->print("---A");
         return;
     }
 
     char buffer[6];
-    dtostrf(canbus->getMiliCurrent() / 10.0, 3, 1, buffer);
+    dtostrf(canbus->getMiliCurrent() / 10.0, 3, 0, buffer);
     this->display->print(buffer);
     this->display->print("A");
 }
