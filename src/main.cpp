@@ -89,13 +89,21 @@ void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonSt
       }
       break;
     case AceButton::kEventLongPressed:
-      if (!buttonWasClicked && (millis() - releaseButtonTime <= longClickThreshold)) {
-        if (throttle.isArmed()) {
-          throttle.setDisarmed();
-        } else {
-          throttle.setArmed();
-        }
-      } 
+      if (
+        !buttonWasClicked 
+        && (millis() - releaseButtonTime <= longClickThreshold)
+        && !throttle.isArmed()
+      ) {
+        throttle.setArmed();
+        break;
+      }
+      
+      if (
+        !buttonWasClicked 
+        && throttle.isArmed()
+      ) {
+        throttle.setDisarmed();
+      }
       break;
   }
 }
