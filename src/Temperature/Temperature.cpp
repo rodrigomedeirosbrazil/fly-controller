@@ -30,8 +30,8 @@ void Temperature::handle()
 
 void Temperature::readTemperature() {
   memcpy(
-    &pinValues[1], 
     &pinValues, 
+    &pinValues[1], 
     sizeof(pinValues[0]) * (samples - 1)
   );
 
