@@ -3,70 +3,108 @@
 #include <Servo.h>
 #include <SPI.h>
 #include <mcp2515.h>
+#include <AceButton.h>
 
 #include "config.h"
 #include "main.h"
-#include "PWMread_RCfailsafe.h"
 
 #include "Throttle/Throttle.h"
-#include "PwmReader/PwmReader.h"
 #include "Display/Display.h"
 #include "Screen/Screen.h"
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
 
+using namespace ace_button;
+
 Servo esc;
-PwmReader pwmReader;
-Throttle throttle(&pwmReader);
+Throttle throttle;
 Display display;
 Canbus canbus;
-Temperature motorTemp;
+Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 Screen screen(&display, &throttle, &canbus, &motorTemp);
+AceButton aceButton(BUTTON_PIN);
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
 
-unsigned long lastRcUpdate;
 unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
 
+unsigned long releaseButtonTime = 0;
+bool buttonWasClicked = false;
+const unsigned long longClickThreshold = 3500;
+
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("throttle,armed,throttleFiltered,motorTemp,voltage,current,temp,rpm");
+  Serial.println("armed,throttlePercentage,motorTemp,voltage,current,temp,rpm");
 
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  display.setBusClock(300000);
+  display.setBusClock(200000);
   display.begin();
   display.setFlipMode(0);
 
-  setup_pwmRead();
-
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  ButtonConfig* buttonConfig = aceButton.getButtonConfig();
+
+  buttonConfig->setEventHandler(handleButtonEvent);
+  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
+  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
+  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterDoubleClick);
+  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
+  buttonConfig->setLongPressDelay(2000);
+  buttonConfig->setClickDelay(300);
 }
 
 void loop()
 {
-  unsigned long now = millis();
-
+  aceButton.check();
   screen.draw();
   checkCanbus();
   handleSerialLog();
+  throttle.handle();
+  motorTemp.handle();
+  handleEsc();
+}
 
-  if (RC_avail() || now - lastRcUpdate > PWM_FRAME_TIME_MS) {
-    lastRcUpdate = now;
-
-    pwmReader.tick(RC_decode(THROTTLE_CHANNEL) * 100);
-
-    throttle.tick();
-
-    handleEsc();
+void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
+{
+  switch (eventType) {
+    case AceButton::kEventClicked:
+      buttonWasClicked = true;
+      break;
+    case AceButton::kEventReleased:
+      if (buttonWasClicked) {
+        releaseButtonTime = millis();
+        buttonWasClicked = false;
+      }
+      break;
+    case AceButton::kEventLongPressed:
+      if (
+        !buttonWasClicked 
+        && (millis() - releaseButtonTime <= longClickThreshold)
+        && !throttle.isArmed()
+      ) {
+        throttle.setArmed();
+        break;
+      }
+      
+      if (
+        !buttonWasClicked 
+        && throttle.isArmed()
+      ) {
+        throttle.setDisarmed();
+      }
+      break;
   }
 }
 
@@ -77,16 +115,13 @@ void handleSerialLog() {
 
   lastSerialUpdate = millis();
 
-  Serial.print(pwmReader.getThrottlePercentage());
-  Serial.print(",");
-
   Serial.print(throttle.isArmed());
   Serial.print(",");
 
-  Serial.print(throttle.getThrottlePercentageFiltered());
+  Serial.print(throttle.getThrottlePercentage());
   Serial.print(",");
 
-  Serial.print(motorTemp.readTemperature());
+  Serial.print(motorTemp.getTemperature());
   Serial.print(",");
 
   if (canbus.isReady()) {
@@ -137,7 +172,7 @@ void handleEsc()
 
   pulseWidth = map(
     analizeTelemetryToThrottleOutput(
-      throttle.getThrottlePercentageFiltered()
+      throttle.getThrottlePercentage()
     ),
     0, 
     100, 
@@ -171,7 +206,7 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
       : THROTTLE_RECOVERY_PERCENTAGE;
   }
 
-  if (motorTemp.readTemperature() >= MOTOR_MAX_TEMP) {
+  if (motorTemp.getTemperature() >= MOTOR_MAX_TEMP) {
     throttle.cancelCruise();
 
     return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE

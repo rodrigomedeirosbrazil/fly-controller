@@ -1,34 +1,40 @@
 #ifndef Throttle_h
 #define Throttle_h
 
-#include "../PwmReader/PwmReader.h"
+#include "../config.h"
 
 class Throttle {
     public:
-        Throttle(PwmReader *pwmReader);
-        void tick();
+        Throttle();
+        void handle();
         bool isArmed() { return throttleArmed; }
+        void setArmed();
+        void setDisarmed() { throttleArmed = false; }
         bool isCruising() { return cruising; }
-        void cancelCruise() { cruising = false; timeThrottlePosition = millis(); }
+        void cancelCruise() { cruising = false; }
 
-        unsigned int getThrottlePercentageFiltered();
+        unsigned int getThrottlePercentage();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
-        unsigned long getCruisingStartTime() { return cruisingStartTime; }
 
     private:
-        PwmReader *pwmReader;
+
+        const unsigned int timeToBeOnCruising = 5000;
+        const unsigned int throttleRange = 5;
+        const unsigned int minCrusingThrottle = 30;
+        const static int samples = 5;
+
+        int pinValues[samples];
+        int pinValueFiltered;
+        unsigned long lastThrottleRead;
 
         bool throttleArmed;
-        unsigned long throttleFullReverseTime;
-        bool throttleFullReverseFirstTime;
-        unsigned long timeThrottlePosition;
-        int lastThrottlePosition;
         unsigned int cruising;
         unsigned int cruisingThrottlePosition;
-        unsigned long cruisingStartTime;
+        unsigned int lastThrottlePosition;
+        unsigned long timeThrottlePosition;
 
-        void checkIfChangedArmedState(int throttlePercentage, unsigned int now);
-        void checkIfChangedCruiseState(int throttlePercentage, unsigned int now);
+        void readThrottlePin();
+        void checkIfChangedCruiseState();
 };
 
 #endif

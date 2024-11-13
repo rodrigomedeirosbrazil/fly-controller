@@ -51,7 +51,7 @@ void Screen::drawMotorTemp() {
     this->display->setCursor(15, 30);
 
     char buffer[3];
-    dtostrf(motorTemp->readTemperature(), 2, 0, buffer);
+    dtostrf(motorTemp->getTemperature(), 2, 0, buffer);
     this->display->print(buffer);
     this->display->print("C");
 }
@@ -99,7 +99,7 @@ void Screen::drawRpm() {
 }
 
 void Screen::drawThrottleBar() {
-    unsigned int throttlePercentage = this->throttle->getThrottlePercentageFiltered();
+    unsigned int throttlePercentage = this->throttle->getThrottlePercentage();
 
     this->display->setCursor(70, 29);
 
