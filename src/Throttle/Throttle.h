@@ -23,8 +23,8 @@ class Throttle {
         const unsigned int minCrusingThrottle = 30;
         const static int samples = 5;
 
-        int throttlePinValues[samples];
-        int throttlePinValueFiltered;
+        int pinValues[samples];
+        int pinValueFiltered;
         unsigned long lastThrottleRead;
 
         bool throttleArmed;

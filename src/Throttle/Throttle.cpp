@@ -5,12 +5,12 @@
 
 Throttle::Throttle() {
   memset(
-    &throttlePinValues, 
+    &pinValues, 
     0,
-    sizeof(throttlePinValues[0]) * samples
+    sizeof(pinValues[0]) * samples
   );
 
-  throttlePinValueFiltered = 0;
+  pinValueFiltered = 0;
   lastThrottleRead = 0;
 
   throttleArmed = false;
@@ -40,19 +40,19 @@ void Throttle::handle()
 void Throttle::readThrottlePin()
 {
   memcpy(
-    &throttlePinValues[1], 
-    &throttlePinValues, 
-    sizeof(throttlePinValues[0]) * (samples - 1)
+    &pinValues, 
+    &pinValues[1], 
+    sizeof(pinValues[0]) * (samples - 1)
   );
 
-  throttlePinValues[samples - 1] = analogRead(THROTTLE_PIN);
+  pinValues[samples - 1] = analogRead(THROTTLE_PIN);
 
   int sum = 0;
   for (int i = 0; i < samples; i++) {
-    sum += throttlePinValues[i];
+    sum += pinValues[i];
   }
 
-  throttlePinValueFiltered = sum / samples;
+  pinValueFiltered = sum / samples;
 }
 
 void Throttle::checkIfChangedCruiseState()
@@ -111,7 +111,7 @@ void Throttle::checkIfChangedCruiseState()
 
 unsigned int Throttle::getThrottlePercentage()
 {
-  unsigned int throttlePercentage = map(throttlePinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
+  unsigned int throttlePercentage = map(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
 
   if (throttlePercentage < 5) {
     return 0;
