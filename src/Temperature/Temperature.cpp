@@ -20,7 +20,7 @@ void Temperature::handle()
 {
   unsigned long now = millis();
 
-  if (now - lastPinRead < 10) {
+  if (now - lastPinRead < 100) {
     return;
   }
 

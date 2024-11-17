@@ -17,7 +17,7 @@ class Temperature
         const double rx = r0 * exp(-beta / t0);
         const double vcc = 5.0;
         const double R = 10000.0;
-        const static int samples = 5;
+        const static int samples = 10;
 
         uint8_t pin;
         int pinValues[samples];
