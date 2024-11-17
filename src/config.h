@@ -1,5 +1,6 @@
 #define ENABLED_CRUISE_CONTROL false
 #define ENABLED_LIMIT_THROTTLE false
+#define ENABLED_DISPLAY false
 
 #define MOTOR_TEMPERATURE_PIN A0
 

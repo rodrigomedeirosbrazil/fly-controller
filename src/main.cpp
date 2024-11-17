@@ -9,8 +9,12 @@
 #include "main.h"
 
 #include "Throttle/Throttle.h"
-#include "Display/Display.h"
-#include "Screen/Screen.h"
+
+#if ENABLED_DISPLAY
+  #include "Display/Display.h"
+  #include "Screen/Screen.h"
+#endif
+
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
 
@@ -18,11 +22,15 @@ using namespace ace_button;
 
 Servo esc;
 Throttle throttle;
-Display display;
 Canbus canbus;
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
-Screen screen(&display, &throttle, &canbus, &motorTemp);
 AceButton aceButton(BUTTON_PIN);
+
+#if ENABLED_DISPLAY
+  Display display;
+  Screen screen(&display, &throttle, &canbus, &motorTemp);
+#endif
+
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
@@ -45,9 +53,18 @@ void setup()
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  display.setBusClock(200000);
-  display.begin();
-  display.setFlipMode(0);
+  #if ENABLED_DISPLAY
+    display.setBusClock(200000);
+    display.begin();
+    display.setFlipMode(0);
+  #endif
+
+  #if ENABLED_DISPLAY == false
+    pinMode(PIN_WIRE_SDA, OUTPUT);
+    pinMode(PIN_WIRE_SCL, OUTPUT);
+    digitalWrite(PIN_WIRE_SDA, LOW);
+    digitalWrite(PIN_WIRE_SCL, LOW);
+  #endif
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
@@ -68,7 +85,10 @@ void setup()
 void loop()
 {
   aceButton.check();
-  screen.draw();
+  #if ENABLED_DISPLAY
+    screen.draw();
+  #endif
+  
   checkCanbus();
   handleSerialLog();
   throttle.handle();
