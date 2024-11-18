@@ -20,9 +20,11 @@
 
 using namespace ace_button;
 
+MCP2515 mcp2515(CANBUS_CS_PIN);
+
 Servo esc;
 Throttle throttle;
-Canbus canbus;
+Canbus canbus(&mcp2515);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
 
@@ -31,8 +33,6 @@ AceButton aceButton(BUTTON_PIN);
   Screen screen(&display, &throttle, &canbus, &motorTemp);
 #endif
 
-
-MCP2515 mcp2515(CANBUS_CS_PIN);
 struct can_frame canMsg;
 
 unsigned long lastSerialUpdate;
@@ -171,6 +171,7 @@ void handleEsc()
   {
     if (esc.attached()) {
       esc.detach();
+      canbus.setLedColor(Canbus::setLedColorRed);
     }
     return;
   }
@@ -179,6 +180,7 @@ void handleEsc()
   {
     if (esc.attached()) {
       esc.detach();
+      canbus.setLedColor(Canbus::setLedColorRed);
     }
     return;
   }
@@ -186,6 +188,7 @@ void handleEsc()
   if (!esc.attached())
   {
     esc.attach(ESC_PIN);
+    canbus.setLedColor(Canbus::setLedColorGreen);
   }
 
   int pulseWidth = ESC_MIN_PWM;

@@ -3,15 +3,17 @@
 
 #include <mcp2515.h>
 
-#define STATUS_MSG1 0x4E52
-#define STATUS_MSG2 0x4E53
-#define STATUS_MSG3 0x4E54
 class Canbus
 {
     public:
-        Canbus();
+        static const uint8_t setLedColorRed = 0x04;
+        static const uint8_t setLedColorGreen = 0x02;
+        static const uint8_t setLedColorBlue = 0x01;
+
+        Canbus(MCP2515 *mcp2515);
         void parseCanMsg(struct can_frame *canMsg);
         bool isReady();
+        void setLedColor(uint8_t color);
         uint16_t getRpm() { return rpm; }
         uint16_t getMiliVoltage() { return milliVoltage; }
         uint16_t getMiliCurrent() { return milliCurrent; }
@@ -19,13 +21,31 @@ class Canbus
 
 
     private:
+        MCP2515 *mcp2515;
+
+        const uint8_t escNodeId = 0x03;
+
+        const uint16_t statusMsg1 = 0x4E52;
+        const uint16_t statusMsg2 = 0x4E53;
+        const uint16_t statusMsg3 = 0x4E54;
+
+        const uint8_t setLedDataTypeId = 0xd4;
+        const uint8_t setLedOptionSave = 0x01;
+        const uint8_t setLedBlinkOff = 0x00;
+        const uint8_t setLedBlink1Hz = 0x01;
+        const uint8_t setLedBlink2Hz = 0x02;
+        const uint8_t setLedBlink5Hz = 0x05;
+
         unsigned long lastReadStatusMsg1;
         unsigned long lastReadStatusMsg2;
+
+        uint8_t transferId;
 
         uint8_t temperature;
         uint16_t milliCurrent;
         uint16_t milliVoltage;
         uint16_t rpm;
+
 
         void handleStatusMsg1(struct can_frame *canMsg);
         void handleStatusMsg2(struct can_frame *canMsg);

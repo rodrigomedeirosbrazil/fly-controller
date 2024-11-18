@@ -5,9 +5,13 @@
 #include "../config.h"
 #include "Canbus.h"
 
-Canbus::Canbus() {
+Canbus::Canbus(MCP2515 *mcp2515) {
+    this->mcp2515 = mcp2515;
+
     lastReadStatusMsg1 = 0;
     lastReadStatusMsg2 = 0;
+    transferId = 0;
+
     temperature = 0;
     milliCurrent = 0;
     milliVoltage = 0;
@@ -19,8 +23,8 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
 
     if (
-        dataTypeId != STATUS_MSG1
-        && dataTypeId != STATUS_MSG2
+        dataTypeId != statusMsg1
+        && dataTypeId != statusMsg2
     ) {
         return;
     }
@@ -35,13 +39,14 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
         return;
     }
 
-    switch (dataTypeId) {
-        case STATUS_MSG1:
-            handleStatusMsg1(canMsg);
-            break;
-        case STATUS_MSG2:
-            handleStatusMsg2(canMsg);
-            break;
+    if (dataTypeId == statusMsg1) {
+        handleStatusMsg1(canMsg);
+        return;
+    }
+
+    if (dataTypeId == statusMsg2) {
+        handleStatusMsg2(canMsg);
+        return;
     }
 }
 
@@ -124,3 +129,23 @@ uint16_t Canbus::getMiliVoltageFromPayload(uint8_t *payload) {
 uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
     return (payload[1] << 8) | payload[0];
 }
+
+void Canbus::setLedColor(uint8_t color)
+{
+    struct can_frame canMsg;
+
+    canMsg.can_id = ((uint32_t)0 << 24) // priority
+        | ((uint32_t)setLedDataTypeId << 8)  // data type id
+        | (uint32_t)escNodeId; // node id
+
+    canMsg.can_dlc = 4;
+    canMsg.data[0] = 0x00; // setLedOptionSave 0x01
+    canMsg.data[1] = color;
+    canMsg.data[2] = setLedBlinkOff;
+    canMsg.data[3] = 0xC0 | (transferId & 31); // tail byte
+
+    mcp2515->sendMessage(&canMsg);
+
+    transferId += 1;
+}
+
