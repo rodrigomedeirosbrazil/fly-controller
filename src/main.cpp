@@ -19,12 +19,14 @@
 #include "Temperature/Temperature.h"
 
 using namespace ace_button;
+#include "Button/Button.h"
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 
 Servo esc;
 Throttle throttle;
 Canbus canbus(&mcp2515);
+Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
 
@@ -39,10 +41,6 @@ unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
-
-unsigned long releaseButtonTime = 0;
-bool buttonWasClicked = false;
-const unsigned long longClickThreshold = 3500;
 
 void setup()
 {
@@ -68,23 +66,12 @@ void setup()
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
-
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-  ButtonConfig* buttonConfig = aceButton.getButtonConfig();
-
-  buttonConfig->setEventHandler(handleButtonEvent);
-  buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
-  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterDoubleClick);
-  buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-  buttonConfig->setLongPressDelay(2000);
-  buttonConfig->setClickDelay(300);
 }
 
 void loop()
 {
-  aceButton.check();
+  button.check();
+
   #if ENABLED_DISPLAY
     screen.draw();
   #endif
@@ -98,34 +85,7 @@ void loop()
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
 {
-  switch (eventType) {
-    case AceButton::kEventClicked:
-      buttonWasClicked = true;
-      break;
-    case AceButton::kEventReleased:
-      if (buttonWasClicked) {
-        releaseButtonTime = millis();
-        buttonWasClicked = false;
-      }
-      break;
-    case AceButton::kEventLongPressed:
-      if (
-        !buttonWasClicked 
-        && (millis() - releaseButtonTime <= longClickThreshold)
-        && !throttle.isArmed()
-      ) {
-        throttle.setArmed();
-        break;
-      }
-      
-      if (
-        !buttonWasClicked 
-        && throttle.isArmed()
-      ) {
-        throttle.setDisarmed();
-      }
-      break;
-  }
+  button.handleEvent(aceButton, eventType, buttonState);
 }
 
 void handleSerialLog() {
