@@ -109,6 +109,12 @@ void Throttle::checkIfChangedCruiseState()
   }
 }
 
+void Throttle::setCruising(int throttlePosition)
+{
+  cruisingThrottlePosition = throttlePosition;
+  cruising = true;
+}
+
 unsigned int Throttle::getThrottlePercentage()
 {
   unsigned int throttlePercentage = map(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);

@@ -41,6 +41,16 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
       if (buttonWasClicked) {
         releaseButtonTime = millis();
         buttonWasClicked = false;
+
+        if (throttle->isCruising()) {
+          throttle->cancelCruise();
+          break;
+        }
+
+        if (throttle->isArmed() && !throttle->isCruising()) {
+          throttle->setCruising(throttle->getThrottlePercentage());
+          break;
+        }
       }
       break;
     case AceButton::kEventLongPressed:

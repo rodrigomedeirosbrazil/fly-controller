@@ -11,6 +11,7 @@ class Throttle {
         void setArmed();
         void setDisarmed() { throttleArmed = false; }
         bool isCruising() { return cruising; }
+        void setCruising(int throttlePosition);
         void cancelCruise() { cruising = false; }
 
         unsigned int getThrottlePercentage();
