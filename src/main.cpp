@@ -66,6 +66,8 @@ void setup()
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
+
+  canbus.setLedColor(Canbus::setLedColorRed);
 }
 
 void loop()
