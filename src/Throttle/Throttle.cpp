@@ -142,3 +142,17 @@ void Throttle::setArmed()
 
   throttleArmed = true;
 }
+
+void Throttle::setDisarmed()
+{
+  throttleArmed = false;
+  cancelCruise();
+}
+
+void Throttle::cancelCruise()
+{
+  cruising = false;
+  cruisingThrottlePosition = 0;
+  lastThrottlePosition = 0;
+  timeThrottlePosition = 0;
+}

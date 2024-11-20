@@ -9,10 +9,10 @@ class Throttle {
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
-        void setDisarmed() { throttleArmed = false; }
+        void setDisarmed();
         bool isCruising() { return cruising; }
         void setCruising(int throttlePosition);
-        void cancelCruise() { cruising = false; }
+        void cancelCruise();
 
         unsigned int getThrottlePercentage();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
