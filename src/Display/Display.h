@@ -8,7 +8,9 @@
 class Display : public U8G2_SH1106_128X64_NONAME_1_HW_I2C
 {
 public:
-    Display() : U8G2_SH1106_128X64_NONAME_1_HW_I2C(U8G2_R0, U8X8_PIN_NONE) {};
+    Display() : U8G2_SH1106_128X64_NONAME_1_HW_I2C(U8G2_R0, U8X8_PIN_NONE) {
+        Wire.setWireTimeout(5000, true);
+    };
 };
 
 #endif
