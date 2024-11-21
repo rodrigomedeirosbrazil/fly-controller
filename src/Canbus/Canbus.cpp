@@ -86,12 +86,24 @@ uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
     return (canId >> 8) & 0xFFFF;
 }
 
+uint8_t Canbus::getServiceTypeIdFromCanId(uint32_t canId) {
+    return (canId >> 16) & 0xFF;
+}
+
 uint8_t Canbus::getNodeIdFromCanId(uint32_t canId) {
     return canId & 0x7F;
 }
 
+uint8_t Canbus::getDestNodeIdFromCanId(uint32_t canId) {
+   return (canId >> 8) & 0x7F;
+}
+
 bool Canbus::isServiceFrame(uint32_t canId) {
     return (canId & 0x80) >> 7 == 1;
+}
+
+bool Canbus::isRequestFrame(uint32_t canId) {
+    return (canId & 0x80) >> 15 == 1;
 }
 
 uint8_t Canbus::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {

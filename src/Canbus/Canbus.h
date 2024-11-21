@@ -52,8 +52,11 @@ class Canbus
 
         uint8_t getPriorityFromCanId(uint32_t canId);
         uint16_t getDataTypeIdFromCanId(uint32_t canId);
+        uint8_t getServiceTypeIdFromCanId(uint32_t canId);
         uint8_t getNodeIdFromCanId(uint32_t canId);
+        uint8_t getDestNodeIdFromCanId(uint32_t canId);
         bool isServiceFrame(uint32_t canId);
+        bool isRequestFrame(uint32_t canId);
         uint8_t getTailByteFromPayload(uint8_t *payload, uint8_t canDlc);
         bool isStartOfFrame(uint8_t tailByte);
         bool isEndOfFrame(uint8_t tailByte);
