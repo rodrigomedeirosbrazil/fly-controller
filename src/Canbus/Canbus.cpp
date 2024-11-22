@@ -207,9 +207,11 @@ void Canbus::sendMessage(
         | (uint32_t)nodeId;
 
     canMsg.can_dlc = payloadLength + 1;
-    for (uint8_t i = 0; i < 8; i++) {
+    for (uint8_t i = 0; i < payloadLength; i++) {
         canMsg.data[i] = payload[i];
     }
+
+    canMsg.data[payloadLength] = 0xC0 | (transferId & 31); // tail byte
 
     mcp2515->sendMessage(&canMsg);
 

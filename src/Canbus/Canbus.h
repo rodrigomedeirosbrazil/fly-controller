@@ -70,7 +70,6 @@ class Canbus
             uint8_t *payload,
             uint8_t payloadLength
         );
-
 };
 
 #endif
