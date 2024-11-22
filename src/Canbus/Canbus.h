@@ -6,14 +6,15 @@
 class Canbus
 {
     public:
-        static const uint8_t setLedColorRed = 0x04;
-        static const uint8_t setLedColorGreen = 0x02;
-        static const uint8_t setLedColorBlue = 0x01;
+        static const uint8_t ledColorRed = 0x04;
+        static const uint8_t ledColorGreen = 0x02;
+        static const uint8_t ledColorBlue = 0x01;
 
         Canbus(MCP2515 *mcp2515);
         void parseCanMsg(struct can_frame *canMsg);
         bool isReady();
         void setLedColor(uint8_t color);
+        void setDirection(bool isCcw);
         uint16_t getRpm() { return rpm; }
         uint16_t getMiliVoltage() { return milliVoltage; }
         uint16_t getMiliCurrent() { return milliCurrent; }
@@ -23,18 +24,12 @@ class Canbus
     private:
         MCP2515 *mcp2515;
 
+        const uint8_t nodeId = 0x7F;
         const uint8_t escNodeId = 0x03;
 
         const uint16_t statusMsg1 = 0x4E52;
         const uint16_t statusMsg2 = 0x4E53;
         const uint16_t statusMsg3 = 0x4E54;
-
-        const uint8_t setLedDataTypeId = 0xd4;
-        const uint8_t setLedOptionSave = 0x01;
-        const uint8_t setLedBlinkOff = 0x00;
-        const uint8_t setLedBlink1Hz = 0x01;
-        const uint8_t setLedBlink2Hz = 0x02;
-        const uint8_t setLedBlink5Hz = 0x05;
 
         unsigned long lastReadStatusMsg1;
         unsigned long lastReadStatusMsg2;
@@ -45,7 +40,7 @@ class Canbus
         uint16_t milliCurrent;
         uint16_t milliVoltage;
         uint16_t rpm;
-
+        bool isCcwDirection;
 
         void handleStatusMsg1(struct can_frame *canMsg);
         void handleStatusMsg2(struct can_frame *canMsg);
@@ -66,6 +61,16 @@ class Canbus
         uint16_t getMiliCurrentFromPayload(uint8_t *payload);
         uint16_t getMiliVoltageFromPayload(uint8_t *payload);
         uint16_t getRpmFromPayload(uint8_t *payload);
+        bool getDirectionCCWFromPayload(uint8_t *payload);
+        
+        void Canbus::sendMessage(
+            uint8_t priority,
+            uint8_t serviceTypeId,
+            uint8_t destNodeId,
+            uint8_t *payload,
+            uint8_t payloadLength
+        );
+
 };
 
 #endif

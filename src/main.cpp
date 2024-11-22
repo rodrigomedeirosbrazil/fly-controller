@@ -67,7 +67,7 @@ void setup()
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
 
-  canbus.setLedColor(Canbus::setLedColorRed);
+  canbus.setLedColor(Canbus::ledColorRed);
 }
 
 void loop()
@@ -133,7 +133,7 @@ void handleEsc()
   {
     if (esc.attached()) {
       esc.detach();
-      canbus.setLedColor(Canbus::setLedColorRed);
+      canbus.setLedColor(Canbus::ledColorRed);
     }
     return;
   }
@@ -142,7 +142,7 @@ void handleEsc()
   {
     if (esc.attached()) {
       esc.detach();
-      canbus.setLedColor(Canbus::setLedColorRed);
+      canbus.setLedColor(Canbus::ledColorRed);
     }
     return;
   }
@@ -150,7 +150,7 @@ void handleEsc()
   if (!esc.attached())
   {
     esc.attach(ESC_PIN);
-    canbus.setLedColor(Canbus::setLedColorGreen);
+    canbus.setLedColor(Canbus::ledColorGreen);
   }
 
   int pulseWidth = ESC_MIN_PWM;

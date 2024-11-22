@@ -26,6 +26,13 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
         dataTypeId != statusMsg1
         && dataTypeId != statusMsg2
     ) {
+        if (dataTypeId != statusMsg3) {
+            Serial.print("Data Type ID: ");
+            Serial.print(dataTypeId, HEX);
+            Serial.print(" Node ID: ");
+            Serial.println(getNodeIdFromCanId(canMsg->can_id), HEX);
+        }
+
         return;
     }
     
@@ -64,6 +71,7 @@ void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
     }
 
     rpm = getRpmFromPayload(canMsg->data);
+    isCcwDirection  = getDirectionCCWFromPayload(canMsg->data);
     lastReadStatusMsg2 = millis();
 }
 
@@ -142,22 +150,68 @@ uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
     return (payload[1] << 8) | payload[0];
 }
 
+bool Canbus::getDirectionCCWFromPayload(uint8_t *payload) {
+    return (payload[5] & 0x80) >> 7 == 1;
+}
+
 void Canbus::setLedColor(uint8_t color)
 {
+    uint8_t serviceTypeId = 0xd4;
+
+    uint8_t data[3];
+    data[0] = 0x00; // setLedOptionSave 0x01
+    data[1] = color; // ledColorRed = 0x04 / ledColorGreen = 0x02 / ledColorBlue = 0x01
+    data[2] = 0x00; // blinkOff = 0x00 / Blink1Hz = 0x01 / Blink2Hz = 0x02 / Blink5Hz = 0x05
+
+    sendMessage(
+        0x00, // priority
+        0xd4, // serviceTypeId
+        escNodeId,
+        data,
+        3
+    );
+}
+
+void Canbus::setDirection(bool isCcw)
+{
+    uint8_t data[1];
+
+    data[0] = isCcw ? 0x00 : 0x01;
+
+    sendMessage(
+        0x00, // priority
+        0xD5, // serviceTypeId
+        escNodeId,
+        data,
+        1
+    );
+}
+
+void Canbus::sendMessage(
+    uint8_t priority,
+    uint8_t serviceTypeId,
+    uint8_t destNodeId,
+    uint8_t *payload,
+    uint8_t payloadLength
+) {
     struct can_frame canMsg;
 
-    canMsg.can_id = ((uint32_t)0 << 24) // priority
-        | ((uint32_t)setLedDataTypeId << 8)  // data type id
-        | (uint32_t)escNodeId; // node id
+    uint8_t requestNotResponse = 0x01;
+    uint8_t isServiceFrame = 0x01;
+    
+    canMsg.can_id = ((uint32_t)priority << 24) 
+        | ((uint32_t)serviceTypeId << 16)
+        | ((uint32_t)requestNotResponse << 15) 
+        | ((uint32_t)destNodeId << 8)
+        | ((uint32_t)isServiceFrame << 7)
+        | (uint32_t)nodeId;
 
-    canMsg.can_dlc = 4;
-    canMsg.data[0] = 0x00; // setLedOptionSave 0x01
-    canMsg.data[1] = color;
-    canMsg.data[2] = setLedBlinkOff;
-    canMsg.data[3] = 0xC0 | (transferId & 31); // tail byte
+    canMsg.can_dlc = payloadLength + 1;
+    for (uint8_t i = 0; i < 8; i++) {
+        canMsg.data[i] = payload[i];
+    }
 
     mcp2515->sendMessage(&canMsg);
 
     transferId += 1;
 }
-
