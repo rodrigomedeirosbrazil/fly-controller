@@ -117,7 +117,8 @@ void Throttle::setCruising(int throttlePosition)
 
 unsigned int Throttle::getThrottlePercentage()
 {
-  unsigned int throttlePercentage = map(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
+  int pinValueConstrained = constrain(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX);
+  unsigned int throttlePercentage = map(pinValueConstrained, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
 
   if (throttlePercentage < 5) {
     return 0;
