@@ -80,9 +80,7 @@ void Throttle::checkIfChangedCruiseState()
     }
 
     if ((now - timeThrottlePosition) > timeToBeOnCruising) {
-      cruising = true;
-      cruisingThrottlePosition = throttlePercentage;
-
+      setCruising(throttlePercentage);
       return;
     }
 
@@ -101,10 +99,7 @@ void Throttle::checkIfChangedCruiseState()
   }
 
   if (throttlePercentage > lastThrottlePosition) {
-    cruising = false;
-    cruisingThrottlePosition = 0;
-    lastThrottlePosition = 0;
-
+    cancelCruise();
     return;
   }
 }

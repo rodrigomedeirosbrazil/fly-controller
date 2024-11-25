@@ -63,10 +63,7 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
         break;
       }
       
-      if (
-        !buttonWasClicked 
-        && throttle->isArmed()
-      ) {
+      if (throttle->isArmed()) {
         throttle->setDisarmed();
       }
       break;
