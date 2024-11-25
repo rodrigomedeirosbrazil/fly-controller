@@ -19,7 +19,7 @@ class Throttle {
 
     private:
 
-        const unsigned int timeToBeOnCruising = 5000;
+        const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
         const static int samples = 5;
