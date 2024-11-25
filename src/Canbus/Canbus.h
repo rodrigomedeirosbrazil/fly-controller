@@ -63,7 +63,7 @@ class Canbus
         uint16_t getRpmFromPayload(uint8_t *payload);
         bool getDirectionCCWFromPayload(uint8_t *payload);
         
-        void Canbus::sendMessage(
+        void sendMessage(
             uint8_t priority,
             uint8_t serviceTypeId,
             uint8_t destNodeId,

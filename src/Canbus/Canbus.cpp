@@ -156,8 +156,6 @@ bool Canbus::getDirectionCCWFromPayload(uint8_t *payload) {
 
 void Canbus::setLedColor(uint8_t color)
 {
-    uint8_t serviceTypeId = 0xd4;
-
     uint8_t data[3];
     data[0] = 0x00; // setLedOptionSave 0x01
     data[1] = color; // ledColorRed = 0x04 / ledColorGreen = 0x02 / ledColorBlue = 0x01
