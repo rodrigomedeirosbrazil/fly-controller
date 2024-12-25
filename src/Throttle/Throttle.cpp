@@ -31,10 +31,6 @@ void Throttle::handle()
 
   lastThrottleRead = now;
   readThrottlePin();
-
-  #if ENABLED_CRUISE_CONTROL
-  checkIfChangedCruiseState();
-  #endif
 }
 
 void Throttle::readThrottlePin()
