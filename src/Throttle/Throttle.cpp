@@ -148,3 +148,41 @@ void Throttle::cancelCruise()
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
 }
+
+void Throttle::setSmoothThrottleChange(unsigned int fromThrottlePosition, unsigned int toThrottlePosition)
+{
+  smoothThrottleChanging = true;
+  timeStartSmoothThrottleChange = millis();
+  lastThrottlePosition = fromThrottlePosition;
+  targetThrottlePosition = toThrottlePosition;
+}
+
+void Throttle::cancelSmoothThrottleChange()
+{
+  smoothThrottleChanging = false;
+}
+
+unsigned int Throttle::getThrottlePercentageOnSmoothChange()
+{
+  if (!smoothThrottleChanging) {
+    return 0;
+  }
+
+  unsigned long now = millis();
+  unsigned long timeElapsed = now - timeStartSmoothThrottleChange;
+
+  if (timeElapsed > smoothThrottleChangeSeconds * 1000) {
+    cancelSmoothThrottleChange();
+    return targetThrottlePosition;
+  }
+
+  unsigned int throttlePercentage = map(
+    timeElapsed,
+    0,
+    smoothThrottleChangeSeconds * 1000,
+    lastThrottlePosition,
+    targetThrottlePosition
+  );
+
+  return throttlePercentage;
+}
