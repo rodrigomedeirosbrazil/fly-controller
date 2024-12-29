@@ -144,6 +144,12 @@ void Throttle::setDisarmed()
 void Throttle::cancelCruise()
 {
   cruising = false;
+
+  setSmoothThrottleChange(
+    cruisingThrottlePosition,
+    getThrottlePercentage()
+  );
+
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
