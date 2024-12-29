@@ -19,6 +19,10 @@ Throttle::Throttle() {
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
+
+  smoothThrottleChanging = false;
+  timeStartSmoothThrottleChange = 0;
+  targetThrottlePosition = 0;
 }
 
 void Throttle::handle()
@@ -49,55 +53,6 @@ void Throttle::readThrottlePin()
   }
 
   pinValueFiltered = sum / samples;
-}
-
-void Throttle::checkIfChangedCruiseState()
-{
-  if (! throttleArmed) {
-    return;
-  }
-
-  unsigned long now = millis();
-  unsigned int throttlePercentage = getThrottlePercentage();
-
-  if (!cruising) {
-    if (throttlePercentage < minCrusingThrottle) {
-      return;
-    }
-
-    if (
-      throttlePercentage > lastThrottlePosition + throttleRange
-      || throttlePercentage < lastThrottlePosition - throttleRange
-    ) {
-      timeThrottlePosition = now;
-      lastThrottlePosition = throttlePercentage;
-
-      return;
-    }
-
-    if ((now - timeThrottlePosition) > timeToBeOnCruising) {
-      setCruising(throttlePercentage);
-      return;
-    }
-
-    return;
-  }
-
-  if (
-    throttlePercentage < lastThrottlePosition + throttleRange
-    && throttlePercentage > throttleRange
-  ) {
-    lastThrottlePosition = throttlePercentage < throttleRange 
-      ? throttleRange
-      : throttlePercentage + throttleRange;
-
-    return;
-  }
-
-  if (throttlePercentage > lastThrottlePosition) {
-    cancelCruise();
-    return;
-  }
 }
 
 void Throttle::setCruising(int throttlePosition)

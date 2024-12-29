@@ -22,9 +22,7 @@ class Throttle {
         unsigned int getThrottlePercentageOnSmoothChange();
         bool isSmoothThrottleChanging() { return smoothThrottleChanging; }
         
-
     private:
-
         const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
@@ -45,7 +43,6 @@ class Throttle {
         unsigned long timeStartSmoothThrottleChange;
 
         void readThrottlePin();
-        void checkIfChangedCruiseState();
 };
 
 #endif
