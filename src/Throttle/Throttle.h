@@ -20,6 +20,7 @@ class Throttle {
         void setSmoothThrottleChange(unsigned int fromThrottlePosition, unsigned int toThrottlePosition);
         void cancelSmoothThrottleChange();
         unsigned int getThrottlePercentageOnSmoothChange();
+        bool isSmoothThrottleChanging() { return smoothThrottleChanging; }
         
 
     private:

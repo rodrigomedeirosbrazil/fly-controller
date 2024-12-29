@@ -165,7 +165,7 @@ void Throttle::cancelSmoothThrottleChange()
 unsigned int Throttle::getThrottlePercentageOnSmoothChange()
 {
   if (!smoothThrottleChanging) {
-    return 0;
+    return getThrottlePercentage();
   }
 
   unsigned long now = millis();
