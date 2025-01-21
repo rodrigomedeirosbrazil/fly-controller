@@ -2,13 +2,13 @@
 
 #include <AceButton.h>
 #include <SPI.h>
-#include <Servo.h>
 #include <mcp2515.h>
 
 #include "config.h"
 #include "main.h"
 
 #include "Throttle/Throttle.h"
+#include "Esc/Esc.h"
 
 #if ENABLED_DISPLAY
 #include "Display/Display.h"
@@ -23,12 +23,12 @@ using namespace ace_button;
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 
-Servo esc;
 Throttle throttle;
 Canbus canbus(&mcp2515);
 Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
+Esc esc(&canbus, &throttle);
 
 #if ENABLED_DISPLAY
 Display display;
@@ -80,7 +80,7 @@ void loop() {
     handleSerialLog();
     throttle.handle();
     motorTemp.handle();
-    handleEsc();
+    esc.handle();
 }
 
 void handleButtonEvent(AceButton *aceButton, uint8_t eventType, uint8_t buttonState) {
@@ -124,121 +124,8 @@ void handleSerialLog() {
     Serial.println();
 }
 
-void handleEsc() {
-    if (canbus.isReady() && canbus.getMiliVoltage() <= BATTERY_MIN_VOLTAGE) {
-        if (
-          esc.attached()
-          && !throttle.isSmoothThrottleChanging()
-          && throttle.getThrottlePercentage() < 5
-        ) {
-            esc.detach();
-            return;
-        }
-
-        if (
-            esc.attached() 
-            && !throttle.isSmoothThrottleChanging()
-        ) {
-            canbus.setLedColor(Canbus::ledColorRed);
-            throttle.setSmoothThrottleChange(
-              throttle.getThrottlePercentage(),
-              0
-            );
-        }
-
-        if (! esc.attached()) {
-            return;
-        }
-    }
-
-    if (!throttle.isArmed()) {
-        if (esc.attached()) {
-            esc.detach();
-            canbus.setLedColor(Canbus::ledColorRed);
-        }
-        return;
-    }
-
-    if (!esc.attached()) {
-        esc.attach(ESC_PIN);
-        canbus.setLedColor(Canbus::ledColorGreen);
-    }
-
-    int pulseWidth = ESC_MIN_PWM;
-
-    pulseWidth = map(
-        analizeTelemetryToThrottleOutput(
-            throttle.getThrottlePercentage()),
-        0,
-        100,
-        ESC_MIN_PWM,
-        ESC_MAX_PWM);
-
-    esc.writeMicroseconds(pulseWidth);
-
-    return;
-}
-
 void checkCanbus() {
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
         canbus.parseCanMsg(&canMsg);
     }
-}
-
-unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage) {
-#if ENABLED_LIMIT_THROTTLE
-    if (
-        canbus.isReady() && canbus.getTemperature() >= ESC_MAX_TEMP) {
-        throttle.cancelCruise();
-
-        return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                   ? throttlePercentage
-                   : THROTTLE_RECOVERY_PERCENTAGE;
-    }
-
-    if (motorTemp.getTemperature() >= MOTOR_MAX_TEMP) {
-        throttle.cancelCruise();
-
-        return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                   ? throttlePercentage
-                   : THROTTLE_RECOVERY_PERCENTAGE;
-    }
-
-    unsigned int miliCurrentLimit = ESC_MAX_CURRENT < BATTERY_MAX_CURRENT
-                                        ? ESC_MAX_CURRENT * 10
-                                        : BATTERY_MAX_CURRENT * 10;
-
-    if (
-        canbus.isReady() && canbus.getMiliCurrent() >= miliCurrentLimit) {
-        throttle.cancelCruise();
-
-        if (!isCurrentLimitReached) {
-            isCurrentLimitReached = true;
-            currentLimitReachedTime = millis();
-            return throttlePercentage;
-        }
-
-        if (millis() - currentLimitReachedTime > 10000) {
-            return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                       ? throttlePercentage
-                       : THROTTLE_RECOVERY_PERCENTAGE;
-        }
-
-        if (millis() - currentLimitReachedTime > 3000) {
-            return throttlePercentage - 10;
-        }
-
-        return throttlePercentage;
-    }
-
-    isCurrentLimitReached = false;
-    currentLimitReachedTime = 0;
-
-#endif
-
-    return throttle.isSmoothThrottleChanging()
-               ? throttle.getThrottlePercentageOnSmoothChange()
-               : throttle.isCruising() 
-                    ? throttle.getCruisingThrottlePosition()
-                    : throttlePercentage;
 }
