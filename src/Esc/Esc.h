@@ -10,6 +10,7 @@ class Esc {
     public:
         Esc(Canbus *canbus, Throttle *throttle);
         void handle();
+        unsigned int getPowerAvailable() { return powerAvailable; }
 
 
     private:
@@ -18,6 +19,7 @@ class Esc {
         Throttle *throttle;
 
         unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage);
+        unsigned int powerAvailable;
 
 };
 #endif
