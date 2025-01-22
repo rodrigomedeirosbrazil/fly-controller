@@ -53,71 +53,24 @@ void Esc::handle()
     int pulseWidth = ESC_MIN_PWM;
 
     pulseWidth = map(
-        analizeTelemetryToThrottleOutput(
-            throttle->getThrottlePercentage()),
+        throttle->getThrottlePercentage(),
         0,
         100,
         ESC_MIN_PWM,
-        ESC_MAX_PWM);
+        ESC_MAX_PWM
+    );
 
     esc.writeMicroseconds(pulseWidth);
 }
 
-unsigned int Esc::analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
-{
-    #if ENABLED_LIMIT_THROTTLE
-    if (
-        canbus.isReady() && canbus.getTemperature() >= ESC_MAX_TEMP) {
-        throttle->cancelCruise();
-
-        return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                   ? throttlePercentage
-                   : THROTTLE_RECOVERY_PERCENTAGE;
+void Esc::setPowerAvailable(unsigned int power) {
+    if (millis() - lastPowerAvailableChange < minTimeToChangePowerAvailable) {
+        return;
     }
 
-    if (motorTemp.getTemperature() >= MOTOR_MAX_TEMP) {
-        throttle->cancelCruise();
+    powerAvailable = power > 100
+        ? 100
+        : (power < 0 ? 0 : power);
 
-        return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                   ? throttlePercentage
-                   : THROTTLE_RECOVERY_PERCENTAGE;
-    }
-
-    unsigned int miliCurrentLimit = ESC_MAX_CURRENT < BATTERY_MAX_CURRENT
-                                        ? ESC_MAX_CURRENT * 10
-                                        : BATTERY_MAX_CURRENT * 10;
-
-    if (
-        canbus.isReady() && canbus.getMiliCurrent() >= miliCurrentLimit) {
-        throttle->cancelCruise();
-
-        if (!isCurrentLimitReached) {
-            isCurrentLimitReached = true;
-            currentLimitReachedTime = millis();
-            return throttlePercentage;
-        }
-
-        if (millis() - currentLimitReachedTime > 10000) {
-            return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-                       ? throttlePercentage
-                       : THROTTLE_RECOVERY_PERCENTAGE;
-        }
-
-        if (millis() - currentLimitReachedTime > 3000) {
-            return throttlePercentage - 10;
-        }
-
-        return throttlePercentage;
-    }
-
-    isCurrentLimitReached = false;
-    currentLimitReachedTime = 0;
-
-#endif
-
-    return throttle->isSmoothThrottleChanging()
-               ? throttle->getThrottlePercentageOnSmoothChange()
-               : throttle->isCruising()
-                    ? throttle->getCruisingThrottlePosition()
-                    : throttlePercentage;
+    lastPowerAvailableChange = millis();
 }

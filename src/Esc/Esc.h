@@ -18,7 +18,6 @@ class Esc {
         Canbus *canbus;
         Throttle *throttle;
 
-        unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage);
         unsigned int powerAvailable;
 
 };
