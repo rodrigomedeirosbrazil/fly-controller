@@ -87,6 +87,12 @@ void handleButtonEvent(AceButton *aceButton, uint8_t eventType, uint8_t buttonSt
     button.handleEvent(aceButton, eventType, buttonState);
 }
 
+void checkCanbus() {
+    if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
+        canbus.parseCanMsg(&canMsg);
+    }
+}
+
 void handleSerialLog() {
     if (millis() - lastSerialUpdate < 1000) {
         return;
@@ -124,8 +130,3 @@ void handleSerialLog() {
     Serial.println();
 }
 
-void checkCanbus() {
-    if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
-        canbus.parseCanMsg(&canMsg);
-    }
-}
