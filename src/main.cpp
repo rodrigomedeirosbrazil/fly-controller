@@ -103,7 +103,7 @@ void handleSerialLog() {
     Serial.print(throttle.isArmed());
     Serial.print(",");
 
-    Serial.print(throttle.getThrottlePercentage());
+    Serial.print(throttle.getThrottlePosition());
     Serial.print(",");
 
     Serial.print(motorTemp.getTemperature());

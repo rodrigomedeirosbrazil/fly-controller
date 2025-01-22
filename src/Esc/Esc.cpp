@@ -11,30 +11,28 @@ Esc::Esc(Canbus *canbus, Throttle *throttle)
 
 void Esc::handle()
 {
-    if (canbus->isReady() && canbus->getMiliVoltage() <= BATTERY_MIN_VOLTAGE) {
-        if (
-          esc.attached()
-          && !throttle->isSmoothThrottleChanging()
-          && throttle->getThrottlePercentage() < 5
-        ) {
-            esc.detach();
-            return;
+    if (canbus->isReady() && canbus->getMiliVoltage() <= BATTERY_MIN_VOLTAGE)
+    {
+        if (esc.attached()) {
+        esc.detach();
+        canbus->setLedColor(Canbus::ledColorRed);
         }
+        return;
+    }
 
-        if (
-            esc.attached()
-            && !throttle->isSmoothThrottleChanging()
-        ) {
-            canbus->setLedColor(Canbus::ledColorRed);
-            throttle->setSmoothThrottleChange(
-              throttle->getThrottlePercentage(),
-              0
-            );
+    if (!throttle->isArmed())
+    {
+        if (esc.attached()) {
+        esc.detach();
+        canbus->setLedColor(Canbus::ledColorRed);
         }
+        return;
+    }
 
-        if (! esc.attached()) {
-            return;
-        }
+    if (!esc.attached())
+    {
+        esc.attach(ESC_PIN);
+        canbus->setLedColor(Canbus::ledColorGreen);
     }
 
     if (!throttle->isArmed()) {
@@ -53,7 +51,7 @@ void Esc::handle()
     int pulseWidth = ESC_MIN_PWM;
 
     pulseWidth = map(
-        throttle->getThrottlePercentage(),
+        throttle->getThrottle(),
         0,
         100,
         ESC_MIN_PWM,

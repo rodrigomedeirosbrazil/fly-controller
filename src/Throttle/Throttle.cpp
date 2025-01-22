@@ -5,7 +5,7 @@
 
 Throttle::Throttle() {
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -18,11 +18,6 @@ Throttle::Throttle() {
   cruising = false;
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
-
-  smoothThrottleChanging = false;
-  timeStartSmoothThrottleChange = 0;
-  targetThrottlePosition = 0;
 }
 
 void Throttle::handle()
@@ -40,8 +35,8 @@ void Throttle::handle()
 void Throttle::readThrottlePin()
 {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -61,7 +56,7 @@ void Throttle::setCruising(int throttlePosition)
   cruising = true;
 }
 
-unsigned int Throttle::getThrottlePercentage()
+unsigned int Throttle::getThrottlePosition()
 {
   int pinValueConstrained = constrain(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX);
   unsigned int throttlePercentage = map(pinValueConstrained, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
@@ -75,7 +70,12 @@ unsigned int Throttle::getThrottlePercentage()
   }
 
   return throttlePercentage;
-} 
+}
+
+unsigned int Throttle::getThrottle()
+{
+  return getThrottlePosition();
+}
 
 void Throttle::setArmed()
 {
@@ -83,7 +83,7 @@ void Throttle::setArmed()
     return;
   }
 
-  if (getThrottlePercentage() > 0) {
+  if (getThrottlePosition() > 0) {
     return;
   }
 
@@ -100,50 +100,5 @@ void Throttle::cancelCruise()
 {
   cruising = false;
 
-  setSmoothThrottleChange(
-    cruisingThrottlePosition,
-    getThrottlePercentage()
-  );
-
   cruisingThrottlePosition = 0;
-  lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
-}
-
-void Throttle::setSmoothThrottleChange(unsigned int fromThrottlePosition, unsigned int toThrottlePosition)
-{
-  smoothThrottleChanging = true;
-  timeStartSmoothThrottleChange = millis();
-  lastThrottlePosition = fromThrottlePosition;
-  targetThrottlePosition = toThrottlePosition;
-}
-
-void Throttle::cancelSmoothThrottleChange()
-{
-  smoothThrottleChanging = false;
-}
-
-unsigned int Throttle::getThrottlePercentageOnSmoothChange()
-{
-  if (!smoothThrottleChanging) {
-    return getThrottlePercentage();
-  }
-
-  unsigned long now = millis();
-  unsigned long timeElapsed = now - timeStartSmoothThrottleChange;
-
-  if (timeElapsed > smoothThrottleChangeSeconds * 1000) {
-    cancelSmoothThrottleChange();
-    return targetThrottlePosition;
-  }
-
-  unsigned int throttlePercentage = map(
-    timeElapsed,
-    0,
-    smoothThrottleChangeSeconds * 1000,
-    lastThrottlePosition,
-    targetThrottlePosition
-  );
-
-  return throttlePercentage;
 }
