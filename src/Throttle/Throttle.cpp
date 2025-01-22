@@ -18,6 +18,8 @@ Throttle::Throttle() {
   cruising = false;
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
+  limited = false;
+  thresholdToLimit = 0;
 }
 
 void Throttle::handle()
@@ -74,6 +76,18 @@ unsigned int Throttle::getThrottlePosition()
 
 unsigned int Throttle::getThrottle()
 {
+  if (!isArmed()) {
+    return 0;
+  }
+
+  if (isCruising()) {
+    return cruisingThrottlePosition;
+  }
+
+  if (isLimited()) {
+    return handleLimited();
+  }
+
   return getThrottlePosition();
 }
 
@@ -99,6 +113,34 @@ void Throttle::setDisarmed()
 void Throttle::cancelCruise()
 {
   cruising = false;
-
+  setLimiting(cruisingThrottlePosition, 5);
   cruisingThrottlePosition = 0;
+}
+
+void Throttle::setLimiting(unsigned int throttlePosition, unsigned int threshold) {
+  limited = true;
+  lastThrottlePosition = throttlePosition;
+  thresholdToLimit = threshold;
+}
+
+unsigned int Throttle::handleLimited() {
+  if (millis() - lastThrottleRead < timeLimiting) {
+    limited = false;
+    return getThrottlePosition();
+  }
+
+  if (getThrottlePosition() - lastThrottlePosition >= thresholdToLimit) {  // accelerating too fast. limit
+    unsigned int  limitedThrottle = lastThrottlePosition + thresholdToLimit;
+    lastThrottlePosition = limitedThrottle;
+    return limitedThrottle;
+  }
+
+  if (lastThrottlePosition - getThrottlePosition() >= thresholdToLimit * 2) {  // decelerating too fast. limit
+    int limitedThrottle = lastThrottlePosition - thresholdToLimit * 2;  // double the decel vs accel
+    lastThrottlePosition = limitedThrottle;
+    return limitedThrottle;
+  }
+
+  lastThrottlePosition = getThrottlePosition();
+  return getThrottlePosition();
 }

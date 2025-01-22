@@ -14,15 +14,15 @@ class Throttle {
         void setCruising(int throttlePosition);
         void cancelCruise();
 
+        bool isLimited() { return limited; }
+
         unsigned int getThrottlePosition();
         unsigned int getThrottle();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
 
     private:
-        const unsigned int timeToBeOnCruising = 30000;
-        const unsigned int throttleRange = 5;
-        const unsigned int minCrusingThrottle = 30;
         const static int samples = 5;
+        const static int timeLimiting = 2000;
 
         int pinValues[samples];
         int pinValueFiltered;
@@ -32,7 +32,13 @@ class Throttle {
         unsigned int cruising;
         unsigned int cruisingThrottlePosition;
 
+        unsigned int lastThrottlePosition;
+        bool limited;
+        unsigned int thresholdToLimit;
+
         void readThrottlePin();
+        unsigned int handleLimited();
+        void setLimiting(unsigned int throttlePosition, unsigned int threshold);
 };
 
 #endif
