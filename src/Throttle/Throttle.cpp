@@ -5,7 +5,7 @@
 
 Throttle::Throttle() {
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -18,7 +18,8 @@ Throttle::Throttle() {
   cruising = false;
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
+  limited = false;
+  thresholdToLimit = 0;
 }
 
 void Throttle::handle()
@@ -36,8 +37,8 @@ void Throttle::handle()
 void Throttle::readThrottlePin()
 {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -51,62 +52,13 @@ void Throttle::readThrottlePin()
   pinValueFiltered = sum / samples;
 }
 
-void Throttle::checkIfChangedCruiseState()
-{
-  if (! throttleArmed) {
-    return;
-  }
-
-  unsigned long now = millis();
-  unsigned int throttlePercentage = getThrottlePercentage();
-
-  if (!cruising) {
-    if (throttlePercentage < minCrusingThrottle) {
-      return;
-    }
-
-    if (
-      throttlePercentage > lastThrottlePosition + throttleRange
-      || throttlePercentage < lastThrottlePosition - throttleRange
-    ) {
-      timeThrottlePosition = now;
-      lastThrottlePosition = throttlePercentage;
-
-      return;
-    }
-
-    if ((now - timeThrottlePosition) > timeToBeOnCruising) {
-      setCruising(throttlePercentage);
-      return;
-    }
-
-    return;
-  }
-
-  if (
-    throttlePercentage < lastThrottlePosition + throttleRange
-    && throttlePercentage > throttleRange
-  ) {
-    lastThrottlePosition = throttlePercentage < throttleRange 
-      ? throttleRange
-      : throttlePercentage + throttleRange;
-
-    return;
-  }
-
-  if (throttlePercentage > lastThrottlePosition) {
-    cancelCruise();
-    return;
-  }
-}
-
 void Throttle::setCruising(int throttlePosition)
 {
   cruisingThrottlePosition = throttlePosition;
   cruising = true;
 }
 
-unsigned int Throttle::getThrottlePercentage()
+unsigned int Throttle::getThrottlePosition()
 {
   int pinValueConstrained = constrain(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX);
   unsigned int throttlePercentage = map(pinValueConstrained, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
@@ -120,7 +72,24 @@ unsigned int Throttle::getThrottlePercentage()
   }
 
   return throttlePercentage;
-} 
+}
+
+unsigned int Throttle::getThrottle()
+{
+  if (!isArmed()) {
+    return 0;
+  }
+
+  if (isCruising()) {
+    return cruisingThrottlePosition;
+  }
+
+  if (isLimited()) {
+    return handleLimited();
+  }
+
+  return getThrottlePosition();
+}
 
 void Throttle::setArmed()
 {
@@ -128,7 +97,7 @@ void Throttle::setArmed()
     return;
   }
 
-  if (getThrottlePercentage() > 0) {
+  if (getThrottlePosition() > 0) {
     return;
   }
 
@@ -144,7 +113,34 @@ void Throttle::setDisarmed()
 void Throttle::cancelCruise()
 {
   cruising = false;
+  setLimiting(cruisingThrottlePosition, 5);
   cruisingThrottlePosition = 0;
-  lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
+}
+
+void Throttle::setLimiting(unsigned int throttlePosition, unsigned int threshold) {
+  limited = true;
+  lastThrottlePosition = throttlePosition;
+  thresholdToLimit = threshold;
+}
+
+unsigned int Throttle::handleLimited() {
+  if (millis() - lastThrottleRead < timeLimiting) {
+    limited = false;
+    return getThrottlePosition();
+  }
+
+  if (getThrottlePosition() - lastThrottlePosition >= thresholdToLimit) {  // accelerating too fast. limit
+    unsigned int  limitedThrottle = lastThrottlePosition + thresholdToLimit;
+    lastThrottlePosition = limitedThrottle;
+    return limitedThrottle;
+  }
+
+  if (lastThrottlePosition - getThrottlePosition() >= thresholdToLimit * 2) {  // decelerating too fast. limit
+    int limitedThrottle = lastThrottlePosition - thresholdToLimit * 2;  // double the decel vs accel
+    lastThrottlePosition = limitedThrottle;
+    return limitedThrottle;
+  }
+
+  lastThrottlePosition = getThrottlePosition();
+  return getThrottlePosition();
 }
