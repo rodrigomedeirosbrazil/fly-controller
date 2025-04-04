@@ -5,7 +5,7 @@
 
 Throttle::Throttle() {
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -14,11 +14,19 @@ Throttle::Throttle() {
   lastThrottleRead = 0;
 
   throttleArmed = false;
+  calibrated = false;
+  calibratingStep = 0;
+  calibrationStartTime = 0;
+  calibrationMaxValue = 0;
+  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
 
   cruising = false;
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
+
+  throttlePinMin = 0;
+  throttlePinMax = 0;
 }
 
 void Throttle::handle()
@@ -31,13 +39,84 @@ void Throttle::handle()
 
   lastThrottleRead = now;
   readThrottlePin();
+
+  // Handle calibration if not yet calibrated
+  if (!calibrated) {
+    handleCalibration(now);
+  }
+}
+
+void Throttle::handleCalibration(unsigned long now)
+{
+  // Step 0: Calibrate maximum throttle
+  if (calibratingStep == 0) {
+    // Check if throttle is above threshold
+    if (pinValueFiltered > calibrationThreshold) {
+      // Start timing if not already started
+      if (calibrationStartTime == 0) {
+        calibrationStartTime = now;
+      }
+
+      // Track the maximum value seen
+      if (pinValueFiltered > calibrationMaxValue) {
+        calibrationMaxValue = pinValueFiltered;
+      }
+
+      // Check if we've held the throttle for the required time
+      if (now - calibrationStartTime >= calibrationTime) {
+        // Set the max throttle value
+        throttlePinMax = calibrationMaxValue;
+
+        // Move to next step
+        calibratingStep = 1;
+        calibrationStartTime = 0; // Reset timer for next step
+      }
+      return;
+    }
+
+    // Reset timer if throttle drops below threshold
+    calibrationStartTime = 0;
+    return;
+  }
+
+  // Step 1: Calibrate minimum throttle
+  if (calibratingStep == 1) {
+    // Check if throttle is below threshold
+    if (pinValueFiltered < calibrationThreshold) {
+      // Start timing if not already started
+      if (calibrationStartTime == 0) {
+        calibrationStartTime = now;
+      }
+
+      // Track the minimum value seen
+      if (pinValueFiltered < calibrationMinValue) {
+        calibrationMinValue = pinValueFiltered;
+      }
+
+      // Check if we've held the throttle for the required time
+      if (now - calibrationStartTime >= calibrationTime) {
+        // Set the min throttle value
+        throttlePinMin = calibrationMinValue;
+
+        // Calibration complete
+        calibrated = true;
+        return;
+      }
+
+      return;
+    }
+
+    // Reset timer if throttle goes above threshold
+    calibrationStartTime = 0;
+    return;
+  }
 }
 
 void Throttle::readThrottlePin()
 {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -87,7 +166,7 @@ void Throttle::checkIfChangedCruiseState()
     throttlePercentage < lastThrottlePosition + throttleRange
     && throttlePercentage > throttleRange
   ) {
-    lastThrottlePosition = throttlePercentage < throttleRange 
+    lastThrottlePosition = throttlePercentage < throttleRange
       ? throttleRange
       : throttlePercentage + throttleRange;
 
@@ -108,8 +187,8 @@ void Throttle::setCruising(int throttlePosition)
 
 unsigned int Throttle::getThrottlePercentage()
 {
-  int pinValueConstrained = constrain(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX);
-  unsigned int throttlePercentage = map(pinValueConstrained, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
+  int pinValueConstrained = constrain(pinValueFiltered, throttlePinMin, throttlePinMax);
+  unsigned int throttlePercentage = map(pinValueConstrained, throttlePinMin, throttlePinMax, 0, 100);
 
   if (throttlePercentage < 5) {
     return 0;
@@ -120,11 +199,16 @@ unsigned int Throttle::getThrottlePercentage()
   }
 
   return throttlePercentage;
-} 
+}
 
 void Throttle::setArmed()
 {
   if (throttleArmed) {
+    return;
+  }
+
+  // Don't allow arming if not calibrated
+  if (! calibrated) {
     return;
   }
 
