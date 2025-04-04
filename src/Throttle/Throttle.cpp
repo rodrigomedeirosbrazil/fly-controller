@@ -122,6 +122,11 @@ void Throttle::setLimiting(unsigned int throttlePosition, unsigned int threshold
   lastThrottlePosition = throttlePosition;
   thresholdToLimit = threshold;
 }
+/*
+  NOTE: I think is best to change it to smoothChange. get lastThrottlePosition and
+  smooth it to the current throttlePosition based on time elapsed, and checking the
+  thresholdToLimit
+*/
 
 unsigned int Throttle::handleLimited() {
   if (millis() - lastThrottleRead < timeLimiting) {
