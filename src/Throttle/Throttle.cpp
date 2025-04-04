@@ -5,7 +5,7 @@
 
 Throttle::Throttle() {
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -19,6 +19,9 @@ Throttle::Throttle() {
   cruisingThrottlePosition = 0;
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
+
+  throttlePinMin = THROTTLE_PIN_MIN;
+  throttlePinMax = THROTTLE_PIN_MAX;
 }
 
 void Throttle::handle()
@@ -36,8 +39,8 @@ void Throttle::handle()
 void Throttle::readThrottlePin()
 {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -87,7 +90,7 @@ void Throttle::checkIfChangedCruiseState()
     throttlePercentage < lastThrottlePosition + throttleRange
     && throttlePercentage > throttleRange
   ) {
-    lastThrottlePosition = throttlePercentage < throttleRange 
+    lastThrottlePosition = throttlePercentage < throttleRange
       ? throttleRange
       : throttlePercentage + throttleRange;
 
@@ -108,8 +111,8 @@ void Throttle::setCruising(int throttlePosition)
 
 unsigned int Throttle::getThrottlePercentage()
 {
-  int pinValueConstrained = constrain(pinValueFiltered, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX);
-  unsigned int throttlePercentage = map(pinValueConstrained, THROTTLE_PIN_MIN, THROTTLE_PIN_MAX, 0, 100);
+  int pinValueConstrained = constrain(pinValueFiltered, throttlePinMin, throttlePinMax);
+  unsigned int throttlePercentage = map(pinValueConstrained, throttlePinMin, throttlePinMax, 0, 100);
 
   if (throttlePercentage < 5) {
     return 0;
@@ -120,7 +123,7 @@ unsigned int Throttle::getThrottlePercentage()
   }
 
   return throttlePercentage;
-} 
+}
 
 void Throttle::setArmed()
 {

@@ -34,6 +34,9 @@ class Throttle {
         unsigned int lastThrottlePosition;
         unsigned long timeThrottlePosition;
 
+        int throttlePinMin;
+        int throttlePinMax;
+
         void readThrottlePin();
         void checkIfChangedCruiseState();
 };
