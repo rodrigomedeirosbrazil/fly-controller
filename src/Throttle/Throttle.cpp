@@ -151,3 +151,19 @@ void Throttle::cancelCruise()
   lastThrottlePosition = 0;
   timeThrottlePosition = 0;
 }
+
+void Throttle::calibrateMinThrottle() {
+  // Make sure we have a recent reading
+  readThrottlePin();
+
+  // Set the current filtered value as the minimum
+  throttlePinMin = pinValueFiltered;
+}
+
+void Throttle::calibrateMaxThrottle() {
+  // Make sure we have a recent reading
+  readThrottlePin();
+
+  // Set the current filtered value as the maximum
+  throttlePinMax = pinValueFiltered;
+}

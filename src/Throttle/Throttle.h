@@ -17,6 +17,9 @@ class Throttle {
         unsigned int getThrottlePercentage();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
 
+        void calibrateMinThrottle();
+        void calibrateMaxThrottle();
+
     private:
 
         const unsigned int timeToBeOnCruising = 30000;
