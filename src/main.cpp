@@ -9,6 +9,7 @@
 #include "main.h"
 
 #include "Throttle/Throttle.h"
+#include "SerialScreen/SerialScreen.h"
 
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
@@ -24,6 +25,7 @@ Canbus canbus(&mcp2515);
 Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
+SerialScreen screen(&throttle, &canbus, &motorTemp);
 
 struct can_frame canMsg;
 
@@ -51,7 +53,7 @@ void setup()
 void loop()
 {
   button.check();
-
+  screen.write();
   checkCanbus();
   throttle.handle();
   motorTemp.handle();
