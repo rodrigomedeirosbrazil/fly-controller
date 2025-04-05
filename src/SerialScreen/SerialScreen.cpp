@@ -27,6 +27,16 @@ void SerialScreen::write() {
 
     lastSerialUpdate = millis();
 
+    // Check if throttle needs calibration
+    if (!this->throttle->isCalibrated()) {
+        Serial.println("\n--------------------------------");
+        Serial.println("THROTTLE CALIBRATION REQUIRED");
+        Serial.println("--------------------------------");
+        writeCalibrationInfo();
+        Serial.println("--------------------------------");
+        return;
+    }
+
     Serial.println("\n--------------------------------");
     Serial.println("FLY CONTROLLER STATUS");
     Serial.println("--------------------------------");
@@ -38,6 +48,46 @@ void SerialScreen::write() {
     writeSystemStatus();
 
     Serial.println("--------------------------------");
+}
+
+void SerialScreen::writeCalibrationInfo() {
+    // Get the current filtered throttle value and calibrating step
+    int pinValueFiltered = this->throttle->getPinValueFiltered();
+    unsigned int calibratingStep = this->throttle->getCalibratingStep();
+    unsigned int throttleValue = this->throttle->getThrottlePercentage();
+
+    Serial.println("THROTTLE CALIBRATION MODE");
+    Serial.println("\nCALIBRATION INSTRUCTIONS:");
+
+    // Check which calibration step we're on and provide appropriate instructions
+    if (calibratingStep == 0) {
+        Serial.println("  Step 1: Set throttle to 100% (maximum position)");
+        Serial.println("     Hold for 3 seconds to calibrate maximum value");
+    } else {
+        Serial.println("  Step 2: Set throttle to 0% (minimum position)");
+        Serial.println("     Hold for 3 seconds to calibrate minimum value");
+    }
+
+    Serial.println("\nCURRENT THROTTLE READINGS:");
+    Serial.print("  Raw value: ");
+    Serial.println(pinValueFiltered);
+
+    Serial.print("  Throttle position: ");
+    Serial.print(throttleValue);
+    Serial.println("%");
+
+    // Provide visual feedback with a simple text-based bar
+    Serial.print("  Level: [");
+    for (int i = 0; i < 20; i++) {
+        if (i < (throttleValue * 20 / 100)) {
+            Serial.print("#");
+        } else {
+            Serial.print(" ");
+        }
+    }
+    Serial.println("]");
+
+    Serial.println("\nPlease complete the calibration to use the controller.");
 }
 
 void SerialScreen::writeBatteryInfo() {

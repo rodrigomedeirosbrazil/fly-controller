@@ -29,6 +29,7 @@ class SerialScreen
         void writeMotorInfo();
         void writeEscInfo();
         void writeSystemStatus();
+        void writeCalibrationInfo();
 };
 
 #endif
