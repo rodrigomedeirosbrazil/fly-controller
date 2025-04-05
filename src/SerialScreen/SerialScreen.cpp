@@ -41,9 +41,8 @@ void SerialScreen::write() {
         return;
     }
 
-    Serial.println("--------------------------------");
-    Serial.println("FLY CONTROLLER STATUS");
-    Serial.println("--------------------------------");
+    // Create a compact display with all information
+    Serial.println("========= FLY CONTROLLER STATUS =========");
 
     writeBatteryInfo();
     writeThrottleInfo();
@@ -51,7 +50,7 @@ void SerialScreen::write() {
     writeEscInfo();
     writeSystemStatus();
 
-    Serial.println("--------------------------------");
+    Serial.println("========================================");
 }
 
 void SerialScreen::writeCalibrationInfo() {
@@ -59,30 +58,42 @@ void SerialScreen::writeCalibrationInfo() {
     int pinValueFiltered = this->throttle->getPinValueFiltered();
     unsigned int calibratingStep = this->throttle->getCalibratingStep();
 
-    Serial.println("THROTTLE CALIBRATION MODE");
-    Serial.println("\nCALIBRATION INSTRUCTIONS:");
+    Serial.println("======== THROTTLE CALIBRATION MODE ========");
 
     // Check which calibration step we're on and provide appropriate instructions
     if (calibratingStep == 0) {
-        Serial.println("  Step 1: Set throttle to 100% (maximum position)");
-        Serial.println("     Hold for 3 seconds to calibrate maximum value");
+        Serial.println("STEP 1: Set throttle to 100% (max position)");
+        Serial.println("        Hold for 3 seconds to calibrate");
     } else {
-        Serial.println("  Step 2: Set throttle to 0% (minimum position)");
-        Serial.println("     Hold for 3 seconds to calibrate minimum value");
+        Serial.println("STEP 2: Set throttle to 0% (min position)");
+        Serial.println("        Hold for 3 seconds to calibrate");
     }
 
-    Serial.println("\nCURRENT THROTTLE READINGS:");
-    Serial.print("  Raw value: ");
+    Serial.print("Raw value: ");
     Serial.println(pinValueFiltered);
-    Serial.println("--------------------------------");
+
+    // Visual progress bar for raw value (scaled to typical analog range 0-1023)
+    Serial.print("[");
+    const unsigned int segmentCount = 30;
+    // Use unsigned long for calculation to avoid overflow with large pinValueFiltered values
+    unsigned long scaledValue = (static_cast<unsigned long>(pinValueFiltered) * segmentCount) / 1023;
+
+    for (unsigned int i = 0; i < segmentCount; i++) {
+        if (i < scaledValue) {
+            Serial.print("=");
+        } else {
+            Serial.print(" ");
+        }
+    }
+    Serial.println("]");
+    Serial.println("");
+
+    Serial.println("========================================");
 }
 
 void SerialScreen::writeBatteryInfo() {
-    Serial.println("BATTERY INFO:");
-
     if (!canbus->isReady()) {
-        Serial.println("  Battery: ---%");
-        Serial.println("  Voltage: --.-V");
+        Serial.println("BAT: ---% | ---.-V");
         return;
     }
 
@@ -95,65 +106,65 @@ void SerialScreen::writeBatteryInfo() {
         100
     );
 
-    Serial.print("  Battery: ");
+    Serial.print("BAT: ");
     Serial.print(batteryPercentage);
-    Serial.println("%");
 
-    Serial.print("  Voltage: ");
-    Serial.print(batteryMilliVolts / 10.0, 1);  // Convert to volts with 1 decimal place
+    Serial.print("% | ");
+    Serial.print(batteryMilliVolts / 10.0, 1);
     Serial.println("V");
 }
 
 void SerialScreen::writeThrottleInfo() {
-    Serial.println("THROTTLE INFO:");
-
     unsigned int throttlePercentage = this->throttle->getThrottlePercentage();
 
-    Serial.print("  Throttle: ");
+    // Create a simple visual throttle bar - shorter to avoid wrapping
+    Serial.print("THROTTLE: ");
     Serial.print(throttlePercentage);
-    Serial.println("%");
+    Serial.print("% [");
+
+    const unsigned int barSegments = 20;
+    for (unsigned int i = 0; i < barSegments; i++) {
+        if (i < (throttlePercentage * barSegments / 100)) {
+            Serial.print("=");
+        } else {
+            Serial.print(" ");
+        }
+    }
+    Serial.println("]");
 }
 
 void SerialScreen::writeMotorInfo() {
-    Serial.println("MOTOR INFO:");
-
-    Serial.print("  Temperature: ");
-    Serial.print(motorTemp->getTemperature(), 0);  // 0 decimal places
-    Serial.println("C");
+    Serial.print("MOTOR: T: ");
+    Serial.print(motorTemp->getTemperature(), 0);
+    Serial.print("C | ");
 
     if (!canbus->isReady()) {
-        Serial.println("  RPM: ----");
-        Serial.println("  Current: ---A");
+        Serial.println("RPM: ---- | A: ---");
         return;
     }
 
-    Serial.print("  RPM: ");
-    Serial.println(canbus->getRpm());
-
-    Serial.print("  Current: ");
-    Serial.print(canbus->getMiliCurrent() / 10.0, 0);  // Convert to amps with 0 decimal places
+    Serial.print("RPM: ");
+    Serial.print(canbus->getRpm());
+    Serial.print(" | A: ");
+    Serial.print(canbus->getMiliCurrent() / 10.0, 0);
     Serial.println("A");
 }
 
 void SerialScreen::writeEscInfo() {
-    Serial.println("ESC INFO:");
+    Serial.print("ESC: T: ");
 
     if (!canbus->isReady()) {
-        Serial.println("  Temperature: --C");
+        Serial.println("--C");
         return;
     }
 
-    Serial.print("  Temperature: ");
     Serial.print(canbus->getTemperature());
     Serial.println("C");
 }
 
 void SerialScreen::writeSystemStatus() {
-    Serial.println("SYSTEM STATUS:");
-
-    Serial.print("  Armed: ");
-    Serial.println(this->throttle->isArmed() ? "YES" : "NO");
-
-    Serial.print("  Cruise Control: ");
-    Serial.println(this->throttle->isCruising() ? "ACTIVE" : "INACTIVE");
+    Serial.print("STATUS: Armed:");
+    Serial.print(this->throttle->isArmed() ? "YES" : "NO");
+    Serial.print(" | Cruise:");
+    Serial.println(this->throttle->isCruising() ? "ON" : "OFF");
 }
