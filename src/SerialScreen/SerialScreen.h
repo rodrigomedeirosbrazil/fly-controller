@@ -24,6 +24,7 @@ class SerialScreen
 
         unsigned long lastSerialUpdate;
 
+        void clearScreen();
         void writeBatteryInfo();
         void writeThrottleInfo();
         void writeMotorInfo();
