@@ -27,16 +27,12 @@ AceButton aceButton(BUTTON_PIN);
 
 struct can_frame canMsg;
 
-unsigned long lastSerialUpdate;
-
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
 
 void setup()
 {
-  Serial.begin(9600);
-  Serial.println("armed,throttlePercentage,motorTemp,voltage,current,temp,rpm");
-
+  screen.init();
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
@@ -57,7 +53,6 @@ void loop()
   button.check();
 
   checkCanbus();
-  handleSerialLog();
   throttle.handle();
   motorTemp.handle();
   handleEsc();
@@ -66,43 +61,6 @@ void loop()
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
 {
   button.handleEvent(aceButton, eventType, buttonState);
-}
-
-void handleSerialLog() {
-  if (millis() - lastSerialUpdate < 1000) {
-    return;
-  }
-
-  lastSerialUpdate = millis();
-
-  Serial.print(throttle.isArmed());
-  Serial.print(",");
-
-  Serial.print(throttle.getThrottlePercentage());
-  Serial.print(",");
-
-  Serial.print(motorTemp.getTemperature());
-  Serial.print(",");
-
-  if (canbus.isReady()) {
-    Serial.print(canbus.getMiliVoltage());
-    Serial.print(",");
-
-    Serial.print(canbus.getMiliCurrent());
-    Serial.print(",");
-
-    Serial.print(canbus.getTemperature());
-    Serial.print(",");
-
-    Serial.print(canbus.getRpm());
-    Serial.print(",");
-  }
-
-  if (!canbus.isReady()) {
-    Serial.print(",,,,");
-  }
-
-  Serial.println();
 }
 
 void handleEsc()
