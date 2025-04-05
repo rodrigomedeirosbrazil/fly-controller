@@ -17,6 +17,8 @@ class Throttle {
 
         unsigned int getThrottlePercentage();
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
+        int getPinValueFiltered() { return pinValueFiltered; }
+        unsigned int getCalibratingStep() { return calibratingStep; }
 
     private:
 

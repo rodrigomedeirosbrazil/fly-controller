@@ -9,11 +9,7 @@
 #include "main.h"
 
 #include "Throttle/Throttle.h"
-
-#if ENABLED_DISPLAY
-  #include "Display/Display.h"
-  #include "Screen/Screen.h"
-#endif
+#include "SerialScreen/SerialScreen.h"
 
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
@@ -29,40 +25,24 @@ Canbus canbus(&mcp2515);
 Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
-
-#if ENABLED_DISPLAY
-  Display display;
-  Screen screen(&display, &throttle, &canbus, &motorTemp);
-#endif
+SerialScreen screen(&throttle, &canbus, &motorTemp);
 
 struct can_frame canMsg;
-
-unsigned long lastSerialUpdate;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
 
 void setup()
 {
-  Serial.begin(9600);
-  Serial.println("armed,throttlePercentage,motorTemp,voltage,current,temp,rpm");
-
+  screen.init();
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  #if ENABLED_DISPLAY
-    display.setBusClock(200000);
-    display.begin();
-    display.setFlipMode(0);
-  #endif
-
-  #if ENABLED_DISPLAY == false
-    pinMode(PIN_WIRE_SDA, OUTPUT);
-    pinMode(PIN_WIRE_SCL, OUTPUT);
-    digitalWrite(PIN_WIRE_SDA, LOW);
-    digitalWrite(PIN_WIRE_SCL, LOW);
-  #endif
+  pinMode(PIN_WIRE_SDA, OUTPUT);
+  pinMode(PIN_WIRE_SCL, OUTPUT);
+  digitalWrite(PIN_WIRE_SDA, LOW);
+  digitalWrite(PIN_WIRE_SCL, LOW);
 
   currentLimitReachedTime = 0;
   isCurrentLimitReached = false;
@@ -73,13 +53,8 @@ void setup()
 void loop()
 {
   button.check();
-
-  #if ENABLED_DISPLAY
-    screen.draw();
-  #endif
-  
+  screen.write();
   checkCanbus();
-  handleSerialLog();
   throttle.handle();
   motorTemp.handle();
   handleEsc();
@@ -88,43 +63,6 @@ void loop()
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
 {
   button.handleEvent(aceButton, eventType, buttonState);
-}
-
-void handleSerialLog() {
-  if (millis() - lastSerialUpdate < 1000) {
-    return;
-  }
-
-  lastSerialUpdate = millis();
-
-  Serial.print(throttle.isArmed());
-  Serial.print(",");
-
-  Serial.print(throttle.getThrottlePercentage());
-  Serial.print(",");
-
-  Serial.print(motorTemp.getTemperature());
-  Serial.print(",");
-
-  if (canbus.isReady()) {
-    Serial.print(canbus.getMiliVoltage());
-    Serial.print(",");
-
-    Serial.print(canbus.getMiliCurrent());
-    Serial.print(",");
-
-    Serial.print(canbus.getTemperature());
-    Serial.print(",");
-
-    Serial.print(canbus.getRpm());
-    Serial.print(",");
-  }
-
-  if (!canbus.isReady()) {
-    Serial.print(",,,,");
-  }
-
-  Serial.println();
 }
 
 void handleEsc()
@@ -159,9 +97,9 @@ void handleEsc()
     analizeTelemetryToThrottleOutput(
       throttle.getThrottlePercentage()
     ),
-    0, 
-    100, 
-    ESC_MIN_PWM, 
+    0,
+    100,
+    ESC_MIN_PWM,
     ESC_MAX_PWM
   );
 
@@ -170,7 +108,7 @@ void handleEsc()
   return;
 }
 
-void checkCanbus() 
+void checkCanbus()
 {
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
         canbus.parseCanMsg(&canMsg);
@@ -181,7 +119,7 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
 {
   #if ENABLED_LIMIT_THROTTLE
   if (
-    canbus.isReady() 
+    canbus.isReady()
     && canbus.getTemperature() >= ESC_MAX_TEMP)
   {
     throttle.cancelCruise();
@@ -204,7 +142,7 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
     : BATTERY_MAX_CURRENT * 10;
 
   if (
-    canbus.isReady() 
+    canbus.isReady()
     && canbus.getMiliCurrent() >= miliCurrentLimit
   ) {
     throttle.cancelCruise();
@@ -233,7 +171,7 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
 
   #endif
 
-  return throttle.isCruising() 
+  return throttle.isCruising()
       ? throttle.getCruisingThrottlePosition()
       : throttlePercentage;
 }
