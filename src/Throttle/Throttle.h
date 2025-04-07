@@ -1,11 +1,12 @@
 #ifndef Throttle_h
 #define Throttle_h
 
+#include "../Buzzer/Buzzer.h"
 #include "../config.h"
 
 class Throttle {
     public:
-        Throttle();
+        Throttle(Buzzer* buzzer);
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
@@ -21,6 +22,7 @@ class Throttle {
         unsigned int getCalibratingStep() { return calibratingStep; }
 
     private:
+        Buzzer* buzzer;
 
         const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;

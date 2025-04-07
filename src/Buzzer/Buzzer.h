@@ -6,14 +6,16 @@
 class Buzzer {
   private:
     uint8_t pin;
-    bool active;
+    bool playing;
     uint32_t startTime;
     uint16_t beepDuration;
     uint16_t pauseDuration;
     uint8_t repetitions;
-    uint8_t currentRep;
+    uint8_t currentRepetition;
+    bool isOn;
     
     void startBeep(uint16_t duration, uint8_t reps, uint16_t pause);
+    bool isPlaying() { return playing; };
     
   public:
     Buzzer(uint8_t buzzerPin);

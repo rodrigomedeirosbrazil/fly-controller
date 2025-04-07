@@ -6,10 +6,14 @@
 #include "../Throttle/Throttle.h"
 #include "../main.h"
 
-Button::Button(uint8_t pin, Throttle *throttle)
-{
+Button::Button(
+  uint8_t pin, 
+  Throttle *throttle,
+  Buzzer *buzzer
+) {
     this->pin = pin;
     this->throttle = throttle;
+    this->buzzer = buzzer;
     pinMode(pin, INPUT_PULLUP);
     aceButton.init(pin);
     releaseButtonTime = 0;
@@ -39,6 +43,8 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
       break;
     case AceButton::kEventReleased:
       if (buttonWasClicked) {
+        buzzer->beepCustom(100, 0);
+
         releaseButtonTime = millis();
         buttonWasClicked = false;
 

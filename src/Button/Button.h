@@ -5,13 +5,14 @@
 
 #include "../config.h"
 #include "../Throttle/Throttle.h"
+#include "../Buzzer/Buzzer.h"
 
 using namespace ace_button;
 
 class Button
 {
     public:
-        Button(uint8_t pin, Throttle *throttle);
+        Button(uint8_t pin, Throttle *throttle, Buzzer* buzzer);
         void check();
         void handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState);
 
@@ -20,6 +21,7 @@ class Button
 
         AceButton aceButton;
         Throttle *throttle;
+        Buzzer *buzzer;
         uint8_t pin;
         ButtonConfig* buttonConfig;
         unsigned long releaseButtonTime;

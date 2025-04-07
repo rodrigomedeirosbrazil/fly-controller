@@ -20,14 +20,14 @@ using namespace ace_button;
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
 
+Buzzer buzzer(BUZZER_PIN);
 Servo esc;
-Throttle throttle;
+Throttle throttle(&buzzer);
 Canbus canbus(&mcp2515);
-Button button(BUTTON_PIN, &throttle);
+Button button(BUTTON_PIN, &throttle, &buzzer);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
 SerialScreen screen(&throttle, &canbus, &motorTemp);
-Buzzer buzzer(BUZZER_PIN);
 
 struct can_frame canMsg;
 
@@ -51,6 +51,7 @@ void setup()
   isCurrentLimitReached = false;
 
   canbus.setLedColor(Canbus::ledColorRed);
+  buzzer.beepWarning();
 }
 
 void loop()
