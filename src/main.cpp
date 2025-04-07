@@ -13,6 +13,7 @@
 
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
+#include "Buzzer/Buzzer.h"
 
 using namespace ace_button;
 #include "Button/Button.h"
@@ -26,6 +27,7 @@ Button button(BUTTON_PIN, &throttle);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 AceButton aceButton(BUTTON_PIN);
 SerialScreen screen(&throttle, &canbus, &motorTemp);
+Buzzer buzzer(BUZZER_PIN);
 
 struct can_frame canMsg;
 
@@ -35,6 +37,7 @@ bool isCurrentLimitReached;
 void setup()
 {
   screen.init();
+  buzzer.setup();
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
@@ -57,6 +60,7 @@ void loop()
   checkCanbus();
   throttle.handle();
   motorTemp.handle();
+  buzzer.handle();
   handleEsc();
 }
 
