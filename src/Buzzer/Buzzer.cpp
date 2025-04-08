@@ -8,7 +8,7 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
   pauseDuration(0),
   repetitions(0),
   currentRepetition(0),
-  isOn(0) {}
+  isOn(false) {}
 
 void Buzzer::setup() {
   pinMode(pin, OUTPUT);
@@ -34,9 +34,9 @@ void Buzzer::handle() {
       startTime = currentTime;
       if (++currentRepetition >= repetitions) {
         stop();
+        return;
       }
     }
-
     return;
   } 
   
@@ -48,6 +48,10 @@ void Buzzer::handle() {
 }
 
 void Buzzer::startBeep(uint16_t duration, uint8_t reps, uint16_t pause) {
+  if (playing) {
+    stop();
+  }
+  
   beepDuration = duration;
   pauseDuration = pause;
   repetitions = reps;
@@ -75,8 +79,8 @@ void Buzzer::beepCustom(uint16_t duration, uint8_t repetitions) {
 }
 
 void Buzzer::stop() {
-  digitalWrite(pin, HIGH);
   playing = false;
   isOn = false;
   repetitions = 0;
+  digitalWrite(pin, HIGH);
 }
