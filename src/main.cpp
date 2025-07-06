@@ -125,7 +125,6 @@ unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
 {
   unsigned int limitedThrottle = power.limit(throttlePercentage);
 
-  #if ENABLED_LIMIT_THROTTLE
   return throttle.isCruising()
       ? throttle.getCruisingThrottlePosition()
       : limitedThrottle;
