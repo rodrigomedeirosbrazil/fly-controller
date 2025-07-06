@@ -10,7 +10,7 @@ class Canbus
         static const uint8_t ledColorGreen = 0x02;
         static const uint8_t ledColorBlue = 0x01;
 
-        Canbus(MCP2515 *mcp2515);
+        Canbus();
         void parseCanMsg(struct can_frame *canMsg);
         bool isReady();
         void setLedColor(uint8_t color);
@@ -22,8 +22,6 @@ class Canbus
 
 
     private:
-        MCP2515 *mcp2515;
-
         const uint8_t nodeId = 0x7F;
         const uint8_t escNodeId = 0x03;
 
@@ -62,7 +60,7 @@ class Canbus
         uint16_t getMiliVoltageFromPayload(uint8_t *payload);
         uint16_t getRpmFromPayload(uint8_t *payload);
         bool getDirectionCCWFromPayload(uint8_t *payload);
-        
+
         void sendMessage(
             uint8_t priority,
             uint8_t serviceTypeId,

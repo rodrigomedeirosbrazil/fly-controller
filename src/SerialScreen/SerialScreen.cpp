@@ -1,14 +1,7 @@
 #include <Arduino.h>
 #include "SerialScreen.h"
 
-SerialScreen::SerialScreen(
-    Throttle *throttle,
-    Canbus *canbus,
-    Temperature *motorTemp
-) {
-    this->throttle = throttle;
-    this->canbus = canbus;
-    this->motorTemp = motorTemp;
+SerialScreen::SerialScreen() {
     this->lastSerialUpdate = 0;
 }
 
@@ -36,7 +29,7 @@ void SerialScreen::write() {
     clearScreen();
 
     // Check if throttle needs calibration
-    if (!this->throttle->isCalibrated()) {
+    if (!throttle.isCalibrated()) {
         writeCalibrationInfo();
         return;
     }
@@ -55,8 +48,8 @@ void SerialScreen::write() {
 
 void SerialScreen::writeCalibrationInfo() {
     // Get the current filtered throttle value and calibrating step
-    int pinValueFiltered = this->throttle->getPinValueFiltered();
-    unsigned int calibratingStep = this->throttle->getCalibratingStep();
+    int pinValueFiltered = throttle.getPinValueFiltered();
+    unsigned int calibratingStep = throttle.getCalibratingStep();
 
     Serial.println("======== THROTTLE CALIBRATION MODE ========");
 
@@ -92,12 +85,12 @@ void SerialScreen::writeCalibrationInfo() {
 }
 
 void SerialScreen::writeBatteryInfo() {
-    if (!canbus->isReady()) {
+    if (!canbus.isReady()) {
         Serial.println("BAT: ---% | ---.-V");
         return;
     }
 
-    int batteryMilliVolts = canbus->getMiliVoltage();
+    int batteryMilliVolts = canbus.getMiliVoltage();
     int batteryPercentage = map(
         batteryMilliVolts,
         BATTERY_MIN_VOLTAGE,
@@ -115,7 +108,7 @@ void SerialScreen::writeBatteryInfo() {
 }
 
 void SerialScreen::writeThrottleInfo() {
-    unsigned int throttlePercentage = this->throttle->getThrottlePercentage();
+    unsigned int throttlePercentage = throttle.getThrottlePercentage();
 
     // Create a simple visual throttle bar - shorter to avoid wrapping
     Serial.print("THROTTLE: ");
@@ -135,36 +128,36 @@ void SerialScreen::writeThrottleInfo() {
 
 void SerialScreen::writeMotorInfo() {
     Serial.print("MOTOR: T: ");
-    Serial.print(motorTemp->getTemperature(), 0);
+    Serial.print(motorTemp.getTemperature(), 0);
     Serial.print("C | ");
 
-    if (!canbus->isReady()) {
+    if (!canbus.isReady()) {
         Serial.println("RPM: ---- | A: ---");
         return;
     }
 
     Serial.print("RPM: ");
-    Serial.print(canbus->getRpm());
+    Serial.print(canbus.getRpm());
     Serial.print(" | A: ");
-    Serial.print(canbus->getMiliCurrent() / 10.0, 0);
+    Serial.print(canbus.getMiliCurrent() / 10.0, 0);
     Serial.println("A");
 }
 
 void SerialScreen::writeEscInfo() {
     Serial.print("ESC: T: ");
 
-    if (!canbus->isReady()) {
+    if (!canbus.isReady()) {
         Serial.println("--C");
         return;
     }
 
-    Serial.print(canbus->getTemperature());
+    Serial.print(canbus.getTemperature());
     Serial.println("C");
 }
 
 void SerialScreen::writeSystemStatus() {
     Serial.print("STATUS: Armed:");
-    Serial.print(this->throttle->isArmed() ? "YES" : "NO");
+    Serial.print(throttle.isArmed() ? "YES" : "NO");
     Serial.print(" | Cruise:");
-    Serial.println(this->throttle->isCruising() ? "ON" : "OFF");
+    Serial.println(throttle.isCruising() ? "ON" : "OFF");
 }

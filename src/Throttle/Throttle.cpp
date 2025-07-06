@@ -3,11 +3,7 @@
 
 #include "../config.h"
 
-Throttle::Throttle(
-  Buzzer* buzzer
-) {
-  this->buzzer = buzzer;
-
+Throttle::Throttle() {
   memset(
     &pinValues,
     0,
@@ -71,7 +67,7 @@ void Throttle::handleCalibration(unsigned long now)
         // Set the max throttle value
         throttlePinMax = calibrationMaxValue;
 
-        buzzer->beepSuccess();
+        buzzer.beepSuccess();
 
         // Move to next step
         calibratingStep = 1;
@@ -101,7 +97,7 @@ void Throttle::handleCalibration(unsigned long now)
 
       // Check if we've held the throttle for the required time
       if (now - calibrationStartTime >= calibrationTime) {
-        buzzer->beepSuccess();
+        buzzer.beepSuccess();
 
         // Set the min throttle value
         throttlePinMin = calibrationMinValue;
@@ -221,19 +217,19 @@ void Throttle::setArmed()
   }
 
   if (getThrottlePercentage() > 0) {
-    buzzer->beepWarning();
+    buzzer.beepWarning();
     return;
   }
 
   throttleArmed = true;
-  buzzer->beepSuccess();
+  buzzer.beepSuccess();
 }
 
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
   cancelCruise();
-  buzzer->beepError();
+  buzzer.beepError();
 }
 
 void Throttle::cancelCruise()

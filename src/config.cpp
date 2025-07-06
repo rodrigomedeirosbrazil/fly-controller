@@ -7,11 +7,11 @@ MCP2515 mcp2515(CANBUS_CS_PIN);
 
 Buzzer buzzer(BUZZER_PIN);
 Servo esc;
-Throttle throttle(&buzzer);
-Canbus canbus(&mcp2515);
-Button button(BUTTON_PIN, &throttle, &buzzer);
+Throttle throttle;
+Canbus canbus;
+Button button(BUTTON_PIN);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
-SerialScreen screen(&throttle, &canbus, &motorTemp);
+SerialScreen screen;
 
 unsigned long currentLimitReachedTime = 0;
 bool isCurrentLimitReached = false;

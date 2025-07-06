@@ -10,19 +10,11 @@ class Temperature;
 class SerialScreen
 {
     public:
-        SerialScreen(
-            Throttle* throttle,
-            Canbus* canbus,
-            Temperature* motorTemp
-        );
+        SerialScreen();
         void init(unsigned long baudRate = 9600);
         void write();
 
     private:
-        Throttle* throttle;
-        Canbus* canbus;
-        Temperature* motorTemp;
-
         unsigned long lastSerialUpdate;
 
         void clearScreen();
