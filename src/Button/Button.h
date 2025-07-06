@@ -2,10 +2,10 @@
 #define Button_h
 
 #include <AceButton.h>
-
 #include "../config.h"
-#include "../Throttle/Throttle.h"
-#include "../Buzzer/Buzzer.h"
+
+class Throttle;
+class Buzzer;
 
 using namespace ace_button;
 

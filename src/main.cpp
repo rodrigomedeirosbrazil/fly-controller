@@ -19,24 +19,6 @@
 using namespace ace_button;
 #include "Button/Button.h"
 
-MCP2515 mcp2515(CANBUS_CS_PIN);
-
-Buzzer buzzer(BUZZER_PIN);
-Servo esc;
-Throttle throttle(&buzzer);
-Canbus canbus(&mcp2515);
-Button button(BUTTON_PIN, &throttle, &buzzer);
-Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
-AceButton aceButton(BUTTON_PIN);
-SerialScreen screen(&throttle, &canbus, &motorTemp);
-
-struct can_frame canMsg;
-
-unsigned long currentLimitReachedTime;
-bool isCurrentLimitReached;
-
-Power power(ESC_MIN_PWM, ESC_MAX_PWM);
-
 void setup()
 {
   screen.init();
