@@ -101,12 +101,11 @@ void handleEsc()
   pulseWidth = map(
     analizeTelemetryToThrottleOutput(
       throttle.getThrottlePercentage()
-    )
-  ),
-  0,
-  100,
-  ESC_MIN_PWM,
-  ESC_MAX_PWM
+    ),
+    0,
+    100,
+    ESC_MIN_PWM,
+    ESC_MAX_PWM
   );
 
   esc.writeMicroseconds(pulseWidth);
@@ -123,9 +122,7 @@ void checkCanbus()
 
 unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
 {
-  unsigned int limitedThrottle = power.limit(throttlePercentage);
-
   return throttle.isCruising()
       ? throttle.getCruisingThrottlePosition()
-      : limitedThrottle;
+      : throttlePercentage;
 }
