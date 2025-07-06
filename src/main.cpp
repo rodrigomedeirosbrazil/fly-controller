@@ -99,9 +99,7 @@ void handleEsc()
   int pulseWidth = ESC_MIN_PWM;
 
   pulseWidth = map(
-    analizeTelemetryToThrottleOutput(
-      throttle.getThrottlePercentage()
-    ),
+    throttle.getThrottlePercentage(),
     0,
     100,
     ESC_MIN_PWM,
@@ -118,11 +116,4 @@ void checkCanbus()
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
         canbus.parseCanMsg(&canMsg);
     }
-}
-
-unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
-{
-  return throttle.isCruising()
-      ? throttle.getCruisingThrottlePosition()
-      : throttlePercentage;
 }
