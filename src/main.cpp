@@ -14,6 +14,7 @@
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
+#include "Power/Power.h"
 
 using namespace ace_button;
 #include "Button/Button.h"
@@ -33,6 +34,8 @@ struct can_frame canMsg;
 
 unsigned long currentLimitReachedTime;
 bool isCurrentLimitReached;
+
+Power power(ESC_MIN_PWM, ESC_MAX_PWM);
 
 void setup()
 {
@@ -62,6 +65,20 @@ void loop()
   throttle.handle();
   motorTemp.handle();
   buzzer.handle();
+
+  // Atualiza o limitador de potência
+  float batteryPercent = 100.0f * canbus.getMiliVoltage() / BATTERY_MAX_VOLTAGE;
+  float escTemp = canbus.getTemperature();
+  float motorTempVal = motorTemp.getTemperature();
+  float current = canbus.getMiliCurrent();
+  power.update(
+    throttle.getThrottlePercentage(),
+    batteryPercent,
+    escTemp,
+    motorTempVal,
+    current
+  );
+
   handleEsc();
 }
 
@@ -96,18 +113,9 @@ void handleEsc()
     canbus.setLedColor(Canbus::ledColorGreen);
   }
 
-  int pulseWidth = ESC_MIN_PWM;
-
-  pulseWidth = map(
-    throttle.getThrottlePercentage(),
-    0,
-    100,
-    ESC_MIN_PWM,
-    ESC_MAX_PWM
-  );
-
+  // PWM limitado pela classe Power
+  int pulseWidth = power.getPwm();
   esc.writeMicroseconds(pulseWidth);
-
   return;
 }
 
