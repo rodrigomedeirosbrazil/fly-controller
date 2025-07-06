@@ -101,11 +101,12 @@ void handleEsc()
   pulseWidth = map(
     analizeTelemetryToThrottleOutput(
       throttle.getThrottlePercentage()
-    ),
-    0,
-    100,
-    ESC_MIN_PWM,
-    ESC_MAX_PWM
+    )
+  ),
+  0,
+  100,
+  ESC_MIN_PWM,
+  ESC_MAX_PWM
   );
 
   esc.writeMicroseconds(pulseWidth);
@@ -122,61 +123,10 @@ void checkCanbus()
 
 unsigned int analizeTelemetryToThrottleOutput(unsigned int throttlePercentage)
 {
+  unsigned int limitedThrottle = power.limit(throttlePercentage);
+
   #if ENABLED_LIMIT_THROTTLE
-  if (
-    canbus.isReady()
-    && canbus.getTemperature() >= ESC_MAX_TEMP)
-  {
-    throttle.cancelCruise();
-
-    return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-      ? throttlePercentage
-      : THROTTLE_RECOVERY_PERCENTAGE;
-  }
-
-  if (motorTemp.getTemperature() >= MOTOR_MAX_TEMP) {
-    throttle.cancelCruise();
-
-    return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-      ? throttlePercentage
-      : THROTTLE_RECOVERY_PERCENTAGE;
-  }
-
-  unsigned int miliCurrentLimit = ESC_MAX_CURRENT < BATTERY_MAX_CURRENT
-    ? ESC_MAX_CURRENT * 10
-    : BATTERY_MAX_CURRENT * 10;
-
-  if (
-    canbus.isReady()
-    && canbus.getMiliCurrent() >= miliCurrentLimit
-  ) {
-    throttle.cancelCruise();
-
-    if (!isCurrentLimitReached) {
-      isCurrentLimitReached = true;
-      currentLimitReachedTime = millis();
-      return throttlePercentage;
-    }
-
-    if (millis() - currentLimitReachedTime > 10000) {
-      return throttlePercentage < THROTTLE_RECOVERY_PERCENTAGE
-        ? throttlePercentage
-        : THROTTLE_RECOVERY_PERCENTAGE;
-    }
-
-    if (millis() - currentLimitReachedTime > 3000) {
-      return throttlePercentage - 10;
-    }
-
-    return throttlePercentage;
-  }
-
-  isCurrentLimitReached = false;
-  currentLimitReachedTime = 0;
-
-  #endif
-
   return throttle.isCruising()
       ? throttle.getCruisingThrottlePosition()
-      : throttlePercentage;
+      : limitedThrottle;
 }
