@@ -31,7 +31,9 @@ unsigned int Power::getPower() {
 
 unsigned int Power::calcPower() {
     unsigned int batteryLimit = calcBatteryLimit();
-    return batteryLimit;
+    unsigned int motorTempLimit = calcMotorTempLimit();
+
+    return min(batteryLimit, motorTempLimit);
 }
 
 unsigned int Power::calcBatteryLimit() {
@@ -61,3 +63,18 @@ unsigned int Power::calcBatteryLimit() {
     );
 }
 
+unsigned int Power::calcMotorTempLimit() {
+   double readedMotorTemp = motorTemp.getTemperature();
+
+   if (readedMotorTemp < MOTOR_MAX_TEMP - 10) {
+        return 100;
+   }
+
+   return map(
+        readedMotorTemp,
+        MOTOR_MAX_TEMP - 10,
+        MOTOR_MAX_TEMP,
+        100,
+        0
+    );
+}
