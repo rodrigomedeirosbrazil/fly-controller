@@ -30,7 +30,34 @@ unsigned int Power::getPower() {
 }
 
 unsigned int Power::calcPower() {
-    return 100;
+    unsigned int batteryLimit = calcBatteryLimit();
+    return batteryLimit;
 }
 
+unsigned int Power::calcBatteryLimit() {
+    if (!canbus.isReady()) {
+        return 0;
+    }
+
+    int batteryMilliVolts = canbus.getMiliVoltage();
+    int batteryPercentage = map(
+        batteryMilliVolts,
+        BATTERY_MIN_VOLTAGE,
+        BATTERY_MAX_VOLTAGE,
+        0,
+        100
+    );
+
+    if (batteryPercentage > 10) {
+        return 100;
+    }
+
+    return map(
+        batteryPercentage,
+        0,
+        10,
+        100,
+        0
+    );
+}
 

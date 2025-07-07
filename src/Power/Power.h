@@ -18,6 +18,7 @@ private:
     unsigned int power;
 
     unsigned int calcPower();
+    unsigned int calcBatteryLimit();
 };
 
 #endif // POWER_H
