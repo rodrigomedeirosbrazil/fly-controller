@@ -75,7 +75,6 @@ void handleEsc()
 
   int pulseWidth = power.getPwm();
   esc.writeMicroseconds(pulseWidth);
-  return;
 }
 
 void checkCanbus()

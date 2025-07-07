@@ -9,10 +9,15 @@ class Temperature;
 
 class Power {
 public:
-    int getPwm();
+    unsigned int getPwm();
+    unsigned int getPower();
 
 private:
     long lastPowerCalculationTime;
+    unsigned int pwm;
+    unsigned int power;
+
+    unsigned int calcPower();
 };
 
 #endif // POWER_H
