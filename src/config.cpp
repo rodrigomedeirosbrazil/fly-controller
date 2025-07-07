@@ -15,5 +15,5 @@ SerialScreen screen;
 
 unsigned long currentLimitReachedTime = 0;
 bool isCurrentLimitReached = false;
-Power power(ESC_MIN_PWM, ESC_MAX_PWM);
+Power power;
 struct can_frame canMsg;

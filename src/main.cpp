@@ -48,19 +48,6 @@ void loop()
   motorTemp.handle();
   buzzer.handle();
 
-  // Atualiza o limitador de potência
-  float batteryPercent = 100.0f * canbus.getMiliVoltage() / BATTERY_MAX_VOLTAGE;
-  float escTemp = canbus.getTemperature();
-  float motorTempVal = motorTemp.getTemperature();
-  float current = canbus.getMiliCurrent();
-  power.update(
-    throttle.getThrottlePercentage(),
-    batteryPercent,
-    escTemp,
-    motorTempVal,
-    current
-  );
-
   handleEsc();
 }
 
@@ -71,15 +58,6 @@ void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonSt
 
 void handleEsc()
 {
-  if (canbus.isReady() && canbus.getMiliVoltage() <= BATTERY_MIN_VOLTAGE)
-  {
-    if (esc.attached()) {
-      esc.detach();
-      canbus.setLedColor(Canbus::ledColorRed);
-    }
-    return;
-  }
-
   if (!throttle.isArmed())
   {
     if (esc.attached()) {
@@ -95,7 +73,6 @@ void handleEsc()
     canbus.setLedColor(Canbus::ledColorGreen);
   }
 
-  // PWM limitado pela classe Power
   int pulseWidth = power.getPwm();
   esc.writeMicroseconds(pulseWidth);
   return;
