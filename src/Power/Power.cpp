@@ -58,8 +58,8 @@ unsigned int Power::calcBatteryLimit() {
         batteryPercentage,
         0,
         10,
-        100,
-        0
+        0,
+        100
     );
 }
 

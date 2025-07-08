@@ -6,8 +6,8 @@ using namespace std;
 // Mocked constants
 #define ESC_MIN_PWM 1000
 #define ESC_MAX_PWM 2000
-#define BATTERY_MIN_VOLTAGE 3300
-#define BATTERY_MAX_VOLTAGE 4200
+#define BATTERY_MIN_VOLTAGE 462
+#define BATTERY_MAX_VOLTAGE 588
 #define MOTOR_MAX_TEMP 80
 
 // Mocked dependencies
@@ -79,15 +79,17 @@ public:
             0,
             100
         );
+
         if (batteryPercentage > 10) {
             return 100;
         }
+
         return map(
             batteryPercentage,
             0,
             10,
-            100,
-            0
+            0,
+            100
         );
     }
 
@@ -122,12 +124,13 @@ void test_calcBatteryLimit() {
     p.canbus.ready = false;
     assert(p.calcBatteryLimit() == 0);
     p.canbus.ready = true;
-    p.canbus.voltage = 4200;
+    p.canbus.voltage = BATTERY_MAX_VOLTAGE; // 588 (58.8V)
     assert(p.calcBatteryLimit() == 100);
-    p.canbus.voltage = 3300;
-    assert(p.calcBatteryLimit() == 100);
-    p.canbus.voltage = 3500;
-    assert(p.calcBatteryLimit() == 100);
+    p.canbus.voltage = BATTERY_MIN_VOLTAGE; // 462 (46.2V)
+    assert(p.calcBatteryLimit() == 0);
+    // 5% battery: x = BATTERY_MIN_VOLTAGE + 0.05 * (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE)
+    p.canbus.voltage = (BATTERY_MIN_VOLTAGE + (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE) * 0.05) + 1; // 5% value
+    assert(p.calcBatteryLimit() == 50);
     std::cout << "test_calcBatteryLimit passed\n";
 }
 
