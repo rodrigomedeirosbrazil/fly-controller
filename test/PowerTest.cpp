@@ -8,7 +8,7 @@ using namespace std;
 #define ESC_MAX_PWM 2000
 #define BATTERY_MIN_VOLTAGE 462
 #define BATTERY_MAX_VOLTAGE 588
-#define MOTOR_MAX_TEMP 80
+#define MOTOR_MAX_TEMP 60
 
 // Mocked dependencies
 struct MockCanbus {
@@ -137,12 +137,14 @@ void test_calcBatteryLimit() {
 void test_calcMotorTempLimit() {
     Power p;
     p.motorTemp.temp = 60;
-    assert(p.calcMotorTempLimit() == 100);
-    p.motorTemp.temp = 80;
+
     assert(p.calcMotorTempLimit() == 0);
-    p.motorTemp.temp = 75;
-    int limit = p.calcMotorTempLimit();
-    assert(limit < 100 && limit > 0);
+    p.motorTemp.temp = 50;
+    assert(p.calcMotorTempLimit() == 100);
+    p.motorTemp.temp = 55;
+    std::cout << "Motor temp: " << p.motorTemp.temp << std::endl;
+    std::cout << "Motor temp limit power: " << p.calcMotorTempLimit() << std::endl;
+    assert(p.calcMotorTempLimit() == 50);
     std::cout << "test_calcMotorTempLimit passed\n";
 }
 
