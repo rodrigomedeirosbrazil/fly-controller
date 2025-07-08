@@ -9,6 +9,7 @@ class Temperature;
 
 class Power {
 public:
+    Power();
     unsigned int getPwm();
     unsigned int getPower();
 

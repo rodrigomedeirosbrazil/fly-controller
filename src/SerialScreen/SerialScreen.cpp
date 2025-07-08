@@ -109,21 +109,16 @@ void SerialScreen::writeBatteryInfo() {
 
 void SerialScreen::writeThrottleInfo() {
     unsigned int throttlePercentage = throttle.getThrottlePercentage();
+    unsigned int powerPercentage = power.getPower();
 
     // Create a simple visual throttle bar - shorter to avoid wrapping
     Serial.print("THROTTLE: ");
     Serial.print(throttlePercentage);
-    Serial.print("% [");
+    Serial.print("%");
 
-    const unsigned int barSegments = 20;
-    for (unsigned int i = 0; i < barSegments; i++) {
-        if (i < (throttlePercentage * barSegments / 100)) {
-            Serial.print("=");
-        } else {
-            Serial.print(" ");
-        }
-    }
-    Serial.println("]");
+    Serial.print(" POWER: ");
+    Serial.print(powerPercentage);
+    Serial.println("%");
 }
 
 void SerialScreen::writeMotorInfo() {

@@ -6,6 +6,7 @@
 class Throttle;
 class Canbus;
 class Temperature;
+class Power;
 
 class SerialScreen
 {
