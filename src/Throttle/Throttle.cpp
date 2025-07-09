@@ -14,11 +14,7 @@ Throttle::Throttle() {
   lastThrottleRead = 0;
 
   throttleArmed = false;
-  calibrated = false;
-  calibratingStep = 0;
-  calibrationStartTime = 0;
-  calibrationMaxValue = 0;
-  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
+  resetCalibration();
 
   cruising = false;
   cruisingThrottlePosition = 0;
@@ -27,6 +23,8 @@ Throttle::Throttle() {
 
   throttlePinMin = 0;
   throttlePinMax = 0;
+
+  armingTries = 0;
 }
 
 void Throttle::handle()
@@ -44,6 +42,15 @@ void Throttle::handle()
   if (!calibrated) {
     handleCalibration(now);
   }
+}
+
+void Throttle::resetCalibration()
+{
+  calibrated = false;
+  calibratingStep = 0;
+  calibrationStartTime = 0;
+  calibrationMaxValue = 0;
+  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -218,6 +225,13 @@ void Throttle::setArmed()
 
   if (getThrottlePercentage() > 0) {
     buzzer.beepWarning();
+    armingTries++;
+
+    if (armingTries > 2) {
+      armingTries = 0;
+      resetCalibration();
+    }
+
     return;
   }
 

@@ -45,11 +45,14 @@ class Throttle {
         int calibrationMaxValue;
         int calibrationMinValue;
 
+        unsigned int armingTries;
+
         int throttlePinMin;
         int throttlePinMax;
 
         void readThrottlePin();
         void checkIfChangedCruiseState();
+        void resetCalibration();
         void handleCalibration(unsigned long now);
 };
 
