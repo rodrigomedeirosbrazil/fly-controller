@@ -54,13 +54,15 @@ unsigned int Power::calcBatteryLimit() {
         return 100;
     }
 
-    return map(
+    int mapped = map(
         batteryPercentage,
         0,
         10,
         0,
         100
     );
+
+    return constrain(mapped, 0, 100);
 }
 
 unsigned int Power::calcMotorTempLimit() {
@@ -70,11 +72,13 @@ unsigned int Power::calcMotorTempLimit() {
         return 100;
    }
 
-   return map(
+   int mapped = map(
         readedMotorTemp,
         MOTOR_MAX_TEMP - 10,
         MOTOR_MAX_TEMP,
         100,
         0
     );
+
+   return constrain(mapped, 0, 100);
 }
