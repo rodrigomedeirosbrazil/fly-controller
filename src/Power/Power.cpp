@@ -83,13 +83,15 @@ unsigned int Power::calcMotorTempLimit() {
         return 100;
    }
 
-   int mapped = map(
-        readedMotorTemp,
-        MOTOR_MAX_TEMP - 10,
-        MOTOR_MAX_TEMP,
-        100,
-        0
+   return constrain(
+        map(
+            readedMotorTemp,
+            MOTOR_MAX_TEMP - 10,
+            MOTOR_MAX_TEMP,
+            100,
+            0
+        ),
+        0,
+        100
     );
-
-   return constrain(mapped, 0, 100);
 }
