@@ -4,6 +4,7 @@ Power::Power() {
     lastPowerCalculationTime = 0;
     pwm = ESC_MIN_PWM;
     power = 100;
+    batteryPowerFloor = 100;
 }
 
 unsigned int Power::getPwm() {
@@ -54,15 +55,25 @@ unsigned int Power::calcBatteryLimit() {
         return 100;
     }
 
-    int mapped = map(
-        batteryPercentage,
-        0,
-        10,
+    int powerPercentage = constrain(
+        map(
+            batteryPercentage,
+            0,
+            10,
+            0,
+            100
+        ),
         0,
         100
     );
 
-    return constrain(mapped, 0, 100);
+    if (powerPercentage > batteryPowerFloor) {
+        return batteryPowerFloor;
+    }
+
+    batteryPowerFloor = powerPercentage;
+
+    return powerPercentage;
 }
 
 unsigned int Power::calcMotorTempLimit() {

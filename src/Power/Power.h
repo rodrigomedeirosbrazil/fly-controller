@@ -12,11 +12,13 @@ public:
     Power();
     unsigned int getPwm();
     unsigned int getPower();
+    void resetBatteryPowerFloor();
 
 private:
     long lastPowerCalculationTime;
     unsigned int pwm;
     unsigned int power;
+    unsigned int batteryPowerFloor;
 
     unsigned int calcPower();
     unsigned int calcBatteryLimit();

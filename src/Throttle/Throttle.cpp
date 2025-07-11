@@ -214,6 +214,7 @@ unsigned int Throttle::getThrottlePercentage()
 
 void Throttle::setArmed()
 {
+  power.resetBatteryPowerFloor();
   if (throttleArmed) {
     return;
   }
