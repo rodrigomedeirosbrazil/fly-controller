@@ -55,7 +55,7 @@ unsigned int Power::calcBatteryLimit() {
         return 100;
     }
 
-    int powerPercentage = constrain(
+    unsigned int powerPercentage = constrain(
         map(
             batteryPercentage,
             0,
@@ -94,4 +94,8 @@ unsigned int Power::calcMotorTempLimit() {
         0,
         100
     );
+}
+
+void Power::resetBatteryPowerFloor() {
+    batteryPowerFloor = 100;
 }
