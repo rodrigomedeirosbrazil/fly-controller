@@ -3,11 +3,7 @@
 
 #include "../config.h"
 
-Throttle::Throttle(
-  Buzzer* buzzer
-) {
-  this->buzzer = buzzer;
-
+Throttle::Throttle() {
   memset(
     &pinValues,
     0,
@@ -18,11 +14,7 @@ Throttle::Throttle(
   lastThrottleRead = 0;
 
   throttleArmed = false;
-  calibrated = false;
-  calibratingStep = 0;
-  calibrationStartTime = 0;
-  calibrationMaxValue = 0;
-  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
+  resetCalibration();
 
   cruising = false;
   cruisingThrottlePosition = 0;
@@ -31,6 +23,8 @@ Throttle::Throttle(
 
   throttlePinMin = 0;
   throttlePinMax = 0;
+
+  armingTries = 0;
 }
 
 void Throttle::handle()
@@ -48,6 +42,15 @@ void Throttle::handle()
   if (!calibrated) {
     handleCalibration(now);
   }
+}
+
+void Throttle::resetCalibration()
+{
+  calibrated = false;
+  calibratingStep = 0;
+  calibrationStartTime = 0;
+  calibrationMaxValue = 0;
+  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -71,7 +74,7 @@ void Throttle::handleCalibration(unsigned long now)
         // Set the max throttle value
         throttlePinMax = calibrationMaxValue;
 
-        buzzer->beepSuccess();
+        buzzer.beepSuccess();
 
         // Move to next step
         calibratingStep = 1;
@@ -101,7 +104,7 @@ void Throttle::handleCalibration(unsigned long now)
 
       // Check if we've held the throttle for the required time
       if (now - calibrationStartTime >= calibrationTime) {
-        buzzer->beepSuccess();
+        buzzer.beepSuccess();
 
         // Set the min throttle value
         throttlePinMin = calibrationMinValue;
@@ -221,19 +224,26 @@ void Throttle::setArmed()
   }
 
   if (getThrottlePercentage() > 0) {
-    buzzer->beepWarning();
+    buzzer.beepWarning();
+    armingTries++;
+
+    if (armingTries > 2) {
+      armingTries = 0;
+      resetCalibration();
+    }
+
     return;
   }
 
   throttleArmed = true;
-  buzzer->beepSuccess();
+  buzzer.beepSuccess();
 }
 
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
   cancelCruise();
-  buzzer->beepError();
+  buzzer.beepError();
 }
 
 void Throttle::cancelCruise()

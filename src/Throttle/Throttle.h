@@ -6,7 +6,7 @@
 
 class Throttle {
     public:
-        Throttle(Buzzer* buzzer);
+        Throttle();
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
@@ -22,8 +22,6 @@ class Throttle {
         unsigned int getCalibratingStep() { return calibratingStep; }
 
     private:
-        Buzzer* buzzer;
-
         const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
@@ -47,11 +45,14 @@ class Throttle {
         int calibrationMaxValue;
         int calibrationMinValue;
 
+        unsigned int armingTries;
+
         int throttlePinMin;
         int throttlePinMax;
 
         void readThrottlePin();
         void checkIfChangedCruiseState();
+        void resetCalibration();
         void handleCalibration(unsigned long now);
 };
 

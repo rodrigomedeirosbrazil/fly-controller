@@ -5,9 +5,7 @@
 #include "../config.h"
 #include "Canbus.h"
 
-Canbus::Canbus(MCP2515 *mcp2515) {
-    this->mcp2515 = mcp2515;
-
+Canbus::Canbus() {
     lastReadStatusMsg1 = 0;
     lastReadStatusMsg2 = 0;
     transferId = 0;
@@ -35,7 +33,7 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
 
         return;
     }
-    
+
     uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->can_dlc);
 
     if (
@@ -58,10 +56,10 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
 }
 
 bool Canbus::isReady() {
-    return 
+    return
         lastReadStatusMsg1 != 0
         && lastReadStatusMsg2 != 0
-        && millis() - lastReadStatusMsg1 < 1000 
+        && millis() - lastReadStatusMsg1 < 1000
         && millis() - lastReadStatusMsg2 < 1000;
 }
 
@@ -196,10 +194,10 @@ void Canbus::sendMessage(
 
     uint8_t requestNotResponse = 0x01;
     uint8_t isServiceFrame = 0x01;
-    
-    canMsg.can_id = ((uint32_t)priority << 24) 
+
+    canMsg.can_id = ((uint32_t)priority << 24)
         | ((uint32_t)serviceTypeId << 16)
-        | ((uint32_t)requestNotResponse << 15) 
+        | ((uint32_t)requestNotResponse << 15)
         | ((uint32_t)destNodeId << 8)
         | ((uint32_t)isServiceFrame << 7)
         | (uint32_t)nodeId;
@@ -211,7 +209,7 @@ void Canbus::sendMessage(
 
     canMsg.data[payloadLength] = 0xC0 | (transferId & 31); // tail byte
 
-    mcp2515->sendMessage(&canMsg);
+    mcp2515.sendMessage(&canMsg);
 
     transferId += 1;
 }

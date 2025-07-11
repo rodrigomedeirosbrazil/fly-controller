@@ -2,17 +2,17 @@
 #define Button_h
 
 #include <AceButton.h>
-
 #include "../config.h"
-#include "../Throttle/Throttle.h"
-#include "../Buzzer/Buzzer.h"
+
+class Throttle;
+class Buzzer;
 
 using namespace ace_button;
 
 class Button
 {
     public:
-        Button(uint8_t pin, Throttle *throttle, Buzzer* buzzer);
+        Button(uint8_t pin);
         void check();
         void handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState);
 
@@ -20,8 +20,6 @@ class Button
         const static unsigned long longClickThreshold = 3500;
 
         AceButton aceButton;
-        Throttle *throttle;
-        Buzzer *buzzer;
         uint8_t pin;
         ButtonConfig* buttonConfig;
         unsigned long releaseButtonTime;

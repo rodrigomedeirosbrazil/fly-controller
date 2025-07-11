@@ -7,13 +7,9 @@
 #include "../main.h"
 
 Button::Button(
-  uint8_t pin, 
-  Throttle *throttle,
-  Buzzer *buzzer
+  uint8_t pin
 ) {
     this->pin = pin;
-    this->throttle = throttle;
-    this->buzzer = buzzer;
     pinMode(pin, INPUT_PULLUP);
     aceButton.init(pin);
     releaseButtonTime = 0;
@@ -31,7 +27,7 @@ Button::Button(
 }
 
 void Button::check()
-{  
+{
     aceButton.check();
 }
 
@@ -43,34 +39,34 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
       break;
     case AceButton::kEventReleased:
       if (buttonWasClicked) {
-        buzzer->beepCustom(100, 0);
+        buzzer.beepCustom(100, 0);
 
         releaseButtonTime = millis();
         buttonWasClicked = false;
 
-        if (throttle->isCruising()) {
-          throttle->cancelCruise();
+        if (throttle.isCruising()) {
+          throttle.cancelCruise();
           break;
         }
 
-        if (throttle->isArmed() && !throttle->isCruising()) {
-          throttle->setCruising(throttle->getThrottlePercentage());
+        if (throttle.isArmed() && !throttle.isCruising()) {
+          throttle.setCruising(throttle.getThrottlePercentage());
           break;
         }
       }
       break;
     case AceButton::kEventLongPressed:
       if (
-        !buttonWasClicked 
+        !buttonWasClicked
         && (millis() - releaseButtonTime <= longClickThreshold)
-        && !throttle->isArmed()
+        && !throttle.isArmed()
       ) {
-        throttle->setArmed();
+        throttle.setArmed();
         break;
       }
-      
-      if (throttle->isArmed()) {
-        throttle->setDisarmed();
+
+      if (throttle.isArmed()) {
+        throttle.setDisarmed();
       }
       break;
   }
