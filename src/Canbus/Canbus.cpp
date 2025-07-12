@@ -109,7 +109,7 @@ bool Canbus::isServiceFrame(uint32_t canId) {
 }
 
 bool Canbus::isRequestFrame(uint32_t canId) {
-    return (canId & 0x80) >> 15 == 1;
+    return (canId & 0x8000) != 0;
 }
 
 uint8_t Canbus::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
@@ -192,24 +192,36 @@ void Canbus::sendMessage(
 ) {
     struct can_frame canMsg;
 
-    uint8_t requestNotResponse = 0x01;
-    uint8_t isServiceFrame = 0x01;
+    // DroneCAN CAN ID structure for a service frame (request)
+    // [28:26] Priority (3 bits)
+    // [25:16] Service ID (10 bits)
+    // [15]    Request/Response (1 bit, 1 for request)
+    // [14:8]  Destination Node ID (7 bits)
+    // [7]     Service/Message (1 bit, 1 for service)
+    // [6:0]   Source Node ID (7 bits)
 
-    canMsg.can_id = ((uint32_t)priority << 24)
-        | ((uint32_t)serviceTypeId << 16)
-        | ((uint32_t)requestNotResponse << 15)
-        | ((uint32_t)destNodeId << 8)
-        | ((uint32_t)isServiceFrame << 7)
-        | (uint32_t)nodeId;
+    uint32_t canId = 0;
+    canId |= ((uint32_t)(priority & 0x07)) << 26;
+    canId |= ((uint32_t)(serviceTypeId & 0x03FF)) << 16;
+    canId |= (1U << 15); // Request, not response
+    canId |= ((uint32_t)(destNodeId & 0x7F)) << 8;
+    canId |= (1U << 7);  // Service, not message
+    canId |= (uint32_t)(nodeId & 0x7F);
+
+    // The MCP2515 library requires the CAN_EFF_FLAG to be set for extended frames.
+    // The 29-bit DroneCAN ID is placed in the lower bits of the can_id field.
+    canMsg.can_id = canId | CAN_EFF_FLAG;
 
     canMsg.can_dlc = payloadLength + 1;
     for (uint8_t i = 0; i < payloadLength; i++) {
         canMsg.data[i] = payload[i];
     }
 
-    canMsg.data[payloadLength] = 0xC0 | (transferId & 31); // tail byte
+    // Tail byte for a single-frame transfer:
+    // SOF=1, EOF=1, Toggle=0, Transfer ID (5 bits)
+    canMsg.data[payloadLength] = 0xC0 | (transferId & 0x1F);
 
     mcp2515.sendMessage(&canMsg);
 
-    transferId += 1;
+    transferId++;
 }
