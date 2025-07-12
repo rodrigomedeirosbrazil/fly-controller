@@ -43,37 +43,19 @@ unsigned int Power::calcBatteryLimit() {
     }
 
     int batteryMilliVolts = canbus.getMiliVoltage();
-    int batteryPercentage = map(
-        batteryMilliVolts,
-        BATTERY_MIN_VOLTAGE,
-        BATTERY_MAX_VOLTAGE,
-        0,
-        100
-    );
 
-    if (batteryPercentage > 10) {
-        return 100;
-    }
-
-    unsigned int powerPercentage = constrain(
-        map(
-            batteryPercentage,
-            0,
-            10,
-            0,
-            100
-        ),
-        0,
-        100
-    );
-
-    if (powerPercentage > batteryPowerFloor) {
+    if (batteryMilliVolts > BATTERY_MIN_VOLTAGE) {
         return batteryPowerFloor;
     }
 
-    batteryPowerFloor = powerPercentage;
+    if (batteryPowerFloor < 10) {
+        batteryPowerFloor = 0;
+        return batteryPowerFloor;
+    }
 
-    return powerPercentage;
+    batteryPowerFloor = batteryPowerFloor - 10;
+
+    return batteryPowerFloor;
 }
 
 unsigned int Power::calcMotorTempLimit() {

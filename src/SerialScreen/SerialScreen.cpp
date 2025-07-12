@@ -111,7 +111,6 @@ void SerialScreen::writeThrottleInfo() {
     unsigned int throttlePercentage = throttle.getThrottlePercentage();
     unsigned int powerPercentage = power.getPower();
 
-    // Create a simple visual throttle bar - shorter to avoid wrapping
     Serial.print("THROTTLE: ");
     Serial.print(throttlePercentage);
     Serial.print("%");
