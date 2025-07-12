@@ -103,7 +103,7 @@ void SerialScreen::writeBatteryInfo() {
     Serial.print(batteryPercentage);
 
     Serial.print("% | ");
-    Serial.print(batteryMilliVolts / 10.0, 1);
+    Serial.print(batteryMilliVolts / 1000.0, 2);
     Serial.println("V");
 }
 

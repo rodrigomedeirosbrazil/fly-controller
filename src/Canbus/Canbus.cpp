@@ -141,7 +141,8 @@ uint16_t Canbus::getMiliCurrentFromPayload(uint8_t *payload) {
 }
 
 uint16_t Canbus::getMiliVoltageFromPayload(uint8_t *payload) {
-    return (payload[1] << 8) | payload[0];
+    // The original value is in decivolts, convert to millivolts
+    return (((payload[1] << 8) | payload[0]) * 10);
 }
 
 uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
