@@ -16,8 +16,8 @@ class Canbus
         void setLedColor(uint8_t color);
         void setDirection(bool isCcw);
         uint16_t getRpm() { return rpm; }
-        uint16_t getMiliVoltage() { return milliVoltage; }
-        uint16_t getMiliCurrent() { return milliCurrent; }
+        uint16_t getDeciVoltage() { return deciVoltage; }
+        uint16_t getDeciCurrent() { return deciCurrent; }
         uint8_t getTemperature() { return temperature; }
 
 
@@ -35,8 +35,8 @@ class Canbus
         uint8_t transferId;
 
         uint8_t temperature;
-        uint16_t milliCurrent;
-        uint16_t milliVoltage;
+        uint16_t deciCurrent;
+        uint16_t deciVoltage;
         uint16_t rpm;
         bool isCcwDirection;
 
@@ -56,8 +56,8 @@ class Canbus
         bool isToggleFrame(uint8_t tailByte);
         uint8_t getTransferId(uint8_t tailByte);
         uint8_t getTemperatureFromPayload(uint8_t *payload);
-        uint16_t getMiliCurrentFromPayload(uint8_t *payload);
-        uint16_t getMiliVoltageFromPayload(uint8_t *payload);
+        uint16_t getDeciCurrentFromPayload(uint8_t *payload);
+        uint16_t getDeciVoltageFromPayload(uint8_t *payload);
         uint16_t getRpmFromPayload(uint8_t *payload);
         bool getDirectionCCWFromPayload(uint8_t *payload);
 

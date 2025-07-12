@@ -90,9 +90,9 @@ void SerialScreen::writeBatteryInfo() {
         return;
     }
 
-    int batteryMilliVolts = canbus.getMiliVoltage();
+    int batteryDeciVolts = canbus.getDeciVoltage();
     int batteryPercentage = map(
-        batteryMilliVolts,
+        batteryDeciVolts,
         BATTERY_MIN_VOLTAGE,
         BATTERY_MAX_VOLTAGE,
         0,
@@ -103,7 +103,7 @@ void SerialScreen::writeBatteryInfo() {
     Serial.print(batteryPercentage);
 
     Serial.print("% | ");
-    Serial.print(batteryMilliVolts / 1000.0, 2);
+    Serial.print(batteryDeciVolts / 10.0, 2);
     Serial.println("V");
 }
 
@@ -133,7 +133,7 @@ void SerialScreen::writeMotorInfo() {
     Serial.print("RPM: ");
     Serial.print(canbus.getRpm());
     Serial.print(" | A: ");
-    Serial.print(canbus.getMiliCurrent() / 1000.0, 2);
+    Serial.print(canbus.getDeciCurrent() / 10.0, 2);
     Serial.println("A");
 }
 

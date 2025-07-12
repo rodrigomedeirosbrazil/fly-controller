@@ -42,9 +42,9 @@ unsigned int Power::calcBatteryLimit() {
         return 0;
     }
 
-    int batteryMilliVolts = canbus.getMiliVoltage();
+    unsigned int batteryDeciVolts = canbus.getDeciVoltage();
 
-    if (batteryMilliVolts > BATTERY_MIN_VOLTAGE) {
+    if (batteryDeciVolts > BATTERY_MIN_VOLTAGE) {
         return batteryPowerFloor;
     }
 

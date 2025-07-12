@@ -11,8 +11,8 @@ Canbus::Canbus() {
     transferId = 0;
 
     temperature = 0;
-    milliCurrent = 0;
-    milliVoltage = 0;
+    deciCurrent = 0;
+    deciVoltage = 0;
     rpm = 0;
 }
 
@@ -79,8 +79,8 @@ void Canbus::handleStatusMsg2(struct can_frame *canMsg) {
     }
 
     temperature = getTemperatureFromPayload(canMsg->data);
-    milliCurrent = getMiliCurrentFromPayload(canMsg->data);
-    milliVoltage = getMiliVoltageFromPayload(canMsg->data);
+    deciCurrent = getDeciCurrentFromPayload(canMsg->data);
+    deciVoltage = getDeciVoltageFromPayload(canMsg->data);
     lastReadStatusMsg1 = millis();
 }
 
@@ -136,14 +136,12 @@ uint8_t Canbus::getTemperatureFromPayload(uint8_t *payload) {
     return payload[4];
 }
 
-uint16_t Canbus::getMiliCurrentFromPayload(uint8_t *payload) {
-    // The original value is in deciamperes, convert to milliamperes
-    return (((payload[3] << 8) | payload[2]) * 10);
+uint16_t Canbus::getDeciCurrentFromPayload(uint8_t *payload) {
+    return (payload[3] << 8) | payload[2];
 }
 
-uint16_t Canbus::getMiliVoltageFromPayload(uint8_t *payload) {
-    // The original value is in decivolts, convert to millivolts
-    return (((payload[1] << 8) | payload[0]) * 10);
+uint16_t Canbus::getDeciVoltageFromPayload(uint8_t *payload) {
+    return (payload[1] << 8) | payload[0];
 }
 
 uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
