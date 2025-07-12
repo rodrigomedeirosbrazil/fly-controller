@@ -137,7 +137,8 @@ uint8_t Canbus::getTemperatureFromPayload(uint8_t *payload) {
 }
 
 uint16_t Canbus::getMiliCurrentFromPayload(uint8_t *payload) {
-    return (payload[3] << 8) | payload[2];
+    // The original value is in deciamperes, convert to milliamperes
+    return (((payload[3] << 8) | payload[2]) * 10);
 }
 
 uint16_t Canbus::getMiliVoltageFromPayload(uint8_t *payload) {

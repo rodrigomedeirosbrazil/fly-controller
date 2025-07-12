@@ -134,7 +134,7 @@ void SerialScreen::writeMotorInfo() {
     Serial.print("RPM: ");
     Serial.print(canbus.getRpm());
     Serial.print(" | A: ");
-    Serial.print(canbus.getMiliCurrent() / 10.0, 0);
+    Serial.print(canbus.getMiliCurrent() / 1000.0, 2);
     Serial.println("A");
 }
 
