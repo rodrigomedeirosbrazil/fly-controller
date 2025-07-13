@@ -7,7 +7,6 @@
 using namespace ace_button;
 
 void handleEsc();
-void handleSerialLog();
 void checkCanbus();
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState);
 

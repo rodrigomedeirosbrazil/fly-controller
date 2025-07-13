@@ -32,9 +32,6 @@ void setup()
   digitalWrite(PIN_WIRE_SDA, LOW);
   digitalWrite(PIN_WIRE_SCL, LOW);
 
-  currentLimitReachedTime = 0;
-  isCurrentLimitReached = false;
-
   canbus.setLedColor(Canbus::ledColorRed);
   buzzer.beepWarning();
 }

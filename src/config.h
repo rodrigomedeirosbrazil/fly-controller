@@ -21,8 +21,6 @@ extern Button button;
 extern Temperature motorTemp;
 extern SerialScreen screen;
 extern Canbus canbus;
-extern unsigned long currentLimitReachedTime;
-extern bool isCurrentLimitReached;
 extern Power power;
 extern struct can_frame canMsg;
 extern MCP2515 mcp2515;

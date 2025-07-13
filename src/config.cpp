@@ -13,7 +13,5 @@ Button button(BUTTON_PIN);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 SerialScreen screen;
 
-unsigned long currentLimitReachedTime = 0;
-bool isCurrentLimitReached = false;
 Power power;
 struct can_frame canMsg;
