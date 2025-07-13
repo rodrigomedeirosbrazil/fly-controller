@@ -14,7 +14,7 @@ All code must be in English, inclusive comments.
 - **Core Libraries:**
   - `AceButton`: For handling button inputs.
   - `autowp-mcp2515`: For CAN bus communication via the MCP2515 controller.
-  - `Servo`: For controlling the ESC.
+  - `Servo`: For controlling the ESC using PWM.
 - **Simulation:** The project is configured for simulation in the Wokwi environment, with a `wokwi.toml` file defining the virtual hardware setup.
 
 ## Project Structure
@@ -30,11 +30,13 @@ The source code is organized in a modular fashion within the `src/` directory:
   - `SerialScreen/`: Outputs data to a serial monitor for debugging and status updates.
   - `Temperature/`: Monitors temperature sensors.
   - `Throttle/`: Manages the throttle control logic, including a cruise control feature.
+  - `Power/`: Calculates the available power based on battery voltage and motor temperature.
 
 ## Core Functionality
 
 - **Throttle Control:** Reads a potentiometer to set the throttle and sends a corresponding PWM signal to the ESC. It includes logic for arming, disarming, and a cruise control feature.
-- **CAN Bus Communication:** Interfaces with a CAN bus to send and receive data from other devices, such as an ESC, to get telemetry like voltage, current, and temperature.
+- **CAN Bus Communication:** Interfaces with a CAN bus to send and receive data from other devices, such as an ESC, to get telemetry like voltage, current, and temperature. It can also send commands to the ESC, such as setting the LED color.
+- **Power Management:** The `Power` class calculates the available power based on battery voltage and motor temperature, reducing power to protect the components.
 - **Safety Features:**
   - Monitors battery voltage and ESC/motor temperature, reducing throttle or disarming the ESC if limits are exceeded.
   - Includes current limiting logic.
