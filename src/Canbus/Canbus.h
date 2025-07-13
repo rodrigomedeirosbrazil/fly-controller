@@ -15,6 +15,8 @@ class Canbus
         bool isReady();
         void setLedColor(uint8_t color);
         void setDirection(bool isCcw);
+        void setThrottleSource(bool isPwm);
+        void setThrottle(uint16_t value);
         uint16_t getRpm() { return rpm; }
         uint16_t getDeciVoltage() { return deciVoltage; }
         uint16_t getDeciCurrent() { return deciCurrent; }

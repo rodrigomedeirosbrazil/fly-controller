@@ -183,6 +183,40 @@ void Canbus::setDirection(bool isCcw)
     );
 }
 
+void Canbus::setThrottleSource(bool isPwm)
+{
+    uint8_t data[1];
+
+    // 0x00 = PWM, 0x01 = CAN
+    data[0] = isPwm ? 0x00 : 0x01;
+
+    sendMessage(
+        0x00, // priority
+        0xD7, // serviceTypeId (0xD7 is 215 in hex)
+        escNodeId,
+        data,
+        1 // data length
+    );
+}
+
+void Canbus::setThrottle(uint16_t value)
+{
+    // Hobbywing/DroneCAN ESC throttle command:
+    // serviceTypeId: 0xD6 (214)
+    // Payload: 2 bytes, little-endian, throttle value (0-2000)
+    uint8_t data[2];
+    data[0] = value & 0xFF;
+    data[1] = (value >> 8) & 0xFF;
+
+    sendMessage(
+        0x00,      // priority
+        0xD6,      // serviceTypeId for throttle
+        escNodeId, // destination node ID (ESC)
+        data,
+        2          // payload length
+    );
+}
+
 void Canbus::sendMessage(
     uint8_t priority,
     uint8_t serviceTypeId,
