@@ -16,19 +16,64 @@ Canbus::Canbus() {
     rpm = 0;
 }
 
+void Canbus::sendNodeStatus(uint32_t uptimeSec)
+{
+    struct can_frame canMsg;
+    uint32_t dataTypeId = 341;
+
+    uint32_t canId = 0;
+    canId |= ((uint32_t)0 << 26);              // Priority
+    canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
+    canId |= (uint32_t)(nodeId & 0xFF);        // Source node ID
+    canMsg.can_id = canId | CAN_EFF_FLAG;
+
+    canMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
+    canMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
+    canMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
+    canMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
+    canMsg.data[4] = 0x00; // health: OK
+    canMsg.data[5] = 0x00; // mode: operational
+    canMsg.data[6] = 0x00; // sub_mode: normal
+    canMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest pode ser zero)
+
+    // Tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
+    canMsg.data[8] = 0xC0 | (transferId & 0x1F);
+
+    canMsg.can_dlc = 9;
+
+    mcp2515.sendMessage(&canMsg);
+    transferId++;
+}
+
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
 
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
 
+    // recebendo isso do esc
+    // Data Type ID: D713 Node ID: 3
+    // Data Type ID: D413 Node ID: 3
+
     if (
         dataTypeId != statusMsg1
         && dataTypeId != statusMsg2
+        && dataTypeId != getEscIdRequestDataTypeId
     ) {
         if (dataTypeId != statusMsg3) {
             Serial.print("Data Type ID: ");
             Serial.print(dataTypeId, HEX);
             Serial.print(" Node ID: ");
             Serial.println(getNodeIdFromCanId(canMsg->can_id), HEX);
+            Serial.print("CAN Frame: ID=0x");
+            Serial.print(canMsg->can_id, HEX);
+            Serial.print(" DLC=");
+            Serial.print(canMsg->can_dlc);
+            Serial.print(" Data=");
+            for (uint8_t i = 0; i < canMsg->can_dlc; i++) {
+                if (i > 0) Serial.print(" ");
+                if (canMsg->data[i] < 0x10) Serial.print("0");
+                Serial.print(canMsg->data[i], HEX);
+            }
+            Serial.println();
         }
 
         return;
@@ -53,6 +98,11 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
         handleStatusMsg2(canMsg);
         return;
     }
+
+    if (dataTypeId == getEscIdRequestDataTypeId) {
+        handleGetEscIdResponse(canMsg);
+        return;
+    }
 }
 
 bool Canbus::isReady() {
@@ -70,6 +120,7 @@ void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
 
     rpm = getRpmFromPayload(canMsg->data);
     isCcwDirection  = getDirectionCCWFromPayload(canMsg->data);
+
     lastReadStatusMsg2 = millis();
 }
 
@@ -152,6 +203,10 @@ bool Canbus::getDirectionCCWFromPayload(uint8_t *payload) {
     return (payload[5] & 0x80) >> 7 == 1;
 }
 
+uint8_t Canbus::getEscThrottleIdFromPayload(uint8_t *payload) {
+    return payload[1];
+}
+
 void Canbus::setLedColor(uint8_t color)
 {
     uint8_t data[3];
@@ -183,12 +238,11 @@ void Canbus::setDirection(bool isCcw)
     );
 }
 
-void Canbus::setThrottleSource(bool isPwm)
+void Canbus::setThrottleSource(uint8_t source)
 {
     uint8_t data[1];
 
-    // 0x00 = PWM, 0x01 = CAN
-    data[0] = isPwm ? 0x00 : 0x01;
+    data[0] = source;
 
     sendMessage(
         0x00, // priority
@@ -199,22 +253,37 @@ void Canbus::setThrottleSource(bool isPwm)
     );
 }
 
-void Canbus::setThrottle(uint16_t value)
+void Canbus::setRawThrottle(int16_t throttle)
 {
-    // Hobbywing/DroneCAN ESC throttle command:
-    // serviceTypeId: 0xD6 (214)
-    // Payload: 2 bytes, little-endian, throttle value (0-2000)
-    uint8_t data[2];
-    data[0] = value & 0xFF;
-    data[1] = (value >> 8) & 0xFF;
+    struct can_frame canMsg;
 
-    sendMessage(
-        0x00,      // priority
-        0xD6,      // serviceTypeId for throttle
-        escNodeId, // destination node ID (ESC)
-        data,
-        2          // payload length
-    );
+    // DroneCAN DataType ID for uavcan.equipment.esc.RawCommand
+    uint32_t dataTypeId = 1030;
+
+    // CAN ID
+    uint32_t canId = 0;
+    canId |= ((uint32_t)0 << 26);              // Priority = 0
+    canId |= (dataTypeId << 8);                // DataType ID
+    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canMsg.can_id = canId | CAN_EFF_FLAG;
+
+    // Create array with value only in escThrottleId position
+    // All previous positions must exist (even with zero)
+    uint8_t throttleArraySize = escThrottleId + 1;
+    uint8_t byteIndex = 0;
+
+    for (uint8_t i = 0; i < throttleArraySize; i++) {
+        int16_t value = (i == escThrottleId) ? throttle : 0;
+        canMsg.data[byteIndex++] = value & 0xFF;
+        canMsg.data[byteIndex++] = (value >> 8) & 0xFF;
+    }
+
+    // Tail byte
+    canMsg.data[byteIndex++] = 0xC0 | (transferId & 0x1F);
+    canMsg.can_dlc = byteIndex;
+
+    mcp2515.sendMessage(&canMsg);
+    transferId++;
 }
 
 void Canbus::sendMessage(
@@ -258,4 +327,31 @@ void Canbus::sendMessage(
     mcp2515.sendMessage(&canMsg);
 
     transferId++;
+}
+
+void Canbus::requestEscId(uint8_t destNodeId)
+{
+    struct can_frame canMsg;
+    canMsg.can_id  = 0x700;
+    canMsg.can_dlc = 8;
+    canMsg.data[0] = 0x01;
+    for (int i = 1; i < 8; i++) {
+        canMsg.data[i] = 0x00;
+    }
+    mcp2515.sendMessage(&canMsg);
+}
+
+void Canbus::handleGetEscIdResponse(struct can_frame *canMsg) {
+    if (canMsg->can_dlc < 7) {
+        Serial.println("WARN: GetEscID response payload too short.");
+        return;
+    }
+
+    uint8_t escThrottleIdReceived = getEscThrottleIdFromPayload(canMsg->data);
+    uint8_t sourceNodeId = getNodeIdFromCanId(canMsg->can_id);
+
+    Serial.print("Received GetEscID response from Node ID: ");
+    Serial.print(sourceNodeId, HEX);
+    Serial.print(" with Throttle ID: ");
+    Serial.println(escThrottleIdReceived);
 }
