@@ -27,7 +27,10 @@ void setup()
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
+  canbus.announce();
+  canbus.setThrottleSource(Canbus::throttleSourcePWM);
   canbus.setLedColor(Canbus::ledColorRed);
+
   buzzer.beepWarning();
 }
 
@@ -72,4 +75,5 @@ void checkCanbus()
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
         canbus.parseCanMsg(&canMsg);
     }
+    canbus.announce();
 }

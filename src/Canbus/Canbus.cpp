@@ -14,10 +14,18 @@ Canbus::Canbus() {
     deciCurrent = 0;
     deciVoltage = 0;
     rpm = 0;
+
+    lastAnnounce = millis();
 }
 
-void Canbus::sendNodeStatus(uint32_t uptimeSec)
+void Canbus::announce()
 {
+    if (millis() - lastAnnounce < 1000) {
+        return;
+    }
+
+    lastAnnounce = millis();
+
     struct can_frame canMsg;
     uint32_t dataTypeId = 341;
 

@@ -14,7 +14,7 @@ class Canbus
         static const uint8_t throttleSourceCAN = 0x02;
 
         Canbus();
-        void sendNodeStatus(uint32_t uptimeSec);
+        void announce();
         void parseCanMsg(struct can_frame *canMsg);
         bool isReady();
         void setLedColor(uint8_t color);
@@ -39,6 +39,8 @@ class Canbus
 
         unsigned long lastReadStatusMsg1;
         unsigned long lastReadStatusMsg2;
+        unsigned long lastAnnounce;
+
 
         uint8_t transferId;
 
