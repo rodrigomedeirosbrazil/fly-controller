@@ -59,7 +59,6 @@ void handleEsc()
   {
     if (esc.attached()) {
       esc.detach();
-      canbus.setLedColor(Canbus::ledColorRed);
     }
     return;
   }
@@ -67,7 +66,6 @@ void handleEsc()
   if (!esc.attached())
   {
     esc.attach(ESC_PIN);
-    canbus.setLedColor(Canbus::ledColorGreen);
   }
 
   int pulseWidth = power.getPwm();
