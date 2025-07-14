@@ -27,11 +27,6 @@ void setup()
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  pinMode(PIN_WIRE_SDA, OUTPUT);
-  pinMode(PIN_WIRE_SCL, OUTPUT);
-  digitalWrite(PIN_WIRE_SDA, LOW);
-  digitalWrite(PIN_WIRE_SCL, LOW);
-
   canbus.setLedColor(Canbus::ledColorRed);
   buzzer.beepWarning();
 }
