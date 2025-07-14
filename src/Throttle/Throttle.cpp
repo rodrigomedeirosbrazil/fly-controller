@@ -238,6 +238,9 @@ void Throttle::setArmed()
 
   throttleArmed = true;
   buzzer.beepSuccess();
+  if (canbus.isReady()) {
+    canbus.setLedColor(Canbus::ledColorGreen);
+  }
 }
 
 void Throttle::setDisarmed()
@@ -245,6 +248,9 @@ void Throttle::setDisarmed()
   throttleArmed = false;
   cancelCruise();
   buzzer.beepError();
+  if (canbus.isReady()) {
+    canbus.setLedColor(Canbus::ledColorRed);
+  }
 }
 
 void Throttle::cancelCruise()
