@@ -26,6 +26,8 @@ void Canbus::announce()
 
     lastAnnounce = millis();
 
+    uint32_t uptimeSec = millis() / 1000;
+
     struct can_frame canMsg;
     uint32_t dataTypeId = 341;
 
