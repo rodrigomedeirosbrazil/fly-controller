@@ -56,34 +56,14 @@ void Canbus::announce()
 }
 
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
-
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
-
-    // recebendo isso do esc
-    // Data Type ID: D713 Node ID: 3
-    // Data Type ID: D413 Node ID: 3
 
     if (
         dataTypeId != statusMsg1
         && dataTypeId != statusMsg2
-        && dataTypeId != getEscIdRequestDataTypeId
     ) {
         if (dataTypeId != statusMsg3) {
-            Serial.print("Data Type ID: ");
-            Serial.print(dataTypeId, HEX);
-            Serial.print(" Node ID: ");
-            Serial.println(getNodeIdFromCanId(canMsg->can_id), HEX);
-            Serial.print("CAN Frame: ID=0x");
-            Serial.print(canMsg->can_id, HEX);
-            Serial.print(" DLC=");
-            Serial.print(canMsg->can_dlc);
-            Serial.print(" Data=");
-            for (uint8_t i = 0; i < canMsg->can_dlc; i++) {
-                if (i > 0) Serial.print(" ");
-                if (canMsg->data[i] < 0x10) Serial.print("0");
-                Serial.print(canMsg->data[i], HEX);
-            }
-            Serial.println();
+            printCanMsg(canMsg);
         }
 
         return;
@@ -113,6 +93,24 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
         handleGetEscIdResponse(canMsg);
         return;
     }
+}
+
+void Canbus::printCanMsg(struct can_frame *canMsg) {
+    Serial.print("Data Type ID: ");
+    Serial.print(getDataTypeIdFromCanId(canMsg->can_id), HEX);
+    Serial.print(" Node ID: ");
+    Serial.println(getNodeIdFromCanId(canMsg->can_id), HEX);
+    Serial.print("CAN Frame: ID=0x");
+    Serial.print(canMsg->can_id, HEX);
+    Serial.print(" DLC=");
+    Serial.print(canMsg->can_dlc);
+    Serial.print(" Data=");
+    for (uint8_t i = 0; i < canMsg->can_dlc; i++) {
+        if (i > 0) Serial.print(" ");
+        if (canMsg->data[i] < 0x10) Serial.print("0");
+        Serial.print(canMsg->data[i], HEX);
+    }
+    Serial.println();
 }
 
 bool Canbus::isReady() {

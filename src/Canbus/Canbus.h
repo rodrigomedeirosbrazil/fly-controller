@@ -9,13 +9,13 @@ class Canbus
         static const uint8_t ledColorRed = 0x04;
         static const uint8_t ledColorGreen = 0x02;
         static const uint8_t ledColorBlue = 0x01;
-        static const uint8_t throttleSourceRC = 0x00;
+        static const uint8_t throttleSourceCAN = 0x00;
         static const uint8_t throttleSourcePWM = 0x01;
-        static const uint8_t throttleSourceCAN = 0x02;
 
         Canbus();
         void announce();
         void parseCanMsg(struct can_frame *canMsg);
+        void printCanMsg(struct can_frame *canMsg);
         bool isReady();
         void setLedColor(uint8_t color);
         void setDirection(bool isCcw);
@@ -25,12 +25,12 @@ class Canbus
         uint16_t getDeciVoltage() { return deciVoltage; }
         uint16_t getDeciCurrent() { return deciCurrent; }
         uint8_t getTemperature() { return temperature; }
-        void requestEscId(uint8_t destNodeId = 0x7F); // 0x7F para broadcast
+        void requestEscId();
 
     private:
         const uint8_t nodeId = 0x13;
         const uint8_t escNodeId = 0x03;
-        const uint8_t escThrottleId = 0xC2; // 0xC2 = 194
+        const uint8_t escThrottleId = 0x03;
 
         const uint16_t statusMsg1 = 0x4E52;
         const uint16_t statusMsg2 = 0x4E53;
