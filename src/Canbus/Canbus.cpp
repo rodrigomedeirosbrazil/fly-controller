@@ -337,16 +337,24 @@ void Canbus::sendMessage(
     transferId++;
 }
 
-void Canbus::requestEscId(uint8_t destNodeId)
-{
+void Canbus::requestEscId() {
     struct can_frame canMsg;
-    canMsg.can_id  = 0x700;
-    canMsg.can_dlc = 8;
-    canMsg.data[0] = 0x01;
-    for (int i = 1; i < 8; i++) {
-        canMsg.data[i] = 0x00;
-    }
+
+    uint32_t dataTypeId = 20013;
+    uint32_t canId = 0;
+    canId |= ((uint32_t)0 << 26);              // Priority
+    canId |= (dataTypeId << 8);                // DataType ID
+    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canMsg.can_id = canId | CAN_EFF_FLAG;
+
+    // Payload pode ser vazio ou 1-3 bytes (de acordo com ESC)
+    uint8_t i = 0;
+    canMsg.data[i++] = 0xC0 | (transferId & 0x1F); // Tail byte
+    canMsg.can_dlc = i;
+
+    Serial.println("Sending GetEscID as broadcast message");
     mcp2515.sendMessage(&canMsg);
+    transferId++;
 }
 
 void Canbus::handleGetEscIdResponse(struct can_frame *canMsg) {

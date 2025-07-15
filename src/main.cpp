@@ -28,6 +28,7 @@ void setup()
   mcp2515.setNormalMode();
 
   canbus.announce();
+  canbus.requestEscId();
   canbus.setThrottleSource(Canbus::throttleSourcePWM);
   canbus.setLedColor(Canbus::ledColorRed);
 
