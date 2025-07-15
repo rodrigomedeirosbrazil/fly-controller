@@ -43,17 +43,18 @@ unsigned int Power::calcBatteryLimit() {
     }
 
     unsigned int batteryDeciVolts = canbus.getDeciVoltage();
+    const unsigned int STEP_DECREASE = 5;
 
     if (batteryDeciVolts > BATTERY_MIN_VOLTAGE) {
         return batteryPowerFloor;
     }
 
-    if (batteryPowerFloor < 10) {
+    if (batteryPowerFloor < STEP_DECREASE) {
         batteryPowerFloor = 0;
         return batteryPowerFloor;
     }
 
-    batteryPowerFloor = batteryPowerFloor - 5;
+    batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
 
     return batteryPowerFloor;
 }
