@@ -298,7 +298,7 @@ void Canbus::setRawThrottle(int16_t throttle)
 
 void Canbus::sendMessage(
     uint8_t priority,
-    uint8_t serviceTypeId,
+    uint16_t serviceTypeId,
     uint8_t destNodeId,
     uint8_t *payload,
     uint8_t payloadLength
