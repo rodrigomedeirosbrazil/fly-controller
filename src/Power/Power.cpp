@@ -53,7 +53,7 @@ unsigned int Power::calcBatteryLimit() {
         return batteryPowerFloor;
     }
 
-    batteryPowerFloor = batteryPowerFloor - 10;
+    batteryPowerFloor = batteryPowerFloor - 5;
 
     return batteryPowerFloor;
 }
