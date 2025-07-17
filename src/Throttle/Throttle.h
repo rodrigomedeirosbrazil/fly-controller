@@ -47,6 +47,10 @@ class Throttle {
         unsigned long calibrationStartTime;
         int calibrationMaxValue;
         int calibrationMinValue;
+        unsigned long calibrationSumMax;
+        unsigned int calibrationCountMax;
+        unsigned long calibrationSumMin;
+        unsigned int calibrationCountMin;
 
         unsigned int armingTries;
 

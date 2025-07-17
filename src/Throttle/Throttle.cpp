@@ -51,6 +51,10 @@ void Throttle::resetCalibration()
   calibrationStartTime = 0;
   calibrationMaxValue = 0;
   calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
+  calibrationSumMax = 0;
+  calibrationCountMax = 0;
+  calibrationSumMin = 0;
+  calibrationCountMin = 0;
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -62,17 +66,23 @@ void Throttle::handleCalibration(unsigned long now)
       // Start timing if not already started
       if (calibrationStartTime == 0) {
         calibrationStartTime = now;
+        calibrationSumMax = 0;
+        calibrationCountMax = 0;
       }
 
-      // Track the maximum value seen
+      // Accumulate values for averaging
+      calibrationSumMax += pinValueFiltered;
+      calibrationCountMax++;
+
+      // Track the maximum value seen (kept for compatibility, but not used anymore)
       if (pinValueFiltered > calibrationMaxValue) {
         calibrationMaxValue = pinValueFiltered;
       }
 
       // Check if we've held the throttle for the required time
-      if (now - calibrationStartTime >= calibrationTime) {
-        // Set the max throttle value
-        throttlePinMax = calibrationMaxValue;
+      if (now - calibrationStartTime >= calibrationTime && calibrationCountMax > 0) {
+        // Set the max throttle value as the average
+        throttlePinMax = calibrationSumMax / calibrationCountMax;
 
         buzzer.beepSuccess();
 
@@ -83,8 +93,10 @@ void Throttle::handleCalibration(unsigned long now)
       return;
     }
 
-    // Reset timer if throttle drops below threshold
+    // Reset timer and accumulators if throttle drops below threshold
     calibrationStartTime = 0;
+    calibrationSumMax = 0;
+    calibrationCountMax = 0;
     return;
   }
 
@@ -95,19 +107,25 @@ void Throttle::handleCalibration(unsigned long now)
       // Start timing if not already started
       if (calibrationStartTime == 0) {
         calibrationStartTime = now;
+        calibrationSumMin = 0;
+        calibrationCountMin = 0;
       }
 
-      // Track the minimum value seen
+      // Accumulate values for averaging
+      calibrationSumMin += pinValueFiltered;
+      calibrationCountMin++;
+
+      // Track the minimum value seen (kept for compatibility, but not used anymore)
       if (pinValueFiltered < calibrationMinValue) {
         calibrationMinValue = pinValueFiltered;
       }
 
       // Check if we've held the throttle for the required time
-      if (now - calibrationStartTime >= calibrationTime) {
+      if (now - calibrationStartTime >= calibrationTime && calibrationCountMin > 0) {
         buzzer.beepSuccess();
 
-        // Set the min throttle value
-        throttlePinMin = calibrationMinValue;
+        // Set the min throttle value as the average
+        throttlePinMin = calibrationSumMin / calibrationCountMin;
 
         // Calibration complete
         calibrated = true;
@@ -117,8 +135,10 @@ void Throttle::handleCalibration(unsigned long now)
       return;
     }
 
-    // Reset timer if throttle goes above threshold
+    // Reset timer and accumulators if throttle goes above threshold
     calibrationStartTime = 0;
+    calibrationSumMin = 0;
+    calibrationCountMin = 0;
     return;
   }
 }
