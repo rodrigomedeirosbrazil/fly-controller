@@ -8,12 +8,22 @@ Power::Power() {
 }
 
 unsigned int Power::getPwm() {
-    unsigned int effectivePercent = (throttle.getThrottlePercentage() * getPower()) / 100;
+    // Valor raw calibrado do acelerador
+    unsigned int throttleRaw = throttle.getThrottleRaw();
+    unsigned int powerLimit = getPower(); // 0-100
 
+    // Aplica o limitador de potência sobre o range do acelerador
+    // Calcula o valor máximo permitido pelo power limit
+    int throttleMin = throttle.getThrottlePinMin();
+    int throttleMax = throttle.getThrottlePinMax();
+    int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+    unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
+
+    // Mapeia diretamente para PWM
     return map(
-        effectivePercent,
-        0,
-        100,
+        effectiveRaw,
+        throttleMin,
+        throttleMax,
         ESC_MIN_PWM,
         ESC_MAX_PWM
     );
