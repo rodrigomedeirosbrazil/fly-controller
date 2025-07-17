@@ -19,8 +19,12 @@ struct MockCanbus {
 };
 
 struct MockThrottle {
-    unsigned int percent = 100;
-    unsigned int getThrottlePercentage() { return percent; }
+    unsigned int raw = 1000;
+    unsigned int min = 1000;
+    unsigned int max = 2000;
+    unsigned int getThrottleRaw() { return raw; }
+    int getThrottlePinMin() { return min; }
+    int getThrottlePinMax() { return max; }
 };
 
 struct MockMotorTemp {
@@ -45,11 +49,16 @@ public:
     }
 
     unsigned int getPwm() {
-        unsigned int effectivePercent = (throttle.getThrottlePercentage() * getPower()) / 100;
+        unsigned int throttleRaw = throttle.getThrottleRaw();
+        unsigned int powerLimit = getPower();
+        int throttleMin = throttle.getThrottlePinMin();
+        int throttleMax = throttle.getThrottlePinMax();
+        int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+        unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
         return map(
-            effectivePercent,
-            0,
-            100,
+            effectiveRaw,
+            throttleMin,
+            throttleMax,
             ESC_MIN_PWM,
             ESC_MAX_PWM
         );
@@ -201,12 +210,14 @@ void test_calcPower() {
 
 void test_getPwm() {
     Power p;
-    p.throttle.percent = 100;
+    p.throttle.min = 1000;
+    p.throttle.max = 2000;
+    p.throttle.raw = 2000;
     p.canbus.ready = true;
     p.canbus.voltage = 4200;
     p.motorTemp.temp = 25;
     assert(p.getPwm() == ESC_MAX_PWM);
-    p.throttle.percent = 50;
+    p.throttle.raw = 1500;
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
     p.canbus.voltage = 3300;
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
