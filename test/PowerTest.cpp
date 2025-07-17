@@ -13,9 +13,9 @@ using namespace std;
 // Mocked dependencies
 struct MockCanbus {
     bool ready = true;
-    int voltage = 4200;
+    int deciVoltage = 5000;
     bool isReady() { return ready; }
-    int getMiliVoltage() { return voltage; }
+    int getDeciVoltage() { return deciVoltage; }
 };
 
 struct MockThrottle {
@@ -38,6 +38,7 @@ public:
     unsigned long lastPowerCalculationTime;
     unsigned int pwm;
     unsigned int power;
+    unsigned int batteryPowerFloor;
     MockCanbus canbus;
     MockThrottle throttle;
     MockMotorTemp motorTemp;
@@ -46,6 +47,7 @@ public:
         lastPowerCalculationTime = 0;
         pwm = ESC_MIN_PWM;
         power = 100;
+        batteryPowerFloor = 100;
     }
 
     unsigned int getPwm() {
@@ -80,28 +82,16 @@ public:
         if (!canbus.isReady()) {
             return 0;
         }
-        int batteryMilliVolts = canbus.getMiliVoltage();
-        int batteryPercentage = map(
-            batteryMilliVolts,
-            BATTERY_MIN_VOLTAGE,
-            BATTERY_MAX_VOLTAGE,
-            0,
-            100
-        );
-
-        if (batteryPercentage > 10) {
-            return 100;
+        const unsigned int STEP_DECREASE = 5;
+        if (canbus.getDeciVoltage() > BATTERY_MIN_VOLTAGE) {
+            return batteryPowerFloor;
         }
-
-        int mapped = map(
-            batteryPercentage,
-            0,
-            10,
-            0,
-            100
-        );
-
-        return constrain(mapped, 0, 100);
+        if (batteryPowerFloor < STEP_DECREASE) {
+            batteryPowerFloor = 0;
+            return batteryPowerFloor;
+        }
+        batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
+        return batteryPowerFloor;
     }
 
     unsigned int calcMotorTempLimit() {
@@ -133,6 +123,8 @@ public:
     static int constrain(int amt, int low, int high) {
         return (amt < low) ? low : ((amt > high) ? high : amt);
     }
+
+    void setBatteryPowerFloor(unsigned int value) { batteryPowerFloor = value; }
 };
 
 // Test functions
@@ -141,14 +133,23 @@ void test_calcBatteryLimit() {
     p.canbus.ready = false;
     assert(p.calcBatteryLimit() == 0);
     p.canbus.ready = true;
-    p.canbus.voltage = BATTERY_MAX_VOLTAGE; // 588 (58.8V)
-    assert(p.calcBatteryLimit() == 100);
-    p.canbus.voltage = BATTERY_MIN_VOLTAGE; // 462 (46.2V)
-    assert(p.calcBatteryLimit() == 0);
-    p.canbus.voltage = (BATTERY_MIN_VOLTAGE + (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE) * 0.05) + 1; // 5% value
-    assert(p.calcBatteryLimit() == 50);
-     p.canbus.voltage = BATTERY_MIN_VOLTAGE - 100;
-    assert(p.calcBatteryLimit() == 0);
+    p.canbus.deciVoltage = BATTERY_MAX_VOLTAGE; // Acima do mínimo
+    p.setBatteryPowerFloor(80);
+    std::cout << "[DEBUG] batteryPowerFloor=" << p.batteryPowerFloor << ", calcBatteryLimit()=" << p.calcBatteryLimit() << std::endl;
+    assert(p.calcBatteryLimit() == 80); // Não altera
+    assert(p.batteryPowerFloor == 80);
+
+    // Agora simula queda de voltagem
+    p.canbus.deciVoltage = BATTERY_MIN_VOLTAGE - 1; // Abaixo do mínimo
+    p.setBatteryPowerFloor(15);
+    assert(p.calcBatteryLimit() == 10); // 15-5
+    assert(p.batteryPowerFloor == 10);
+    assert(p.calcBatteryLimit() == 5);  // 10-5
+    assert(p.batteryPowerFloor == 5);
+    assert(p.calcBatteryLimit() == 0);  // 5-5
+    assert(p.batteryPowerFloor == 0);
+    assert(p.calcBatteryLimit() == 0);  // já está zerado
+    assert(p.batteryPowerFloor == 0);
     std::cout << "test_calcBatteryLimit passed\n";
 }
 
@@ -169,34 +170,43 @@ void test_calcPower() {
     Power p;
     // Caso: tudo normal, sem limitação
     p.canbus.ready = true;
-    p.canbus.voltage = BATTERY_MAX_VOLTAGE;
+    p.canbus.deciVoltage = BATTERY_MAX_VOLTAGE;
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
+    p.setBatteryPowerFloor(100);
     assert(p.calcPower() == 100 && "Power should be 100 when all limits are OK");
 
-    // Caso: limitação por bateria (5%)
-    int five_percent_voltage = (BATTERY_MIN_VOLTAGE + (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE) * 0.05) + 1;
-    p.canbus.voltage = five_percent_voltage;
+    // Caso: limitação por bateria (abaixo do mínimo, stepwise)
+    p.canbus.deciVoltage = BATTERY_MIN_VOLTAGE - 1;
+    p.setBatteryPowerFloor(15);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
-    assert(p.calcPower() == 50 && "Power should be 50 when battery is at 5%");
+    assert(p.calcPower() == 10 && "Power should be 10 after one step");
+    assert(p.calcPower() == 5 && "Power should be 5 after two steps");
+    assert(p.calcPower() == 0 && "Power should be 0 after three steps");
 
     // Caso: limitação por temperatura (meio do range)
-    p.canbus.voltage = BATTERY_MAX_VOLTAGE;
+    p.canbus.deciVoltage = BATTERY_MAX_VOLTAGE;
+    p.setBatteryPowerFloor(100);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 5;
     assert(p.calcPower() == 50 && "Power should be 50 when motor temp is at midpoint");
 
     // Caso: limitação por ambos (o menor prevalece)
-    p.canbus.voltage = five_percent_voltage;
+    p.canbus.deciVoltage = BATTERY_MIN_VOLTAGE - 1;
+    p.setBatteryPowerFloor(15);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 5;
-    assert(p.calcPower() == 50 && "Power should be 50 when both limits are 50");
+    assert(p.calcPower() == 10 && "Power should be 10 (battery limit < temp limit)");
+    p.setBatteryPowerFloor(5);
+    assert(p.calcPower() == 0 && "Power should be 0 (battery limit < temp limit)");
 
     // Caso: limitação total por temperatura (acima do máximo)
-    p.canbus.voltage = BATTERY_MAX_VOLTAGE;
+    p.canbus.deciVoltage = BATTERY_MAX_VOLTAGE;
+    p.setBatteryPowerFloor(100);
     p.motorTemp.temp = MOTOR_MAX_TEMP + 5;
     assert(p.calcPower() == 0 && "Power should be 0 when temp is above max");
 
     // Caso: limitação total por bateria (abaixo do mínimo)
     p.canbus.ready = true;
-    p.canbus.voltage = BATTERY_MIN_VOLTAGE;
+    p.canbus.deciVoltage = BATTERY_MIN_VOLTAGE;
+    p.setBatteryPowerFloor(0);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
     assert(p.calcPower() == 0 && "Power should be 0 when battery is at min");
 
@@ -214,12 +224,12 @@ void test_getPwm() {
     p.throttle.max = 2000;
     p.throttle.raw = 2000;
     p.canbus.ready = true;
-    p.canbus.voltage = 4200;
+    p.canbus.deciVoltage = 4200;
     p.motorTemp.temp = 25;
     assert(p.getPwm() == ESC_MAX_PWM);
     p.throttle.raw = 1500;
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
-    p.canbus.voltage = 3300;
+    p.canbus.deciVoltage = 3300;
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
     std::cout << "test_getPwm passed\n";
 }
