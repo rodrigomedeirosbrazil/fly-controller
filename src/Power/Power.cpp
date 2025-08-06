@@ -11,9 +11,9 @@ unsigned int Power::getPwm() {
     unsigned int throttleRaw = throttle.getThrottleRaw();
     unsigned int powerLimit = getPower(); // 0-100
 
-    int throttleMin = throttle.getThrottlePinMin();
-    int throttleMax = throttle.getThrottlePinMax();
-    int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+    unsigned int throttleMin = (unsigned int)throttle.getThrottlePinMin();
+    unsigned int throttleMax = (unsigned int)throttle.getThrottlePinMax();
+    unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
     return map(
