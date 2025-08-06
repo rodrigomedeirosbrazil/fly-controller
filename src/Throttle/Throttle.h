@@ -28,7 +28,7 @@ class Throttle {
         const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
-        const static int samples = 5;
+        const static int samples = 30;
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 500; // Threshold for detecting throttle movement
 
