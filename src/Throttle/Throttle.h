@@ -18,8 +18,8 @@ class Throttle {
 
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
-        int getThrottlePinMin() { return throttlePinMin; }
-        int getThrottlePinMax() { return throttlePinMax; }
+        unsigned int getThrottlePinMin() { return throttlePinMin; }
+        unsigned int getThrottlePinMax() { return throttlePinMax; }
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
         int getPinValueFiltered() { return pinValueFiltered; }
         unsigned int getCalibratingStep() { return calibratingStep; }
