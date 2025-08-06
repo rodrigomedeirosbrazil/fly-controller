@@ -8,12 +8,18 @@ Power::Power() {
 }
 
 unsigned int Power::getPwm() {
-    unsigned int effectivePercent = (throttle.getThrottlePercentage() * getPower()) / 100;
+    unsigned int throttleRaw = throttle.getThrottleRaw();
+    unsigned int powerLimit = getPower(); // 0-100
+
+    unsigned int throttleMin = throttle.getThrottlePinMin();
+    unsigned int throttleMax = throttle.getThrottlePinMax();
+    unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+    unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
     return map(
-        effectivePercent,
-        0,
-        100,
+        effectiveRaw,
+        throttleMin,
+        throttleMax,
         ESC_MIN_PWM,
         ESC_MAX_PWM
     );

@@ -17,6 +17,9 @@ class Throttle {
         void cancelCruise();
 
         unsigned int getThrottlePercentage();
+        unsigned int getThrottleRaw();
+        unsigned int getThrottlePinMin() { return throttlePinMin; }
+        unsigned int getThrottlePinMax() { return throttlePinMax; }
         unsigned int getCruisingThrottlePosition() { return cruisingThrottlePosition; }
         int getPinValueFiltered() { return pinValueFiltered; }
         unsigned int getCalibratingStep() { return calibratingStep; }
@@ -25,7 +28,7 @@ class Throttle {
         const unsigned int timeToBeOnCruising = 30000;
         const unsigned int throttleRange = 5;
         const unsigned int minCrusingThrottle = 30;
-        const static int samples = 5;
+        const static int samples = 30;
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 500; // Threshold for detecting throttle movement
 
@@ -44,6 +47,10 @@ class Throttle {
         unsigned long calibrationStartTime;
         int calibrationMaxValue;
         int calibrationMinValue;
+        unsigned long calibrationSumMax;
+        unsigned int calibrationCountMax;
+        unsigned long calibrationSumMin;
+        unsigned int calibrationCountMin;
 
         unsigned int armingTries;
 
