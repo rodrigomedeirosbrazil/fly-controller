@@ -109,11 +109,14 @@ void SerialScreen::writeBatteryInfo() {
 
 void SerialScreen::writeThrottleInfo() {
     unsigned int throttlePercentage = throttle.getThrottlePercentage();
+    unsigned int throttleRaw = throttle.getThrottleRaw();
     unsigned int powerPercentage = power.getPower();
 
     Serial.print("THROTTLE: ");
     Serial.print(throttlePercentage);
-    Serial.print("%");
+    Serial.print("% (");
+    Serial.print(throttleRaw);
+    Serial.print(") | ");
 
     Serial.print(" POWER: ");
     Serial.print(powerPercentage);
