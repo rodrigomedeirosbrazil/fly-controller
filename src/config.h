@@ -12,7 +12,6 @@
 #include <mcp2515.h>
 
 class Power;
-class SerialScreen;
 class MCP2515;
 
 extern Buzzer buzzer;
@@ -20,7 +19,6 @@ extern Servo esc;
 extern Throttle throttle;
 extern Button button;
 extern Temperature motorTemp;
-extern SerialScreen screen;
 extern Canbus canbus;
 extern Power power;
 extern Xctod xctod;

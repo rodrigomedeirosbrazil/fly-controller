@@ -1,7 +1,6 @@
 #include "config.h"
 #include <mcp2515.h>
 #include "Power/Power.h"
-#include "SerialScreen/SerialScreen.h"
 #include "Xctod/Xctod.h"
 
 MCP2515 mcp2515(CANBUS_CS_PIN);
@@ -12,7 +11,6 @@ Throttle throttle;
 Canbus canbus;
 Button button(BUTTON_PIN);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
-SerialScreen screen;
 
 Power power;
 Xctod xctod;

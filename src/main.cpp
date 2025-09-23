@@ -9,7 +9,6 @@
 #include "main.h"
 
 #include "Throttle/Throttle.h"
-#include "SerialScreen/SerialScreen.h"
 
 #include "Canbus/Canbus.h"
 #include "Temperature/Temperature.h"
@@ -39,7 +38,7 @@ void setup()
 void loop()
 {
   button.check();
-  screen.write();
+  xctod.write();
   checkCanbus();
   throttle.handle();
   motorTemp.handle();
