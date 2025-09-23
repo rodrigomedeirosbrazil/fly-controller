@@ -1,7 +1,7 @@
 #ifndef XCTOD_H
 #define XCTOD_H
 
-#include "../config.h"
+#include <Arduino.h>
 
 class Throttle;
 class Canbus;

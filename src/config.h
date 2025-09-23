@@ -8,10 +8,10 @@
 #include "Temperature/Temperature.h"
 #include "Canbus/Canbus.h"
 #include "Power/Power.h"
-#include "Xctod/Xctod.h"
 #include <mcp2515.h>
 
 class Power;
+class Xctod;
 class MCP2515;
 
 extern Buzzer buzzer;
