@@ -215,12 +215,12 @@ uint8_t Canbus::getEscThrottleIdFromPayload(uint8_t *payload) {
     return payload[1];
 }
 
-void Canbus::setLedColor(uint8_t color)
+void Canbus::setLedColor(uint8_t color, uint8_t blink)
 {
     uint8_t data[3];
     data[0] = 0x00; // setLedOptionSave 0x01
     data[1] = color; // ledColorRed = 0x04 / ledColorGreen = 0x02 / ledColorBlue = 0x01
-    data[2] = 0x00; // blinkOff = 0x00 / Blink1Hz = 0x01 / Blink2Hz = 0x02 / Blink5Hz = 0x05
+    data[2] = blink; // blinkOff = 0x00 / Blink1Hz = 0x01 / Blink2Hz = 0x02 / Blink5Hz = 0x05
 
     sendMessage(
         0x00, // priority

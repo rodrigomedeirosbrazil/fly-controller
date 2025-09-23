@@ -9,6 +9,11 @@ class Canbus
         static const uint8_t ledColorRed = 0x04;
         static const uint8_t ledColorGreen = 0x02;
         static const uint8_t ledColorBlue = 0x01;
+        static const uint8_t ledBlinkOff = 0x00;
+        static const uint8_t ledBlink1Hz = 0x01;
+        static const uint8_t ledBlink2Hz = 0x02;
+        static const uint8_t ledBlink5Hz = 0x05;
+
         static const uint8_t throttleSourceCAN = 0x00;
         static const uint8_t throttleSourcePWM = 0x01;
 
@@ -17,7 +22,7 @@ class Canbus
         void parseCanMsg(struct can_frame *canMsg);
         void printCanMsg(struct can_frame *canMsg);
         bool isReady();
-        void setLedColor(uint8_t color);
+        void setLedColor(uint8_t color, uint8_t blink = ledBlinkOff);
         void setDirection(bool isCcw);
         void setThrottleSource(uint8_t source);
         void setRawThrottle(int16_t throttle);

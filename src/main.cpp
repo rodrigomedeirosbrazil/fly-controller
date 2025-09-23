@@ -30,7 +30,7 @@ void setup()
   canbus.announce();
   canbus.requestEscId();
   canbus.setThrottleSource(Canbus::throttleSourcePWM);
-  canbus.setLedColor(Canbus::ledColorRed);
+  canbus.setLedColor(Canbus::ledColorGreen);
 
   buzzer.beepWarning();
 }
