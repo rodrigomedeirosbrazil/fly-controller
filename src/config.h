@@ -8,6 +8,7 @@
 #include "Temperature/Temperature.h"
 #include "Canbus/Canbus.h"
 #include "Power/Power.h"
+#include "Xctod/Xctod.h"
 #include <mcp2515.h>
 
 class Power;
@@ -22,6 +23,7 @@ extern Temperature motorTemp;
 extern SerialScreen screen;
 extern Canbus canbus;
 extern Power power;
+extern Xctod xctod;
 extern struct can_frame canMsg;
 extern MCP2515 mcp2515;
 

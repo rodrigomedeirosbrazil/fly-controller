@@ -15,13 +15,14 @@
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Power/Power.h"
+#include "Xctod/Xctod.h"
 
 using namespace ace_button;
 #include "Button/Button.h"
 
 void setup()
 {
-  screen.init();
+  xctod.init();
   buzzer.setup();
   mcp2515.reset();
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
