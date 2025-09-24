@@ -32,12 +32,12 @@ void Xctod::write() {
     writeEscInfo();
     writeSystemStatus();
 
-    Serial.println(",");
+    Serial.println("");
 }
 
 void Xctod::writeBatteryInfo() {
     if (!canbus.isReady()) {
-        Serial.println(",,"); // battery percentage and voltage
+        Serial.print(",,"); // battery percentage and voltage
         return;
     }
 
@@ -53,7 +53,7 @@ void Xctod::writeBatteryInfo() {
     Serial.print(batteryPercentage);
     Serial.print(",");
     Serial.print(batteryDeciVolts / 10.0, 2);
-    Serial.println(",");
+    Serial.print(",");
 }
 
 void Xctod::writeThrottleInfo() {
@@ -66,7 +66,7 @@ void Xctod::writeThrottleInfo() {
     Serial.print(throttleRaw);
     Serial.print(",");
     Serial.print(powerPercentage);
-    Serial.println(",");
+    Serial.print(",");
 }
 
 void Xctod::writeMotorInfo() {
@@ -74,29 +74,29 @@ void Xctod::writeMotorInfo() {
     Serial.print(",");
 
     if (!canbus.isReady()) {
-        Serial.println(",,"); // temperature, rpm, current
+        Serial.print(",,"); // temperature, rpm, current
         return;
     }
 
     Serial.print(canbus.getRpm());
     Serial.print(",");
     Serial.print(canbus.getDeciCurrent() / 10.0, 2);
-    Serial.println(",");
+    Serial.print(",");
 }
 
 void Xctod::writeEscInfo() {
     if (!canbus.isReady()) {
-        Serial.println(",");
+        Serial.print(",");
         return;
     }
 
     Serial.print(canbus.getTemperature());
-    Serial.println(",");
+    Serial.print(",");
 }
 
 void Xctod::writeSystemStatus() {
     Serial.print(throttle.isArmed() ? "YES" : "NO");
     Serial.print(",");
-    Serial.println(throttle.isCruising() ? "ON" : "OFF");
+    Serial.print(throttle.isCruising() ? "ON" : "OFF");
     Serial.print(",");
 }
