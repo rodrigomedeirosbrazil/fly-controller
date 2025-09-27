@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <mcp2515.h>
 
+#include "../config.cpp"
 #include "Hobbywing.h"
 
 Hobbywing::Hobbywing() {
