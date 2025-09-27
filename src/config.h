@@ -20,6 +20,7 @@ extern Throttle throttle;
 extern Button button;
 extern Temperature motorTemp;
 extern Canbus canbus;
+extern Hobbywing hobbywing;
 extern Power power;
 extern Xctod xctod;
 extern struct can_frame canMsg;
