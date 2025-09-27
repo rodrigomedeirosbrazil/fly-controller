@@ -2,8 +2,10 @@
 #include <SPI.h>
 #include <mcp2515.h>
 
-#include "../config.cpp"
+#include "../config.h"
 #include "Hobbywing.h"
+
+extern MCP2515 mcp2515;
 
 Hobbywing::Hobbywing() {
     lastReadStatusMsg1 = 0;

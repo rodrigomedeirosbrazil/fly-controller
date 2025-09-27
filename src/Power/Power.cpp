@@ -1,4 +1,12 @@
 #include "Power.h"
+#include "../config.h"
+#include "../Throttle/Throttle.h"
+#include "../Hobbywing/Hobbywing.h"
+#include "../Temperature/Temperature.h"
+
+extern Throttle throttle;
+extern Hobbywing hobbywing;
+extern Temperature motorTemp;
 
 Power::Power() {
     lastPowerCalculationTime = 0;

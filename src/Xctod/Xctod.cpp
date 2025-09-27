@@ -4,7 +4,13 @@
 #include "../Power/Power.h"
 #include "../Canbus/Canbus.h"
 #include "../Temperature/Temperature.h"
+#include "../Hobbywing/Hobbywing.h"
 #include "../config.h"
+
+extern Throttle throttle;
+extern Power power;
+extern Temperature motorTemp;
+extern Hobbywing hobbywing;
 
 Xctod::Xctod() {
     lastSerialUpdate = 0;

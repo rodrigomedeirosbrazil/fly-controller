@@ -4,7 +4,11 @@
 #include "../config.h"
 #include "Button.h"
 #include "../Throttle/Throttle.h"
+#include "../Buzzer/Buzzer.h"
 #include "../main.h"
+
+extern Throttle throttle;
+extern Buzzer buzzer;
 
 Button::Button(
   uint8_t pin

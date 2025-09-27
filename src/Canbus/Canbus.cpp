@@ -6,6 +6,8 @@
 #include "Canbus.h"
 #include "../Hobbywing/Hobbywing.h"
 
+extern Hobbywing hobbywing;
+
 
 
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
