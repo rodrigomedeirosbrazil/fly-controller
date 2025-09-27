@@ -4,18 +4,15 @@
 
 #include "../config.h"
 #include "Canbus.h"
+#include "../Hobbywing/Hobbywing.h"
 
-Canbus::Canbus() {
-    transferId = 0;
-    lastAnnounce = millis();
-}
 
 
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
 
-    // Route all ESC-related messages to the Hobbywing class
-    if (isHobbywingEscMessage(dataTypeId) || dataTypeId == getEscIdRequestDataTypeId) {
+    // Route Hobbywing ESC messages to the Hobbywing class
+    if (isHobbywingEscMessage(dataTypeId)) {
         hobbywing.parseEscMessage(canMsg);
         return;
     }
@@ -46,34 +43,15 @@ void Canbus::printCanMsg(struct can_frame *canMsg) {
 bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
     return (dataTypeId == 0x4E52 ||  // statusMsg1
             dataTypeId == 0x4E53 ||  // statusMsg2
-            dataTypeId == 0x4E54);   // statusMsg3
-}
-
-uint8_t Canbus::getPriorityFromCanId(uint32_t canId) {
-    return (canId >> 24) & 0xFF;
+            dataTypeId == 0x4E54 ||  // statusMsg3
+            dataTypeId == 0x4E56);   // getEscIdRequestDataTypeId
 }
 
 uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
     return (canId >> 8) & 0xFFFF;
 }
 
-uint8_t Canbus::getServiceTypeIdFromCanId(uint32_t canId) {
-    return (canId >> 16) & 0xFF;
-}
-
 uint8_t Canbus::getNodeIdFromCanId(uint32_t canId) {
     return canId & 0x7F;
-}
-
-uint8_t Canbus::getDestNodeIdFromCanId(uint32_t canId) {
-   return (canId >> 8) & 0x7F;
-}
-
-bool Canbus::isServiceFrame(uint32_t canId) {
-    return (canId & 0x80) >> 7 == 1;
-}
-
-bool Canbus::isRequestFrame(uint32_t canId) {
-    return (canId & 0x8000) != 0;
 }
 
