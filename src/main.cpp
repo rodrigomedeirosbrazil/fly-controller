@@ -34,6 +34,9 @@ void setup()
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
 
   buzzer.beepWarning();
+
+  esc.attach(ESC_PIN);
+  esc.writeMicroseconds(ESC_MIN_PWM);
 }
 
 void loop()
@@ -57,15 +60,8 @@ void handleEsc()
 {
   if (!throttle.isArmed())
   {
-    if (esc.attached()) {
-      esc.detach();
-    }
+    esc.writeMicroseconds(ESC_MIN_PWM);
     return;
-  }
-
-  if (!esc.attached())
-  {
-    esc.attach(ESC_PIN);
   }
 
   int pulseWidth = power.getPwm();
