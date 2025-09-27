@@ -7,6 +7,7 @@
 #include "Button/Button.h"
 #include "Temperature/Temperature.h"
 #include "Canbus/Canbus.h"
+#include "Hobbywing/Hobbywing.h"
 #include "Power/Power.h"
 #include <mcp2515.h>
 

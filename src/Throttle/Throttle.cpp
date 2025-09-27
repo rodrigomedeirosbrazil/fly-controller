@@ -264,8 +264,8 @@ void Throttle::setArmed()
 
   throttleArmed = true;
   buzzer.beepSuccess();
-  if (canbus.isReady()) {
-    canbus.setLedColor(Canbus::ledColorRed, Canbus::ledBlink5Hz);
+  if (hobbywing.isReady()) {
+    hobbywing.setLedColor(Hobbywing::ledColorRed, Hobbywing::ledBlink5Hz);
   }
 }
 
@@ -274,8 +274,8 @@ void Throttle::setDisarmed()
   throttleArmed = false;
   cancelCruise();
   buzzer.beepError();
-  if (canbus.isReady()) {
-    canbus.setLedColor(Canbus::ledColorGreen);
+  if (hobbywing.isReady()) {
+    hobbywing.setLedColor(Hobbywing::ledColorGreen);
   }
 }
 

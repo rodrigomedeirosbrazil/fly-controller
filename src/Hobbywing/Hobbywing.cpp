@@ -315,10 +315,6 @@ void Hobbywing::sendMessage(
 
 // Helper methods
 
-uint8_t Hobbywing::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
-    return payload[canDlc - 1];
-}
-
 uint8_t Hobbywing::getTransferId(uint8_t tailByte) {
     return tailByte & 0x1F;
 }

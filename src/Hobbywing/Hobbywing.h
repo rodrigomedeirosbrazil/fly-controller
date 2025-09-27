@@ -92,7 +92,6 @@ private:
         uint8_t payloadLength
     );
     void handleGetEscIdResponse(struct can_frame *canMsg);
-    uint8_t getTailByteFromPayload(uint8_t *payload, uint8_t canDlc);
     uint8_t getTransferId(uint8_t tailByte);
     uint8_t getEscThrottleIdFromPayload(uint8_t *payload);
 
