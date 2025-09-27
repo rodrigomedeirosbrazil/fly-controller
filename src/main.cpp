@@ -28,10 +28,10 @@ void setup()
   mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   mcp2515.setNormalMode();
 
-  canbus.announce();
-  canbus.requestEscId();
-  canbus.setThrottleSource(Canbus::throttleSourcePWM);
-  canbus.setLedColor(Canbus::ledColorGreen);
+  hobbywing.announce();
+  hobbywing.requestEscId();
+  hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
+  hobbywing.setLedColor(Hobbywing::ledColorGreen);
 
   buzzer.beepWarning();
 }
@@ -77,5 +77,5 @@ void checkCanbus()
     if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
         canbus.parseCanMsg(&canMsg);
     }
-    canbus.announce();
+    hobbywing.announce();
 }
