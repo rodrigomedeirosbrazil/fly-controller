@@ -13,7 +13,7 @@ Xctod::Xctod() {
 void Xctod::init(unsigned long baudRate) {
     Serial.begin(baudRate);
 
-    Serial.println("$XCTOD,battery_percentage,battery_voltage,throttle_percentage,throttle_raw,power_percentage,motor_temp,rpm,current,esc_temp,armed,cruise");
+    Serial.println("$XCTOD,battery_percentage,battery_voltage,power_kw,throttle_percentage,throttle_raw,power_percentage,motor_temp,rpm,current,esc_temp,armed,cruise");
     Serial.println("$XCTOD,,,,,,,,,,,");
 }
 
@@ -50,9 +50,16 @@ void Xctod::writeBatteryInfo() {
         100
     );
 
+    // Calculate power in KW using current and voltage
+    float voltage = batteryDeciVolts / 10.0;
+    float current = canbus.getDeciCurrent() / 10.0;
+    float powerKw = (voltage * current) / 1000.0; // Convert to KW
+
     Serial.print(batteryPercentage);
     Serial.print(",");
-    Serial.print(batteryDeciVolts / 10.0, 2);
+    Serial.print(voltage, 2);
+    Serial.print(",");
+    Serial.print(powerKw, 1);
     Serial.print(",");
 }
 
