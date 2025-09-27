@@ -9,6 +9,7 @@ Buzzer buzzer(BUZZER_PIN);
 Servo esc;
 Throttle throttle;
 Canbus canbus;
+Hobbywing hobbywing;
 Button button(BUTTON_PIN);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 

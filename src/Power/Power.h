@@ -1,10 +1,11 @@
 #ifndef POWER_H
 #define POWER_H
 
-#include "../config.h"
+#include <Arduino.h>
 
 class Throttle;
 class Canbus;
+class Hobbywing;
 class Temperature;
 
 class Power {
