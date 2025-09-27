@@ -11,6 +11,7 @@
 #include "Throttle/Throttle.h"
 
 #include "Canbus/Canbus.h"
+#include "Hobbywing/Hobbywing.h"
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Power/Power.h"

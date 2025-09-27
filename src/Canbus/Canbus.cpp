@@ -6,15 +6,7 @@
 #include "Canbus.h"
 
 Canbus::Canbus() {
-    lastReadStatusMsg1 = 0;
-    lastReadStatusMsg2 = 0;
     transferId = 0;
-
-    temperature = 0;
-    deciCurrent = 0;
-    deciVoltage = 0;
-    rpm = 0;
-
     lastAnnounce = millis();
 }
 
@@ -58,41 +50,20 @@ void Canbus::announce()
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
 
-    if (
-        dataTypeId != statusMsg1
-        && dataTypeId != statusMsg2
-    ) {
-        if (dataTypeId != statusMsg3) {
-            printCanMsg(canMsg);
-        }
-
+    // Route Hobbywing ESC messages to the Hobbywing class
+    if (isHobbywingEscMessage(dataTypeId)) {
+        hobbywing.parseEscMessage(canMsg);
         return;
     }
 
-    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->can_dlc);
-
-    if (
-        ! isStartOfFrame(tailByte) &&
-        ! isEndOfFrame(tailByte) &&
-        isToggleFrame(tailByte)
-    ) {
-        return;
-    }
-
-    if (dataTypeId == statusMsg1) {
-        handleStatusMsg1(canMsg);
-        return;
-    }
-
-    if (dataTypeId == statusMsg2) {
-        handleStatusMsg2(canMsg);
-        return;
-    }
-
+    // Handle ESC ID request/response messages
     if (dataTypeId == getEscIdRequestDataTypeId) {
         handleGetEscIdResponse(canMsg);
         return;
     }
+
+    // Print unknown messages for debugging
+    printCanMsg(canMsg);
 }
 
 void Canbus::printCanMsg(struct can_frame *canMsg) {
@@ -114,33 +85,13 @@ void Canbus::printCanMsg(struct can_frame *canMsg) {
 }
 
 bool Canbus::isReady() {
-    return
-        lastReadStatusMsg1 != 0
-        && lastReadStatusMsg2 != 0
-        && millis() - lastReadStatusMsg1 < 1000
-        && millis() - lastReadStatusMsg2 < 1000;
+    return hobbywing.isReady();
 }
 
-void Canbus::handleStatusMsg1(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 7) {
-        return;
-    }
-
-    rpm = getRpmFromPayload(canMsg->data);
-    isCcwDirection  = getDirectionCCWFromPayload(canMsg->data);
-
-    lastReadStatusMsg2 = millis();
-}
-
-void Canbus::handleStatusMsg2(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 6) {
-        return;
-    }
-
-    temperature = getTemperatureFromPayload(canMsg->data);
-    deciCurrent = getDeciCurrentFromPayload(canMsg->data);
-    deciVoltage = getDeciVoltageFromPayload(canMsg->data);
-    lastReadStatusMsg1 = millis();
+bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
+    return (dataTypeId == 0x4E52 ||  // statusMsg1
+            dataTypeId == 0x4E53 ||  // statusMsg2
+            dataTypeId == 0x4E54);   // statusMsg3
 }
 
 uint8_t Canbus::getPriorityFromCanId(uint32_t canId) {
@@ -175,40 +126,8 @@ uint8_t Canbus::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
     return payload[canDlc - 1];
 }
 
-bool Canbus::isStartOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x80) >> 7 == 1;
-}
-
-bool Canbus::isEndOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x40) >> 6 == 1;
-}
-
-bool Canbus::isToggleFrame(uint8_t tailByte) {
-    return (tailByte & 0x20) >> 5 == 1;
-}
-
 uint8_t Canbus::getTransferId(uint8_t tailByte) {
     return tailByte & 0x1F;
-}
-
-uint8_t Canbus::getTemperatureFromPayload(uint8_t *payload) {
-    return payload[4];
-}
-
-uint16_t Canbus::getDeciCurrentFromPayload(uint8_t *payload) {
-    return (payload[3] << 8) | payload[2];
-}
-
-uint16_t Canbus::getDeciVoltageFromPayload(uint8_t *payload) {
-    return (payload[1] << 8) | payload[0];
-}
-
-uint16_t Canbus::getRpmFromPayload(uint8_t *payload) {
-    return (payload[1] << 8) | payload[0];
-}
-
-bool Canbus::getDirectionCCWFromPayload(uint8_t *payload) {
-    return (payload[5] & 0x80) >> 7 == 1;
 }
 
 uint8_t Canbus::getEscThrottleIdFromPayload(uint8_t *payload) {
