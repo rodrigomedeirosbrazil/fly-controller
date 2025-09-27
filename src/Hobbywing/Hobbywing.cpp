@@ -147,7 +147,7 @@ void Hobbywing::announce()
     canMsg.data[4] = 0x00; // health: OK
     canMsg.data[5] = 0x00; // mode: operational
     canMsg.data[6] = 0x00; // sub_mode: normal
-    canMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest pode ser zero)
+    canMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest can be zero)
 
     // Tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
     canMsg.data[8] = 0xC0 | (transferId & 0x1F);
@@ -247,7 +247,7 @@ void Hobbywing::requestEscId() {
     canId |= (nodeId & 0xFF);                  // Source Node ID
     canMsg.can_id = canId | CAN_EFF_FLAG;
 
-    // Payload pode ser vazio ou 1-3 bytes (de acordo com ESC)
+    // Payload can be empty or 1-3 bytes (according to ESC)
     uint8_t i = 0;
     canMsg.data[i++] = 0xC0 | (transferId & 0x1F); // Tail byte
     canMsg.can_dlc = i;

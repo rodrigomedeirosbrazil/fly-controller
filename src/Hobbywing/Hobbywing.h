@@ -3,6 +3,32 @@
 
 #include <mcp2515.h>
 
+/**
+ * Hobbywing ESC Communication Class
+ *
+ * This class implements DroneCAN communication protocol for Hobbywing Electronic Speed Controllers (ESC).
+ * Specifically designed to work with the Hobbywing X13 motor ESC.
+ *
+ * Developed by: Rodrigo Medeiros
+ *
+ * This implementation is based on:
+ * - ArduPilot codebase (https://github.com/ArduPilot/ardupilot)
+ * - Various GitHub repositories implementing DroneCAN ESC protocols
+ *
+ * Key features:
+ * - DroneCAN message parsing and generation
+ * - ESC telemetry reading (RPM, voltage, current, temperature)
+ * - ESC control (LED color, direction, throttle source)
+ * - Raw throttle command transmission
+ * - ESC ID discovery and communication setup
+ *
+ * For developers searching for Hobbywing ESC integration:
+ * - Compatible with Hobbywing X13 ESC
+ * - Uses DroneCAN protocol over CAN bus
+ * - Supports MCP2515 CAN controller
+ * - Implements standard DroneCAN message formats
+ * - Provides both telemetry and control capabilities
+ */
 class Hobbywing
 {
 public:
