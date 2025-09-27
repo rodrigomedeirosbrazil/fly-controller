@@ -7,31 +7,33 @@
 class Canbus
 {
     public:
-        static const uint8_t ledColorRed = 0x04;
-        static const uint8_t ledColorGreen = 0x02;
-        static const uint8_t ledColorBlue = 0x01;
-        static const uint8_t ledBlinkOff = 0x00;
-        static const uint8_t ledBlink1Hz = 0x01;
-        static const uint8_t ledBlink2Hz = 0x02;
-        static const uint8_t ledBlink5Hz = 0x05;
-
-        static const uint8_t throttleSourceCAN = 0x00;
-        static const uint8_t throttleSourcePWM = 0x01;
 
         Canbus();
-        void announce();
         void parseCanMsg(struct can_frame *canMsg);
         void printCanMsg(struct can_frame *canMsg);
-        bool isReady();
-        void setLedColor(uint8_t color, uint8_t blink = ledBlinkOff);
-        void setDirection(bool isCcw);
-        void setThrottleSource(uint8_t source);
-        void setRawThrottle(int16_t throttle);
+
+        // ESC control methods - delegate to Hobbywing
+        void setLedColor(uint8_t color, uint8_t blink = Hobbywing::ledBlinkOff) {
+            hobbywing.setLedColor(color, blink);
+        }
+        void setDirection(bool isCcw) {
+            hobbywing.setDirection(isCcw);
+        }
+        void setThrottleSource(uint8_t source) {
+            hobbywing.setThrottleSource(source);
+        }
+        void setRawThrottle(int16_t throttle) {
+            hobbywing.setRawThrottle(throttle);
+        }
+        void requestEscId() {
+            hobbywing.requestEscId();
+        }
+
+        // ESC data getters - delegate to Hobbywing
         uint16_t getRpm() { return hobbywing.getRpm(); }
         uint16_t getDeciVoltage() { return hobbywing.getDeciVoltage(); }
         uint16_t getDeciCurrent() { return hobbywing.getDeciCurrent(); }
         uint8_t getTemperature() { return hobbywing.getTemperature(); }
-        void requestEscId();
 
     private:
         // Hobbywing ESC instance
