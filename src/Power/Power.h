@@ -5,6 +5,7 @@
 
 class Throttle;
 class Canbus;
+class Hobbywing;
 class Temperature;
 
 class Power {

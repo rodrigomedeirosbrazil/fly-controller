@@ -44,11 +44,11 @@ unsigned int Power::calcPower() {
 }
 
 unsigned int Power::calcBatteryLimit() {
-    if (!canbus.isReady()) {
+    if (!hobbywing.isReady()) {
         return 0;
     }
 
-    unsigned int batteryDeciVolts = canbus.getDeciVoltage();
+    unsigned int batteryDeciVolts = hobbywing.getDeciVoltage();
     const unsigned int STEP_DECREASE = 5;
 
     if (batteryDeciVolts > BATTERY_MIN_VOLTAGE) {
