@@ -36,12 +36,12 @@ void Xctod::write() {
 }
 
 void Xctod::writeBatteryInfo() {
-    if (!canbus.isReady()) {
+    if (!hobbywing.isReady()) {
         Serial.print(",,"); // battery percentage and voltage
         return;
     }
 
-    int batteryDeciVolts = canbus.getDeciVoltage();
+    int batteryDeciVolts = hobbywing.getDeciVoltage();
     int batteryPercentage = map(
         batteryDeciVolts,
         BATTERY_MIN_VOLTAGE,
@@ -52,7 +52,7 @@ void Xctod::writeBatteryInfo() {
 
     // Calculate power in KW using current and voltage
     float voltage = batteryDeciVolts / 10.0;
-    float current = canbus.getDeciCurrent() / 10.0;
+    float current = hobbywing.getDeciCurrent() / 10.0;
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
     Serial.print(batteryPercentage);
@@ -80,24 +80,24 @@ void Xctod::writeMotorInfo() {
     Serial.print(motorTemp.getTemperature(), 0);
     Serial.print(",");
 
-    if (!canbus.isReady()) {
+    if (!hobbywing.isReady()) {
         Serial.print(",,"); // temperature, rpm, current
         return;
     }
 
-    Serial.print(canbus.getRpm());
+    Serial.print(hobbywing.getRpm());
     Serial.print(",");
-    Serial.print(canbus.getDeciCurrent() / 10.0, 2);
+    Serial.print(hobbywing.getDeciCurrent() / 10.0, 2);
     Serial.print(",");
 }
 
 void Xctod::writeEscInfo() {
-    if (!canbus.isReady()) {
+    if (!hobbywing.isReady()) {
         Serial.print(",");
         return;
     }
 
-    Serial.print(canbus.getTemperature());
+    Serial.print(hobbywing.getTemperature());
     Serial.print(",");
 }
 
