@@ -49,6 +49,7 @@ void loop()
   buzzer.handle();
 
   handleEsc();
+  handleArmedBeep();
 }
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
@@ -74,4 +75,41 @@ void checkCanbus()
         canbus.parseCanMsg(&canMsg);
     }
     hobbywing.announce();
+}
+
+bool isMotorRunning()
+{
+    // Check if ESC is ready and has RPM data
+    if (hobbywing.isReady()) {
+        uint16_t rpm = hobbywing.getRpm();
+        // Consider motor running if RPM > 100 (adjust threshold as needed)
+        return rpm > 10;
+    }
+
+    // Fallback: check throttle position
+    // Consider motor running if throttle > 5%
+    return throttle.getThrottlePercentage() > 5
+     && throttle.isArmed();
+}
+
+void handleArmedBeep()
+{
+    static bool wasArmed = false;
+    static bool wasMotorRunning = false;
+
+    bool isArmed = throttle.isArmed();
+    bool motorRunning = isMotorRunning();
+
+    // Start continuous beep when armed and motor stops
+    if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
+        buzzer.beepCustom(500, 255); // 500ms beep, 255 repetitions (continuous)
+    }
+
+    // Stop beep when motor starts running or throttle is disarmed
+    if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning) {
+        buzzer.stop();
+    }
+
+    wasArmed = isArmed;
+    wasMotorRunning = motorRunning;
 }
