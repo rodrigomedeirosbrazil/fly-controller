@@ -8,6 +8,7 @@
 #include "Temperature/Temperature.h"
 #include "Canbus/Canbus.h"
 #include "Hobbywing/Hobbywing.h"
+#include "Jkbms/Jkbms.h"
 #include "Power/Power.h"
 #include <mcp2515.h>
 
@@ -22,6 +23,7 @@ extern Button button;
 extern Temperature motorTemp;
 extern Canbus canbus;
 extern Hobbywing hobbywing;
+extern Jkbms jkbms;
 extern Power power;
 extern Xctod xctod;
 extern struct can_frame canMsg;
@@ -41,8 +43,8 @@ extern MCP2515 mcp2515;
 
 #define BATTERY_MAX_CURRENT 140
 #define BATTERY_CONTINUOS_CURRENT 105
-#define BATTERY_MIN_VOLTAGE 462 // 46.2V in millivolts
-#define BATTERY_MAX_VOLTAGE 588 // 58.8V in millivolts
+#define BATTERY_MIN_VOLTAGE 462 // 46.2V in millivolts - 3.3 V per cell
+#define BATTERY_MAX_VOLTAGE 588 // 58.8V in millivolts - 4.2 V per cell
 
 #define MOTOR_MAX_TEMP 60
 

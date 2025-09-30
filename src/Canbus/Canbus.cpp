@@ -5,13 +5,21 @@
 #include "../config.h"
 #include "Canbus.h"
 #include "../Hobbywing/Hobbywing.h"
+#include "../Jkbms/Jkbms.h"
 
 extern Hobbywing hobbywing;
+extern Jkbms jkbms;
 
 
 
 void Canbus::parseCanMsg(struct can_frame *canMsg) {
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
+
+    // Route JK BMS messages to the Jkbms class
+    if (isJkbmsMessage(canMsg->can_id)) {
+        jkbms.parseJkbmsMessage(canMsg);
+        return;
+    }
 
     // Route Hobbywing ESC messages to the Hobbywing class
     if (isHobbywingEscMessage(dataTypeId)) {
@@ -47,6 +55,10 @@ bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
             dataTypeId == 0x4E53 ||  // statusMsg2
             dataTypeId == 0x4E54 ||  // statusMsg3
             dataTypeId == 0x4E56);   // getEscIdRequestDataTypeId
+}
+
+bool Canbus::isJkbmsMessage(uint32_t canId) {
+    return (canId >= 0x100 && canId <= 0x103);
 }
 
 uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
