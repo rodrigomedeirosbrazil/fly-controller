@@ -10,11 +10,12 @@
 #include "Hobbywing/Hobbywing.h"
 #include "Jkbms/Jkbms.h"
 #include "Power/Power.h"
-#include <mcp2515.h>
+
+// ESP32-C3 TWAI (CAN) driver
+#include <driver/twai.h>
 
 class Power;
 class Xctod;
-class MCP2515;
 
 extern Buzzer buzzer;
 extern Servo esc;
@@ -26,40 +27,50 @@ extern Hobbywing hobbywing;
 extern Jkbms jkbms;
 extern Power power;
 extern Xctod xctod;
-extern struct can_frame canMsg;
-extern MCP2515 mcp2515;
+extern twai_message_t canMsg;
 
+// ========== CRUISE CONTROL ==========
 #define ENABLED_CRUISE_CONTROL true
 
-#define MOTOR_TEMPERATURE_PIN A0
+// ========== ANALOG INPUTS (ADC1 - WiFi compatible) ==========
+#define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor
+#define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
 
-#define THROTTLE_PIN A1
+// Legacy compatibility values (will be auto-calibrated)
 #define THROTTLE_PIN_MIN 170
 #define THROTTLE_PIN_MAX 850
 #define THROTTLE_RECOVERY_PERCENTAGE 25
 
-#define BUTTON_PIN 3
-#define BUZZER_PIN 4
+// ========== DIGITAL I/O ==========
+#define BUTTON_PIN 5  // GPIO5 - Push button with internal pull-up
+#define BUZZER_PIN 6  // GPIO6 - Buzzer (active/passive compatible)
+#define ESC_PIN    7  // GPIO7 - ESC PWM signal
 
+// ========== CAN BUS (TWAI + SN65HVD230) ==========
+#define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
+#define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
+#define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()
+
+// ========== BATTERY PARAMETERS ==========
 #define BATTERY_MAX_CURRENT 140
 #define BATTERY_CONTINUOS_CURRENT 105
-#define BATTERY_MIN_VOLTAGE 462 // 46.2V in millivolts - 3.3 V per cell
-#define BATTERY_MAX_VOLTAGE 588 // 58.8V in millivolts - 4.2 V per cell
+#define BATTERY_MIN_VOLTAGE 462 // 46.2V in decivolts - 3.3V per cell
+#define BATTERY_MAX_VOLTAGE 588 // 58.8V in decivolts - 4.2V per cell
 
+// ========== MOTOR PARAMETERS ==========
 #define MOTOR_MAX_TEMP 60
 
-#define ESC_PIN 9
+// ========== ESC PARAMETERS ==========
 #define ESC_MIN_PWM 1050
 #define ESC_MAX_PWM 1950
-
 #define ESC_MAX_TEMP 110
 #define ESC_MAX_CURRENT 200
 #define ESC_CONTINUOS_CURRENT 80
 
-#define CANBUS_INT_PIN 2
-#define CANBUS_SCK_PIN 13
-#define CANBUS_SI_PIN 11
-#define CANBUS_SO_PIN 12
-#define CANBUS_CS_PIN 10
+// ========== ESP32-C3 ADC CONFIGURATION ==========
+#define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
+#define ADC_MAX_VALUE 4095       // Maximum ADC reading
+#define ADC_VREF 3.3             // Reference voltage (3.3V)
+#define ADC_ATTENUATION ADC_11db // Full range 0-3.3V
 
 #endif
