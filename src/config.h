@@ -43,8 +43,8 @@ extern MCP2515 mcp2515;
 
 #define BATTERY_MAX_CURRENT 140
 #define BATTERY_CONTINUOS_CURRENT 105
-#define BATTERY_MIN_VOLTAGE 462 // 46.2V in millivolts - 3.3 V per cell
-#define BATTERY_MAX_VOLTAGE 588 // 58.8V in millivolts - 4.2 V per cell
+#define BATTERY_MIN_VOLTAGE 420 // 420 decivolts = 42 V - 3.0 V per cell
+#define BATTERY_MAX_VOLTAGE 574 //  574 decivolts = 57.4 V - 4.1 V per cell
 
 #define MOTOR_MAX_TEMP 60
 
