@@ -1,11 +1,10 @@
 #include <Arduino.h>
-#include <SPI.h>
-#include <mcp2515.h>
+#include <driver/twai.h>
 
 #include "../config.h"
 #include "Hobbywing.h"
 
-extern MCP2515 mcp2515;
+extern twai_message_t canMsg;
 
 Hobbywing::Hobbywing() {
     lastReadStatusMsg1 = 0;
@@ -20,9 +19,9 @@ Hobbywing::Hobbywing() {
     isCcwDirection = false;
 }
 
-void Hobbywing::parseEscMessage(struct can_frame *canMsg) {
+void Hobbywing::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
-    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
+    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
 
     // Handle ESC ID request/response messages
     if (dataTypeId == getEscIdRequestDataTypeId) {
@@ -35,7 +34,7 @@ void Hobbywing::parseEscMessage(struct can_frame *canMsg) {
         return; // Not a Hobbywing ESC message
     }
 
-    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->can_dlc);
+    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
 
     // Validate frame structure
     if (!isStartOfFrame(tailByte) && !isEndOfFrame(tailByte) && isToggleFrame(tailByte)) {
@@ -61,8 +60,8 @@ bool Hobbywing::isReady() {
         && millis() - lastReadStatusMsg2 < 1000;
 }
 
-void Hobbywing::handleStatusMsg1(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 7) {
+void Hobbywing::handleStatusMsg1(twai_message_t *canMsg) {
+    if (canMsg->data_length_code != 7) {
         return;
     }
 
@@ -72,8 +71,8 @@ void Hobbywing::handleStatusMsg1(struct can_frame *canMsg) {
     lastReadStatusMsg2 = millis();
 }
 
-void Hobbywing::handleStatusMsg2(struct can_frame *canMsg) {
-    if (canMsg->can_dlc != 6) {
+void Hobbywing::handleStatusMsg2(twai_message_t *canMsg) {
+    if (canMsg->data_length_code != 6) {
         return;
     }
 
@@ -131,30 +130,31 @@ void Hobbywing::announce()
 
     uint32_t uptimeSec = millis() / 1000;
 
-    struct can_frame canMsg;
+    twai_message_t localCanMsg;
     uint32_t dataTypeId = 341;
 
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
     canId |= (uint32_t)(nodeId & 0xFF);        // Source node ID
-    canMsg.can_id = canId | CAN_EFF_FLAG;
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;  // Extended frame (29-bit)
 
-    canMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
-    canMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
-    canMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
-    canMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
-    canMsg.data[4] = 0x00; // health: OK
-    canMsg.data[5] = 0x00; // mode: operational
-    canMsg.data[6] = 0x00; // sub_mode: normal
-    canMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest can be zero)
+    localCanMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
+    localCanMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
+    localCanMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
+    localCanMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
+    localCanMsg.data[4] = 0x00; // health: OK
+    localCanMsg.data[5] = 0x00; // mode: operational
+    localCanMsg.data[6] = 0x00; // sub_mode: normal
+    localCanMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest can be zero)
 
     // Tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
-    canMsg.data[8] = 0xC0 | (transferId & 0x1F);
+    localCanMsg.data[8] = 0xC0 | (transferId & 0x1F);
 
-    canMsg.can_dlc = 9;
+    localCanMsg.data_length_code = 9;
 
-    mcp2515.sendMessage(&canMsg);
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
     transferId++;
 }
 
@@ -206,7 +206,7 @@ void Hobbywing::setThrottleSource(uint8_t source)
 
 void Hobbywing::setRawThrottle(int16_t throttle)
 {
-    struct can_frame canMsg;
+    twai_message_t localCanMsg;
 
     // DroneCAN DataType ID for uavcan.equipment.esc.RawCommand
     uint32_t dataTypeId = 1030;
@@ -216,7 +216,8 @@ void Hobbywing::setRawThrottle(int16_t throttle)
     canId |= ((uint32_t)0 << 26);              // Priority = 0
     canId |= (dataTypeId << 8);                // DataType ID
     canId |= (nodeId & 0xFF);                  // Source Node ID
-    canMsg.can_id = canId | CAN_EFF_FLAG;
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;  // Extended frame (29-bit)
 
     // Create array with value only in escThrottleId position
     // All previous positions must exist (even with zero)
@@ -225,46 +226,47 @@ void Hobbywing::setRawThrottle(int16_t throttle)
 
     for (uint8_t i = 0; i < throttleArraySize; i++) {
         int16_t value = (i == escThrottleId) ? throttle : 0;
-        canMsg.data[byteIndex++] = value & 0xFF;
-        canMsg.data[byteIndex++] = (value >> 8) & 0xFF;
+        localCanMsg.data[byteIndex++] = value & 0xFF;
+        localCanMsg.data[byteIndex++] = (value >> 8) & 0xFF;
     }
 
     // Tail byte
-    canMsg.data[byteIndex++] = 0xC0 | (transferId & 0x1F);
-    canMsg.can_dlc = byteIndex;
+    localCanMsg.data[byteIndex++] = 0xC0 | (transferId & 0x1F);
+    localCanMsg.data_length_code = byteIndex;
 
-    mcp2515.sendMessage(&canMsg);
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
     transferId++;
 }
 
 void Hobbywing::requestEscId() {
-    struct can_frame canMsg;
+    twai_message_t localCanMsg;
 
     uint32_t dataTypeId = 20013;
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= (dataTypeId << 8);                // DataType ID
     canId |= (nodeId & 0xFF);                  // Source Node ID
-    canMsg.can_id = canId | CAN_EFF_FLAG;
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;  // Extended frame (29-bit)
 
     // Payload can be empty or 1-3 bytes (according to ESC)
     uint8_t i = 0;
-    canMsg.data[i++] = 0xC0 | (transferId & 0x1F); // Tail byte
-    canMsg.can_dlc = i;
+    localCanMsg.data[i++] = 0xC0 | (transferId & 0x1F); // Tail byte
+    localCanMsg.data_length_code = i;
 
     Serial.println("Sending GetEscID as broadcast message");
-    mcp2515.sendMessage(&canMsg);
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
     transferId++;
 }
 
-void Hobbywing::handleGetEscIdResponse(struct can_frame *canMsg) {
-    if (canMsg->can_dlc < 7) {
+void Hobbywing::handleGetEscIdResponse(twai_message_t *canMsg) {
+    if (canMsg->data_length_code < 7) {
         Serial.println("WARN: GetEscID response payload too short.");
         return;
     }
 
     uint8_t escThrottleIdReceived = getEscThrottleIdFromPayload(canMsg->data);
-    uint8_t sourceNodeId = getNodeIdFromCanId(canMsg->can_id);
+    uint8_t sourceNodeId = getNodeIdFromCanId(canMsg->identifier);
 
     Serial.print("Received GetEscID response from Node ID: ");
     Serial.print(sourceNodeId, HEX);
@@ -279,7 +281,7 @@ void Hobbywing::sendMessage(
     uint8_t *payload,
     uint8_t payloadLength
 ) {
-    struct can_frame canMsg;
+    twai_message_t localCanMsg;
 
     // DroneCAN CAN ID structure for a service frame (request)
     // [28:26] Priority (3 bits)
@@ -297,20 +299,20 @@ void Hobbywing::sendMessage(
     canId |= (1U << 7);  // Service, not message
     canId |= (uint32_t)(nodeId & 0x7F);
 
-    // The MCP2515 library requires the CAN_EFF_FLAG to be set for extended frames.
-    // The 29-bit DroneCAN ID is placed in the lower bits of the can_id field.
-    canMsg.can_id = canId | CAN_EFF_FLAG;
+    // TWAI uses extended frame flag (29-bit identifier)
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;  // Extended frame (29-bit)
 
-    canMsg.can_dlc = payloadLength + 1;
+    localCanMsg.data_length_code = payloadLength + 1;
     for (uint8_t i = 0; i < payloadLength; i++) {
-        canMsg.data[i] = payload[i];
+        localCanMsg.data[i] = payload[i];
     }
 
     // Tail byte for a single-frame transfer:
     // SOF=1, EOF=1, Toggle=0, Transfer ID (5 bits)
-    canMsg.data[payloadLength] = 0xC0 | (transferId & 0x1F);
+    localCanMsg.data[payloadLength] = 0xC0 | (transferId & 0x1F);
 
-    mcp2515.sendMessage(&canMsg);
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
 
     transferId++;
 }
