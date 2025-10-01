@@ -29,8 +29,6 @@ extern Xctod xctod;
 extern struct can_frame canMsg;
 extern MCP2515 mcp2515;
 
-#define ENABLED_CRUISE_CONTROL true
-
 #define MOTOR_TEMPERATURE_PIN A0
 
 #define THROTTLE_PIN A1

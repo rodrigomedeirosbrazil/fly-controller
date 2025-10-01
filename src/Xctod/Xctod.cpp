@@ -19,8 +19,8 @@ Xctod::Xctod() {
 void Xctod::init(unsigned long baudRate) {
     Serial.begin(baudRate);
 
-    Serial.println("$XCTOD,battery_percentage,battery_voltage,power_kw,throttle_percentage,throttle_raw,power_percentage,motor_temp,rpm,current,esc_temp,armed,cruise");
-    Serial.println("$XCTOD,,,,,,,,,,,");
+    Serial.println("$XCTOD,battery_percentage,battery_voltage,power_kw,throttle_percentage,throttle_raw,power_percentage,motor_temp,rpm,current,esc_temp,armed");
+    Serial.println("$XCTOD,,,,,,,,,,");
 }
 
 void Xctod::write() {
@@ -109,7 +109,5 @@ void Xctod::writeEscInfo() {
 
 void Xctod::writeSystemStatus() {
     Serial.print(throttle.isArmed() ? "YES" : "NO");
-    Serial.print(",");
-    Serial.print(throttle.isCruising() ? "ON" : "OFF");
     Serial.print(",");
 }
