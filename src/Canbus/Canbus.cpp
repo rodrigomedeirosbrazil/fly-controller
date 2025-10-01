@@ -1,6 +1,5 @@
 #include <Arduino.h>
-#include <SPI.h>
-#include <mcp2515.h>
+#include <driver/twai.h>
 
 #include "../config.h"
 #include "Canbus.h"
@@ -12,11 +11,11 @@ extern Jkbms jkbms;
 
 
 
-void Canbus::parseCanMsg(struct can_frame *canMsg) {
-    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->can_id);
+void Canbus::parseCanMsg(twai_message_t *canMsg) {
+    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
 
     // Route JK BMS messages to the Jkbms class
-    if (isJkbmsMessage(canMsg->can_id)) {
+    if (isJkbmsMessage(canMsg->identifier)) {
         jkbms.parseJkbmsMessage(canMsg);
         return;
     }
@@ -31,17 +30,17 @@ void Canbus::parseCanMsg(struct can_frame *canMsg) {
     printCanMsg(canMsg);
 }
 
-void Canbus::printCanMsg(struct can_frame *canMsg) {
+void Canbus::printCanMsg(twai_message_t *canMsg) {
     Serial.print("Data Type ID: ");
-    Serial.print(getDataTypeIdFromCanId(canMsg->can_id), HEX);
+    Serial.print(getDataTypeIdFromCanId(canMsg->identifier), HEX);
     Serial.print(" Node ID: ");
-    Serial.println(getNodeIdFromCanId(canMsg->can_id), HEX);
+    Serial.println(getNodeIdFromCanId(canMsg->identifier), HEX);
     Serial.print("CAN Frame: ID=0x");
-    Serial.print(canMsg->can_id, HEX);
+    Serial.print(canMsg->identifier, HEX);
     Serial.print(" DLC=");
-    Serial.print(canMsg->can_dlc);
+    Serial.print(canMsg->data_length_code);
     Serial.print(" Data=");
-    for (uint8_t i = 0; i < canMsg->can_dlc; i++) {
+    for (uint8_t i = 0; i < canMsg->data_length_code; i++) {
         if (i > 0) Serial.print(" ");
         if (canMsg->data[i] < 0x10) Serial.print("0");
         Serial.print(canMsg->data[i], HEX);
