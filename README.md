@@ -31,23 +31,25 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 ## 🏗️ System Architecture
 
 ### Microcontroller
-- **Platform**: ATmega328P (16MHz)
+- **Platform**: ESP32-C3 (160MHz) / ATmega328P (16MHz)
 - **Framework**: Arduino
 - **Build System**: PlatformIO
 
 ### Communication
-- **CAN Bus**: MCP2515 controller for DroneCAN and JK-BMS
-- **Serial**: Telemetry and debug (9600 baud)
+- **CAN Bus**: TWAI (ESP32-C3 integrated) or MCP2515 (ATmega328P) for DroneCAN and JK-BMS
+- **Serial**: Telemetry and debug (115200 baud)
 - **PWM**: Direct ESC control
+- **WiFi/Bluetooth**: ESP32-C3 only (optional)
 
-### Analog Inputs
-- **Hall Sensor**: Throttle control (A1)
-- **NTC Sensor**: Motor temperature (A0)
+### Analog Inputs (ESP32-C3)
+- **Hall Sensor**: Throttle control (GPIO0 / ADC1-0)
+- **NTC Sensor**: Motor temperature (GPIO1 / ADC1-1)
 
-### Digital Outputs
-- **ESC PWM**: Pin 9 (1050-1950μs)
-- **Buzzer**: Pin 4
-- **Button**: Pin 3 (with interrupt)
+### Digital I/O (ESP32-C3)
+- **ESC PWM**: GPIO7 (1050-1950μs)
+- **Buzzer**: GPIO6
+- **Button**: GPIO5 (with pull-up)
+- **CAN TX/RX**: GPIO2/GPIO3 (TWAI to SN65HVD230)
 
 ## 🔧 Main Components
 
@@ -194,7 +196,8 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 ## 🔌 Supported Hardware
 
 ### Microcontroller
-- Arduino Nano/Pro Mini (ATmega328P 16MHz)
+- **ESP32-C3 Mini** (recommended) - 160MHz, WiFi, Bluetooth, integrated CAN
+- Arduino Nano/Pro Mini (ATmega328P 16MHz) - legacy support
 
 ### ESC
 - Hobbywing X13 (DroneCAN)
@@ -205,9 +208,9 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 - Li-ion/Li-Po packs (up to 24 cells)
 
 ### Sensors
-- Hall Sensor (throttle)
+- Hall Sensor (throttle) - 3.3V compatible
 - 10K NTC 3950K (temperature)
-- MCP2515 (CAN controller)
+- SN65HVD230 CAN transceiver (ESP32-C3) or MCP2515 module (ATmega328P)
 
 ### Interface
 - Push-button
@@ -252,8 +255,22 @@ pio device monitor
 ```
 
 ### 5. Pin Configuration
+
+**ESP32-C3 (Current - see ESP32-C3_MIGRATION.md for details):**
 ```cpp
-// config.h - Main configurations
+// config.h - ESP32-C3 pins
+#define THROTTLE_PIN 0            // GPIO0 (ADC1-0) Hall Sensor
+#define MOTOR_TEMPERATURE_PIN 1   // GPIO1 (ADC1-1) NTC
+#define BUTTON_PIN 5              // GPIO5 Button
+#define BUZZER_PIN 6              // GPIO6 Buzzer
+#define ESC_PIN 7                 // GPIO7 ESC PWM
+#define CAN_TX_PIN 2              // GPIO2 TWAI TX to SN65HVD230
+#define CAN_RX_PIN 3              // GPIO3 TWAI RX from SN65HVD230
+```
+
+**ATmega328P (Legacy):**
+```cpp
+// config.h - Arduino pins
 #define THROTTLE_PIN A1           // Hall Sensor
 #define MOTOR_TEMPERATURE_PIN A0  // NTC
 #define BUTTON_PIN 3              // Button
