@@ -45,6 +45,9 @@ extern MCP2515 mcp2515;
 #define BATTERY_MAX_VOLTAGE 574 //  574 decivolts = 57.4 V - 4.1 V per cell
 
 #define MOTOR_MAX_TEMP 60
+#define MOTOR_TEMP_REDUCTION_START 50 // Start reducing power at this temperature
+#define MOTOR_TEMP_MIN_VALID -10 // Minimum valid temperature reading
+#define MOTOR_TEMP_MAX_VALID 150 // Maximum valid temperature reading
 
 #define ESC_PIN 9
 #define ESC_MIN_PWM 1050

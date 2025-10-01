@@ -74,16 +74,21 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-   double readedMotorTemp = motorTemp.getTemperature();
+    double readedMotorTemp = motorTemp.getTemperature();
 
-   if (readedMotorTemp < MOTOR_MAX_TEMP - 10) {
+    // Validate temperature reading
+    if (readedMotorTemp < MOTOR_TEMP_MIN_VALID || readedMotorTemp > MOTOR_TEMP_MAX_VALID) {
+        return 100; // Invalid sensor data
+    }
+
+    if (readedMotorTemp < MOTOR_TEMP_REDUCTION_START) {
         return 100;
-   }
+    }
 
-   return constrain(
+    return constrain(
         map(
             readedMotorTemp,
-            MOTOR_MAX_TEMP - 10,
+            MOTOR_TEMP_REDUCTION_START,
             MOTOR_MAX_TEMP,
             100,
             0
