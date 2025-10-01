@@ -135,8 +135,8 @@ analogSetAttenuation(ADC_11db);  // Full 0-3.3V range
 **TWAI Initialization:**
 ```cpp
 twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
-  (gpio_num_t)CAN_TX_PIN, 
-  (gpio_num_t)CAN_RX_PIN, 
+  (gpio_num_t)CAN_TX_PIN,
+  (gpio_num_t)CAN_RX_PIN,
   TWAI_MODE_NORMAL
 );
 twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
@@ -292,6 +292,66 @@ For issues or questions:
 
 ---
 
-**Migration Date:** October 2025  
-**Target Board:** ESP32-C3 Mini DevKitM-1  
+**Migration Date:** October 2025
+**Target Board:** ESP32-C3 Mini DevKitM-1
 **Firmware Version:** Compatible with existing fly-controller codebase
+
+
+Sim — posso ajudar a analisar o código desse repositório pra achar onde estão definidos os limites de tensão, temperatura, etc. — mas vai requerer que eu examine partes específicas do código (por exemplo, arquivos de configuração, drivers de sensores, módulos do ESC/BMS).
+
+Fiz uma olhada inicial no repositório **openppg/eppg-controller** ([GitHub][1]) e achei algo interessante: no site de configuração do OpenPPG existe uma documentação que lista os limites de temperatura e tensão usados no firmware do controlador SP140:
+
+* Por exemplo, limites de alertas de temperatura para ESC, motor, capacitores, etc. ([OpenPPG Config][2])
+* Também limites de tensão do pacote de baterias, células, alertas de sobretensão/subtensão ([OpenPPG Config][2])
+
+---
+
+### O que achei nos documentos de suporte
+
+Aqui estão alguns limites documentados:
+
+#### Temperatura (alertas)
+
+Conforme a documentação “SP140 Config”:
+
+* ESC MOSFET: warning > 90 °C, critical > 110 °C (baixo também < –10 °C / < –20 °C) ([OpenPPG Config][2])
+
+* ESC MCU: warning > 80 °C, critical > 95 °C ([OpenPPG Config][2])
+
+* Capacitor do ESC: warning > 85 °C, crítico > 100 °C ([OpenPPG Config][2])
+
+* Motor: warning > 105 °C, crítico > 115 °C ([OpenPPG Config][2])
+
+* Para o BMS (bateria):
+   • MOSFETs de descarga: warning > 50 °C, crítico > 60 °C ([OpenPPG Config][2])
+   • Temperatura de equilíbrio (resistores de balanceamento): warning > 50 °C, crítico > 60 °C ([OpenPPG Config][2])
+   • Temperaturas das células / sensor: warning > 50 °C, crítico > 56 °C ([OpenPPG Config][2])
+
+* Limites de tensão / SOC do BMS:
+   • Tensão total permitida: warning se > 100.4 V ou < 79.2 V; crítico se < 69.6 V ou > 100.8 V ([OpenPPG Config][2])
+   • Tensão das células individuais: warning > 4.19 V, crítico > 4.20 V; warning < 3.2 V, crítico < 3.0 V ([OpenPPG Config][2])
+   • Diferença de voltagem entre células (dV): warning > 0.2 V, crítico > 0.4 V ([OpenPPG Config][2])
+
+Esses valores são da configuração / lógica de alerta usados no firmware ou no sistema de configuração.
+
+---
+
+### Próximos passos na análise de código
+
+Para confirmar que esses valores estão realmente “codificados” no firmware (e não apenas no documento de suporte), eu faria o seguinte:
+
+1. **Pesquisar por constantes no código-fonte**
+   Buscar termos como `#define`, `const`, `TEMPERATURE_LIMIT`, `VOLTAGE_MAX`, `VOLTAGE_MIN`, `TEMP_WARNING`, `TEMP_CRITICAL`, etc., dentro dos diretórios `src/` ou `lib/`.
+
+2. **Localizar módulo de BMS / medição de tensão / sensores**
+   Ver quais arquivos lidam com leitura de temperatura e tensão — por exemplo: driver de sensores NTC (para temperatura), leitura do barramento/ADC de tensão, e o módulo que faz alertas / falhas (fault handling).
+
+3. **Lógica de alertas / falhas**
+   Ver como o firmware compara as medições com os limites — há funções ou trechos que fazem algo como `if (temp > TEMP_CRITICAL) { … }` ou similar.
+
+4. **Verificar configuração dinâmica / parâmetros ajustáveis**
+   Talvez esses limites possam ser ajustados via interface de configuração (USB, interface Web, etc.), então nem sempre são valores fixos no firmware. Verificar se há “settings” ou “parameters” que armazenam os limites (e.g. EEPROM, flash, ou parâmetros via UI).
+
+5. **Verificar branches / versões diferentes**
+   O repositório tem várias branches (versão 5, 6, batch-2, batch-3) que podem usar valores diferentes. ([GitHub][1])
+   Então a análise precisa considerar a branch específica que você vai usar.
