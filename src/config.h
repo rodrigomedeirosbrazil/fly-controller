@@ -54,6 +54,9 @@ extern MCP2515 mcp2515;
 #define ESC_MAX_PWM 1950
 
 #define ESC_MAX_TEMP 110
+#define ESC_TEMP_REDUCTION_START 80 // Start reducing power at this temperature
+#define ESC_TEMP_MIN_VALID 0 // Minimum valid temperature reading
+#define ESC_TEMP_MAX_VALID 120 // Maximum valid temperature reading
 #define ESC_MAX_CURRENT 200
 #define ESC_CONTINUOS_CURRENT 80
 

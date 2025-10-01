@@ -47,8 +47,9 @@ unsigned int Power::getPower() {
 unsigned int Power::calcPower() {
     unsigned int batteryLimit = calcBatteryLimit();
     unsigned int motorTempLimit = calcMotorTempLimit();
+    unsigned int escTempLimit = calcEscTempLimit();
 
-    return min(batteryLimit, motorTempLimit);
+    return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
 unsigned int Power::calcBatteryLimit() {
@@ -90,6 +91,35 @@ unsigned int Power::calcMotorTempLimit() {
             readedMotorTemp,
             MOTOR_TEMP_REDUCTION_START,
             MOTOR_MAX_TEMP,
+            100,
+            0
+        ),
+        0,
+        100
+    );
+}
+
+unsigned int Power::calcEscTempLimit() {
+    if (!hobbywing.isReady()) {
+        return 100; // ESC not ready, allow other limits to control
+    }
+
+    uint8_t escTemp = hobbywing.getTemperature();
+
+    // Validate temperature reading
+    if (escTemp < ESC_TEMP_MIN_VALID || escTemp > ESC_TEMP_MAX_VALID) {
+        return 100; // Invalid sensor data
+    }
+
+    if (escTemp < ESC_TEMP_REDUCTION_START) {
+        return 100;
+    }
+
+    return constrain(
+        map(
+            escTemp,
+            ESC_TEMP_REDUCTION_START,
+            ESC_MAX_TEMP,
             100,
             0
         ),
