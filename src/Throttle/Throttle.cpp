@@ -50,7 +50,7 @@ void Throttle::resetCalibration()
   calibratingStep = 0;
   calibrationStartTime = 0;
   calibrationMaxValue = 0;
-  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
+  calibrationMinValue = ADC_MAX_VALUE; // Start with max possible value for ADC (4095 for 12-bit)
   calibrationSumMax = 0;
   calibrationCountMax = 0;
   calibrationSumMin = 0;
