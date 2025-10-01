@@ -1,7 +1,7 @@
 #ifndef Jkbms_h
 #define Jkbms_h
 
-#include <mcp2515.h>
+#include <driver/twai.h>
 
 class Jkbms
 {
@@ -10,7 +10,7 @@ class Jkbms
         Jkbms();
 
         // Main parsing method called from Canbus class
-        void parseJkbmsMessage(struct can_frame *canMsg);
+        void parseJkbmsMessage(twai_message_t *canMsg);
 
         // Data access methods
         float getTotalVoltage() const { return totalVoltage; }
@@ -73,10 +73,10 @@ class Jkbms
         static const unsigned long DATA_TIMEOUT_MS = 5000;  // 5 seconds timeout
 
         // Message parsing methods
-        void parseBasicInfoMessage(struct can_frame *canMsg);
-        void parseCellVoltageMessage(struct can_frame *canMsg);
-        void parseTemperatureMessage(struct can_frame *canMsg);
-        void parseProtectionMessage(struct can_frame *canMsg);
+        void parseBasicInfoMessage(twai_message_t *canMsg);
+        void parseCellVoltageMessage(twai_message_t *canMsg);
+        void parseTemperatureMessage(twai_message_t *canMsg);
+        void parseProtectionMessage(twai_message_t *canMsg);
 
         // Utility methods
         bool isJkbmsMessage(uint32_t canId);
