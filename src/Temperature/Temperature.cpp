@@ -7,7 +7,7 @@ Temperature::Temperature(uint8_t pin) {
   this->pin = pin;
 
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -41,7 +41,7 @@ void Temperature::readTemperature() {
   for (int i = 0; i < samples; i++) {
     sum += pinValues[i];
   }
-  
+
   // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
   double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
   double rt = (ADC_VREF * R) / v - R;
