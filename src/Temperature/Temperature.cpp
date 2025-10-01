@@ -30,8 +30,8 @@ void Temperature::handle()
 
 void Temperature::readTemperature() {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -42,8 +42,9 @@ void Temperature::readTemperature() {
     sum += pinValues[i];
   }
   
-  double v = (vcc * sum) / (samples * 1024.0);
-  double rt = (vcc * R) / v - R;
+  // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
+  double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
+  double rt = (ADC_VREF * R) / v - R;
   double t = beta / log(rt / rx);
   temperature = t - 273.0;
 }
