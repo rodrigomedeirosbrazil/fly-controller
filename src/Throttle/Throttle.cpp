@@ -16,11 +16,6 @@ Throttle::Throttle() {
   throttleArmed = false;
   resetCalibration();
 
-  cruising = false;
-  cruisingThrottlePosition = 0;
-  lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
-
   throttlePinMin = 0;
   throttlePinMax = 0;
 
@@ -161,61 +156,6 @@ void Throttle::readThrottlePin()
   pinValueFiltered = sum / samples;
 }
 
-void Throttle::checkIfChangedCruiseState()
-{
-  if (! throttleArmed) {
-    return;
-  }
-
-  unsigned long now = millis();
-  unsigned int throttlePercentage = getThrottlePercentage();
-
-  if (!cruising) {
-    if (throttlePercentage < minCrusingThrottle) {
-      return;
-    }
-
-    if (
-      throttlePercentage > lastThrottlePosition + throttleRange
-      || throttlePercentage < lastThrottlePosition - throttleRange
-    ) {
-      timeThrottlePosition = now;
-      lastThrottlePosition = throttlePercentage;
-
-      return;
-    }
-
-    if ((now - timeThrottlePosition) > timeToBeOnCruising) {
-      setCruising(throttlePercentage);
-      return;
-    }
-
-    return;
-  }
-
-  if (
-    throttlePercentage < lastThrottlePosition + throttleRange
-    && throttlePercentage > throttleRange
-  ) {
-    lastThrottlePosition = throttlePercentage < throttleRange
-      ? throttleRange
-      : throttlePercentage + throttleRange;
-
-    return;
-  }
-
-  if (throttlePercentage > lastThrottlePosition) {
-    cancelCruise();
-    return;
-  }
-}
-
-void Throttle::setCruising(int throttlePosition)
-{
-  cruisingThrottlePosition = throttlePosition;
-  cruising = true;
-}
-
 unsigned int Throttle::getThrottlePercentage()
 {
   int pinValueConstrained = getThrottleRaw();
@@ -272,17 +212,8 @@ void Throttle::setArmed()
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
-  cancelCruise();
   buzzer.beepError();
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorGreen);
   }
-}
-
-void Throttle::cancelCruise()
-{
-  cruising = false;
-  cruisingThrottlePosition = 0;
-  lastThrottlePosition = 0;
-  timeThrottlePosition = 0;
 }

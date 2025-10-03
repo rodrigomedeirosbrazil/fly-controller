@@ -29,9 +29,6 @@ extern Power power;
 extern Xctod xctod;
 extern twai_message_t canMsg;
 
-// ========== CRUISE CONTROL ==========
-#define ENABLED_CRUISE_CONTROL true
-
 // ========== ANALOG INPUTS (ADC1 - WiFi compatible) ==========
 #define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
@@ -54,16 +51,22 @@ extern twai_message_t canMsg;
 // ========== BATTERY PARAMETERS ==========
 #define BATTERY_MAX_CURRENT 140
 #define BATTERY_CONTINUOS_CURRENT 105
-#define BATTERY_MIN_VOLTAGE 462 // 46.2V in decivolts - 3.3V per cell
-#define BATTERY_MAX_VOLTAGE 588 // 58.8V in decivolts - 4.2V per cell
+#define BATTERY_MIN_VOLTAGE 420 // 420 decivolts = 42 V - 3.0 V per cell
+#define BATTERY_MAX_VOLTAGE 574 //  574 decivolts = 57.4 V - 4.1 V per cell
 
 // ========== MOTOR PARAMETERS ==========
 #define MOTOR_MAX_TEMP 60
+#define MOTOR_TEMP_REDUCTION_START 50 // Start reducing power at this temperature
+#define MOTOR_TEMP_MIN_VALID -10 // Minimum valid temperature reading
+#define MOTOR_TEMP_MAX_VALID 150 // Maximum valid temperature reading
 
 // ========== ESC PARAMETERS ==========
 #define ESC_MIN_PWM 1050
 #define ESC_MAX_PWM 1950
 #define ESC_MAX_TEMP 110
+#define ESC_TEMP_REDUCTION_START 80 // Start reducing power at this temperature
+#define ESC_TEMP_MIN_VALID 0 // Minimum valid temperature reading
+#define ESC_TEMP_MAX_VALID 120 // Maximum valid temperature reading
 #define ESC_MAX_CURRENT 200
 #define ESC_CONTINUOS_CURRENT 80
 

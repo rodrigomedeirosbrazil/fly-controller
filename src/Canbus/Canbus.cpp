@@ -20,6 +20,12 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
         return;
     }
 
+    // Route JK BMS messages to the Jkbms class
+    if (isJkbmsMessage(canMsg->can_id)) {
+        jkbms.parseJkbmsMessage(canMsg);
+        return;
+    }
+
     // Route Hobbywing ESC messages to the Hobbywing class
     if (isHobbywingEscMessage(dataTypeId)) {
         hobbywing.parseEscMessage(canMsg);
