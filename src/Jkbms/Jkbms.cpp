@@ -9,14 +9,14 @@ Jkbms::Jkbms() {
     resetData();
 }
 
-void Jkbms::parseJkbmsMessage(struct can_frame *canMsg) {
-    if (!isJkbmsMessage(canMsg->can_id)) {
+void Jkbms::parseJkbmsMessage(twai_message_t *canMsg) {
+    if (!isJkbmsMessage(canMsg->identifier)) {
         return;
     }
 
     lastUpdateTime = millis();
 
-    switch (canMsg->can_id) {
+    switch (canMsg->identifier) {
         case JK_CAN_ID_BASIC_INFO:
             parseBasicInfoMessage(canMsg);
             break;
@@ -39,8 +39,8 @@ void Jkbms::parseJkbmsMessage(struct can_frame *canMsg) {
     }
 }
 
-void Jkbms::parseBasicInfoMessage(struct can_frame *canMsg) {
-    if (canMsg->can_dlc < 8) return;
+void Jkbms::parseBasicInfoMessage(twai_message_t *canMsg) {
+    if (canMsg->data_length_code < 8) return;
 
     // Parse basic battery information
     // Byte 0-1: Total voltage (0.01V resolution)
@@ -64,12 +64,12 @@ void Jkbms::parseBasicInfoMessage(struct can_frame *canMsg) {
     discharging = (current < -0.1f);
 }
 
-void Jkbms::parseCellVoltageMessage(struct can_frame *canMsg) {
-    if (canMsg->can_dlc < 8) return;
+void Jkbms::parseCellVoltageMessage(twai_message_t *canMsg) {
+    if (canMsg->data_length_code < 8) return;
 
     // Parse cell voltages (up to 4 cells per message)
     // Each cell voltage is 2 bytes with 0.001V resolution
-    uint8_t cellsInMessage = (canMsg->can_dlc - 1) / 2;  // First byte is cell count
+    uint8_t cellsInMessage = (canMsg->data_length_code - 1) / 2;  // First byte is cell count
 
     if (cellsInMessage > 4) cellsInMessage = 4;  // Max 4 cells per message
 
@@ -100,8 +100,8 @@ void Jkbms::parseCellVoltageMessage(struct can_frame *canMsg) {
     }
 }
 
-void Jkbms::parseTemperatureMessage(struct can_frame *canMsg) {
-    if (canMsg->can_dlc < 4) return;
+void Jkbms::parseTemperatureMessage(twai_message_t *canMsg) {
+    if (canMsg->data_length_code < 4) return;
 
     // Parse temperature sensors
     // Byte 0-1: Temperature sensor 1 (0.1°C resolution, signed)
@@ -113,8 +113,8 @@ void Jkbms::parseTemperatureMessage(struct can_frame *canMsg) {
     temperature2 = temp2Raw * 0.1f;
 }
 
-void Jkbms::parseProtectionMessage(struct can_frame *canMsg) {
-    if (canMsg->can_dlc < 2) return;
+void Jkbms::parseProtectionMessage(twai_message_t *canMsg) {
+    if (canMsg->data_length_code < 2) return;
 
     // Parse protection flags
     protectionFlags = (canMsg->data[0] << 8) | canMsg->data[1];

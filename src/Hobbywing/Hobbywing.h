@@ -1,7 +1,7 @@
 #ifndef Hobbywing_h
 #define Hobbywing_h
 
-#include <mcp2515.h>
+#include <driver/twai.h>
 
 /**
  * Hobbywing ESC Communication Class
@@ -47,7 +47,7 @@ public:
     Hobbywing();
 
     // Main parsing method for ESC messages
-    void parseEscMessage(struct can_frame *canMsg);
+    void parseEscMessage(twai_message_t *canMsg);
 
     // ESC control methods
     void announce();
@@ -95,8 +95,8 @@ private:
     const uint16_t getEscIdRequestDataTypeId = 0x4E56;
 
     // Hobbywing-specific parsing methods
-    void handleStatusMsg1(struct can_frame *canMsg);
-    void handleStatusMsg2(struct can_frame *canMsg);
+    void handleStatusMsg1(twai_message_t *canMsg);
+    void handleStatusMsg2(twai_message_t *canMsg);
 
     // Hobbywing payload data extraction methods
     uint8_t getTailByteFromPayload(uint8_t *payload, uint8_t canDlc);
@@ -117,7 +117,7 @@ private:
         uint8_t *payload,
         uint8_t payloadLength
     );
-    void handleGetEscIdResponse(struct can_frame *canMsg);
+    void handleGetEscIdResponse(twai_message_t *canMsg);
     uint8_t getTransferId(uint8_t tailByte);
     uint8_t getEscThrottleIdFromPayload(uint8_t *payload);
 
