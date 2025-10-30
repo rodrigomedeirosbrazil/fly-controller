@@ -2,7 +2,7 @@
 
 **An intelligent and modular flight controller for drones and UAVs**
 
-Fly Controller is an advanced Arduino firmware that implements a complete flight control system with DroneCAN communication, intelligent power management, and battery monitoring. Specifically designed to work with Hobbywing ESCs and JK-BMS battery systems.
+Fly Controller is an advanced Arduino firmware that implements a complete flight control system with DroneCAN communication and intelligent power management. Specifically designed to work with Hobbywing ESCs.
 
 ## 📋 Table of Contents
 
@@ -23,7 +23,7 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 
 - **Intelligent Throttle Control**: With automatic calibration, cruise control, and safety protections
 - **DroneCAN Communication**: Complete interface with Hobbywing X13 ESCs
-- **Battery Monitoring**: Integration with JK-BMS via CAN bus
+- **Battery Monitoring**: Voltage/current via ESC telemetry
 - **Power Management**: Dynamic power calculation based on voltage and temperature
 - **User Interface**: Control button and buzzer for feedback
 - **Complete Telemetry**: Serial output for real-time monitoring
@@ -83,21 +83,7 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 - LED control (red, green, blue)
 - Direction and throttle commands
 
-### 3. **Jkbms** - Battery Monitoring
-```cpp
-// JK-BMS battery management system
-- Individual cell monitoring
-- State of Charge (SOC) and Health (SOH)
-- Safety protections
-- Battery temperature
-```
-
-**Monitored Data:**
-- Total and per-cell voltage (up to 24 cells)
-- Charge/discharge current
-- Temperature (2 sensors)
-- SOC/SOH and cycle count
-- Protection flags
+### 3. **Power** - Power Management
 
 ### 4. **Power** - Power Management
 ```cpp
@@ -163,11 +149,7 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 - **Messages**: Status, control, configuration
 - **Format**: CAN 2.0B with DroneCAN payload
 
-### JK-BMS CAN
-- **Speed**: 500 kbps
-- **IDs**: 0x100-0x103 (different data types)
-- **Protocol**: JK-BMS v2.0
-- **Data**: Voltage, current, temperature, protections
+
 
 ## ⚡ Features
 
@@ -201,8 +183,7 @@ Fly Controller is a modular Arduino-based flight control system that offers:
 - Any ESC with PWM input
 
 ### Battery
-- JK-BMS with CAN interface
-- Li-ion/Li-Po packs (up to 24 cells)
+- Li-ion/Li-Po packs
 
 ### Sensors
 - Hall Sensor (throttle)
@@ -318,7 +299,6 @@ src/
 ├── config.h              # Configurations
 ├── Throttle/             # Throttle control
 ├── Hobbywing/            # DroneCAN interface
-├── Jkbms/                # Battery monitoring
 ├── Power/                # Power management
 ├── Temperature/          # Thermal sensor
 ├── Canbus/               # CAN communication

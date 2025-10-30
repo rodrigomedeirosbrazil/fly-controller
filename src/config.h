@@ -8,7 +8,6 @@
 #include "Temperature/Temperature.h"
 #include "Canbus/Canbus.h"
 #include "Hobbywing/Hobbywing.h"
-#include "Jkbms/Jkbms.h"
 #include "Power/Power.h"
 
 // ESP32-C3 TWAI (CAN) driver
@@ -24,7 +23,6 @@ extern Button button;
 extern Temperature motorTemp;
 extern Canbus canbus;
 extern Hobbywing hobbywing;
-extern Jkbms jkbms;
 extern Power power;
 extern Xctod xctod;
 extern twai_message_t canMsg;

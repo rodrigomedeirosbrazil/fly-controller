@@ -42,8 +42,8 @@
 │  GND     ◄───── ESP32-C3 GND                               │
 │  CTX     ◄───── ESP32-C3 GPIO2 (TWAI_TX)                   │
 │  CRX     ─────► ESP32-C3 GPIO3 (TWAI_RX)                   │
-│  CANH    ─────► CAN Bus High (to Hobbywing + JK-BMS)      │
-│  CANL    ─────► CAN Bus Low  (to Hobbywing + JK-BMS)      │
+│  CANH    ─────► CAN Bus High (to Hobbywing)                │
+│  CANL    ─────► CAN Bus Low  (to Hobbywing)                │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -122,7 +122,6 @@
 6. **Throttle.cpp** - Updated ADC max value to 4095
 7. **Canbus.h/cpp** - Changed from `can_frame` to `twai_message_t`
 8. **Hobbywing.h/cpp** - Updated for TWAI message structure
-9. **Jkbms.h/cpp** - Updated for TWAI message structure
 
 ### Key Code Changes:
 
@@ -194,7 +193,7 @@ pio device monitor
 - [ ] ESC PWM signal working
 - [ ] TWAI driver starts successfully
 - [ ] CAN messages received from Hobbywing ESC
-- [ ] CAN messages received from JK-BMS
+
 - [ ] Throttle control functioning
 - [ ] Safety protections active
 
@@ -247,11 +246,9 @@ Common GND ──┬──► Hall Sensor GND
 
 **CAN Bus:**
 ```
-SN65HVD230 CANH ───┬──► Hobbywing ESC CANH
-                   └──► JK-BMS CANH
+SN65HVD230 CANH ───► Hobbywing ESC CANH
 
-SN65HVD230 CANL ───┬──► Hobbywing ESC CANL
-                   └──► JK-BMS CANL
+SN65HVD230 CANL ───► Hobbywing ESC CANL
 
 Note: Add 120Ω termination resistor between CANH-CANL at bus ends
 ```

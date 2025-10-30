@@ -32,7 +32,7 @@ The project supports simulation using **Wokwi**, configured via `wokwi.toml`. Th
 - **CAN Controller:** MCP2515 @ 8MHz with SPI interface
 - **CAN Bus Speed:** 500 kbps
 - **PWM Output:** ESC control (1050-1950μs)
-- **Analog Inputs:** 
+- **Analog Inputs:**
   - A0: NTC temperature sensor (motor)
   - A1: Hall sensor (throttle input)
 - **Digital I/O:**
@@ -66,9 +66,7 @@ src/
 │   ├── Hobbywing.h
 │   └── Hobbywing.cpp
 │
-├── Jkbms/                # JK-BMS battery monitoring
-│   ├── Jkbms.h
-│   └── Jkbms.cpp
+
 │
 ├── Power/                # Intelligent power management
 │   ├── Power.h
@@ -115,19 +113,19 @@ Centralized configuration with all constants and global object instances.
   - Max voltage: 574dV (57.4V) = 4.1V/cell
   - Max current: 140A (peak)
   - Continuous current: 105A
-  
+
 - **Motor:**
   - Max temperature: 60°C
   - Temperature reduction starts: 50°C
   - Temperature sensor: NTC on A0
-  
+
 - **ESC:**
   - Max temperature: 110°C
   - Temperature reduction starts: 80°C
   - Max current: 200A
   - Continuous current: 80A
   - PWM range: 1050-1950μs
-  
+
 - **Throttle:**
   - Hall sensor pin: A1
   - Default range: 170-850 (auto-calibration available)
@@ -157,7 +155,7 @@ Manages throttle input from Hall sensor with automatic calibration and filtering
 **Calibration Process:**
 1. Move throttle to maximum position
 2. Hold for 3 seconds
-3. Move to minimum position  
+3. Move to minimum position
 4. System automatically detects ranges and completes calibration
 
 ### 4. **Hobbywing/** - DroneCAN ESC Interface
@@ -197,44 +195,7 @@ Complete implementation of DroneCAN protocol for Hobbywing X13 ESC communication
 - Destination Node ID (7 bits for services)
 - Transfer ID (5 bits, in payload tail byte)
 
-### 5. **Jkbms/** - Battery Management System Interface
-Monitors JK-BMS battery management system via CAN bus protocol v2.0.
 
-**Monitored Parameters:**
-- **Voltage:**
-  - Total pack voltage
-  - Individual cell voltages (up to 24 cells)
-  - Min/max cell voltages
-  
-- **Current:**
-  - Charge/discharge current (amps)
-  - Positive = charging, negative = discharging
-  
-- **Temperature:**
-  - Sensor 1 and Sensor 2 readings (°C)
-  
-- **Status:**
-  - State of Charge (SOC): 0-100%
-  - State of Health (SOH): 0-100%
-  - Cycle count
-  - Charging/discharging status
-  - Protection flags bitmap
-
-**CAN Message IDs:**
-- `0x100`: Basic info (voltage, current, SOC, SOH, cycles)
-- `0x101`: Cell voltages
-- `0x102`: Temperature readings
-- `0x103`: Protection status and flags
-
-**Key Methods:**
-- `parseJkbmsMessage()`: Main parser routing messages by ID
-- `getTotalVoltage()`, `getCurrent()`: Battery pack parameters
-- `getCellVoltage(index)`: Individual cell voltage access
-- `getMinCellVoltage()`, `getMaxCellVoltage()`: Cell voltage extremes
-- `getSoc()`, `getSoh()`: Battery state indicators
-- `isCharging()`, `isDischarging()`: Current flow direction
-- `isDataFresh()`: Check for communication timeout (5 seconds)
-- `isProtectionActive()`: Check if BMS protection triggered
 
 ### 6. **Power/** - Intelligent Power Management
 Calculates available power based on battery voltage, motor temperature, and ESC temperature.
@@ -283,7 +244,7 @@ Central router for all CAN bus messages, directing them to appropriate component
 
 **Responsibilities:**
 - Parse incoming CAN frames
-- Identify message source (Hobbywing ESC, JK-BMS, etc.)
+- Identify message source (Hobbywing ESC)
 - Route messages to correct component handler
 - Provide debug logging capabilities
 
@@ -419,12 +380,7 @@ Connect serial monitor to view real-time telemetry. Useful for debugging, tuning
 - **Periodic Announcements:** Controller announces presence every loop
 - **Bidirectional:** Both telemetry reception and control commands
 
-**JK-BMS Protocol:**
-- **Speed:** 500 kbps CAN bus (shared with DroneCAN)
-- **Protocol:** JK-BMS v2.0 CAN protocol
-- **Message IDs:** 0x100-0x103 for different data types
-- **Data Types:** Basic info, cell voltages, temperatures, protections
-- **Timeout:** 5-second data freshness check
+
 
 **PWM ESC Control:**
 - **Signal:** Standard servo PWM (50Hz)
@@ -495,7 +451,7 @@ Connect serial monitor to view real-time telemetry. Useful for debugging, tuning
 ### Adjusting Protection Limits
 Edit values in `config.h`:
 - Battery voltage limits
-- Temperature thresholds  
+- Temperature thresholds
 - Current limits
 - PWM range
 
@@ -534,11 +490,7 @@ Modify beep types in `Buzzer/` component:
 - Verify 10K thermistor specification
 - Check reading against valid range (-10°C to 150°C)
 
-**BMS Not Communicating:**
-- Confirm JK-BMS CAN output enabled
-- Check CAN bus termination resistors
-- Verify 500kbps bitrate match
-- Monitor `jkbms.isDataFresh()` status
+
 
 ## References & Resources
 
@@ -549,8 +501,8 @@ Modify beep types in `Buzzer/` component:
 
 ---
 
-**Project Repository:** https://github.com/rodrigomedeirosbrazil/fly-controller  
-**Developer:** Rodrigo Medeiros  
+**Project Repository:** https://github.com/rodrigomedeirosbrazil/fly-controller
+**Developer:** Rodrigo Medeiros
 **License:** MIT
 
 *This document is for AI assistants to understand the codebase architecture and assist with development tasks.*

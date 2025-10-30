@@ -7,7 +7,6 @@ Servo esc;
 Throttle throttle;
 Canbus canbus;
 Hobbywing hobbywing;
-Jkbms jkbms;
 Button button(BUTTON_PIN);
 Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 
