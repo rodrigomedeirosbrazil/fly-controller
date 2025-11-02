@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <Servo.h>
+#include <ESP32Servo.h>
 #include "Buzzer/Buzzer.h"
 #include "Throttle/Throttle.h"
 #include "Button/Button.h"

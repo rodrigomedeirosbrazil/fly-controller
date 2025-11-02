@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include <Servo.h>
+#include <ESP32Servo.h>
 #include <driver/twai.h>
 #include <AceButton.h>
 
