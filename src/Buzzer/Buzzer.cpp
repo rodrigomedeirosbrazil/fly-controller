@@ -2,7 +2,7 @@
 
 Buzzer::Buzzer(uint8_t buzzerPin) :
   pin(buzzerPin),
-  pwmChannel(0),
+  pwmChannel(1),       // Use channel 1 to avoid conflict with ESP32Servo (uses timer 0)
   pwmFrequency(2500),  // 2.5 kHz - typical frequency for passive buzzers
   pwmResolution(8),    // 8-bit resolution (0-255)
   pwmDutyCycle(128),   // 50% duty cycle for medium volume
@@ -19,20 +19,22 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
 void Buzzer::setup() {
   Serial.println("[Buzzer] Setup called");
   // Configure LEDC timer
+  // Use TIMER_1 to avoid conflict with ESP32Servo (which uses TIMER_0)
   ledc_timer_config_t ledc_timer;
   ledc_timer.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
-  ledc_timer.timer_num = LEDC_TIMER_0;
+  ledc_timer.timer_num = LEDC_TIMER_1;  // Changed from LEDC_TIMER_0 to avoid ESP32Servo conflict
   ledc_timer.freq_hz = pwmFrequency;
   ledc_timer.clk_cfg = LEDC_AUTO_CLK;
   ledc_timer_config(&ledc_timer);
 
   // Configure LEDC channel
+  // Use TIMER_1 to avoid conflict with ESP32Servo (which uses TIMER_0)
   ledc_channel_config_t ledc_channel;
   ledc_channel.gpio_num = (gpio_num_t)pin;
   ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_channel.channel = (ledc_channel_t)pwmChannel;
-  ledc_channel.timer_sel = LEDC_TIMER_0;
+  ledc_channel.timer_sel = LEDC_TIMER_1;  // Changed from LEDC_TIMER_0 to avoid ESP32Servo conflict
   ledc_channel.intr_type = LEDC_INTR_DISABLE;
   ledc_channel.duty = 0;
   ledc_channel.hpoint = 0;
