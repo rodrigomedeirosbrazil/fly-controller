@@ -158,6 +158,11 @@ void Throttle::readThrottlePin()
 
 unsigned int Throttle::getThrottlePercentage()
 {
+  // Check if throttle is calibrated (min and max are different)
+  if (!calibrated || throttlePinMin == throttlePinMax) {
+    return 0;
+  }
+
   int pinValueConstrained = getThrottleRaw();
   unsigned int throttlePercentage = map(pinValueConstrained, throttlePinMin, throttlePinMax, 0, 100);
 
