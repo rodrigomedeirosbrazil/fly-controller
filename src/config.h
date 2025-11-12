@@ -10,7 +10,6 @@
 #include "Hobbywing/Hobbywing.h"
 #include "Power/Power.h"
 
-// ESP32-C3 TWAI (CAN) driver
 #include <driver/twai.h>
 
 class Power;
@@ -31,8 +30,6 @@ extern twai_message_t canMsg;
 #define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
 
-#define THROTTLE_RECOVERY_PERCENTAGE 25
-
 // ========== DIGITAL I/O ==========
 #define BUTTON_PIN 5  // GPIO5 - Push button with internal pull-up
 #define BUZZER_PIN 6  // GPIO6 - Buzzer (active/passive compatible)
@@ -44,8 +41,6 @@ extern twai_message_t canMsg;
 #define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()
 
 // ========== BATTERY PARAMETERS ==========
-#define BATTERY_MAX_CURRENT 140
-#define BATTERY_CONTINUOS_CURRENT 105
 #define BATTERY_MIN_VOLTAGE 420 // 420 decivolts = 42 V - 3.0 V per cell
 #define BATTERY_MAX_VOLTAGE 574 //  574 decivolts = 57.4 V - 4.1 V per cell
 
@@ -62,8 +57,6 @@ extern twai_message_t canMsg;
 #define ESC_TEMP_REDUCTION_START 80 // Start reducing power at this temperature
 #define ESC_TEMP_MIN_VALID 0 // Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120 // Maximum valid temperature reading
-#define ESC_MAX_CURRENT 200
-#define ESC_CONTINUOS_CURRENT 80
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
