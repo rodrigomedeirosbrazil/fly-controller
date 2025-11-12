@@ -21,27 +21,25 @@ using namespace ace_button;
 
 void setup()
 {
-  // Configure ADC attenuation for full 0-3.3V range
-  analogSetAttenuation(ADC_ATTENUATION);
-  
+
   xctod.init();
   buzzer.setup();
-  
+
   // Initialize TWAI (CAN) driver with SN65HVD230
   twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
-    (gpio_num_t)CAN_TX_PIN, 
-    (gpio_num_t)CAN_RX_PIN, 
+    (gpio_num_t)CAN_TX_PIN,
+    (gpio_num_t)CAN_RX_PIN,
     TWAI_MODE_NORMAL
   );
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
-  
+
   if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
     Serial.println("TWAI driver installed");
   } else {
     Serial.println("Failed to install TWAI driver");
   }
-  
+
   if (twai_start() == ESP_OK) {
     Serial.println("TWAI driver started");
   } else {
