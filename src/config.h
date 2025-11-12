@@ -31,9 +31,6 @@ extern twai_message_t canMsg;
 #define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
 
-// Legacy compatibility values (will be auto-calibrated)
-#define THROTTLE_PIN_MIN 170
-#define THROTTLE_PIN_MAX 850
 #define THROTTLE_RECOVERY_PERCENTAGE 25
 
 // ========== DIGITAL I/O ==========
