@@ -34,17 +34,8 @@ void setup()
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
-  if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-    Serial.println("TWAI driver installed");
-  } else {
-    Serial.println("Failed to install TWAI driver");
-  }
-
-  if (twai_start() == ESP_OK) {
-    Serial.println("TWAI driver started");
-  } else {
-    Serial.println("Failed to start TWAI driver");
-  }
+  twai_driver_install(&g_config, &t_config, &f_config);
+  twai_start();
 
   hobbywing.announce();
   hobbywing.requestEscId();

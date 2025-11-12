@@ -13,13 +13,9 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
   repetitions(0),
   currentRepetition(0),
   isOn(false) {
-  // Constructor - Serial not initialized yet
 }
 
 void Buzzer::setup() {
-  Serial.println("[Buzzer] Setup called");
-  // Configure LEDC timer
-  // Use TIMER_1 to avoid conflict with ESP32Servo (which uses TIMER_0)
   ledc_timer_config_t ledc_timer;
   ledc_timer.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
@@ -28,8 +24,6 @@ void Buzzer::setup() {
   ledc_timer.clk_cfg = LEDC_AUTO_CLK;
   ledc_timer_config(&ledc_timer);
 
-  // Configure LEDC channel
-  // Use TIMER_1 to avoid conflict with ESP32Servo (which uses TIMER_0)
   ledc_channel_config_t ledc_channel;
   ledc_channel.gpio_num = (gpio_num_t)pin;
   ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
@@ -40,9 +34,7 @@ void Buzzer::setup() {
   ledc_channel.hpoint = 0;
   ledc_channel_config(&ledc_channel);
 
-  // Start with buzzer off
   setPwmOff();
-  Serial.println("[Buzzer] Setup completed");
 }
 
 void Buzzer::handle() {
