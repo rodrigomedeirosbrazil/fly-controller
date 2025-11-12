@@ -1,8 +1,7 @@
 #include <Arduino.h>
 
-#include <Servo.h>
-#include <SPI.h>
-#include <mcp2515.h>
+#include <ESP32Servo.h>
+#include <driver/twai.h>
 #include <AceButton.h>
 
 #include "config.h"
@@ -22,11 +21,21 @@ using namespace ace_button;
 
 void setup()
 {
+
   xctod.init();
   buzzer.setup();
-  mcp2515.reset();
-  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
-  mcp2515.setNormalMode();
+
+  // Initialize TWAI (CAN) driver with SN65HVD230
+  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
+    (gpio_num_t)CAN_TX_PIN,
+    (gpio_num_t)CAN_RX_PIN,
+    TWAI_MODE_NORMAL
+  );
+  twai_timing_config_t t_config = CAN_BITRATE;
+  twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+
+  twai_driver_install(&g_config, &t_config, &f_config);
+  twai_start();
 
   hobbywing.announce();
   hobbywing.requestEscId();
@@ -71,7 +80,8 @@ void handleEsc()
 
 void checkCanbus()
 {
-    if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK) {
+    // Check if there are messages in the TWAI receive queue
+    if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
         canbus.parseCanMsg(&canMsg);
     }
     hobbywing.announce();

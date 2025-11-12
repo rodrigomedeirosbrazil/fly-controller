@@ -48,13 +48,20 @@ void Xctod::writeBatteryInfo() {
     }
 
     int batteryDeciVolts = hobbywing.getDeciVoltage();
-    int batteryPercentage = map(
-        batteryDeciVolts,
-        BATTERY_MIN_VOLTAGE,
-        BATTERY_MAX_VOLTAGE,
-        0,
-        100
-    );
+    int batteryPercentage = 0;
+
+    // Check if voltage range is valid (min != max)
+    if (BATTERY_MIN_VOLTAGE != BATTERY_MAX_VOLTAGE) {
+        batteryPercentage = map(
+            batteryDeciVolts,
+            BATTERY_MIN_VOLTAGE,
+            BATTERY_MAX_VOLTAGE,
+            0,
+            100
+        );
+        // Constrain to valid range
+        batteryPercentage = constrain(batteryPercentage, 0, 100);
+    }
 
     // Calculate power in KW using current and voltage
     float voltage = batteryDeciVolts / 10.0;

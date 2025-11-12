@@ -45,7 +45,7 @@ void Throttle::resetCalibration()
   calibratingStep = 0;
   calibrationStartTime = 0;
   calibrationMaxValue = 0;
-  calibrationMinValue = 1023; // Start with max possible value for Arduino analog read
+  calibrationMinValue = ADC_MAX_VALUE; // Start with max possible value for ADC (4095 for 12-bit)
   calibrationSumMax = 0;
   calibrationCountMax = 0;
   calibrationSumMin = 0;
@@ -158,6 +158,11 @@ void Throttle::readThrottlePin()
 
 unsigned int Throttle::getThrottlePercentage()
 {
+  // Check if throttle is calibrated (min and max are different)
+  if (!calibrated || throttlePinMin == throttlePinMax) {
+    return 0;
+  }
+
   int pinValueConstrained = getThrottleRaw();
   unsigned int throttlePercentage = map(pinValueConstrained, throttlePinMin, throttlePinMax, 0, 100);
 

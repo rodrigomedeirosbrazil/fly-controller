@@ -21,6 +21,12 @@ unsigned int Power::getPwm() {
 
     unsigned int throttleMin = throttle.getThrottlePinMin();
     unsigned int throttleMax = throttle.getThrottlePinMax();
+
+    // Check if throttle is calibrated (min and max are different)
+    if (throttleMin == throttleMax) {
+        return ESC_MIN_PWM;
+    }
+
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
@@ -86,6 +92,11 @@ unsigned int Power::calcMotorTempLimit() {
         return 100;
     }
 
+    // Check if temperature range is valid (min != max)
+    if (MOTOR_TEMP_REDUCTION_START == MOTOR_MAX_TEMP) {
+        return 0; // If min == max, return 0 (maximum reduction)
+    }
+
     return constrain(
         map(
             readedMotorTemp,
@@ -113,6 +124,11 @@ unsigned int Power::calcEscTempLimit() {
 
     if (escTemp < ESC_TEMP_REDUCTION_START) {
         return 100;
+    }
+
+    // Check if temperature range is valid (min != max)
+    if (ESC_TEMP_REDUCTION_START == ESC_MAX_TEMP) {
+        return 0; // If min == max, return 0 (maximum reduction)
     }
 
     return constrain(

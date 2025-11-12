@@ -7,7 +7,7 @@ Temperature::Temperature(uint8_t pin) {
   this->pin = pin;
 
   memset(
-    &pinValues, 
+    &pinValues,
     0,
     sizeof(pinValues[0]) * samples
   );
@@ -30,8 +30,8 @@ void Temperature::handle()
 
 void Temperature::readTemperature() {
   memcpy(
-    &pinValues, 
-    &pinValues[1], 
+    &pinValues,
+    &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)
   );
 
@@ -41,9 +41,13 @@ void Temperature::readTemperature() {
   for (int i = 0; i < samples; i++) {
     sum += pinValues[i];
   }
-  
-  double v = (vcc * sum) / (samples * 1024.0);
-  double rt = (vcc * R) / v - R;
+
+  // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
+  // Divider: 3.3V -> [R 10K] -> GPIO1 -> [NTC rt] -> GND
+  // Voltage at GPIO1: v = ADC_VREF * rt / (R + rt)
+  // Solving for rt: rt = (v * R) / (ADC_VREF - v)
+  double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
+  double rt = (v * R) / (ADC_VREF - v);
   double t = beta / log(rt / rx);
   temperature = t - 273.0;
 }
