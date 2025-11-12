@@ -43,8 +43,11 @@ void Temperature::readTemperature() {
   }
 
   // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
+  // Divider: 3.3V -> [R 10K] -> GPIO1 -> [NTC rt] -> GND
+  // Voltage at GPIO1: v = ADC_VREF * rt / (R + rt)
+  // Solving for rt: rt = (v * R) / (ADC_VREF - v)
   double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
-  double rt = (ADC_VREF * R) / v - R;
+  double rt = (v * R) / (ADC_VREF - v);
   double t = beta / log(rt / rx);
   temperature = t - 273.0;
 }
