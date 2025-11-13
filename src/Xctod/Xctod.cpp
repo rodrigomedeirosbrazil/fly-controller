@@ -14,6 +14,17 @@ extern Power power;
 extern Temperature motorTemp;
 extern Hobbywing hobbywing;
 
+class ServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    Serial.println("BLE connected");
+  }
+  void onDisconnect(BLEServer* pServer) {
+    Serial.println("BLE disconnected");
+    delay(500);
+    pServer->getAdvertising()->start();
+  }
+};
+
 Xctod::Xctod() {
     lastUpdate = 0;
     pServer = nullptr;
@@ -27,6 +38,7 @@ void Xctod::init() {
 
     // Create the BLE Server
     pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new ServerCallbacks());
 
     // Create the BLE Service
     pService = pServer->createService(SERVICE_UUID);
@@ -46,9 +58,11 @@ void Xctod::init() {
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
-    pAdvertising->setMinPreferred(0x12);
+    pAdvertising->setMinPreferred(0x06);
+    pAdvertising->setMaxPreferred(0x12);
     BLEDevice::startAdvertising();
+
+    Serial.println("BLE advertising started");
 }
 
 void Xctod::write() {

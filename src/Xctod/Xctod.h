@@ -22,7 +22,7 @@ public:
 
 private:
     unsigned long lastUpdate;
-    static const unsigned long UPDATE_INTERVAL = 1000; // Update every 1 second
+    static const unsigned long UPDATE_INTERVAL = 200; // Update every 0.2 second
 
     BLEServer *pServer;
     BLEService *pService;
