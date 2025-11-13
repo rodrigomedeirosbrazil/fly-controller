@@ -79,6 +79,7 @@ void Xctod::write() {
     writeMotorInfo(data);
     writeEscInfo(data);
     writeSystemStatus(data);
+    data += "\r\n";
 
     pCharacteristic->setValue(data.c_str());
     pCharacteristic->notify();
