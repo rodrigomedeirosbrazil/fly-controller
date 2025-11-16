@@ -140,25 +140,20 @@ void Throttle::handleCalibration(unsigned long now)
 
 void Throttle::readThrottlePin()
 {
-  pinValues[0] = analogRead(THROTTLE_PIN);
+  memcpy(
+    &pinValues,
+    &pinValues[1],
+    sizeof(pinValues[0]) * (samples - 1)
+  );
 
-  // Simple bubble sort
-  for (int i = 0; i < samples - 1; i++) {
-    for (int j = i + 1; j < samples; j++) {
-      if (pinValues[j] < pinValues[i]) {
-        int temp = pinValues[i];
-        pinValues[i] = pinValues[j];
-        pinValues[j] = temp;
-      }
-    }
-  }
+  pinValues[samples - 1] = analogRead(THROTTLE_PIN);
 
-  long sum = 0;
-  for (int i = 2; i < samples - 2; i++) {
+  int sum = 0;
+  for (int i = 0; i < samples; i++) {
     sum += pinValues[i];
   }
 
-  pinValueFiltered = sum / (samples - 4);
+  pinValueFiltered = sum / samples;
 }
 
 unsigned int Throttle::getThrottlePercentage()

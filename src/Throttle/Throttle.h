@@ -21,7 +21,7 @@ class Throttle {
         unsigned int getCalibratingStep() { return calibratingStep; }
 
     private:
-        const static int samples = 9;
+        const static int samples = 30;
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 2000; // Threshold for detecting throttle movement
 
