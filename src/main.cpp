@@ -21,8 +21,19 @@ using namespace ace_button;
 
 void setup()
 {
+  // Configure ADC resolution for ESP32-C3
+  analogReadResolution(ADC_RESOLUTION);
+
+  // Set attenuation for full 0-3.3V range
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
+
+  // Warm-up ADC: discard first readings
+  for (int i = 0; i < 10; i++) {
+    analogRead(THROTTLE_PIN);
+    analogRead(MOTOR_TEMPERATURE_PIN);
+    delay(10);
+  }
 
   xctod.init();
   buzzer.setup();

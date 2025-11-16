@@ -16,6 +16,7 @@ class Temperature
         const double t0 = 298.15;   // 25°C in Kelvin
         const double R = 10000.0;
         const static int samples = 10;
+        const static int oversample = 4; // Number of readings to average per sample
 
         uint8_t pin;
         int pinValues[samples];
