@@ -15,7 +15,7 @@ class Temperature
         const double r0 = 10000.0;
         const double t0 = 273.0 + 25.0;
         const double rx = r0 * exp(-beta / t0);
-        const double vcc = 5.0;
+        const double vcc = 3.3;
         const double R = 10000.0;
         const static int samples = 10;
 

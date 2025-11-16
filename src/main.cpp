@@ -21,6 +21,8 @@ using namespace ace_button;
 
 void setup()
 {
+  analogSetPinAttenuation(THROTTLE_PIN, ADC_11db);
+  analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_11db);
 
   xctod.init();
   buzzer.setup();
