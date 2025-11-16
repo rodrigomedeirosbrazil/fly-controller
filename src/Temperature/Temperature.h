@@ -14,7 +14,6 @@ class Temperature
         const double beta = 3600.0;
         const double r0 = 10000.0; // Resistance at T0
         const double t0 = 298.15;   // 25°C in Kelvin
-        const double vcc = 3.3;
         const double R = 10000.0;
         const static int samples = 10;
 
