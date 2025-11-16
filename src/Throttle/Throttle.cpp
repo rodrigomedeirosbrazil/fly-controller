@@ -4,12 +4,6 @@
 #include "../config.h"
 
 Throttle::Throttle() {
-  memset(
-    &pinValues,
-    0,
-    sizeof(pinValues[0]) * samples
-  );
-
   pinValueFiltered = 0;
   lastThrottleRead = 0;
 
@@ -140,20 +134,30 @@ void Throttle::handleCalibration(unsigned long now)
 
 void Throttle::readThrottlePin()
 {
-  memcpy(
-    &pinValues,
-    &pinValues[1],
-    sizeof(pinValues[0]) * (samples - 1)
-  );
-
-  pinValues[samples - 1] = analogRead(THROTTLE_PIN);
-
-  int sum = 0;
-  for (int i = 0; i < samples; i++) {
-    sum += pinValues[i];
+  const int N = 9; // Use an odd number for the median
+  int values[N];
+  for (int i = 0; i < N; i++) {
+    values[i] = analogRead(THROTTLE_PIN);
   }
 
-  pinValueFiltered = sum / samples;
+  // Simple bubble sort for small N
+  for (int i = 0; i < N - 1; i++) {
+    for (int j = i + 1; j < N; j++) {
+      if (values[j] < values[i]) {
+        int temp = values[i];
+        values[i] = values[j];
+        values[j] = temp;
+      }
+    }
+  }
+
+  // Discard the two lowest and two highest readings and average the rest
+  long sum = 0;
+  for (int i = 2; i < N - 2; i++) {
+    sum += values[i];
+  }
+
+  pinValueFiltered = sum / (N - 4);
 }
 
 unsigned int Throttle::getThrottlePercentage()
