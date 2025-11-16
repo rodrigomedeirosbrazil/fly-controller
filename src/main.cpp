@@ -29,8 +29,8 @@ void writeEscPulseMicroseconds(int pulse_us);
 
 void setup()
 {
-  analogSetPinAttenuation(THROTTLE_PIN, ADC_11db);
-  analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_11db);
+  analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
+  analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
 
   xctod.init();
   buzzer.setup();
