@@ -3,7 +3,6 @@
 #include "Xctod/Xctod.h"
 
 Buzzer buzzer(BUZZER_PIN);
-Servo esc;
 Throttle throttle;
 Canbus canbus;
 Hobbywing hobbywing;

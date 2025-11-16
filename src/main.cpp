@@ -1,6 +1,5 @@
 #include <Arduino.h>
 
-#include <ESP32Servo.h>
 #include <driver/twai.h>
 #include <AceButton.h>
 
@@ -18,6 +17,15 @@
 
 using namespace ace_button;
 #include "Button/Button.h"
+
+// LEDC constants for ESC control
+const int ESC_LEDC_CHANNEL = 0;
+const int ESC_LEDC_FREQ = 50; // 50 Hz for standard servos/ESCs
+const int ESC_LEDC_RESOLUTION = 16; // 16-bit resolution for precision
+const int MAX_DUTY_CYCLE = (1 << ESC_LEDC_RESOLUTION) - 1;
+
+void setupEsc();
+void writeEscPulseMicroseconds(int pulse_us);
 
 void setup()
 {
@@ -46,8 +54,8 @@ void setup()
 
   buzzer.beepWarning();
 
-  esc.attach(ESC_PIN);
-  esc.writeMicroseconds(ESC_MIN_PWM);
+  setupEsc();
+  writeEscPulseMicroseconds(ESC_MIN_PWM);
 }
 
 void loop()
@@ -72,12 +80,12 @@ void handleEsc()
 {
   if (!throttle.isArmed())
   {
-    esc.writeMicroseconds(ESC_MIN_PWM);
+    writeEscPulseMicroseconds(ESC_MIN_PWM);
     return;
   }
 
   int pulseWidth = power.getPwm();
-  esc.writeMicroseconds(pulseWidth);
+  writeEscPulseMicroseconds(pulseWidth);
 }
 
 void checkCanbus()
@@ -124,4 +132,16 @@ void handleArmedBeep()
 
     wasArmed = isArmed;
     wasMotorRunning = motorRunning;
+}
+
+void setupEsc() {
+  ledcSetup(ESC_LEDC_CHANNEL, ESC_LEDC_FREQ, ESC_LEDC_RESOLUTION);
+  ledcAttachPin(ESC_PIN, ESC_LEDC_CHANNEL);
+}
+
+void writeEscPulseMicroseconds(int pulse_us) {
+  // Calculate duty cycle from pulse width
+  // Period of 50Hz is 20,000 us
+  uint32_t duty = (uint32_t)((uint64_t)pulse_us * MAX_DUTY_CYCLE / 20000ULL);
+  ledcWrite(ESC_LEDC_CHANNEL, duty);
 }

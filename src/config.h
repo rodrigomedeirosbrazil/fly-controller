@@ -1,7 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <ESP32Servo.h>
 #include "Buzzer/Buzzer.h"
 #include "Throttle/Throttle.h"
 #include "Button/Button.h"
@@ -16,7 +15,6 @@ class Power;
 class Xctod;
 
 extern Buzzer buzzer;
-extern Servo esc;
 extern Throttle throttle;
 extern Button button;
 extern Temperature motorTemp;
