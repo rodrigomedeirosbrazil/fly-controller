@@ -21,11 +21,16 @@ class Throttle {
         unsigned int getCalibratingStep() { return calibratingStep; }
 
     private:
+        const static int FILTER_SAMPLE_COUNT = 9;
+        const unsigned long SAMPLE_INTERVAL_US = 100;
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 2000; // Threshold for detecting throttle movement
 
         int pinValueFiltered;
-        unsigned long lastThrottleRead;
+
+        int filterSamples[FILTER_SAMPLE_COUNT];
+        int sampleCount;
+        unsigned long lastSampleTimeMicros;
 
         bool throttleArmed;
 
@@ -44,8 +49,6 @@ class Throttle {
         int throttlePinMin;
         int throttlePinMax;
 
-        int readFilteredADC(uint8_t pin);
-        void readThrottlePin();
         void resetCalibration();
         void handleCalibration(unsigned long now);
 };

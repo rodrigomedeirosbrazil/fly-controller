@@ -5,7 +5,13 @@
 
 Throttle::Throttle() {
   pinValueFiltered = 0;
-  lastThrottleRead = 0;
+  sampleCount = 0;
+  lastSampleTimeMicros = 0;
+  memset(
+    &filterSamples,
+    0,
+    sizeof(filterSamples[0]) * FILTER_SAMPLE_COUNT
+  );
 
   throttleArmed = false;
   resetCalibration();
@@ -18,18 +24,42 @@ Throttle::Throttle() {
 
 void Throttle::handle()
 {
-  unsigned long now = millis();
+  unsigned long now_us = micros();
 
-  if (now - lastThrottleRead < 10) {
-    return;
+  // Collect one sample at a time without blocking
+  if (sampleCount < FILTER_SAMPLE_COUNT && now_us - lastSampleTimeMicros >= SAMPLE_INTERVAL_US) {
+    lastSampleTimeMicros = now_us;
+    filterSamples[sampleCount] = analogRead(THROTTLE_PIN);
+    sampleCount++;
   }
 
-  lastThrottleRead = now;
-  readThrottlePin();
+  // When enough samples are collected, process them to get a new filtered value
+  if (sampleCount >= FILTER_SAMPLE_COUNT) {
+    // Simple bubble sort for small N
+    for (int i = 0; i < FILTER_SAMPLE_COUNT - 1; i++) {
+      for (int j = i + 1; j < FILTER_SAMPLE_COUNT; j++) {
+        if (filterSamples[j] < filterSamples[i]) {
+          int temp = filterSamples[i];
+          filterSamples[i] = filterSamples[j];
+          filterSamples[j] = temp;
+        }
+      }
+    }
 
-  // Handle calibration if not yet calibrated
-  if (!calibrated) {
-    handleCalibration(now);
+    // Discard the two lowest and two highest readings and average the rest
+    long sum = 0;
+    for (int i = 2; i < FILTER_SAMPLE_COUNT - 2; i++) {
+      sum += filterSamples[i];
+    }
+    pinValueFiltered = sum / (FILTER_SAMPLE_COUNT - 4);
+
+    // Reset for the next batch of samples
+    sampleCount = 0;
+
+    // Handle calibration only when a new filtered value is available
+    if (!calibrated) {
+      handleCalibration(millis());
+    }
   }
 }
 
@@ -130,39 +160,6 @@ void Throttle::handleCalibration(unsigned long now)
     calibrationCountMin = 0;
     return;
   }
-}
-
-void Throttle::readThrottlePin()
-{
-  pinValueFiltered = readFilteredADC(THROTTLE_PIN);
-}
-
-int Throttle::readFilteredADC(uint8_t pin) {
-  const int N = 9; // Use an odd number for the median
-  int values[N];
-  for (int i = 0; i < N; i++) {
-    values[i] = analogRead(pin);
-    delayMicroseconds(100); // Small delay between reads
-  }
-
-  // Simple bubble sort for small N
-  for (int i = 0; i < N - 1; i++) {
-    for (int j = i + 1; j < N; j++) {
-      if (values[j] < values[i]) {
-        int temp = values[i];
-        values[i] = values[j];
-        values[j] = temp;
-      }
-    }
-  }
-
-  // Discard the two lowest and two highest readings and average the rest
-  long sum = 0;
-  for (int i = 2; i < N - 2; i++) {
-    sum += values[i];
-  }
-
-  return sum / (N - 4);
 }
 
 unsigned int Throttle::getThrottlePercentage()
