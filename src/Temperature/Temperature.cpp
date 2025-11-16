@@ -48,6 +48,11 @@ void Temperature::readTemperature() {
   // Solving for rt: rt = (v * R) / (ADC_VREF - v)
   double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
   double rt = (v * R) / (ADC_VREF - v);
-  double t = beta / log(rt / rx);
-  temperature = t - 273.0;
+
+  // Steinhart-Hart equation using Beta coefficient:
+  // 1/T = 1/T0 + (1/B) * ln(Rt/R0)
+  // T = 1 / (1/T0 + (1/B) * ln(Rt/R0))
+  double invT = (1.0 / t0) + (1.0 / beta) * log(rt / r0);
+  double tempK = 1.0 / invT;
+  temperature = tempK - 273.15;
 }
