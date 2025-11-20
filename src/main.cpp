@@ -16,11 +16,17 @@
 #include "Power/Power.h"
 #include "Xctod/Xctod.h"
 
+#include "WebServer/WebServer.h" // Include our WebServer header
+
 using namespace ace_button;
 #include "Button/Button.h"
 
+WebServer webServer; // Global instance of our WebServer
+
 void setup()
 {
+  webServer.begin(); // Start the WebServer and Wi-Fi AP immediately
+
   // Configure ADC resolution for ESP32-C3
   analogReadResolution(ADC_RESOLUTION);
 
@@ -59,10 +65,14 @@ void setup()
 
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
+
+  webServer.stop(); // Stop the WebServer and Wi-Fi AP after setup/calibration
 }
 
 void loop()
 {
+  webServer.handleClient(); // Process DNS requests for captive portal functionality
+
   button.check();
   xctod.write();
   checkCanbus();
