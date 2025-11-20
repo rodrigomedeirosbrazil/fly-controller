@@ -8,6 +8,38 @@ const char* SOFT_AP_SSID = "FlyController";
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
+const char* INDEX_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController Firmware Update</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background-color: #f4f4f4; }
+        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); display: inline-block; }
+        h1 { color: #333; }
+        p { color: #666; margin-bottom: 20px; }
+        form { margin-top: 20px; }
+        input[type="file"] { border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
+        input[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-left: 10px; }
+        input[type="submit"]:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FlyController</h1>
+        <p>Você está conectado ao acelerador FlyController.</p>
+        <p>Selecione um arquivo de firmware (.bin) para atualizar o dispositivo.</p>
+        <form method="POST" action="/update" enctype="multipart/form-data">
+            <input type="file" name="update" accept=".bin">
+            <input type="submit" value="Atualizar">
+        </form>
+    </div>
+</body>
+</html>
+)rawliteral";
+
 WebServer::WebServer() : server(80) { // Initialize server on port 80
     // Constructor
 }
@@ -32,6 +64,11 @@ void WebServer::startAP() {
     server.onNotFound([](AsyncWebServerRequest *request) {
         // Redirect all HTTP requests to the captive portal IP
         request->redirect("http://" + apIP.toString());
+    });
+
+    // Handle root URL
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send_P(200, "text/html", INDEX_HTML);
     });
 
     server.begin(); // Start the web server
