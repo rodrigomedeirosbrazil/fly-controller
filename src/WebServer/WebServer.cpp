@@ -1,6 +1,6 @@
 #include "WebServer.h"
 #include <ESPmDNS.h> // For mDNS support, often useful with web servers
-#include <AsyncElegantOTA.h>
+#include <ElegantOTA.h>
 
 const char* SOFT_AP_SSID = "FlyController";
 // No password for open AP, suitable for captive portal-like behavior
@@ -69,7 +69,7 @@ void WebServer::startAP() {
     // Set up captive portal redirection for any request, prioritizing ElegantOTA
     server.onNotFound([](AsyncWebServerRequest *request) {
         if (request->method() == HTTP_GET) { // Only redirect GET requests for captive portal
-            if(!AsyncElegantOTA.handleRequest(request)) { // Let ElegantOTA handle its requests first
+            if(!ElegantOTA.handleRequest(request)) { // Let ElegantOTA handle its requests first
                 request->redirect("http://" + apIP.toString());
             }
         } else { // For POST, etc., send 404 or specific error
@@ -78,7 +78,7 @@ void WebServer::startAP() {
     });
 
     server.begin(); // Start the web server
-    AsyncElegantOTA.begin(&server); // Start ElegantOTA
+    ElegantOTA.begin(&server); // Start ElegantOTA
     Serial.println("Web server started.");
 }
 
