@@ -35,8 +35,15 @@ void Temperature::readTemperature() {
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  pinValues[samples - 1] = analogRead(pin);
+  // Oversampling: take multiple readings and average them
+  // This reduces random noise from the ADC
+  int oversampledValue = 0;
+  for (int i = 0; i < oversample; i++) {
+    oversampledValue += analogRead(pin);
+  }
+  pinValues[samples - 1] = oversampledValue / oversample;
 
+  // Calculate moving average
   int sum = 0;
   for (int i = 0; i < samples; i++) {
     sum += pinValues[i];
@@ -48,6 +55,11 @@ void Temperature::readTemperature() {
   // Solving for rt: rt = (v * R) / (ADC_VREF - v)
   double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
   double rt = (v * R) / (ADC_VREF - v);
-  double t = beta / log(rt / rx);
-  temperature = t - 273.0;
+
+  // Steinhart-Hart equation using Beta coefficient:
+  // 1/T = 1/T0 + (1/B) * ln(Rt/R0)
+  // T = 1 / (1/T0 + (1/B) * ln(Rt/R0))
+  double invT = (1.0 / t0) + (1.0 / beta) * log(rt / r0);
+  double tempK = 1.0 / invT;
+  temperature = tempK - 273.15;
 }

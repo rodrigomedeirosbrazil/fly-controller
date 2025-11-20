@@ -146,8 +146,15 @@ void Throttle::readThrottlePin()
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  pinValues[samples - 1] = analogRead(THROTTLE_PIN);
+  // Oversampling: take multiple readings and average them
+  // This reduces random noise from the ADC
+  int oversampledValue = 0;
+  for (int i = 0; i < oversample; i++) {
+    oversampledValue += analogRead(THROTTLE_PIN);
+  }
+  pinValues[samples - 1] = oversampledValue / oversample;
 
+  // Calculate moving average
   int sum = 0;
   for (int i = 0; i < samples; i++) {
     sum += pinValues[i];

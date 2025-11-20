@@ -22,6 +22,7 @@ class Throttle {
 
     private:
         const static int samples = 30;
+        const static int oversample = 4; // Number of readings to average per sample
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 2000; // Threshold for detecting throttle movement
 
