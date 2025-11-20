@@ -71,6 +71,7 @@ void setup()
 
 void loop()
 {
+  ElegantOTA.loop(); // Handle ElegantOTA loop
   webServer.handleClient(); // Process DNS requests for captive portal functionality
 
   button.check();
