@@ -1,6 +1,10 @@
 #ifndef WEBSERVER_H
 #define WEBSERVER_H
 
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <DNSServer.h>
+
 class WebServer {
 public:
     WebServer();
@@ -9,7 +13,8 @@ public:
     void handleClient();
 
 private:
-    // Private members will be added here
+    AsyncWebServer server;
+    DNSServer dnsServer;
 };
 
 #endif // WEBSERVER_H
