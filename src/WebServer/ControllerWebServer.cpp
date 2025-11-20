@@ -1,6 +1,5 @@
-#include "WebServer.h"
+#include "ControllerWebServer.h"
 #include <ESPmDNS.h> // For mDNS support, often useful with web servers
-#include <ElegantOTA.h>
 
 const char* SOFT_AP_SSID = "FlyController";
 // No password for open AP, suitable for captive portal-like behavior
@@ -41,15 +40,15 @@ const char* INDEX_HTML = R"rawliteral(
 </html>
 )rawliteral";
 
-WebServer::WebServer() : server(80) { // Initialize server on port 80
+ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     // Constructor
 }
 
-void WebServer::begin() {
+void ControllerWebServer::begin() {
     startAP();
 }
 
-void WebServer::startAP() {
+void ControllerWebServer::startAP() {
     Serial.println("Configuring access point...");
     WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(apIP, apIP, netMsk);
@@ -66,13 +65,12 @@ void WebServer::startAP() {
         request->send_P(200, "text/html", INDEX_HTML);
     });
 
-    // Set up captive portal redirection for any request, prioritizing ElegantOTA
+    // Set up captive portal redirection for any request
+    // ElegantOTA will handle its own routes, so we just need to redirect GET requests
     server.onNotFound([](AsyncWebServerRequest *request) {
-        if (request->method() == HTTP_GET) { // Only redirect GET requests for captive portal
-            if(!ElegantOTA.handleRequest(request)) { // Let ElegantOTA handle its requests first
-                request->redirect("http://" + apIP.toString());
-            }
-        } else { // For POST, etc., send 404 or specific error
+        if (request->method() == HTTP_GET) {
+            request->redirect("http://" + apIP.toString());
+        } else {
             request->send(404);
         }
     });
@@ -82,7 +80,7 @@ void WebServer::startAP() {
     Serial.println("Web server started.");
 }
 
-void WebServer::stop() {
+void ControllerWebServer::stop() {
     Serial.println("Stopping web server and access point...");
     server.end(); // Stop the web server
     dnsServer.stop(); // Stop the DNS server
@@ -91,7 +89,7 @@ void WebServer::stop() {
     Serial.println("Web server and access point stopped.");
 }
 
-void WebServer::handleClient() {
+void ControllerWebServer::handleClient() {
     // With AsyncWebServer, individual client handling is usually not needed in the main loop
     // However, the DNSServer might need to be serviced
     dnsServer.processNextRequest();

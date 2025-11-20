@@ -16,12 +16,12 @@
 #include "Power/Power.h"
 #include "Xctod/Xctod.h"
 
-#include "WebServer/WebServer.h" // Include our WebServer header
+#include "WebServer/ControllerWebServer.h" // Include our WebServer header
 
 using namespace ace_button;
 #include "Button/Button.h"
 
-WebServer webServer; // Global instance of our WebServer
+ControllerWebServer webServer; // Global instance of our WebServer
 
 void setup()
 {
