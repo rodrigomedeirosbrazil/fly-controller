@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <AceButton.h>
 
-#include "WebServer/ControllerWebServer.h" // Include our WebServer header
+#include "WebServer/ControllerWebServer.h"
 
 using namespace ace_button;
 
@@ -14,6 +14,6 @@ void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonSt
 bool isMotorRunning();
 void handleArmedBeep();
 
-extern ControllerWebServer webServer; // Declare extern instance of WebServer
+extern ControllerWebServer webServer;
 
 #endif
