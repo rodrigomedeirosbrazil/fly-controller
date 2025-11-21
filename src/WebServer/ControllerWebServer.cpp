@@ -97,6 +97,10 @@ void ControllerWebServer::handleClient() {
         stop();
     }
 
+    if (isActive) {
+        ElegantOTA.loop(); // Process ElegantOTA events only if the server is active
+    }
+
     // The DNSServer might need to be serviced even if the web server is stopped
     dnsServer.processNextRequest();
 }

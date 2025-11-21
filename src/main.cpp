@@ -66,7 +66,6 @@ void setup()
 
 void loop()
 {
-  ElegantOTA.loop();
   webServer.handleClient();
 
   button.check();
