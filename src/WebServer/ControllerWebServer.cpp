@@ -1,6 +1,7 @@
 #include "ControllerWebServer.h"
 #include <ESPmDNS.h> // For mDNS support, often useful with web servers
 #include "../config.h" // For access to global throttle object
+#include <Update.h> // Required for firmware updates
 
 const char* SOFT_AP_SSID = "FlyController";
 // No password for open AP, suitable for captive portal-like behavior
@@ -25,6 +26,9 @@ const char* INDEX_HTML = R"rawliteral(
         input[type="file"] { border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
         input[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-left: 10px; }
         input[type="submit"]:hover { background-color: #0056b3; }
+        .message { margin-top: 20px; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
     </style>
 </head>
 <body>
@@ -36,7 +40,39 @@ const char* INDEX_HTML = R"rawliteral(
             <input type="file" name="update" accept=".bin">
             <input type="submit" value="Atualizar">
         </form>
+        <div id="response" class="message"></div>
     </div>
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const responseDiv = document.getElementById('response');
+            responseDiv.className = 'message';
+            responseDiv.textContent = 'Atualizando...';
+
+            fetch('/update', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                responseDiv.textContent = data;
+                if (data.includes('Sucesso')) {
+                    responseDiv.classList.add('success');
+                    setTimeout(() => {
+                        window.location.reload(); // Reload after update and reboot
+                    }, 5000); // Give time for reboot
+                } else {
+                    responseDiv.classList.add('error');
+                }
+            })
+            .catch(error => {
+                responseDiv.textContent = 'Erro ao conectar com o servidor: ' + error;
+                responseDiv.classList.add('error');
+            });
+        });
+    </script>
 </body>
 </html>
 )rawliteral";
@@ -67,6 +103,44 @@ void ControllerWebServer::startAP() {
         request->send_P(200, "text/html", INDEX_HTML);
     });
 
+    // Handle firmware update POST request
+    server.on(
+        "/update",
+        HTTP_POST,
+        [](AsyncWebServerRequest *request) {
+            // This is the 'final' callback for the POST request, after file upload is complete.
+            request->send(200, "text/plain", (Update.hasError()) ? "Falha na atualização!" : "Atualização de firmware em andamento. O dispositivo será reiniciado.");
+            if (!Update.hasError()) {
+                // If update was successful, ElegantOTA usually triggers reboot internally.
+                // If not, we explicitly restart here.
+                ESP.restart();
+            }
+        },
+        [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+            // This is the file upload handler for chunks.
+            if (!index) { // First chunk of the file
+                Serial.printf("Update Start: %s\n", filename.c_str());
+                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // Start with unknown size for file uploads
+                    Update.printError(Serial);
+                }
+            }
+
+            if (len) { // Write incoming data to the Update stream
+                if (Update.write(data, len) != len) {
+                    Update.printError(Serial);
+                }
+            }
+
+            if (final) { // Last chunk of the file
+                if (Update.end(true)) { // true to set a reboot flag
+                    Serial.printf("Update Sucesso: %uB\n", index + len);
+                } else {
+                    Update.printError(Serial);
+                }
+            }
+        }
+    );
+
     // Set up captive portal redirection for any request
     // ElegantOTA will handle its own routes, so we just need to redirect GET requests
     server.onNotFound([](AsyncWebServerRequest *request) {
@@ -93,7 +167,8 @@ void ControllerWebServer::stop() {
 }
 
 void ControllerWebServer::handleClient() {
-    if (isActive && throttle.isCalibrated()) {
+    // Only stop the web server if it's active AND the throttle is calibrated AND no update is in progress.
+    if (isActive && throttle.isCalibrated() && !Update.isRunning()) {
         stop();
     }
 
