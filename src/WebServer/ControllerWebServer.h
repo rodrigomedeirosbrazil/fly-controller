@@ -17,6 +17,7 @@ public:
 
 private:
     void startAP(); // Declare the private method
+    bool isActive;
     AsyncWebServer server;
     DNSServer dnsServer;
 };

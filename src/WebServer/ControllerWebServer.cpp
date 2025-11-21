@@ -1,5 +1,6 @@
 #include "ControllerWebServer.h"
 #include <ESPmDNS.h> // For mDNS support, often useful with web servers
+#include "../config.h" // For access to global throttle object
 
 const char* SOFT_AP_SSID = "FlyController";
 // No password for open AP, suitable for captive portal-like behavior
@@ -41,10 +42,11 @@ const char* INDEX_HTML = R"rawliteral(
 )rawliteral";
 
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
-    // Constructor
+    isActive = true;
 }
 
 void ControllerWebServer::begin() {
+    isActive = true;
     startAP();
 }
 
@@ -86,11 +88,15 @@ void ControllerWebServer::stop() {
     dnsServer.stop(); // Stop the DNS server
     WiFi.softAPdisconnect(true); // Disconnect clients and stop AP
     WiFi.mode(WIFI_OFF); // Turn off Wi-Fi
+    isActive = false;
     Serial.println("Web server and access point stopped.");
 }
 
 void ControllerWebServer::handleClient() {
-    // With AsyncWebServer, individual client handling is usually not needed in the main loop
-    // However, the DNSServer might need to be serviced
+    if (isActive && throttle.isCalibrated()) {
+        stop();
+    }
+
+    // The DNSServer might need to be serviced even if the web server is stopped
     dnsServer.processNextRequest();
 }
