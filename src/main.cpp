@@ -66,6 +66,12 @@ void setup()
 
 void loop()
 {
+  static bool isWebServerActive = true;
+  if (isWebServerActive && throttle.isCalibrated()) {
+    webServer.stop();
+    isWebServerActive = false;
+  }
+
   ElegantOTA.loop();
   webServer.handleClient();
 
