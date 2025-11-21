@@ -32,11 +32,11 @@ const char* INDEX_HTML = R"rawliteral(
 <body>
     <div class="container">
         <h1>FlyController</h1>
-        <p>Você está conectado ao acelerador FlyController.</p>
-        <p>Selecione um arquivo de firmware (.bin) para atualizar o dispositivo.</p>
+        <p>You are connected to the FlyController accelerator.</p>
+        <p>Select a firmware file (.bin) to update the device.</p>
         <form method="POST" action="/update" enctype="multipart/form-data">
             <input type="file" name="update" accept=".bin">
-            <input type="submit" value="Atualizar">
+            <input type="submit" value="Update">
         </form>
         <div id="response" class="message"></div>
     </div>
@@ -47,7 +47,7 @@ const char* INDEX_HTML = R"rawliteral(
             const formData = new FormData(form);
             const responseDiv = document.getElementById('response');
             responseDiv.className = 'message';
-            responseDiv.textContent = 'Atualizando...';
+            responseDiv.textContent = 'Updating...';
 
             fetch('/update', {
                 method: 'POST',
@@ -56,7 +56,7 @@ const char* INDEX_HTML = R"rawliteral(
             .then(response => response.text())
             .then(data => {
                 responseDiv.textContent = data;
-                if (data.includes('Sucesso')) {
+                if (data.includes('Success')) {
                     responseDiv.classList.add('success');
                     setTimeout(() => {
                         window.location.reload(); // Reload after update and reboot
@@ -66,7 +66,7 @@ const char* INDEX_HTML = R"rawliteral(
                 }
             })
             .catch(error => {
-                responseDiv.textContent = 'Erro ao conectar com o servidor: ' + error;
+                responseDiv.textContent = 'Error connecting to server: ' + error;
                 responseDiv.classList.add('error');
             });
         });
@@ -106,7 +106,7 @@ void ControllerWebServer::startAP() {
         HTTP_POST,
         [](AsyncWebServerRequest *request) {
             // This is the 'final' callback for the POST request, after file upload is complete.
-            request->send(200, "text/plain", (Update.hasError()) ? "Falha na atualização!" : "Atualização de firmware em andamento. O dispositivo será reiniciado.");
+            request->send(200, "text/plain", (Update.hasError()) ? "Update failed!" : "Firmware update in progress. The device will reboot.");
             if (!Update.hasError()) {
                 // If update was successful, ElegantOTA usually triggers reboot internally.
                 // If not, we explicitly restart here.
@@ -130,7 +130,7 @@ void ControllerWebServer::startAP() {
 
             if (final) { // Last chunk of the file
                 if (Update.end(true)) { // true to set a reboot flag
-                    Serial.printf("Update Sucesso: %uB\n", index + len);
+                    Serial.printf("Update Success: %uB\n", index + len);
                 } else {
                     Update.printError(Serial);
                 }
