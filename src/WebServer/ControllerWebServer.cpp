@@ -1,12 +1,10 @@
 #include "ControllerWebServer.h"
-#include <ESPmDNS.h> // For mDNS support, often useful with web servers
-#include "../config.h" // For access to global throttle object
-#include <Update.h> // Required for firmware updates
+#include <ESPmDNS.h>
+#include "../config.h"
+#include <Update.h>
 
 const char* SOFT_AP_SSID = "FlyController";
-// No password for open AP, suitable for captive portal-like behavior
 
-// IP Address for the Soft AP
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
@@ -95,12 +93,11 @@ void ControllerWebServer::startAP() {
     Serial.print("AP IP address: ");
     Serial.println(WiFi.softAPIP());
 
-    // Start DNS server for captive portal functionality
-    dnsServer.start(53, "*", apIP); // DNS server will redirect all requests to apIP
+    dnsServer.start(53, "*", apIP);
 
     // Handle root URL
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send_P(200, "text/html", INDEX_HTML);
+        request->send(200, "text/html", INDEX_HTML);
     });
 
     // Handle firmware update POST request
