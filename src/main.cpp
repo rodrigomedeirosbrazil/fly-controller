@@ -66,8 +66,6 @@ void setup()
 
 void loop()
 {
-  webServer.handleClient();
-
   button.check();
   xctod.write();
   checkCanbus();
@@ -77,6 +75,8 @@ void loop()
 
   handleEsc();
   handleArmedBeep();
+
+  webServer.handleClient();
 }
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
