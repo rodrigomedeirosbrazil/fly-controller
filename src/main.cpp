@@ -16,21 +16,18 @@
 #include "Power/Power.h"
 #include "Xctod/Xctod.h"
 
-#include "WebServer/ControllerWebServer.h" // Include our WebServer header
+#include "WebServer/ControllerWebServer.h"
 
 using namespace ace_button;
 #include "Button/Button.h"
 
-ControllerWebServer webServer; // Global instance of our WebServer
+ControllerWebServer webServer;
 
 void setup()
 {
-  webServer.begin(); // Start the WebServer and Wi-Fi AP immediately
+  webServer.begin();
 
-  // Configure ADC resolution for ESP32-C3
   analogReadResolution(ADC_RESOLUTION);
-
-  // Set attenuation for full 0-3.3V range
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
 
@@ -65,14 +62,12 @@ void setup()
 
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
-
-  webServer.stop(); // Stop the WebServer and Wi-Fi AP after setup/calibration
 }
 
 void loop()
 {
-  ElegantOTA.loop(); // Handle ElegantOTA loop
-  webServer.handleClient(); // Process DNS requests for captive portal functionality
+  ElegantOTA.loop();
+  webServer.handleClient();
 
   button.check();
   xctod.write();
