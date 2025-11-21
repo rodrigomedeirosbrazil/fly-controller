@@ -16,15 +16,18 @@
 #include "Power/Power.h"
 #include "Xctod/Xctod.h"
 
+#include "WebServer/ControllerWebServer.h"
+
 using namespace ace_button;
 #include "Button/Button.h"
 
+ControllerWebServer webServer;
+
 void setup()
 {
-  // Configure ADC resolution for ESP32-C3
-  analogReadResolution(ADC_RESOLUTION);
+  webServer.begin();
 
-  // Set attenuation for full 0-3.3V range
+  analogReadResolution(ADC_RESOLUTION);
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
 
@@ -72,6 +75,8 @@ void loop()
 
   handleEsc();
   handleArmedBeep();
+
+  webServer.handleClient();
 }
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
