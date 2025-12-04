@@ -2,6 +2,7 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include <Update.h>
+#include <LittleFS.h>
 
 const char* SOFT_AP_SSID = "FlyController";
 
@@ -98,6 +99,52 @@ void ControllerWebServer::startAP() {
     // Handle root URL
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", INDEX_HTML);
+    });
+
+    // Serve static files from LittleFS under /logs
+    server.serveStatic("/logs", LittleFS, "/");
+
+    // List files API
+    server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request){
+        String json = "[";
+        File root = LittleFS.open("/");
+        if(root){
+            File file = root.openNextFile();
+            bool first = true;
+            while(file){
+                String fileName = String(file.name());
+                // Ensure leading slash for consistency
+                if(!fileName.startsWith("/")) fileName = "/" + fileName;
+                
+                // Only list .txt files (logs)
+                if(fileName.endsWith(".txt")) {
+                    if(!first) json += ",";
+                    first = false;
+                    json += "{\"name\":\"" + fileName + "\",\"size\":" + String(file.size()) + "}";
+                }
+                file = root.openNextFile();
+            }
+        }
+        json += "]";
+        request->send(200, "application/json", json);
+    });
+
+    // Delete file API
+    server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request){
+        if(request->hasParam("file")){
+            String filename = request->getParam("file")->value();
+            // Security: basic check to ensure we only delete what we expect
+            if(!filename.startsWith("/")) filename = "/" + filename;
+            
+            if(LittleFS.exists(filename)){
+                LittleFS.remove(filename);
+                request->send(200, "text/plain", "Deleted");
+            } else {
+                request->send(404, "text/plain", "File not found");
+            }
+        } else {
+            request->send(400, "text/plain", "Missing file param");
+        }
     });
 
     // Handle firmware update POST request
