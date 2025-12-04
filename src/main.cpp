@@ -22,9 +22,11 @@ using namespace ace_button;
 #include "Button/Button.h"
 
 ControllerWebServer webServer;
+Logger logger;
 
 void setup()
 {
+  Serial.begin(115200);
   webServer.begin();
 
   analogReadResolution(ADC_RESOLUTION);
@@ -39,6 +41,7 @@ void setup()
   }
 
   xctod.init();
+  logger.init();
   buzzer.setup();
 
   // Initialize TWAI (CAN) driver with SN65HVD230
