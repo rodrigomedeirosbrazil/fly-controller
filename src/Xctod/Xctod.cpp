@@ -5,6 +5,7 @@
 #include "../Temperature/Temperature.h"
 #include "../Hobbywing/Hobbywing.h"
 #include "../config.h"
+#include "../Logger/Logger.h"
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -13,6 +14,7 @@ extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
 extern Hobbywing hobbywing;
+extern Logger logger;
 
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
@@ -80,6 +82,8 @@ void Xctod::write() {
     writeEscInfo(data);
     writeSystemStatus(data);
     data += "\r\n";
+
+    logger.log(data);
 
     pCharacteristic->setValue(data.c_str());
     pCharacteristic->notify();

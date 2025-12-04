@@ -5,6 +5,7 @@
 #include <AceButton.h>
 
 #include "WebServer/ControllerWebServer.h"
+#include "Logger/Logger.h"
 
 using namespace ace_button;
 
@@ -15,5 +16,6 @@ bool isMotorRunning();
 void handleArmedBeep();
 
 extern ControllerWebServer webServer;
+extern Logger logger;
 
 #endif
