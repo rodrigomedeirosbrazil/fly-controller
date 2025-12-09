@@ -4,6 +4,7 @@
 
 Logger::Logger() {
     currentFileName = "";
+    fileOpen = false;
 }
 
 void Logger::init() {
@@ -12,6 +13,11 @@ void Logger::init() {
         return;
     }
     createNewFile();
+    openLogFile();
+}
+
+Logger::~Logger() {
+    closeLogFile();
 }
 
 void Logger::createNewFile() {
@@ -30,7 +36,7 @@ void Logger::createNewFile() {
         if (fileName.startsWith("/")) {
             fileName = fileName.substring(1);
         }
-        
+
         // Check if it matches pattern digit+.txt
         int dotIndex = fileName.indexOf('.');
         if (dotIndex > 0) {
@@ -61,18 +67,47 @@ void Logger::createNewFile() {
     Serial.println(currentFileName);
 }
 
+void Logger::openLogFile() {
+    if (currentFileName.length() == 0) return;
+
+    if (fileOpen) {
+        closeLogFile();
+    }
+
+    logFile = LittleFS.open(currentFileName, "a"); // Append mode
+    if (!logFile) {
+        Serial.println("Failed to open log file for appending");
+        fileOpen = false;
+        return;
+    }
+    fileOpen = true;
+}
+
+void Logger::closeLogFile() {
+    if (fileOpen && logFile) {
+        logFile.flush(); // Ensure all data is written before closing
+        logFile.close();
+        fileOpen = false;
+    }
+}
+
 void Logger::log(const String &data) {
     if (currentFileName.length() == 0) return;
 
     checkSpaceAndRotate();
 
-    File file = LittleFS.open(currentFileName, "a"); // Append mode
-    if (!file) {
-        Serial.println("Failed to open log file for appending");
-        return;
+    // Ensure file is open
+    if (!fileOpen) {
+        openLogFile();
+        if (!fileOpen) {
+            Serial.println("Failed to open log file");
+            return;
+        }
     }
-    file.print(data);
-    file.close();
+
+    // Write data and immediately flush to ensure it's written to storage
+    logFile.print(data);
+    logFile.flush(); // Force data to be written to storage immediately
 }
 
 void Logger::checkSpaceAndRotate() {
@@ -82,7 +117,10 @@ void Logger::checkSpaceAndRotate() {
 
     while (free < MIN_FREE_SPACE_BYTES) {
         Serial.printf("Low space: %u bytes. Rotating...\n", free);
-        
+
+        // Close current file before rotating
+        closeLogFile();
+
         // Find oldest file
         File root = LittleFS.open("/");
         int minFileNum = -1;
@@ -94,7 +132,7 @@ void Logger::checkSpaceAndRotate() {
              if (fileName.startsWith("/")) {
                 fileName = fileName.substring(1);
             }
-            
+
             // Only rotate our log files
             int dotIndex = fileName.indexOf('.');
             if (dotIndex > 0) {
@@ -112,7 +150,7 @@ void Logger::checkSpaceAndRotate() {
                     String currentNumPart = currentFileName;
                      if (currentNumPart.startsWith("/")) currentNumPart = currentNumPart.substring(1);
                      currentNumPart = currentNumPart.substring(0, currentNumPart.indexOf('.'));
-                    
+
                     if (num != currentNumPart.toInt()) {
                         if (minFileNum == -1 || num < minFileNum) {
                             minFileNum = num;
@@ -132,13 +170,16 @@ void Logger::checkSpaceAndRotate() {
             Serial.print("Deleting old log: ");
             Serial.println(pathToDelete);
             LittleFS.remove(pathToDelete);
-            
+
             // Update free space
             used = LittleFS.usedBytes();
             free = total - used;
         } else {
             Serial.println("No deletable log files found or disk full with current file.");
-            break; 
+            break;
         }
+
+        // Reopen file after rotation
+        openLogFile();
     }
 }
