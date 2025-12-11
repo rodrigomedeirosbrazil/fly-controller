@@ -44,6 +44,12 @@ extern twai_message_t canMsg;
 #define BATTERY_MIN_VOLTAGE 435 // 435 decivolts = 43.5 V - ~3.1 V per cell
 #define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
 
+// Battery IR drop compensation parameters
+#define BATTERY_CELL_COUNT 14                    // Number of cells in series
+#define BATTERY_WIRE_RESISTANCE_PER_CELL 0.165    // Ohms per cell (from BMS data: ~0.163-0.173)
+#define BATTERY_INTERNAL_RESISTANCE_PER_CELL 0.01 // Ohms per cell (estimated, needs calibration)
+#define BATTERY_CURRENT_THRESHOLD 1.0             // Amps - apply compensation above this
+
 // ========== MOTOR PARAMETERS ==========
 #define MOTOR_MAX_TEMP 60
 #define MOTOR_TEMP_REDUCTION_START 50 // Start reducing power at this temperature
