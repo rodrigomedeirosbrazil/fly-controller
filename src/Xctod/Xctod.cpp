@@ -89,6 +89,35 @@ void Xctod::write() {
     pCharacteristic->notify();
 }
 
+int Xctod::calculateCompensatedVoltage(int deciVolts, int deciAmps) {
+    float voltage = deciVolts / 10.0;
+    float current = deciAmps / 10.0;
+
+    // Apply compensation only if current is significant
+    if (abs(current) < BATTERY_CURRENT_THRESHOLD) {
+        return deciVolts; // No compensation at rest
+    }
+
+    // Calculate total resistance (wire + internal) for all cells in series
+    float resistancePerCell = BATTERY_WIRE_RESISTANCE_PER_CELL + BATTERY_INTERNAL_RESISTANCE_PER_CELL;
+    float totalResistance = resistancePerCell * BATTERY_CELL_COUNT;
+
+    // Calculate voltage drop (IR drop)
+    float voltageDrop = current * totalResistance;
+
+    // Compensated voltage (estimated voltage at rest)
+    float compensatedVoltage = voltage + voltageDrop;
+
+    // Return in decivolts, constrained to reasonable limits
+    int compensatedDeciVolts = (int)(compensatedVoltage * 10);
+
+    // Constrain to prevent unrealistic values
+    int maxDeciVolts = BATTERY_MAX_VOLTAGE + 50; // Allow some margin above max
+    int minDeciVolts = BATTERY_MIN_VOLTAGE - 50; // Allow some margin below min
+
+    return constrain(compensatedDeciVolts, minDeciVolts, maxDeciVolts);
+}
+
 void Xctod::writeBatteryInfo(String &data) {
     if (!hobbywing.isReady()) {
         data += ",,,"; // battery percentage, voltage, power_kw
@@ -96,12 +125,18 @@ void Xctod::writeBatteryInfo(String &data) {
     }
 
     int batteryDeciVolts = hobbywing.getDeciVoltage();
+    int batteryDeciAmps = hobbywing.getDeciCurrent();
+
+    // Calculate compensated voltage to account for IR drop under load
+    int compensatedDeciVolts = calculateCompensatedVoltage(batteryDeciVolts, batteryDeciAmps);
+
     int batteryPercentage = 0;
 
     // Check if voltage range is valid (min != max)
     if (BATTERY_MIN_VOLTAGE != BATTERY_MAX_VOLTAGE) {
+        // Use compensated voltage for percentage calculation
         batteryPercentage = map(
-            batteryDeciVolts,
+            compensatedDeciVolts,
             BATTERY_MIN_VOLTAGE,
             BATTERY_MAX_VOLTAGE,
             0,
@@ -111,9 +146,9 @@ void Xctod::writeBatteryInfo(String &data) {
         batteryPercentage = constrain(batteryPercentage, 0, 100);
     }
 
-    // Calculate power in KW using current and voltage
+    // Calculate power in KW using current and measured voltage (not compensated)
     float voltage = batteryDeciVolts / 10.0;
-    float current = hobbywing.getDeciCurrent() / 10.0;
+    float current = batteryDeciAmps / 10.0;
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
     data += String(batteryPercentage);

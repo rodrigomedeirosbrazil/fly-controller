@@ -33,6 +33,9 @@ private:
     void writeMotorInfo(String &data);
     void writeEscInfo(String &data);
     void writeSystemStatus(String &data);
+
+    // Battery voltage compensation for IR drop
+    int calculateCompensatedVoltage(int deciVolts, int deciAmps);
 };
 
 #endif // XCTOD_H
