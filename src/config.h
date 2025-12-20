@@ -45,9 +45,10 @@ extern twai_message_t canMsg;
 #define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
 
 // Battery IR drop compensation parameters
+// Calibrated from real flight data log analysis
 #define BATTERY_CELL_COUNT 14                    // Number of cells in series
-#define BATTERY_WIRE_RESISTANCE_PER_CELL 0.165    // Ohms per cell (from BMS data: ~0.163-0.173)
-#define BATTERY_INTERNAL_RESISTANCE_PER_CELL 0.01 // Ohms per cell (estimated, needs calibration)
+#define BATTERY_WIRE_RESISTANCE_PER_CELL 0.0059   // Ohms per cell (calibrated: ~5.9 mΩ from flight data)
+#define BATTERY_INTERNAL_RESISTANCE_PER_CELL 0.0  // Ohms per cell (included in wire resistance measurement)
 #define BATTERY_CURRENT_THRESHOLD 1.0             // Amps - apply compensation above this
 
 // ========== MOTOR PARAMETERS ==========
