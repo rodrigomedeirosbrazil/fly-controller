@@ -1,10 +1,14 @@
 #include "Logger.h"
+#include "../Throttle/Throttle.h"
 
 #define MIN_FREE_SPACE_BYTES 102400 // 100KB
+
+extern Throttle throttle;
 
 Logger::Logger() {
     currentFileName = "";
     fileOpen = false;
+    loggingEnabled = false;
 }
 
 void Logger::init() {
@@ -12,6 +16,15 @@ void Logger::init() {
         Serial.println("LittleFS Mount Failed");
         return;
     }
+    // Don't create/open log file yet - wait for startLogging()
+}
+
+void Logger::startLogging() {
+    if (loggingEnabled) {
+        return; // Already logging
+    }
+
+    loggingEnabled = true;
     createNewFile();
     openLogFile();
 }
@@ -92,6 +105,15 @@ void Logger::closeLogFile() {
 }
 
 void Logger::log(const String &data) {
+    // Start logging automatically once throttle calibration is complete
+    if (!loggingEnabled && throttle.isCalibrated()) {
+        startLogging();
+    }
+
+    if (!loggingEnabled) {
+        return; // Don't log until logging is enabled
+    }
+
     if (currentFileName.length() == 0) return;
 
     checkSpaceAndRotate();
