@@ -1,4 +1,5 @@
 #include "Xctod.h"
+#include <cmath>
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Canbus/Canbus.h"
@@ -104,15 +105,23 @@ void Xctod::updateCoulombCount() {
     // Initialize timestamp on first call
     if (lastCoulombTs == 0) {
         lastCoulombTs = currentTs;
+        // Recalibrate from voltage on first call if system is ready
+        recalibrateFromVoltage();
+        return;
+    }
+
+    // Check if we should recalibrate from voltage (no load condition)
+    float currentA = hobbywing.getDeciCurrent() / 10.0;
+    if (fabs(currentA) < ZERO_CURRENT_THRESHOLD_A) {
+        recalibrateFromVoltage();
+        // Still update timestamp to avoid accumulation of time
+        lastCoulombTs = currentTs;
         return;
     }
 
     // Calculate time delta in hours
     unsigned long deltaMs = currentTs - lastCoulombTs;
     float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
-
-    // Get current in amperes (deciamperes / 10.0)
-    float currentA = hobbywing.getDeciCurrent() / 10.0;
 
     // Calculate Ah consumed: ΔAh = I * Δt
     float deltaAh = currentA * deltaHours;
@@ -125,6 +134,35 @@ void Xctod::updateCoulombCount() {
 
     // Update timestamp
     lastCoulombTs = currentTs;
+}
+
+void Xctod::recalibrateFromVoltage() {
+    if (!hobbywing.isReady()) {
+        return;
+    }
+
+    // Check if voltage range is valid (min != max)
+    if (BATTERY_MIN_VOLTAGE == BATTERY_MAX_VOLTAGE) {
+        return;
+    }
+
+    int batteryDeciVolts = hobbywing.getDeciVoltage();
+
+    // Map voltage to percentage (0-100)
+    int voltagePercentage = map(
+        batteryDeciVolts,
+        BATTERY_MIN_VOLTAGE,
+        BATTERY_MAX_VOLTAGE,
+        0,
+        100
+    );
+    voltagePercentage = constrain(voltagePercentage, 0, 100);
+
+    // Calculate remainingAh from voltage percentage
+    remainingAh = (voltagePercentage / 100.0) * batteryCapacityAh;
+
+    // Constrain to valid range
+    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
 }
 
 void Xctod::writeBatteryInfo(String &data) {
