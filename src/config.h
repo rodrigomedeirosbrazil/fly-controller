@@ -41,7 +41,7 @@ extern twai_message_t canMsg;
 #define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()
 
 // ========== BATTERY PARAMETERS ==========
-#define BATTERY_MIN_VOLTAGE 435 // 435 decivolts = 43.5 V - ~3.1 V per cell
+#define BATTERY_MIN_VOLTAGE 441 // 441 decivolts = 44.1 V - ~3.15 V per cell
 #define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
 
 // ========== MOTOR PARAMETERS ==========

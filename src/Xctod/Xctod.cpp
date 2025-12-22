@@ -29,6 +29,9 @@ class ServerCallbacks : public BLEServerCallbacks {
 
 Xctod::Xctod() {
     lastUpdate = 0;
+    batteryCapacityAh = 65.0;
+    remainingAh = 65.0;
+    lastCoulombTs = 0;
     pServer = nullptr;
     pService = nullptr;
     pCharacteristic = nullptr;
@@ -74,6 +77,8 @@ void Xctod::write() {
 
     lastUpdate = millis();
 
+    updateCoulombCount();
+
     String data = "$XCTOD,";
 
     writeBatteryInfo(data);
@@ -89,30 +94,90 @@ void Xctod::write() {
     pCharacteristic->notify();
 }
 
+void Xctod::updateCoulombCount() {
+    if (!hobbywing.isReady()) {
+        return;
+    }
+
+    unsigned long currentTs = millis();
+
+    // Initialize timestamp on first call
+    if (lastCoulombTs == 0) {
+        lastCoulombTs = currentTs;
+        // Recalibrate from voltage on first call if system is ready
+        recalibrateFromVoltage();
+        return;
+    }
+
+    // Check if we should recalibrate from voltage (no load condition)
+    if (hobbywing.getDeciCurrent() == 0) {
+        recalibrateFromVoltage();
+        // Still update timestamp to avoid accumulation of time
+        lastCoulombTs = currentTs;
+        return;
+    }
+
+    // Calculate time delta in hours
+    unsigned long deltaMs = currentTs - lastCoulombTs;
+    float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
+
+    // Calculate Ah consumed: ΔAh = I * Δt
+    float deltaAh = (hobbywing.getDeciCurrent() / 10.0) * deltaHours;
+
+    // Subtract from remaining capacity (discharging = positive current)
+    remainingAh -= deltaAh;
+
+    // Constrain to valid range: 0.0 ≤ remainingAh ≤ batteryCapacityAh
+    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
+
+    // Update timestamp
+    lastCoulombTs = currentTs;
+}
+
+void Xctod::recalibrateFromVoltage() {
+    if (!hobbywing.isReady()) {
+        return;
+    }
+
+    // Check if voltage range is valid (min != max)
+    if (BATTERY_MIN_VOLTAGE == BATTERY_MAX_VOLTAGE) {
+        return;
+    }
+
+    int batteryDeciVolts = hobbywing.getDeciVoltage();
+
+    // Map voltage to percentage (0-100)
+    int voltagePercentage = map(
+        batteryDeciVolts,
+        BATTERY_MIN_VOLTAGE,
+        BATTERY_MAX_VOLTAGE,
+        0,
+        100
+    );
+    voltagePercentage = constrain(voltagePercentage, 0, 100);
+
+    // Calculate remainingAh from voltage percentage
+    remainingAh = (voltagePercentage / 100.0) * batteryCapacityAh;
+
+    // Constrain to valid range
+    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
+}
+
 void Xctod::writeBatteryInfo(String &data) {
     if (!hobbywing.isReady()) {
         data += ",,,"; // battery percentage, voltage, power_kw
         return;
     }
 
-    int batteryDeciVolts = hobbywing.getDeciVoltage();
-    int batteryPercentage = 0;
+    // Calculate battery percentage from Coulomb Counting
+    int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
+    batteryPercentage = constrain(batteryPercentage, 0, 100);
 
-    // Check if voltage range is valid (min != max)
-    if (BATTERY_MIN_VOLTAGE != BATTERY_MAX_VOLTAGE) {
-        batteryPercentage = map(
-            batteryDeciVolts,
-            BATTERY_MIN_VOLTAGE,
-            BATTERY_MAX_VOLTAGE,
-            0,
-            100
-        );
-        // Constrain to valid range
-        batteryPercentage = constrain(batteryPercentage, 0, 100);
-    }
+    // Get voltage for display and power calculation (not for SoC)
+    int batteryDeciVolts = hobbywing.getDeciVoltage();
+    float voltage = batteryDeciVolts / 10.0;
 
     // Calculate power in KW using current and voltage
-    float voltage = batteryDeciVolts / 10.0;
     float current = hobbywing.getDeciCurrent() / 10.0;
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
