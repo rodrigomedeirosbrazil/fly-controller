@@ -28,7 +28,6 @@ private:
     float batteryCapacityAh;
     float remainingAh;
     unsigned long lastCoulombTs;
-    static const float ZERO_CURRENT_THRESHOLD_A = 0.5; // Threshold para considerar corrente zero (A)
 
     BLEServer *pServer;
     BLEService *pService;
