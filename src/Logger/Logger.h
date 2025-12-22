@@ -18,10 +18,12 @@ private:
     File logFile;
     bool fileOpen;
     bool loggingEnabled;
+    bool wasArmed;
 
     void createNewFile();
     void openLogFile();
     void closeLogFile();
+    void stopLogging();
     void checkSpaceAndRotate();
 };
 

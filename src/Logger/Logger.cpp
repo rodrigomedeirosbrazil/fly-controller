@@ -9,6 +9,7 @@ Logger::Logger() {
     currentFileName = "";
     fileOpen = false;
     loggingEnabled = false;
+    wasArmed = false;
 }
 
 void Logger::init() {
@@ -118,11 +119,35 @@ void Logger::closeLogFile() {
     }
 }
 
+void Logger::stopLogging() {
+    if (loggingEnabled) {
+        closeLogFile();
+        loggingEnabled = false;
+        // Prepare new file for next session
+        createNewFile();
+    }
+}
+
 void Logger::log(const String &data) {
-    // Start logging automatically once throttle calibration is complete
-    if (!loggingEnabled && throttle.isCalibrated()) {
+    bool isArmed = throttle.isArmed();
+
+    // Detect transition from armed to disarmed
+    if (wasArmed && !isArmed) {
+        stopLogging();
+    }
+
+    // Start logging automatically once throttle is armed
+    if (!loggingEnabled && isArmed) {
         startLogging();
     }
+
+    // Only log when throttle is armed
+    if (!isArmed) {
+        wasArmed = false;
+        return; // Don't log when throttle is not armed
+    }
+
+    wasArmed = true;
 
     if (!loggingEnabled) {
         return; // Don't log until logging is enabled
