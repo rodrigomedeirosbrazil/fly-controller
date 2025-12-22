@@ -1,5 +1,4 @@
 #include "Xctod.h"
-#include <cmath>
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Canbus/Canbus.h"
@@ -123,7 +122,7 @@ void Xctod::updateCoulombCount() {
     float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
 
     // Calculate Ah consumed: ΔAh = I * Δt
-    float deltaAh = currentA * deltaHours;
+    float deltaAh = (hobbywing.getDeciCurrent() / 10.0) * deltaHours;
 
     // Subtract from remaining capacity (discharging = positive current)
     remainingAh -= deltaAh;
