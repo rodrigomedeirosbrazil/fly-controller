@@ -210,6 +210,34 @@ Outputs comprehensive system telemetry via Bluetooth LE for monitoring and debug
 
 ## Development Guidelines
 
+### Building the Project
+
+**IMPORTANT FOR AI ASSISTANTS:**
+- The project uses **PlatformIO** as the build system
+- **DO NOT** attempt to run `pio` or `platformio` commands directly - they may not be in PATH
+- The build is typically executed via:
+  - **VS Code PlatformIO Extension** (recommended - users typically use this)
+  - **PlatformIO IDE**
+  - **PlatformIO Core** installed via Python (if available)
+
+**Build Process:**
+- The build system is configured in `platformio.ini`
+- Build outputs are generated in `.pio/build/lolin_c3_mini/`
+- The project builds successfully when all dependencies are resolved
+- To verify compilation, check for build errors in the IDE output
+
+**Build Configuration:**
+- **Environment:** `lolin_c3_mini`
+- **Platform:** Espressif 32 (ESP32-C3)
+- **Framework:** Arduino
+- **Build flags:** Defined in `platformio.ini` (e.g., `-D ELEGANTOTA_USE_ASYNC_WEBSERVER=1`)
+- **Mode XAG:** Add `-D XAG=1` to `build_flags` in `platformio.ini` for XAG motor support
+
+**When checking if code compiles:**
+- Use the linter to check for syntax errors (`read_lints` tool)
+- If build verification is needed, inform the user to build via their IDE
+- Do NOT attempt to run PlatformIO commands unless explicitly requested
+
 ### Adding New Components
 1. **Create Component Directory:** `src/NewComponent/`.
 2. **Define Class Interface:** Create `.h` and `.cpp` files.
