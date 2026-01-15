@@ -5,7 +5,9 @@
 
 class Throttle;
 class Canbus;
+#ifndef XAG
 class Hobbywing;
+#endif
 class Temperature;
 
 class Power {

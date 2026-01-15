@@ -1,12 +1,19 @@
 #include "Power.h"
 #include "../config.h"
 #include "../Throttle/Throttle.h"
+#ifndef XAG
 #include "../Hobbywing/Hobbywing.h"
+#endif
 #include "../Temperature/Temperature.h"
 
 extern Throttle throttle;
+#ifndef XAG
 extern Hobbywing hobbywing;
+#endif
 extern Temperature motorTemp;
+#ifdef XAG
+extern Temperature escTemp;
+#endif
 
 Power::Power() {
     lastPowerCalculationTime = 0;
@@ -59,6 +66,10 @@ unsigned int Power::calcPower() {
 }
 
 unsigned int Power::calcBatteryLimit() {
+#ifdef XAG
+    // XAG mode: no battery voltage limit (always return 100)
+    return 100;
+#else
     if (!hobbywing.isReady()) {
         return 0;
     }
@@ -78,6 +89,7 @@ unsigned int Power::calcBatteryLimit() {
     batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
 
     return batteryPowerFloor;
+#endif
 }
 
 unsigned int Power::calcMotorTempLimit() {
@@ -111,18 +123,16 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!hobbywing.isReady()) {
-        return 100; // ESC not ready, allow other limits to control
-    }
-
-    uint8_t escTemp = hobbywing.getTemperature();
+#ifdef XAG
+    // XAG mode: use ESC temperature sensor (NTC)
+    double escTempValue = escTemp.getTemperature();
 
     // Validate temperature reading
-    if (escTemp < ESC_TEMP_MIN_VALID || escTemp > ESC_TEMP_MAX_VALID) {
+    if (escTempValue < ESC_TEMP_MIN_VALID || escTempValue > ESC_TEMP_MAX_VALID) {
         return 100; // Invalid sensor data
     }
 
-    if (escTemp < ESC_TEMP_REDUCTION_START) {
+    if (escTempValue < ESC_TEMP_REDUCTION_START) {
         return 100;
     }
 
@@ -133,7 +143,7 @@ unsigned int Power::calcEscTempLimit() {
 
     return constrain(
         map(
-            escTemp,
+            (int)escTempValue,
             ESC_TEMP_REDUCTION_START,
             ESC_MAX_TEMP,
             100,
@@ -142,6 +152,39 @@ unsigned int Power::calcEscTempLimit() {
         0,
         100
     );
+#else
+    if (!hobbywing.isReady()) {
+        return 100; // ESC not ready, allow other limits to control
+    }
+
+    uint8_t escTempValue = hobbywing.getTemperature();
+
+    // Validate temperature reading
+    if (escTempValue < ESC_TEMP_MIN_VALID || escTempValue > ESC_TEMP_MAX_VALID) {
+        return 100; // Invalid sensor data
+    }
+
+    if (escTempValue < ESC_TEMP_REDUCTION_START) {
+        return 100;
+    }
+
+    // Check if temperature range is valid (min != max)
+    if (ESC_TEMP_REDUCTION_START == ESC_MAX_TEMP) {
+        return 0; // If min == max, return 0 (maximum reduction)
+    }
+
+    return constrain(
+        map(
+            escTempValue,
+            ESC_TEMP_REDUCTION_START,
+            ESC_MAX_TEMP,
+            100,
+            0
+        ),
+        0,
+        100
+    );
+#endif
 }
 
 void Power::resetBatteryPowerFloor() {

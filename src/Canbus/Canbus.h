@@ -4,7 +4,9 @@
 #include <driver/twai.h>
 
 // Forward declaration
+#ifndef XAG
 class Hobbywing;
+#endif
 
 class Canbus
 {
