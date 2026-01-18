@@ -65,9 +65,36 @@ unsigned int Power::calcPower() {
     return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
+#ifdef XAG
+// Read battery voltage from ADC using voltage divider
+// Returns voltage in decivolts (tenths of volts)
+unsigned int Power::readBatteryVoltageDeciVolts() {
+    // Oversampling: take multiple readings and average them
+    int oversampledValue = 0;
+    const int oversampleCount = 10;
+    for (int i = 0; i < oversampleCount; i++) {
+        oversampledValue += analogRead(BATTERY_VOLTAGE_PIN);
+    }
+    int adcValue = oversampledValue / oversampleCount;
+
+    // Convert ADC reading to voltage at GPIO pin
+    // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
+    double voltageAtPin = (ADC_VREF * adcValue) / ADC_MAX_VALUE;
+
+    // Calculate actual battery voltage using divider ratio
+    // V_battery = V_pin * BATTERY_DIVIDER_RATIO
+    double batteryVoltage = voltageAtPin * BATTERY_DIVIDER_RATIO;
+
+    // Convert to decivolts (tenths of volts) and round
+    return (unsigned int)(batteryVoltage * 10.0 + 0.5);
+}
+#endif
+
 unsigned int Power::calcBatteryLimit() {
 #ifdef XAG
-    // XAG mode: no battery voltage limit (always return 100)
+    // XAG mode: battery voltage reading is not reliable, do not limit power
+    // The readBatteryVoltageDeciVolts() function is available for telemetry
+    // but should not be used to control power output
     return 100;
 #else
     if (!hobbywing.isReady()) {

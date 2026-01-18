@@ -27,6 +27,9 @@ private:
     unsigned int calcBatteryLimit();
     unsigned int calcMotorTempLimit();
     unsigned int calcEscTempLimit();
+#ifdef XAG
+    unsigned int readBatteryVoltageDeciVolts();
+#endif
 };
 
 #endif // POWER_H

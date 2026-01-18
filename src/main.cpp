@@ -38,6 +38,7 @@ void setup()
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
 #ifdef XAG
   analogSetPinAttenuation(ESC_TEMPERATURE_PIN, ADC_ATTENUATION);
+  analogSetPinAttenuation(BATTERY_VOLTAGE_PIN, ADC_ATTENUATION);
 #endif
 
   // Warm-up ADC: discard first readings
@@ -46,6 +47,7 @@ void setup()
     analogRead(MOTOR_TEMPERATURE_PIN);
 #ifdef XAG
     analogRead(ESC_TEMPERATURE_PIN);
+    analogRead(BATTERY_VOLTAGE_PIN);
 #endif
     delay(10);
   }

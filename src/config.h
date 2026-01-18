@@ -37,6 +37,7 @@ extern Xctod xctod;
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
 #ifdef XAG
 #define ESC_TEMPERATURE_PIN   4  // GPIO4 (ADC1-4) - NTC 10K (XAG mode only)
+#define BATTERY_VOLTAGE_PIN   2  // GPIO2 (ADC1-2) - Battery voltage divider (XAG mode only)
 #endif
 
 // ========== DIGITAL I/O ==========
@@ -54,6 +55,12 @@ extern Xctod xctod;
 // ========== BATTERY PARAMETERS ==========
 #define BATTERY_MIN_VOLTAGE 441 // 441 decivolts = 44.1 V - ~3.15 V per cell
 #define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
+#ifdef XAG
+// Battery voltage divider: R1 = 2.0 MΩ, R2 = 100 kΩ
+// Ratio = (R1 + R2) / R2 = (2,000,000 + 100,000) / 100,000 = 21.0
+// Low current (~28 µA), minimal noise, safe for high voltage
+#define BATTERY_DIVIDER_RATIO 21.0  // (R1 + R2) / R2
+#endif
 
 // ========== MOTOR PARAMETERS ==========
 #define MOTOR_MAX_TEMP 60
