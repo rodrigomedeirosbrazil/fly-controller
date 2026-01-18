@@ -3,13 +3,16 @@
 
 #include "../config.h"
 #include "Canbus.h"
+#ifndef XAG
 #include "../Hobbywing/Hobbywing.h"
 
 extern Hobbywing hobbywing;
+#endif
 
 
 
 void Canbus::parseCanMsg(twai_message_t *canMsg) {
+#ifndef XAG
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
 
 
@@ -22,6 +25,7 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
 
     // Print unknown messages for debugging
     printCanMsg(canMsg);
+#endif
 }
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {

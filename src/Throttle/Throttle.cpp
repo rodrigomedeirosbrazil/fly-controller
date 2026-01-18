@@ -216,16 +216,20 @@ void Throttle::setArmed()
 
   throttleArmed = true;
   buzzer.beepSuccess();
+#ifndef XAG
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorRed, Hobbywing::ledBlink5Hz);
   }
+#endif
 }
 
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
   buzzer.beepError();
+#ifndef XAG
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorGreen);
   }
+#endif
 }

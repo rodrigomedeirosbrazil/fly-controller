@@ -180,8 +180,9 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **ESP32-C3 Super Mini**
 
 ### ESC
-- Hobbywing X-Series (DroneCAN)
-- Any ESC with PWM input
+- **Hobbywing X-Series** (DroneCAN mode - default): Full telemetry via CAN bus
+- **XAG Motors** (XAG mode): PWM-only control with NTC temperature sensors
+- Any ESC with PWM input (compatible with both modes)
 
 ### Battery
 - 14S Li-ion/Li-Po packs (configurable voltage)
@@ -220,6 +221,13 @@ lib_deps =
 ```
 
 ### 4. Build and Upload
+
+**Using VS Code PlatformIO Extension (Recommended):**
+- Install the PlatformIO extension in VS Code
+- Open the project folder
+- Use the PlatformIO toolbar to build, upload, and monitor
+
+**Using PlatformIO CLI:**
 ```bash
 # Build the project
 pio run
@@ -231,21 +239,27 @@ pio run --target upload
 pio device monitor
 ```
 
+**Build Modes:**
+- **Hobbywing Mode (default):** Full CAN bus support and DroneCAN communication
+- **XAG Mode:** For XAG motors (PWM-only control). Add `-D XAG=1` to `build_flags` in `platformio.ini`
+
 ### 5. Pin Configuration
 ```cpp
 // src/config.h - Main configurations
 // Analog Inputs
-#define THROTTLE_PIN          0  // Hall Sensor
-#define MOTOR_TEMPERATURE_PIN 1  // NTC 10K
+#define THROTTLE_PIN          0  // GPIO0 - Hall Sensor
+#define MOTOR_TEMPERATURE_PIN 1  // GPIO1 - NTC 10K
+// XAG Mode only:
+#define ESC_TEMPERATURE_PIN   4  // GPIO4 - NTC 10K (XAG mode)
 
 // Digital I/O
-#define BUTTON_PIN 5  // Push button
-#define BUZZER_PIN 6  // Passive Buzzer (PWM)
-#define ESC_PIN    7  // ESC PWM signal
+#define BUTTON_PIN 5  // GPIO5 - Push button
+#define BUZZER_PIN 6  // GPIO6 - Passive Buzzer (PWM)
+#define ESC_PIN    7  // GPIO7 - ESC PWM signal
 
-// CAN Bus (TWAI)
-#define CAN_TX_PIN 2
-#define CAN_RX_PIN 3
+// CAN Bus (TWAI) - Hobbywing mode only
+#define CAN_TX_PIN 2  // GPIO2 - CAN TX
+#define CAN_RX_PIN 3  // GPIO3 - CAN RX
 ```
 
 ### 6. Calibration

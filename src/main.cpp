@@ -1,7 +1,9 @@
 #include <Arduino.h>
 
 #include <ESP32Servo.h>
+#ifndef XAG
 #include <driver/twai.h>
+#endif
 #include <AceButton.h>
 
 #include "config.h"
@@ -9,8 +11,10 @@
 
 #include "Throttle/Throttle.h"
 
+#ifndef XAG
 #include "Canbus/Canbus.h"
 #include "Hobbywing/Hobbywing.h"
+#endif
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Power/Power.h"
@@ -32,11 +36,19 @@ void setup()
   analogReadResolution(ADC_RESOLUTION);
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
+#ifdef XAG
+  analogSetPinAttenuation(ESC_TEMPERATURE_PIN, ADC_ATTENUATION);
+  analogSetPinAttenuation(BATTERY_VOLTAGE_PIN, ADC_ATTENUATION);
+#endif
 
   // Warm-up ADC: discard first readings
   for (int i = 0; i < 10; i++) {
     analogRead(THROTTLE_PIN);
     analogRead(MOTOR_TEMPERATURE_PIN);
+#ifdef XAG
+    analogRead(ESC_TEMPERATURE_PIN);
+    analogRead(BATTERY_VOLTAGE_PIN);
+#endif
     delay(10);
   }
 
@@ -44,6 +56,7 @@ void setup()
   logger.init();
   buzzer.setup();
 
+#ifndef XAG
   // Initialize TWAI (CAN) driver with SN65HVD230
   twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
     (gpio_num_t)CAN_TX_PIN,
@@ -60,6 +73,7 @@ void setup()
   hobbywing.requestEscId();
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
+#endif
 
   buzzer.beepWarning();
 
@@ -71,9 +85,14 @@ void loop()
 {
   button.check();
   xctod.write();
+#ifndef XAG
   checkCanbus();
+#endif
   throttle.handle();
   motorTemp.handle();
+#ifdef XAG
+  escTemp.handle();
+#endif
   buzzer.handle();
 
   handleEsc();
@@ -101,15 +120,23 @@ void handleEsc()
 
 void checkCanbus()
 {
+#ifndef XAG
     // Check if there are messages in the TWAI receive queue
     if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
         canbus.parseCanMsg(&canMsg);
     }
     hobbywing.announce();
+#endif
 }
 
 bool isMotorRunning()
 {
+#ifdef XAG
+    // XAG mode: check throttle position only
+    // Consider motor running if throttle > 5%
+    return throttle.getThrottlePercentage() > 5
+     && throttle.isArmed();
+#else
     // Check if ESC is ready and has RPM data
     if (hobbywing.isReady()) {
         uint16_t rpm = hobbywing.getRpm();
@@ -121,6 +148,7 @@ bool isMotorRunning()
     // Consider motor running if throttle > 5%
     return throttle.getThrottlePercentage() > 5
      && throttle.isArmed();
+#endif
 }
 
 void handleArmedBeep()
