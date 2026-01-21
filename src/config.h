@@ -56,10 +56,10 @@ extern Xctod xctod;
 #define BATTERY_MIN_VOLTAGE 441 // 441 decivolts = 44.1 V - ~3.15 V per cell
 #define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
 #ifdef XAG
-// Battery voltage divider: R1 = 2.0 MΩ, R2 = 100 kΩ
-// Ratio = (R1 + R2) / R2 = (2,000,000 + 100,000) / 100,000 = 21.0
-// Low current (~28 µA), minimal noise, safe for high voltage
-#define BATTERY_DIVIDER_RATIO 21.0  // (R1 + R2) / R2
+// Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
+// Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
+// Low current (~26 µA), minimal noise, safe for high voltage
+#define BATTERY_DIVIDER_RATIO 23.0  // (R1 + R2) / R2
 #endif
 
 // ========== MOTOR PARAMETERS ==========
