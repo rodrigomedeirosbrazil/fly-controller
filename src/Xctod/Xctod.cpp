@@ -182,8 +182,26 @@ void Xctod::recalibrateFromVoltage() {
 
 void Xctod::writeBatteryInfo(String &data) {
 #ifdef XAG
-    // XAG mode: no battery data available
-    data += ",,,"; // battery percentage, voltage, power_kw
+    // XAG mode: read battery voltage from ADC
+    int batteryDeciVolts = power.getBatteryVoltageDeciVolts();
+    float voltage = batteryDeciVolts / 10.0;
+
+    // Calculate battery percentage from voltage (not reliable for power control)
+    int voltagePercentage = map(
+        batteryDeciVolts,
+        BATTERY_MIN_VOLTAGE,
+        BATTERY_MAX_VOLTAGE,
+        0,
+        100
+    );
+    voltagePercentage = constrain(voltagePercentage, 0, 100);
+
+    // Power is not calculated in XAG mode (no current data)
+    data += String(voltagePercentage);
+    data += ",";
+    data += String(voltage, 2);
+    data += ",";
+    data += ","; // power_kw (not available)
 #else
     if (!hobbywing.isReady()) {
         data += ",,,"; // battery percentage, voltage, power_kw

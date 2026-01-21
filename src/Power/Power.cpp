@@ -66,6 +66,11 @@ unsigned int Power::calcPower() {
 }
 
 #ifdef XAG
+// Public wrapper for battery voltage reading
+unsigned int Power::getBatteryVoltageDeciVolts() {
+    return readBatteryVoltageDeciVolts();
+}
+
 // Read battery voltage from ADC using voltage divider
 // Returns voltage in decivolts (tenths of volts)
 unsigned int Power::readBatteryVoltageDeciVolts() {

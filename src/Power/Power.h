@@ -16,6 +16,9 @@ public:
     unsigned int getPwm();
     unsigned int getPower();
     void resetBatteryPowerFloor();
+#ifdef XAG
+    unsigned int getBatteryVoltageDeciVolts();
+#endif
 
 private:
     long lastPowerCalculationTime;
