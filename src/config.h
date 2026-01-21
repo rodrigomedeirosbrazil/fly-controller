@@ -58,8 +58,9 @@ extern Xctod xctod;
 #ifdef XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
+// Calibrated: actual ratio = 23.0 * (53.41V / 75.90V) = 16.19
 // Low current (~26 µA), minimal noise, safe for high voltage
-#define BATTERY_DIVIDER_RATIO 23.0  // (R1 + R2) / R2
+#define BATTERY_DIVIDER_RATIO 16.19  // Calibrated (R1 + R2) / R2
 #endif
 
 // ========== MOTOR PARAMETERS ==========
