@@ -3,7 +3,9 @@
 #include "../Power/Power.h"
 #include "../Canbus/Canbus.h"
 #include "../Temperature/Temperature.h"
+#ifndef XAG
 #include "../Hobbywing/Hobbywing.h"
+#endif
 #include "../config.h"
 #include "../Logger/Logger.h"
 
@@ -13,7 +15,12 @@
 extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
+#ifndef XAG
 extern Hobbywing hobbywing;
+#endif
+#ifdef XAG
+extern Temperature escTemp;
+#endif
 extern Logger logger;
 
 class ServerCallbacks : public BLEServerCallbacks {
@@ -95,6 +102,10 @@ void Xctod::write() {
 }
 
 void Xctod::updateCoulombCount() {
+#ifdef XAG
+    // XAG mode: no current data available, skip Coulomb counting
+    return;
+#else
     if (!hobbywing.isReady()) {
         return;
     }
@@ -132,9 +143,14 @@ void Xctod::updateCoulombCount() {
 
     // Update timestamp
     lastCoulombTs = currentTs;
+#endif
 }
 
 void Xctod::recalibrateFromVoltage() {
+#ifdef XAG
+    // XAG mode: no voltage data available, skip recalibration
+    return;
+#else
     if (!hobbywing.isReady()) {
         return;
     }
@@ -161,9 +177,32 @@ void Xctod::recalibrateFromVoltage() {
 
     // Constrain to valid range
     remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
+#endif
 }
 
 void Xctod::writeBatteryInfo(String &data) {
+#ifdef XAG
+    // XAG mode: read battery voltage from ADC
+    int batteryDeciVolts = power.getBatteryVoltageDeciVolts();
+    float voltage = batteryDeciVolts / 10.0;
+
+    // Calculate battery percentage from voltage (not reliable for power control)
+    int voltagePercentage = map(
+        batteryDeciVolts,
+        BATTERY_MIN_VOLTAGE,
+        BATTERY_MAX_VOLTAGE,
+        0,
+        100
+    );
+    voltagePercentage = constrain(voltagePercentage, 0, 100);
+
+    // Power is not calculated in XAG mode (no current data)
+    data += String(voltagePercentage);
+    data += ",";
+    data += String(voltage, 2);
+    data += ",";
+    data += ","; // power_kw (not available)
+#else
     if (!hobbywing.isReady()) {
         data += ",,,"; // battery percentage, voltage, power_kw
         return;
@@ -187,6 +226,7 @@ void Xctod::writeBatteryInfo(String &data) {
     data += ",";
     data += String(powerKw, 1);
     data += ",";
+#endif
 }
 
 void Xctod::writeThrottleInfo(String &data) {
@@ -206,6 +246,10 @@ void Xctod::writeMotorInfo(String &data) {
     data += String(motorTemp.getTemperature(), 0);
     data += ",";
 
+#ifdef XAG
+    // XAG mode: no RPM or current data available
+    data += ",,"; // rpm, current
+#else
     if (!hobbywing.isReady()) {
         data += ",,"; // rpm, current
         return;
@@ -215,9 +259,15 @@ void Xctod::writeMotorInfo(String &data) {
     data += ",";
     data += String(hobbywing.getDeciCurrent() / 10.0, 2);
     data += ",";
+#endif
 }
 
 void Xctod::writeEscInfo(String &data) {
+#ifdef XAG
+    // XAG mode: use ESC temperature sensor (NTC)
+    data += String(escTemp.getTemperature(), 0);
+    data += ",";
+#else
     if (!hobbywing.isReady()) {
         data += ",";
         return;
@@ -225,6 +275,7 @@ void Xctod::writeEscInfo(String &data) {
 
     data += String(hobbywing.getTemperature());
     data += ",";
+#endif
 }
 
 void Xctod::writeSystemStatus(String &data) {
