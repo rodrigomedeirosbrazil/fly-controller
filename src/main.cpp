@@ -13,7 +13,11 @@
 
 #ifndef XAG
 #include "Canbus/Canbus.h"
+#ifdef T_MOTOR
+#include "Tmotor/Tmotor.h"
+#else
 #include "Hobbywing/Hobbywing.h"
+#endif
 #endif
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
@@ -69,10 +73,14 @@ void setup()
   twai_driver_install(&g_config, &t_config, &f_config);
   twai_start();
 
+#ifdef T_MOTOR
+  tmotor.announce();
+#else
   hobbywing.announce();
   hobbywing.requestEscId();
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
+#endif
 #endif
 
   buzzer.beepWarning();
@@ -125,7 +133,11 @@ void checkCanbus()
     if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
         canbus.parseCanMsg(&canMsg);
     }
+#ifdef T_MOTOR
+    tmotor.announce();
+#else
     hobbywing.announce();
+#endif
 #endif
 }
 
@@ -137,12 +149,21 @@ bool isMotorRunning()
     return throttle.getThrottlePercentage() > 5
      && throttle.isArmed();
 #else
+#ifdef T_MOTOR
+    // Check if ESC is ready and has RPM data
+    if (tmotor.isReady()) {
+        uint16_t rpm = tmotor.getRpm();
+        // Consider motor running if RPM > 10
+        return rpm > 10;
+    }
+#else
     // Check if ESC is ready and has RPM data
     if (hobbywing.isReady()) {
         uint16_t rpm = hobbywing.getRpm();
         // Consider motor running if RPM > 100 (adjust threshold as needed)
         return rpm > 10;
     }
+#endif
 
     // Fallback: check throttle position
     // Consider motor running if throttle > 5%

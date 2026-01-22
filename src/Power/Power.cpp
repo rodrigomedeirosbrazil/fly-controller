@@ -2,13 +2,21 @@
 #include "../config.h"
 #include "../Throttle/Throttle.h"
 #ifndef XAG
+#ifdef T_MOTOR
+#include "../Tmotor/Tmotor.h"
+#else
 #include "../Hobbywing/Hobbywing.h"
+#endif
 #endif
 #include "../Temperature/Temperature.h"
 
 extern Throttle throttle;
 #ifndef XAG
+#ifdef T_MOTOR
+extern Tmotor tmotor;
+#else
 extern Hobbywing hobbywing;
+#endif
 #endif
 extern Temperature motorTemp;
 #ifdef XAG
@@ -102,11 +110,19 @@ unsigned int Power::calcBatteryLimit() {
     // but should not be used to control power output
     return 100;
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        return 0;
+    }
+
+    unsigned int batteryDeciVolts = tmotor.getDeciVoltage();
+#else
     if (!hobbywing.isReady()) {
         return 0;
     }
 
     unsigned int batteryDeciVolts = hobbywing.getDeciVoltage();
+#endif
     const unsigned int STEP_DECREASE = 5;
 
     if (batteryDeciVolts > BATTERY_MIN_VOLTAGE) {
@@ -185,11 +201,19 @@ unsigned int Power::calcEscTempLimit() {
         100
     );
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        return 100; // ESC not ready, allow other limits to control
+    }
+
+    uint8_t escTempValue = tmotor.getEscTemperature();
+#else
     if (!hobbywing.isReady()) {
         return 100; // ESC not ready, allow other limits to control
     }
 
     uint8_t escTempValue = hobbywing.getTemperature();
+#endif
 
     // Validate temperature reading
     if (escTempValue < ESC_TEMP_MIN_VALID || escTempValue > ESC_TEMP_MAX_VALID) {

@@ -7,7 +7,11 @@ Servo esc;
 Throttle throttle;
 #ifndef XAG
 Canbus canbus;
+#ifdef T_MOTOR
+Tmotor tmotor;
+#else
 Hobbywing hobbywing;
+#endif
 twai_message_t canMsg;
 #endif
 Button button(BUTTON_PIN);

@@ -8,7 +8,11 @@
 #include "Temperature/Temperature.h"
 #ifndef XAG
 #include "Canbus/Canbus.h"
+#ifdef T_MOTOR
+#include "Tmotor/Tmotor.h"
+#else
 #include "Hobbywing/Hobbywing.h"
+#endif
 #include <driver/twai.h>
 #endif
 #include "Power/Power.h"
@@ -23,7 +27,11 @@ extern Button button;
 extern Temperature motorTemp;
 #ifndef XAG
 extern Canbus canbus;
+#ifdef T_MOTOR
+extern Tmotor tmotor;
+#else
 extern Hobbywing hobbywing;
+#endif
 extern twai_message_t canMsg;
 #endif
 #ifdef XAG

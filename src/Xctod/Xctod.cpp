@@ -4,7 +4,11 @@
 #include "../Canbus/Canbus.h"
 #include "../Temperature/Temperature.h"
 #ifndef XAG
+#ifdef T_MOTOR
+#include "../Tmotor/Tmotor.h"
+#else
 #include "../Hobbywing/Hobbywing.h"
+#endif
 #endif
 #include "../config.h"
 #include "../Logger/Logger.h"
@@ -16,7 +20,11 @@ extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
 #ifndef XAG
+#ifdef T_MOTOR
+extern Tmotor tmotor;
+#else
 extern Hobbywing hobbywing;
+#endif
 #endif
 #ifdef XAG
 extern Temperature escTemp;
@@ -106,6 +114,36 @@ void Xctod::updateCoulombCount() {
     // XAG mode: no current data available, skip Coulomb counting
     return;
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        return;
+    }
+
+    unsigned long currentTs = millis();
+
+    // Initialize timestamp on first call
+    if (lastCoulombTs == 0) {
+        lastCoulombTs = currentTs;
+        // Recalibrate from voltage on first call if system is ready
+        recalibrateFromVoltage();
+        return;
+    }
+
+    // Check if we should recalibrate from voltage (no load condition)
+    if (tmotor.getDeciCurrent() == 0) {
+        recalibrateFromVoltage();
+        // Still update timestamp to avoid accumulation of time
+        lastCoulombTs = currentTs;
+        return;
+    }
+
+    // Calculate time delta in hours
+    unsigned long deltaMs = currentTs - lastCoulombTs;
+    float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
+
+    // Calculate Ah consumed: ΔAh = I * Δt
+    float deltaAh = (tmotor.getDeciCurrent() / 10.0) * deltaHours;
+#else
     if (!hobbywing.isReady()) {
         return;
     }
@@ -134,6 +172,7 @@ void Xctod::updateCoulombCount() {
 
     // Calculate Ah consumed: ΔAh = I * Δt
     float deltaAh = (hobbywing.getDeciCurrent() / 10.0) * deltaHours;
+#endif
 
     // Subtract from remaining capacity (discharging = positive current)
     remainingAh -= deltaAh;
@@ -151,6 +190,18 @@ void Xctod::recalibrateFromVoltage() {
     // XAG mode: no voltage data available, skip recalibration
     return;
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        return;
+    }
+
+    // Check if voltage range is valid (min != max)
+    if (BATTERY_MIN_VOLTAGE == BATTERY_MAX_VOLTAGE) {
+        return;
+    }
+
+    int batteryDeciVolts = tmotor.getDeciVoltage();
+#else
     if (!hobbywing.isReady()) {
         return;
     }
@@ -161,6 +212,7 @@ void Xctod::recalibrateFromVoltage() {
     }
 
     int batteryDeciVolts = hobbywing.getDeciVoltage();
+#endif
 
     // Map voltage to percentage (0-100)
     int voltagePercentage = map(
@@ -203,6 +255,23 @@ void Xctod::writeBatteryInfo(String &data) {
     data += ",";
     data += ","; // power_kw (not available)
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        data += ",,,"; // battery percentage, voltage, power_kw
+        return;
+    }
+
+    // Calculate battery percentage from Coulomb Counting
+    int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
+    batteryPercentage = constrain(batteryPercentage, 0, 100);
+
+    // Get voltage for display and power calculation (not for SoC)
+    int batteryDeciVolts = tmotor.getDeciVoltage();
+    float voltage = batteryDeciVolts / 10.0;
+
+    // Calculate power in KW using current and voltage
+    float current = tmotor.getDeciCurrent() / 10.0;
+#else
     if (!hobbywing.isReady()) {
         data += ",,,"; // battery percentage, voltage, power_kw
         return;
@@ -218,6 +287,7 @@ void Xctod::writeBatteryInfo(String &data) {
 
     // Calculate power in KW using current and voltage
     float current = hobbywing.getDeciCurrent() / 10.0;
+#endif
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
     data += String(batteryPercentage);
@@ -250,6 +320,16 @@ void Xctod::writeMotorInfo(String &data) {
     // XAG mode: no RPM or current data available
     data += ",,"; // rpm, current
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        data += ",,"; // rpm, current
+        return;
+    }
+
+    data += String(tmotor.getRpm());
+    data += ",";
+    data += String(tmotor.getDeciCurrent() / 10.0, 2);
+#else
     if (!hobbywing.isReady()) {
         data += ",,"; // rpm, current
         return;
@@ -258,6 +338,7 @@ void Xctod::writeMotorInfo(String &data) {
     data += String(hobbywing.getRpm());
     data += ",";
     data += String(hobbywing.getDeciCurrent() / 10.0, 2);
+#endif
     data += ",";
 #endif
 }
@@ -268,6 +349,15 @@ void Xctod::writeEscInfo(String &data) {
     data += String(escTemp.getTemperature(), 0);
     data += ",";
 #else
+#ifdef T_MOTOR
+    if (!tmotor.isReady()) {
+        data += ",";
+        return;
+    }
+
+    data += String(tmotor.getEscTemperature());
+    data += ",";
+#else
     if (!hobbywing.isReady()) {
         data += ",";
         return;
@@ -275,6 +365,7 @@ void Xctod::writeEscInfo(String &data) {
 
     data += String(hobbywing.getTemperature());
     data += ",";
+#endif
 #endif
 }
 

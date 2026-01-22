@@ -4,9 +4,13 @@
 #include "../config.h"
 #include "Canbus.h"
 #ifndef XAG
+#ifdef T_MOTOR
+#include "../Tmotor/Tmotor.h"
+extern Tmotor tmotor;
+#else
 #include "../Hobbywing/Hobbywing.h"
-
 extern Hobbywing hobbywing;
+#endif
 #endif
 
 
@@ -15,13 +19,19 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
 #ifndef XAG
     uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
 
-
-
+#ifdef T_MOTOR
+    // Route T-Motor ESC messages to the Tmotor class
+    if (isTmotorEscMessage(dataTypeId)) {
+        tmotor.parseEscMessage(canMsg);
+        return;
+    }
+#else
     // Route Hobbywing ESC messages to the Hobbywing class
     if (isHobbywingEscMessage(dataTypeId)) {
         hobbywing.parseEscMessage(canMsg);
         return;
     }
+#endif
 
     // Print unknown messages for debugging
     printCanMsg(canMsg);
@@ -52,6 +62,14 @@ bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
             dataTypeId == 0x4E53 ||  // statusMsg2
             dataTypeId == 0x4E54 ||  // statusMsg3
             dataTypeId == 0x4E56);   // getEscIdRequestDataTypeId
+}
+
+bool Canbus::isTmotorEscMessage(uint16_t dataTypeId) {
+    return (dataTypeId == 1030 ||  // RawCommand
+            dataTypeId == 1033 ||  // ParamCfg
+            dataTypeId == 1034 ||  // ESC_STATUS
+            dataTypeId == 1039 ||  // PUSHCAN
+            dataTypeId == 1332);   // ParamGet
 }
 
 uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
