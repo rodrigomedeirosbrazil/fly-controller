@@ -78,8 +78,14 @@ extern Xctod xctod;
 #define MOTOR_TEMP_MAX_VALID 150 // Maximum valid temperature reading
 
 // ========== ESC PARAMETERS ==========
+#ifdef T_MOTOR
+#define ESC_MIN_PWM 1100
+#define ESC_MAX_PWM 1940
+#else
 #define ESC_MIN_PWM 1050
 #define ESC_MAX_PWM 1950
+#endif
+
 #define ESC_MAX_TEMP 110
 #define ESC_TEMP_REDUCTION_START 80 // Start reducing power at this temperature
 #define ESC_TEMP_MIN_VALID 0 // Minimum valid temperature reading
