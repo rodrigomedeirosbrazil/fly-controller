@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include <driver/twai.h>
 
+#include "../Telemetry/TelemetryProvider.h"
 #include "../config.h"
 #include "Canbus.h"
+#include "CanUtils.h"
 #ifndef XAG
 #ifdef T_MOTOR
 #include "../Tmotor/Tmotor.h"
@@ -11,27 +13,46 @@ extern Tmotor tmotor;
 #include "../Hobbywing/Hobbywing.h"
 extern Hobbywing hobbywing;
 #endif
+// telemetry is declared in config.cpp after TelemetryProvider is fully defined
+extern TelemetryProvider* telemetry;
 #endif
 
 
 
 void Canbus::parseCanMsg(twai_message_t *canMsg) {
 #ifndef XAG
-    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
+    // Try to route through telemetry provider first
+    if (telemetry && telemetry->handleCanMessage) {
+        uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
 
-#ifdef T_MOTOR
-    // Route T-Motor ESC messages to the Tmotor class
+        // Check if this is a message for our ESC
+        bool isEscMessage = false;
+        #ifdef T_MOTOR
+        isEscMessage = isTmotorEscMessage(dataTypeId);
+        #else
+        isEscMessage = isHobbywingEscMessage(dataTypeId);
+        #endif
+
+        if (isEscMessage) {
+            telemetry->handleCanMessage(canMsg);
+            return;
+        }
+    }
+
+    // Fallback: route directly to classes (for backward compatibility)
+    #ifdef T_MOTOR
+    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
     if (isTmotorEscMessage(dataTypeId)) {
         tmotor.parseEscMessage(canMsg);
         return;
     }
-#else
-    // Route Hobbywing ESC messages to the Hobbywing class
+    #else
+    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
     if (isHobbywingEscMessage(dataTypeId)) {
         hobbywing.parseEscMessage(canMsg);
         return;
     }
-#endif
+    #endif
 
     // Print unknown messages for debugging
     printCanMsg(canMsg);
@@ -40,9 +61,9 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {
     Serial.print("Data Type ID: ");
-    Serial.print(getDataTypeIdFromCanId(canMsg->identifier), HEX);
+    Serial.print(CanUtils::getDataTypeIdFromCanId(canMsg->identifier), HEX);
     Serial.print(" Node ID: ");
-    Serial.println(getNodeIdFromCanId(canMsg->identifier), HEX);
+    Serial.println(CanUtils::getNodeIdFromCanId(canMsg->identifier), HEX);
     Serial.print("CAN Frame: ID=0x");
     Serial.print(canMsg->identifier, HEX);
     Serial.print(" DLC=");
@@ -70,13 +91,5 @@ bool Canbus::isTmotorEscMessage(uint16_t dataTypeId) {
             dataTypeId == 1034 ||  // ESC_STATUS
             dataTypeId == 1039 ||  // PUSHCAN
             dataTypeId == 1332);   // ParamGet
-}
-
-uint16_t Canbus::getDataTypeIdFromCanId(uint32_t canId) {
-    return (canId >> 8) & 0xFFFF;
-}
-
-uint8_t Canbus::getNodeIdFromCanId(uint32_t canId) {
-    return canId & 0x7F;
 }
 

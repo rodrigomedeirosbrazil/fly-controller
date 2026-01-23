@@ -3,6 +3,7 @@
 
 #include "../config.h"
 #include "Tmotor.h"
+#include "../Canbus/CanUtils.h"
 
 extern twai_message_t canMsg;
 
@@ -24,7 +25,7 @@ Tmotor::Tmotor() {
 
 void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
-    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
+    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
 
     // Route to appropriate handler
     if (dataTypeId == escStatusDataTypeId) {
@@ -55,10 +56,10 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     // uint5 esc_index (bits 0-4 of byte 14, or bits 3-7 of byte 13 depending on packing)
     // tail byte (last byte)
 
-    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
+    uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
 
     // Validate frame structure - must be start or end frame
-    if (!isStartOfFrame(tailByte) && !isEndOfFrame(tailByte)) {
+    if (!CanUtils::isStartOfFrame(tailByte) && !CanUtils::isEndOfFrame(tailByte)) {
         return;
     }
 
@@ -120,10 +121,10 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     // struct { uint8_t len; uint8_t data[255]; }data;
     // The motor temperature is in bytes 19-20 of the data array
 
-    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
+    uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
 
     // Validate frame structure
-    if (!isStartOfFrame(tailByte) && !isEndOfFrame(tailByte)) {
+    if (!CanUtils::isStartOfFrame(tailByte) && !CanUtils::isEndOfFrame(tailByte)) {
         return;
     }
 
@@ -292,33 +293,4 @@ uint16_t Tmotor::convertFloatToFloat16(float value) {
 }
 
 // Helper methods
-
-uint8_t Tmotor::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
-    return payload[canDlc - 1];
-}
-
-bool Tmotor::isStartOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x80) >> 7 == 1;
-}
-
-bool Tmotor::isEndOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x40) >> 6 == 1;
-}
-
-bool Tmotor::isToggleFrame(uint8_t tailByte) {
-    return (tailByte & 0x20) >> 5 == 1;
-}
-
-// CAN ID parsing methods
-
-uint8_t Tmotor::getPriorityFromCanId(uint32_t canId) {
-    return (canId >> 24) & 0xFF;
-}
-
-uint16_t Tmotor::getDataTypeIdFromCanId(uint32_t canId) {
-    return (canId >> 8) & 0xFFFF;
-}
-
-uint8_t Tmotor::getNodeIdFromCanId(uint32_t canId) {
-    return canId & 0x7F;
-}
+// Note: CAN utility functions are now in CanUtils class

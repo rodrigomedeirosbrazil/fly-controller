@@ -8,14 +8,6 @@
 #include <BLE2902.h>
 
 class Throttle;
-class Canbus;
-#ifndef XAG
-#ifdef T_MOTOR
-class Tmotor;
-#else
-class Hobbywing;
-#endif
-#endif
 class Temperature;
 class Power;
 

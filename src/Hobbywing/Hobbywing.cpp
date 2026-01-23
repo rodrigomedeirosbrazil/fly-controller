@@ -3,6 +3,7 @@
 
 #include "../config.h"
 #include "Hobbywing.h"
+#include "../Canbus/CanUtils.h"
 
 extern twai_message_t canMsg;
 
@@ -21,7 +22,7 @@ Hobbywing::Hobbywing() {
 
 void Hobbywing::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
-    uint16_t dataTypeId = getDataTypeIdFromCanId(canMsg->identifier);
+    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
 
     // Handle ESC ID request/response messages
     if (dataTypeId == getEscIdRequestDataTypeId) {
@@ -34,10 +35,10 @@ void Hobbywing::parseEscMessage(twai_message_t *canMsg) {
         return; // Not a Hobbywing ESC message
     }
 
-    uint8_t tailByte = getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
+    uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
 
     // Validate frame structure
-    if (!isStartOfFrame(tailByte) && !isEndOfFrame(tailByte) && isToggleFrame(tailByte)) {
+    if (!CanUtils::isStartOfFrame(tailByte) && !CanUtils::isEndOfFrame(tailByte) && CanUtils::isToggleFrame(tailByte)) {
         return;
     }
 
@@ -82,21 +83,6 @@ void Hobbywing::handleStatusMsg2(twai_message_t *canMsg) {
     lastReadStatusMsg1 = millis();
 }
 
-uint8_t Hobbywing::getTailByteFromPayload(uint8_t *payload, uint8_t canDlc) {
-    return payload[canDlc - 1];
-}
-
-bool Hobbywing::isStartOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x80) >> 7 == 1;
-}
-
-bool Hobbywing::isEndOfFrame(uint8_t tailByte) {
-    return (tailByte & 0x40) >> 6 == 1;
-}
-
-bool Hobbywing::isToggleFrame(uint8_t tailByte) {
-    return (tailByte & 0x20) >> 5 == 1;
-}
 
 uint8_t Hobbywing::getTemperatureFromPayload(uint8_t *payload) {
     return payload[4];
@@ -266,7 +252,7 @@ void Hobbywing::handleGetEscIdResponse(twai_message_t *canMsg) {
     }
 
     uint8_t escThrottleIdReceived = getEscThrottleIdFromPayload(canMsg->data);
-    uint8_t sourceNodeId = getNodeIdFromCanId(canMsg->identifier);
+    uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
 
     Serial.print("Received GetEscID response from Node ID: ");
     Serial.print(sourceNodeId, HEX);
@@ -299,6 +285,8 @@ void Hobbywing::sendMessage(
     canId |= (1U << 7);  // Service, not message
     canId |= (uint32_t)(nodeId & 0x7F);
 
+    // Note: CanUtils functions are available but we construct CAN ID directly here
+
     // TWAI uses extended frame flag (29-bit identifier)
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
@@ -319,40 +307,6 @@ void Hobbywing::sendMessage(
 
 // Helper methods
 
-uint8_t Hobbywing::getTransferId(uint8_t tailByte) {
-    return tailByte & 0x1F;
-}
-
 uint8_t Hobbywing::getEscThrottleIdFromPayload(uint8_t *payload) {
     return payload[1];
-}
-
-// CAN ID parsing methods
-
-uint8_t Hobbywing::getPriorityFromCanId(uint32_t canId) {
-    return (canId >> 24) & 0xFF;
-}
-
-uint16_t Hobbywing::getDataTypeIdFromCanId(uint32_t canId) {
-    return (canId >> 8) & 0xFFFF;
-}
-
-uint8_t Hobbywing::getServiceTypeIdFromCanId(uint32_t canId) {
-    return (canId >> 16) & 0xFF;
-}
-
-uint8_t Hobbywing::getNodeIdFromCanId(uint32_t canId) {
-    return canId & 0x7F;
-}
-
-uint8_t Hobbywing::getDestNodeIdFromCanId(uint32_t canId) {
-   return (canId >> 8) & 0x7F;
-}
-
-bool Hobbywing::isServiceFrame(uint32_t canId) {
-    return (canId & 0x80) >> 7 == 1;
-}
-
-bool Hobbywing::isRequestFrame(uint32_t canId) {
-    return (canId & 0x8000) != 0;
 }

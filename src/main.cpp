@@ -3,6 +3,7 @@
 #include <ESP32Servo.h>
 #ifndef XAG
 #include <driver/twai.h>
+#include "Canbus/Canbus.h"
 #endif
 #include <AceButton.h>
 
@@ -10,24 +11,23 @@
 #include "main.h"
 
 #include "Throttle/Throttle.h"
-
-#ifndef XAG
-#include "Canbus/Canbus.h"
-#ifdef T_MOTOR
-#include "Tmotor/Tmotor.h"
-#else
-#include "Hobbywing/Hobbywing.h"
-#endif
-#endif
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Power/Power.h"
 #include "Xctod/Xctod.h"
-
 #include "WebServer/ControllerWebServer.h"
+#include "Telemetry/TelemetryProvider.h"
+#ifndef XAG
+#ifndef T_MOTOR
+#include "Hobbywing/Hobbywing.h"
+#endif
+#endif
 
 using namespace ace_button;
 #include "Button/Button.h"
+
+// External declarations
+extern TelemetryProvider* telemetry;
 
 ControllerWebServer webServer;
 Logger logger;
@@ -60,6 +60,11 @@ void setup()
   logger.init();
   buzzer.setup();
 
+  // Initialize telemetry provider
+  if (telemetry && telemetry->init) {
+    telemetry->init();
+  }
+
 #ifndef XAG
   // Initialize TWAI (CAN) driver with SN65HVD230
   twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
@@ -73,14 +78,20 @@ void setup()
   twai_driver_install(&g_config, &t_config, &f_config);
   twai_start();
 
-#ifdef T_MOTOR
-  tmotor.announce();
-#else
-  hobbywing.announce();
+  // Announce presence on CAN bus
+  if (telemetry && telemetry->announce) {
+    telemetry->announce();
+  }
+
+  // Hobbywing-specific initialization
+  #ifndef T_MOTOR
+  #ifndef XAG
+  extern Hobbywing hobbywing;
   hobbywing.requestEscId();
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
-#endif
+  #endif
+  #endif
 #endif
 
   buzzer.beepWarning();
@@ -99,9 +110,24 @@ void loop()
   throttle.handle();
   motorTemp.handle();
 #ifdef XAG
+  extern Temperature escTemp;
   escTemp.handle();
 #endif
   buzzer.handle();
+
+  // Update telemetry data
+  if (telemetry && telemetry->update) {
+    telemetry->update();
+  }
+
+  // Update motor temperature in telemetry (read from sensor)
+  if (telemetry && telemetry->getData) {
+    TelemetryData* data = telemetry->getData();
+    if (data) {
+      float motorTempCelsius = motorTemp.getTemperature();
+      data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0f);
+    }
+  }
 
   handleEsc();
   handleArmedBeep();
@@ -129,47 +155,46 @@ void handleEsc()
 void checkCanbus()
 {
 #ifndef XAG
+    extern twai_message_t canMsg;
+    extern Canbus canbus;
+
     // Check if there are messages in the TWAI receive queue
     if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
         canbus.parseCanMsg(&canMsg);
     }
-#ifdef T_MOTOR
-    tmotor.announce();
-#else
-    hobbywing.announce();
-#endif
+
+    // Announce presence on CAN bus periodically
+    if (telemetry && telemetry->announce) {
+        telemetry->announce();
+    }
 #endif
 }
 
 bool isMotorRunning()
 {
-#ifdef XAG
-    // XAG mode: check throttle position only
-    // Consider motor running if throttle > 5%
-    return throttle.getThrottlePercentage() > 5
-     && throttle.isArmed();
-#else
-#ifdef T_MOTOR
-    // Check if ESC is ready and has RPM data
-    if (tmotor.isReady()) {
-        uint16_t rpm = tmotor.getRpm();
-        // Consider motor running if RPM > 10
-        return rpm > 10;
+    if (!telemetry || !telemetry->getData) {
+        // Fallback: check throttle position
+        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
     }
-#else
-    // Check if ESC is ready and has RPM data
-    if (hobbywing.isReady()) {
-        uint16_t rpm = hobbywing.getRpm();
-        // Consider motor running if RPM > 100 (adjust threshold as needed)
-        return rpm > 10;
+
+    TelemetryData* data = telemetry->getData();
+    if (!data) {
+        // Fallback: check throttle position
+        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
     }
-#endif
+
+    #ifdef XAG
+    // XAG mode: check throttle position only (no RPM data available)
+    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
+    #else
+    // CAN controllers: check if ESC is ready and has RPM data
+    if (data->isReady && data->rpm > 10) {
+        return true;
+    }
 
     // Fallback: check throttle position
-    // Consider motor running if throttle > 5%
-    return throttle.getThrottlePercentage() > 5
-     && throttle.isArmed();
-#endif
+    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
+    #endif
 }
 
 void handleArmedBeep()

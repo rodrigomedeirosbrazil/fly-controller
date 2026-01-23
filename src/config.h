@@ -39,6 +39,7 @@ extern Temperature escTemp;
 #endif
 extern Power power;
 extern Xctod xctod;
+// TelemetryProvider* is declared in config.cpp after including TelemetryProvider.h
 
 // ========== ANALOG INPUTS (ADC1 - WiFi compatible) ==========
 #define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor
@@ -61,8 +62,8 @@ extern Xctod xctod;
 #endif
 
 // ========== BATTERY PARAMETERS ==========
-#define BATTERY_MIN_VOLTAGE 441 // 441 decivolts = 44.1 V - ~3.15 V per cell
-#define BATTERY_MAX_VOLTAGE 585 //  585 decivolts = 58.1 V - 4.15 V per cell
+#define BATTERY_MIN_VOLTAGE 44100 // 44100 millivolts = 44.100 V - ~3.15 V per cell
+#define BATTERY_MAX_VOLTAGE 58500 // 58500 millivolts = 58.500 V - 4.15 V per cell
 #ifdef XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
@@ -72,10 +73,10 @@ extern Xctod xctod;
 #endif
 
 // ========== MOTOR PARAMETERS ==========
-#define MOTOR_MAX_TEMP 60
-#define MOTOR_TEMP_REDUCTION_START 50 // Start reducing power at this temperature
-#define MOTOR_TEMP_MIN_VALID -10 // Minimum valid temperature reading
-#define MOTOR_TEMP_MAX_VALID 150 // Maximum valid temperature reading
+#define MOTOR_MAX_TEMP 60000 // 60000 millicelsius = 60.000°C
+#define MOTOR_TEMP_REDUCTION_START 50000 // 50000 millicelsius = 50.000°C - Start reducing power at this temperature
+#define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
+#define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
 
 // ========== ESC PARAMETERS ==========
 #ifdef T_MOTOR
@@ -86,10 +87,10 @@ extern Xctod xctod;
 #define ESC_MAX_PWM 1950
 #endif
 
-#define ESC_MAX_TEMP 110
-#define ESC_TEMP_REDUCTION_START 80 // Start reducing power at this temperature
-#define ESC_TEMP_MIN_VALID 0 // Minimum valid temperature reading
-#define ESC_TEMP_MAX_VALID 120 // Maximum valid temperature reading
+#define ESC_MAX_TEMP 110000 // 110000 millicelsius = 110.000°C
+#define ESC_TEMP_REDUCTION_START 80000 // 80000 millicelsius = 80.000°C - Start reducing power at this temperature
+#define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
+#define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)

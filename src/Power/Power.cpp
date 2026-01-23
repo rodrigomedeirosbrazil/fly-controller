@@ -1,27 +1,14 @@
+#include "../Telemetry/TelemetryProvider.h"
+#include "../Telemetry/TelemetryData.h"
 #include "Power.h"
 #include "../config.h"
 #include "../Throttle/Throttle.h"
-#ifndef XAG
-#ifdef T_MOTOR
-#include "../Tmotor/Tmotor.h"
-#else
-#include "../Hobbywing/Hobbywing.h"
-#endif
-#endif
 #include "../Temperature/Temperature.h"
 
 extern Throttle throttle;
-#ifndef XAG
-#ifdef T_MOTOR
-extern Tmotor tmotor;
-#else
-extern Hobbywing hobbywing;
-#endif
-#endif
 extern Temperature motorTemp;
-#ifdef XAG
-extern Temperature escTemp;
-#endif
+// telemetry is declared in config.cpp after TelemetryProvider is fully defined
+extern TelemetryProvider* telemetry;
 
 Power::Power() {
     lastPowerCalculationTime = 0;
@@ -73,59 +60,37 @@ unsigned int Power::calcPower() {
     return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
-#ifdef XAG
-// Public wrapper for battery voltage reading
-unsigned int Power::getBatteryVoltageDeciVolts() {
-    return readBatteryVoltageDeciVolts();
-}
-
-// Read battery voltage from ADC using voltage divider
+// Public wrapper for battery voltage reading (for backward compatibility)
 // Returns voltage in decivolts (tenths of volts)
-unsigned int Power::readBatteryVoltageDeciVolts() {
-    // Oversampling: take multiple readings and average them
-    int oversampledValue = 0;
-    const int oversampleCount = 10;
-    for (int i = 0; i < oversampleCount; i++) {
-        oversampledValue += analogRead(BATTERY_VOLTAGE_PIN);
+unsigned int Power::getBatteryVoltageDeciVolts() {
+    if (!telemetry || !telemetry->getData()) {
+        return 0;
     }
-    int adcValue = oversampledValue / oversampleCount;
-
-    // Convert ADC reading to voltage at GPIO pin
-    // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
-    double voltageAtPin = (ADC_VREF * adcValue) / ADC_MAX_VALUE;
-
-    // Calculate actual battery voltage using divider ratio
-    // V_battery = V_pin * BATTERY_DIVIDER_RATIO
-    double batteryVoltage = voltageAtPin * BATTERY_DIVIDER_RATIO;
-
-    // Convert to decivolts (tenths of volts) and round
-    return (unsigned int)(batteryVoltage * 10.0 + 0.5);
+    // Convert millivolts to decivolts: mV / 100 = dV
+    return (unsigned int)(telemetry->getData()->batteryVoltageMilliVolts / 100);
 }
-#endif
 
 unsigned int Power::calcBatteryLimit() {
-#ifdef XAG
+    if (!telemetry || !telemetry->getData()) {
+        return 0;
+    }
+
+    TelemetryData* data = telemetry->getData();
+
     // XAG mode: battery voltage reading is not reliable, do not limit power
-    // The readBatteryVoltageDeciVolts() function is available for telemetry
-    // but should not be used to control power output
+    // The voltage is available for telemetry but should not be used to control power output
+    #ifdef XAG
     return 100;
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    #else
+    if (!data->isReady) {
         return 0;
     }
 
-    unsigned int batteryDeciVolts = tmotor.getDeciVoltage();
-#else
-    if (!hobbywing.isReady()) {
-        return 0;
-    }
-
-    unsigned int batteryDeciVolts = hobbywing.getDeciVoltage();
-#endif
+    // Compare millivolts directly with constants in millivolts
+    uint32_t batteryMilliVolts = data->batteryVoltageMilliVolts;
     const unsigned int STEP_DECREASE = 5;
 
-    if (batteryDeciVolts > BATTERY_MIN_VOLTAGE) {
+    if (batteryMilliVolts > BATTERY_MIN_VOLTAGE) {
         return batteryPowerFloor;
     }
 
@@ -137,18 +102,22 @@ unsigned int Power::calcBatteryLimit() {
     batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
 
     return batteryPowerFloor;
-#endif
+    #endif
 }
 
 unsigned int Power::calcMotorTempLimit() {
+    // Use motor temperature from sensor (not from telemetry, as it's read separately)
     double readedMotorTemp = motorTemp.getTemperature();
 
-    // Validate temperature reading
-    if (readedMotorTemp < MOTOR_TEMP_MIN_VALID || readedMotorTemp > MOTOR_TEMP_MAX_VALID) {
+    // Convert to millicelsius for comparison
+    int32_t motorTempMilliCelsius = (int32_t)(readedMotorTemp * 1000.0);
+
+    // Validate temperature reading (compare in millicelsius)
+    if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID) {
         return 100; // Invalid sensor data
     }
 
-    if (readedMotorTemp < MOTOR_TEMP_REDUCTION_START) {
+    if (motorTempMilliCelsius < MOTOR_TEMP_REDUCTION_START) {
         return 100;
     }
 
@@ -159,7 +128,7 @@ unsigned int Power::calcMotorTempLimit() {
 
     return constrain(
         map(
-            readedMotorTemp,
+            motorTempMilliCelsius,
             MOTOR_TEMP_REDUCTION_START,
             MOTOR_MAX_TEMP,
             100,
@@ -171,16 +140,30 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-#ifdef XAG
-    // XAG mode: use ESC temperature sensor (NTC)
-    double escTempValue = escTemp.getTemperature();
+    if (!telemetry || !telemetry->getData()) {
+        return 100; // Allow other limits to control
+    }
 
-    // Validate temperature reading
-    if (escTempValue < ESC_TEMP_MIN_VALID || escTempValue > ESC_TEMP_MAX_VALID) {
+    TelemetryData* data = telemetry->getData();
+
+    #ifdef XAG
+    // XAG mode: use ESC temperature from telemetry (read from NTC sensor)
+    int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
+    #else
+    // CAN controllers: use ESC temperature from telemetry
+    if (!data->isReady) {
+        return 100; // ESC not ready, allow other limits to control
+    }
+
+    int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
+    #endif
+
+    // Validate temperature reading (compare in millicelsius)
+    if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID) {
         return 100; // Invalid sensor data
     }
 
-    if (escTempValue < ESC_TEMP_REDUCTION_START) {
+    if (escTempMilliCelsius < ESC_TEMP_REDUCTION_START) {
         return 100;
     }
 
@@ -191,7 +174,7 @@ unsigned int Power::calcEscTempLimit() {
 
     return constrain(
         map(
-            (int)escTempValue,
+            escTempMilliCelsius,
             ESC_TEMP_REDUCTION_START,
             ESC_MAX_TEMP,
             100,
@@ -200,47 +183,6 @@ unsigned int Power::calcEscTempLimit() {
         0,
         100
     );
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
-        return 100; // ESC not ready, allow other limits to control
-    }
-
-    uint8_t escTempValue = tmotor.getEscTemperature();
-#else
-    if (!hobbywing.isReady()) {
-        return 100; // ESC not ready, allow other limits to control
-    }
-
-    uint8_t escTempValue = hobbywing.getTemperature();
-#endif
-
-    // Validate temperature reading
-    if (escTempValue < ESC_TEMP_MIN_VALID || escTempValue > ESC_TEMP_MAX_VALID) {
-        return 100; // Invalid sensor data
-    }
-
-    if (escTempValue < ESC_TEMP_REDUCTION_START) {
-        return 100;
-    }
-
-    // Check if temperature range is valid (min != max)
-    if (ESC_TEMP_REDUCTION_START == ESC_MAX_TEMP) {
-        return 0; // If min == max, return 0 (maximum reduction)
-    }
-
-    return constrain(
-        map(
-            escTempValue,
-            ESC_TEMP_REDUCTION_START,
-            ESC_MAX_TEMP,
-            100,
-            0
-        ),
-        0,
-        100
-    );
-#endif
 }
 
 void Power::resetBatteryPowerFloor() {

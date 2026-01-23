@@ -91,16 +91,8 @@ private:
     float convertFloat16ToFloat(uint16_t value);
     uint16_t convertFloatToFloat16(float value);
 
-    // Payload data extraction methods
-    uint8_t getTailByteFromPayload(uint8_t *payload, uint8_t canDlc);
-    bool isStartOfFrame(uint8_t tailByte);
-    bool isEndOfFrame(uint8_t tailByte);
-    bool isToggleFrame(uint8_t tailByte);
-
-    // CAN ID parsing methods
-    uint8_t getPriorityFromCanId(uint32_t canId);
-    uint16_t getDataTypeIdFromCanId(uint32_t canId);
-    uint8_t getNodeIdFromCanId(uint32_t canId);
+    // Note: CAN utility functions (getTailByteFromPayload, isStartOfFrame, etc.)
+    // are now in CanUtils class
 };
 
 #endif

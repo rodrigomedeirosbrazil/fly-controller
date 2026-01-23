@@ -1,15 +1,9 @@
 #include "Xctod.h"
+#include "../Telemetry/TelemetryProvider.h"
+#include "../Telemetry/TelemetryData.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
-#include "../Canbus/Canbus.h"
 #include "../Temperature/Temperature.h"
-#ifndef XAG
-#ifdef T_MOTOR
-#include "../Tmotor/Tmotor.h"
-#else
-#include "../Hobbywing/Hobbywing.h"
-#endif
-#endif
 #include "../config.h"
 #include "../Logger/Logger.h"
 
@@ -19,16 +13,7 @@
 extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
-#ifndef XAG
-#ifdef T_MOTOR
-extern Tmotor tmotor;
-#else
-extern Hobbywing hobbywing;
-#endif
-#endif
-#ifdef XAG
-extern Temperature escTemp;
-#endif
+extern TelemetryProvider* telemetry;
 extern Logger logger;
 
 class ServerCallbacks : public BLEServerCallbacks {
@@ -110,12 +95,17 @@ void Xctod::write() {
 }
 
 void Xctod::updateCoulombCount() {
-#ifdef XAG
+    if (!telemetry || !telemetry->getData()) {
+        return;
+    }
+
+    TelemetryData* data = telemetry->getData();
+
+    #ifdef XAG
     // XAG mode: no current data available, skip Coulomb counting
     return;
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    #else
+    if (!data->isReady) {
         return;
     }
 
@@ -130,7 +120,7 @@ void Xctod::updateCoulombCount() {
     }
 
     // Check if we should recalibrate from voltage (no load condition)
-    if (tmotor.getDeciCurrent() == 0) {
+    if (data->batteryCurrentMilliAmps == 0) {
         recalibrateFromVoltage();
         // Still update timestamp to avoid accumulation of time
         lastCoulombTs = currentTs;
@@ -142,37 +132,9 @@ void Xctod::updateCoulombCount() {
     float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
 
     // Calculate Ah consumed: ΔAh = I * Δt
-    float deltaAh = (tmotor.getDeciCurrent() / 10.0) * deltaHours;
-#else
-    if (!hobbywing.isReady()) {
-        return;
-    }
-
-    unsigned long currentTs = millis();
-
-    // Initialize timestamp on first call
-    if (lastCoulombTs == 0) {
-        lastCoulombTs = currentTs;
-        // Recalibrate from voltage on first call if system is ready
-        recalibrateFromVoltage();
-        return;
-    }
-
-    // Check if we should recalibrate from voltage (no load condition)
-    if (hobbywing.getDeciCurrent() == 0) {
-        recalibrateFromVoltage();
-        // Still update timestamp to avoid accumulation of time
-        lastCoulombTs = currentTs;
-        return;
-    }
-
-    // Calculate time delta in hours
-    unsigned long deltaMs = currentTs - lastCoulombTs;
-    float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
-
-    // Calculate Ah consumed: ΔAh = I * Δt
-    float deltaAh = (hobbywing.getDeciCurrent() / 10.0) * deltaHours;
-#endif
+    // Convert milliamperes to amperes: mA / 1000.0
+    float currentAmps = data->batteryCurrentMilliAmps / 1000.0f;
+    float deltaAh = currentAmps * deltaHours;
 
     // Subtract from remaining capacity (discharging = positive current)
     remainingAh -= deltaAh;
@@ -182,16 +144,21 @@ void Xctod::updateCoulombCount() {
 
     // Update timestamp
     lastCoulombTs = currentTs;
-#endif
+    #endif
 }
 
 void Xctod::recalibrateFromVoltage() {
-#ifdef XAG
+    if (!telemetry || !telemetry->getData()) {
+        return;
+    }
+
+    TelemetryData* data = telemetry->getData();
+
+    #ifdef XAG
     // XAG mode: no voltage data available, skip recalibration
     return;
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    #else
+    if (!data->isReady) {
         return;
     }
 
@@ -200,23 +167,12 @@ void Xctod::recalibrateFromVoltage() {
         return;
     }
 
-    int batteryDeciVolts = tmotor.getDeciVoltage();
-#else
-    if (!hobbywing.isReady()) {
-        return;
-    }
-
-    // Check if voltage range is valid (min != max)
-    if (BATTERY_MIN_VOLTAGE == BATTERY_MAX_VOLTAGE) {
-        return;
-    }
-
-    int batteryDeciVolts = hobbywing.getDeciVoltage();
-#endif
+    // Use millivolts directly for comparison
+    uint32_t batteryMilliVolts = data->batteryVoltageMilliVolts;
 
     // Map voltage to percentage (0-100)
     int voltagePercentage = map(
-        batteryDeciVolts,
+        batteryMilliVolts,
         BATTERY_MIN_VOLTAGE,
         BATTERY_MAX_VOLTAGE,
         0,
@@ -229,18 +185,24 @@ void Xctod::recalibrateFromVoltage() {
 
     // Constrain to valid range
     remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
-#endif
+    #endif
 }
 
 void Xctod::writeBatteryInfo(String &data) {
-#ifdef XAG
-    // XAG mode: read battery voltage from ADC
-    int batteryDeciVolts = power.getBatteryVoltageDeciVolts();
-    float voltage = batteryDeciVolts / 10.0;
+    if (!telemetry || !telemetry->getData()) {
+        data += ",,,"; // battery percentage, voltage, power_kw
+        return;
+    }
+
+    TelemetryData* telemetryData = telemetry->getData();
+
+    #ifdef XAG
+    // XAG mode: read battery voltage from telemetry
+    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
 
     // Calculate battery percentage from voltage (not reliable for power control)
     int voltagePercentage = map(
-        batteryDeciVolts,
+        telemetryData->batteryVoltageMilliVolts,
         BATTERY_MIN_VOLTAGE,
         BATTERY_MAX_VOLTAGE,
         0,
@@ -254,9 +216,8 @@ void Xctod::writeBatteryInfo(String &data) {
     data += String(voltage, 2);
     data += ",";
     data += ","; // power_kw (not available)
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    #else
+    if (!telemetryData->isReady) {
         data += ",,,"; // battery percentage, voltage, power_kw
         return;
     }
@@ -266,28 +227,10 @@ void Xctod::writeBatteryInfo(String &data) {
     batteryPercentage = constrain(batteryPercentage, 0, 100);
 
     // Get voltage for display and power calculation (not for SoC)
-    int batteryDeciVolts = tmotor.getDeciVoltage();
-    float voltage = batteryDeciVolts / 10.0;
+    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
 
     // Calculate power in KW using current and voltage
-    float current = tmotor.getDeciCurrent() / 10.0;
-#else
-    if (!hobbywing.isReady()) {
-        data += ",,,"; // battery percentage, voltage, power_kw
-        return;
-    }
-
-    // Calculate battery percentage from Coulomb Counting
-    int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
-    batteryPercentage = constrain(batteryPercentage, 0, 100);
-
-    // Get voltage for display and power calculation (not for SoC)
-    int batteryDeciVolts = hobbywing.getDeciVoltage();
-    float voltage = batteryDeciVolts / 10.0;
-
-    // Calculate power in KW using current and voltage
-    float current = hobbywing.getDeciCurrent() / 10.0;
-#endif
+    float current = milliAmpsToAmps(telemetryData->batteryCurrentMilliAmps);
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
     data += String(batteryPercentage);
@@ -296,7 +239,7 @@ void Xctod::writeBatteryInfo(String &data) {
     data += ",";
     data += String(powerKw, 1);
     data += ",";
-#endif
+    #endif
 }
 
 void Xctod::writeThrottleInfo(String &data) {
@@ -313,60 +256,47 @@ void Xctod::writeThrottleInfo(String &data) {
 }
 
 void Xctod::writeMotorInfo(String &data) {
+    // Motor temperature is read from sensor (not from telemetry)
     data += String(motorTemp.getTemperature(), 0);
     data += ",";
 
-#ifdef XAG
+    if (!telemetry || !telemetry->getData()) {
+        data += ",,"; // rpm, current
+        return;
+    }
+
+    TelemetryData* telemetryData = telemetry->getData();
+
+    #ifdef XAG
     // XAG mode: no RPM or current data available
     data += ",,"; // rpm, current
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    #else
+    if (!telemetryData->isReady) {
         data += ",,"; // rpm, current
         return;
     }
 
-    data += String(tmotor.getRpm());
+    data += String(telemetryData->rpm);
     data += ",";
-    data += String(tmotor.getDeciCurrent() / 10.0, 2);
-#else
-    if (!hobbywing.isReady()) {
-        data += ",,"; // rpm, current
-        return;
-    }
-
-    data += String(hobbywing.getRpm());
+    // Convert milliamperes to amperes for display
+    float current = milliAmpsToAmps(telemetryData->batteryCurrentMilliAmps);
+    data += String(current, 2);
     data += ",";
-    data += String(hobbywing.getDeciCurrent() / 10.0, 2);
-#endif
-    data += ",";
-#endif
+    #endif
 }
 
 void Xctod::writeEscInfo(String &data) {
-#ifdef XAG
-    // XAG mode: use ESC temperature sensor (NTC)
-    data += String(escTemp.getTemperature(), 0);
-    data += ",";
-#else
-#ifdef T_MOTOR
-    if (!tmotor.isReady()) {
+    if (!telemetry || !telemetry->getData()) {
         data += ",";
         return;
     }
 
-    data += String(tmotor.getEscTemperature());
-    data += ",";
-#else
-    if (!hobbywing.isReady()) {
-        data += ",";
-        return;
-    }
+    TelemetryData* telemetryData = telemetry->getData();
 
-    data += String(hobbywing.getTemperature());
+    // Convert millicelsius to celsius for display
+    float escTempCelsius = milliCelsiusToCelsius(telemetryData->escTemperatureMilliCelsius);
+    data += String(escTempCelsius, 0);
     data += ",";
-#endif
-#endif
 }
 
 void Xctod::writeSystemStatus(String &data) {

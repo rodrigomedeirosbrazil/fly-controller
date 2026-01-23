@@ -22,10 +22,6 @@ class Canbus
         // Device type detection
         bool isHobbywingEscMessage(uint16_t dataTypeId);
         bool isTmotorEscMessage(uint16_t dataTypeId);
-
-        // CAN ID parsing methods
-        uint16_t getDataTypeIdFromCanId(uint32_t canId);
-        uint8_t getNodeIdFromCanId(uint32_t canId);
 };
 
 #endif
