@@ -45,7 +45,7 @@ extern Xctod xctod;
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 (ADC1-1) - NTC 10K
 #ifdef XAG
 #define ESC_TEMPERATURE_PIN   4  // GPIO4 (ADC1-4) - NTC 10K (XAG mode only)
-#define BATTERY_VOLTAGE_PIN   3  // GPIO2 (ADC1-2) - Battery voltage divider (XAG mode only)
+#define BATTERY_VOLTAGE_PIN   3  // GPIO3 - Battery voltage divider (XAG mode only) - GPIO2 isn't ADC port
 #endif
 
 // ========== DIGITAL I/O ==========
