@@ -21,13 +21,9 @@ static void tmotorUpdate() {
         return;
     }
 
-    // Convert decivolts to millivolts: deciVoltage * 100 = milliVolts
-    uint16_t deciVoltage = tmotor.getDeciVoltage();
-    data->batteryVoltageMilliVolts = (uint32_t)deciVoltage * 100;
-
-    // Convert decicurrent to milliamperes: deciCurrent * 100 = milliAmps
-    uint16_t deciCurrent = tmotor.getDeciCurrent();
-    data->batteryCurrentMilliAmps = (uint32_t)deciCurrent * 100;
+    // Voltage and current are already in millivolts and milliamperes (3 decimal places)
+    data->batteryVoltageMilliVolts = tmotor.getBatteryVoltageMilliVolts();
+    data->batteryCurrentMilliAmps = tmotor.getBatteryCurrentMilliAmps();
 
     // RPM is already an integer
     data->rpm = tmotor.getRpm();
