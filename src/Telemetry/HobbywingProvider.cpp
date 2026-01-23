@@ -1,4 +1,6 @@
 #include "HobbywingProvider.h"
+#include "../config_controller.h"
+#if IS_HOBBYWING
 #include "../config.h"
 #include "../Hobbywing/Hobbywing.h"
 
@@ -86,4 +88,19 @@ TelemetryProvider createHobbywingProvider() {
     g_hobbywingProvider = &provider;
     return provider;
 }
+#else
+// Dummy implementation when not using Hobbywing
+TelemetryProvider createHobbywingProvider() {
+    static TelemetryProvider provider = {
+        .update = nullptr,
+        .init = nullptr,
+        .getData = nullptr,
+        .announce = nullptr,
+        .handleCanMessage = nullptr,
+        .isReady = nullptr,
+        .data = {}
+    };
+    return provider;
+}
+#endif
 

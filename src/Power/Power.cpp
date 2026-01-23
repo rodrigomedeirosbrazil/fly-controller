@@ -79,7 +79,7 @@ unsigned int Power::calcBatteryLimit() {
 
     // XAG mode: battery voltage reading is not reliable, do not limit power
     // The voltage is available for telemetry but should not be used to control power output
-    #ifdef XAG
+    #if IS_XAG
     return 100;
     #else
     if (!data->isReady) {
@@ -146,7 +146,7 @@ unsigned int Power::calcEscTempLimit() {
 
     TelemetryData* data = telemetry->getData();
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: use ESC temperature from telemetry (read from NTC sensor)
     int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
     #else

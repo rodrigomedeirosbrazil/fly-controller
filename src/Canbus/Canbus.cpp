@@ -1,12 +1,12 @@
 #include <Arduino.h>
-#include <driver/twai.h>
-
-#include "../Telemetry/TelemetryProvider.h"
-#include "../config.h"
 #include "Canbus.h"
 #include "CanUtils.h"
-#ifndef XAG
-#ifdef T_MOTOR
+#include "../config_controller.h"
+#if USES_CAN_BUS
+#include <driver/twai.h>
+#include "../Telemetry/TelemetryProvider.h"
+#include "../config.h"
+#if IS_TMOTOR
 #include "../Tmotor/Tmotor.h"
 extern Tmotor tmotor;
 #else
@@ -19,15 +19,15 @@ extern TelemetryProvider* telemetry;
 
 
 
+#if USES_CAN_BUS
 void Canbus::parseCanMsg(twai_message_t *canMsg) {
-#ifndef XAG
     // Try to route through telemetry provider first
     if (telemetry && telemetry->handleCanMessage) {
         uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
 
         // Check if this is a message for our ESC
         bool isEscMessage = false;
-        #ifdef T_MOTOR
+        #if IS_TMOTOR
         isEscMessage = isTmotorEscMessage(dataTypeId);
         #else
         isEscMessage = isHobbywingEscMessage(dataTypeId);
@@ -40,7 +40,7 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
     }
 
     // Fallback: route directly to classes (for backward compatibility)
-    #ifdef T_MOTOR
+    #if IS_TMOTOR
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
     if (isTmotorEscMessage(dataTypeId)) {
         tmotor.parseEscMessage(canMsg);
@@ -56,7 +56,6 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
 
     // Print unknown messages for debugging
     printCanMsg(canMsg);
-#endif
 }
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {
@@ -76,7 +75,7 @@ void Canbus::printCanMsg(twai_message_t *canMsg) {
     }
     Serial.println();
 }
-
+#endif
 
 bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
     return (dataTypeId == 0x4E52 ||  // statusMsg1

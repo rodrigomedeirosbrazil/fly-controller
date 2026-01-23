@@ -101,7 +101,7 @@ void Xctod::updateCoulombCount() {
 
     TelemetryData* data = telemetry->getData();
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: no current data available, skip Coulomb counting
     return;
     #else
@@ -154,7 +154,7 @@ void Xctod::recalibrateFromVoltage() {
 
     TelemetryData* data = telemetry->getData();
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: no voltage data available, skip recalibration
     return;
     #else
@@ -196,7 +196,7 @@ void Xctod::writeBatteryInfo(String &data) {
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: read battery voltage from telemetry
     float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
 
@@ -267,7 +267,7 @@ void Xctod::writeMotorInfo(String &data) {
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: no RPM or current data available
     data += ",,"; // rpm, current
     #else

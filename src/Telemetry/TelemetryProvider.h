@@ -4,11 +4,13 @@
 #include "TelemetryData.h"
 
 // Forward declaration for twai_message_t (to avoid including driver/twai.h in XAG mode)
-#ifndef XAG
+#include "../config_controller.h"
+#if USES_CAN_BUS
 #include <driver/twai.h>
 #else
 // Forward declaration for XAG mode (no CAN bus)
-typedef struct twai_message_t twai_message_t;
+// Use struct forward declaration to avoid conflicts
+struct twai_message_t;
 #endif
 
 /**

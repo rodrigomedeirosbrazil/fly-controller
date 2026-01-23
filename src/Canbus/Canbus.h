@@ -4,8 +4,8 @@
 #include <driver/twai.h>
 
 // Forward declaration
-#ifndef XAG
-#ifdef T_MOTOR
+#if USES_CAN_BUS
+#if IS_TMOTOR
 class Tmotor;
 #else
 class Hobbywing;

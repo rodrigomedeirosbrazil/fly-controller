@@ -216,12 +216,10 @@ void Throttle::setArmed()
 
   throttleArmed = true;
   buzzer.beepSuccess();
-#ifndef XAG
-#ifndef T_MOTOR
+#if USES_CAN_BUS && IS_HOBBYWING
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorRed, Hobbywing::ledBlink5Hz);
   }
-#endif
 #endif
 }
 
@@ -229,11 +227,9 @@ void Throttle::setDisarmed()
 {
   throttleArmed = false;
   buzzer.beepError();
-#ifndef XAG
-#ifndef T_MOTOR
+#if USES_CAN_BUS && IS_HOBBYWING
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorGreen);
   }
-#endif
 #endif
 }

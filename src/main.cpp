@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #include <ESP32Servo.h>
-#ifndef XAG
+#if USES_CAN_BUS
 #include <driver/twai.h>
 #include "Canbus/Canbus.h"
 #endif
@@ -17,10 +17,8 @@
 #include "Xctod/Xctod.h"
 #include "WebServer/ControllerWebServer.h"
 #include "Telemetry/TelemetryProvider.h"
-#ifndef XAG
-#ifndef T_MOTOR
+#if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/Hobbywing.h"
-#endif
 #endif
 
 using namespace ace_button;
@@ -40,7 +38,7 @@ void setup()
   analogReadResolution(ADC_RESOLUTION);
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
-#ifdef XAG
+#if IS_XAG
   analogSetPinAttenuation(ESC_TEMPERATURE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(BATTERY_VOLTAGE_PIN, ADC_ATTENUATION);
 #endif
@@ -49,7 +47,7 @@ void setup()
   for (int i = 0; i < 10; i++) {
     analogRead(THROTTLE_PIN);
     analogRead(MOTOR_TEMPERATURE_PIN);
-#ifdef XAG
+#if IS_XAG
     analogRead(ESC_TEMPERATURE_PIN);
     analogRead(BATTERY_VOLTAGE_PIN);
 #endif
@@ -65,7 +63,7 @@ void setup()
     telemetry->init();
   }
 
-#ifndef XAG
+#if USES_CAN_BUS
   // Initialize TWAI (CAN) driver with SN65HVD230
   twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(
     (gpio_num_t)CAN_TX_PIN,
@@ -84,13 +82,11 @@ void setup()
   }
 
   // Hobbywing-specific initialization
-  #ifndef T_MOTOR
-  #ifndef XAG
+  #if IS_HOBBYWING
   extern Hobbywing hobbywing;
   hobbywing.requestEscId();
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
-  #endif
   #endif
 #endif
 
@@ -104,12 +100,12 @@ void loop()
 {
   button.check();
   xctod.write();
-#ifndef XAG
+#if USES_CAN_BUS
   checkCanbus();
 #endif
   throttle.handle();
   motorTemp.handle();
-#ifdef XAG
+#if IS_XAG
   extern Temperature escTemp;
   escTemp.handle();
 #endif
@@ -154,7 +150,7 @@ void handleEsc()
 
 void checkCanbus()
 {
-#ifndef XAG
+#if USES_CAN_BUS
     extern twai_message_t canMsg;
     extern Canbus canbus;
 
@@ -183,7 +179,7 @@ bool isMotorRunning()
         return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
     }
 
-    #ifdef XAG
+    #if IS_XAG
     // XAG mode: check throttle position only (no RPM data available)
     return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
     #else

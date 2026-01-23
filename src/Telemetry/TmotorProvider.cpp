@@ -1,4 +1,6 @@
 #include "TmotorProvider.h"
+#include "../config_controller.h"
+#if IS_TMOTOR
 #include "../config.h"
 #include "../Tmotor/Tmotor.h"
 
@@ -88,4 +90,19 @@ TelemetryProvider createTmotorProvider() {
     g_tmotorProvider = &provider;
     return provider;
 }
+#else
+// Dummy implementation when not using Tmotor
+TelemetryProvider createTmotorProvider() {
+    static TelemetryProvider provider = {
+        .update = nullptr,
+        .init = nullptr,
+        .getData = nullptr,
+        .announce = nullptr,
+        .handleCanMessage = nullptr,
+        .isReady = nullptr,
+        .data = {}
+    };
+    return provider;
+}
+#endif
 
