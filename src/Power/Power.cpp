@@ -15,12 +15,12 @@ Power::Power() {
     pwm = ESC_MIN_PWM;
     power = 100;
     batteryPowerFloor = 100;
-    prevPwm = ESC_MIN_PWM;
+    resetRampLimiting();
 }
 
 unsigned int Power::getPwm() {
     if (!throttle.isCalibrated()) {
-        prevPwm = ESC_MIN_PWM;
+        resetRampLimiting();
         return ESC_MIN_PWM;
     }
 
@@ -191,7 +191,7 @@ unsigned int Power::calcEscTempLimit() {
 
 void Power::resetBatteryPowerFloor() {
     batteryPowerFloor = 100;
-    prevPwm = ESC_MIN_PWM;
+    resetRampLimiting();
 }
 
 void Power::resetRampLimiting() {
