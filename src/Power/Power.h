@@ -4,10 +4,6 @@
 #include <Arduino.h>
 
 class Throttle;
-class Canbus;
-#ifndef XAG
-class Hobbywing;
-#endif
 class Temperature;
 
 class Power {
@@ -16,9 +12,7 @@ public:
     unsigned int getPwm();
     unsigned int getPower();
     void resetBatteryPowerFloor();
-#ifdef XAG
-    unsigned int getBatteryVoltageDeciVolts();
-#endif
+    unsigned int getBatteryVoltageDeciVolts(); // For backward compatibility (returns decivolts)
 
 private:
     long lastPowerCalculationTime;
@@ -30,9 +24,6 @@ private:
     unsigned int calcBatteryLimit();
     unsigned int calcMotorTempLimit();
     unsigned int calcEscTempLimit();
-#ifdef XAG
-    unsigned int readBatteryVoltageDeciVolts();
-#endif
 };
 
 #endif // POWER_H

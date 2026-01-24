@@ -99,10 +99,6 @@ private:
     void handleStatusMsg2(twai_message_t *canMsg);
 
     // Hobbywing payload data extraction methods
-    uint8_t getTailByteFromPayload(uint8_t *payload, uint8_t canDlc);
-    bool isStartOfFrame(uint8_t tailByte);
-    bool isEndOfFrame(uint8_t tailByte);
-    bool isToggleFrame(uint8_t tailByte);
     uint8_t getTemperatureFromPayload(uint8_t *payload);
     uint16_t getDeciCurrentFromPayload(uint8_t *payload);
     uint16_t getDeciVoltageFromPayload(uint8_t *payload);
@@ -118,17 +114,7 @@ private:
         uint8_t payloadLength
     );
     void handleGetEscIdResponse(twai_message_t *canMsg);
-    uint8_t getTransferId(uint8_t tailByte);
     uint8_t getEscThrottleIdFromPayload(uint8_t *payload);
-
-    // CAN ID parsing methods
-    uint8_t getPriorityFromCanId(uint32_t canId);
-    uint16_t getDataTypeIdFromCanId(uint32_t canId);
-    uint8_t getServiceTypeIdFromCanId(uint32_t canId);
-    uint8_t getNodeIdFromCanId(uint32_t canId);
-    uint8_t getDestNodeIdFromCanId(uint32_t canId);
-    bool isServiceFrame(uint32_t canId);
-    bool isRequestFrame(uint32_t canId);
 };
 
 #endif

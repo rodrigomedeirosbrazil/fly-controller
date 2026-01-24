@@ -220,6 +220,8 @@ Outputs comprehensive system telemetry via Bluetooth LE for monitoring and debug
   - **PlatformIO IDE**
   - **PlatformIO Core** installed via Python (if available)
 
+  Use: `~/.platformio/penv/bin/pio run`
+
 **Build Process:**
 - The build system is configured in `platformio.ini`
 - Build outputs are generated in `.pio/build/lolin_c3_mini/`

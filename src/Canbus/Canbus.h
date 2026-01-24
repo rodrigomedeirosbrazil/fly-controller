@@ -4,8 +4,12 @@
 #include <driver/twai.h>
 
 // Forward declaration
-#ifndef XAG
+#if USES_CAN_BUS
+#if IS_TMOTOR
+class Tmotor;
+#else
 class Hobbywing;
+#endif
 #endif
 
 class Canbus
@@ -17,10 +21,7 @@ class Canbus
     private:
         // Device type detection
         bool isHobbywingEscMessage(uint16_t dataTypeId);
-
-        // CAN ID parsing methods
-        uint16_t getDataTypeIdFromCanId(uint32_t canId);
-        uint8_t getNodeIdFromCanId(uint32_t canId);
+        bool isTmotorEscMessage(uint16_t dataTypeId);
 };
 
 #endif
