@@ -15,6 +15,7 @@ Power::Power() {
     pwm = ESC_MIN_PWM;
     power = 100;
     batteryPowerFloor = 100;
+    prevPwm = ESC_MIN_PWM;
 }
 
 unsigned int Power::getPwm() {
@@ -26,19 +27,23 @@ unsigned int Power::getPwm() {
 
     // Check if throttle is calibrated (min and max are different)
     if (throttleMin == throttleMax) {
+        prevPwm = ESC_MIN_PWM;
         return ESC_MIN_PWM;
     }
 
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
-    return map(
+    int targetPwm = map(
         effectiveRaw,
         throttleMin,
         throttleMax,
         ESC_MIN_PWM,
         ESC_MAX_PWM
     );
+
+    // Apply ramp limiting to smooth acceleration/deceleration
+    return applyRampLimiting(targetPwm);
 }
 
 unsigned int Power::getPower() {
@@ -187,4 +192,23 @@ unsigned int Power::calcEscTempLimit() {
 
 void Power::resetBatteryPowerFloor() {
     batteryPowerFloor = 100;
+    prevPwm = ESC_MIN_PWM;
+}
+
+void Power::resetRampLimiting() {
+    prevPwm = ESC_MIN_PWM;
+}
+
+unsigned int Power::applyRampLimiting(int targetPwm) {
+    int delta = targetPwm - prevPwm;
+    int maxDelta = (delta > 0)
+        ? THROTTLE_RAMP_RATE
+        : (int)(THROTTLE_RAMP_RATE * THROTTLE_DECEL_MULTIPLIER);
+
+    int limitedPwm = prevPwm + constrain(delta, -maxDelta, maxDelta);
+    // Ensure the result is within valid PWM range
+    limitedPwm = constrain(limitedPwm, ESC_MIN_PWM, ESC_MAX_PWM);
+    prevPwm = limitedPwm;
+
+    return (unsigned int)limitedPwm;
 }

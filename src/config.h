@@ -93,6 +93,10 @@ extern Xctod xctod;
 #define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
+// ========== THROTTLE RAMP LIMITING ==========
+#define THROTTLE_RAMP_RATE 8 // Maximum throttle acceleration in microseconds per tick
+#define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
+
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
 #define ADC_MAX_VALUE 4095       // Maximum ADC reading
