@@ -140,6 +140,7 @@ void handleEsc()
 {
   if (!throttle.isArmed())
   {
+    power.resetRampLimiting();
     esc.writeMicroseconds(ESC_MIN_PWM);
     return;
   }

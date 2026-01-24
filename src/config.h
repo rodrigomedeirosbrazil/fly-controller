@@ -83,15 +83,28 @@ extern Xctod xctod;
 #if IS_TMOTOR
 #define ESC_MIN_PWM 1100
 #define ESC_MAX_PWM 1940
+#elif IS_XAG
+#define ESC_MIN_PWM 1130
+#define ESC_MAX_PWM 2000
 #else
 #define ESC_MIN_PWM 1050
 #define ESC_MAX_PWM 1950
 #endif
 
+#if IS_XAG
+#define ESC_MAX_TEMP 80000 // 80000 millicelsius = 80.000°C
+#define ESC_TEMP_REDUCTION_START 70000 // 70000 millicelsius = 70.000°C - Start reducing power at this temperature
+#else
 #define ESC_MAX_TEMP 110000 // 110000 millicelsius = 110.000°C
 #define ESC_TEMP_REDUCTION_START 80000 // 80000 millicelsius = 80.000°C - Start reducing power at this temperature
+#endif
+
 #define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
+
+// ========== THROTTLE RAMP LIMITING ==========
+#define THROTTLE_RAMP_RATE 4 // Maximum throttle acceleration in microseconds per tick
+#define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)

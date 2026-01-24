@@ -91,12 +91,14 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Motor thermal protection
 - Battery power floor
 - ESC PWM conversion
+- Throttle ramp limiting (smooth acceleration/deceleration)
 ```
 
 **Protection Algorithms:**
 - Minimum voltage limitation (42.0V)
-- Thermal protection (60°C motor)
-- Progressive power reduction based on motor and ESC temperature.
+- Thermal protection (60°C motor, 110°C ESC)
+- Progressive power reduction based on motor and ESC temperature
+- Throttle ramp limiting: 8 μs/tick acceleration, 16 μs/tick deceleration (prevents jerky movements)
 
 ### 4. **Temperature** - Thermal Monitoring
 ```cpp
@@ -142,14 +144,25 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 ## 📡 Communication Protocols
 
-### DroneCAN (Hobbywing ESC)
+### CAN Bus Protocols
+
+#### DroneCAN (Hobbywing ESC)
 - **Speed**: 500 kbps
 - **Node ID**: 0x13 (controller), 0x03 (ESC)
 - **Messages**: Status, control, configuration
 - **Format**: CAN 2.0B with DroneCAN payload
+- **Telemetry**: RPM, voltage, current, temperature, LED control
+
+#### UAVCAN (T-Motor ESC)
+- **Speed**: 500 kbps
+- **Protocol**: UAVCAN v0
+- **Messages**: Status, control, configuration
+- **Format**: CAN 2.0B with UAVCAN payload
+- **Telemetry**: RPM, voltage, current, temperature
 
 ### Bluetooth LE (XCTOD)
-- Provides a service to transmit flight data to compatible mobile applications.
+- Provides a service to transmit flight data to compatible mobile applications (XCTRACK).
+- Available in all controller modes.
 
 ## ⚡ Features
 
@@ -165,7 +178,8 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Intelligent cruise control
 - ✅ Button arming/disarming
 - ✅ Direct ESC PWM control
-- ✅ Bidirectional DroneCAN communication
+- ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
+- ✅ Bidirectional CAN bus communication (DroneCAN/UAVCAN)
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -181,8 +195,9 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 ### ESC
 - **Hobbywing X-Series** (DroneCAN mode - default): Full telemetry via CAN bus
+- **T-Motor** (UAVCAN mode): Full telemetry via CAN bus
 - **XAG Motors** (XAG mode): PWM-only control with NTC temperature sensors
-- Any ESC with PWM input (compatible with both modes)
+- Any ESC with PWM input (compatible with all modes)
 
 ### Battery
 - 14S Li-ion/Li-Po packs (configurable voltage)
@@ -196,6 +211,28 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Passive piezoelectric buzzer
 
 ## 🚀 Installation and Configuration
+
+### Build Environments
+
+The project supports three controller types with dedicated build environments:
+
+| Controller | Environment | Protocol | CAN Bus |
+|------------|-------------|----------|---------|
+| **Hobbywing** | `lolin_c3_mini_hobbywing` | DroneCAN | ✅ Required |
+| **T-Motor** | `lolin_c3_mini_tmotor` | UAVCAN | ✅ Required |
+| **XAG** | `lolin_c3_mini_xag` | PWM-only | ❌ Not required |
+
+**Quick Build Commands:**
+```bash
+# Hobbywing (default)
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
+
+# T-Motor
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
+
+# XAG
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
+```
 
 ### 1. Prerequisites
 ```bash
@@ -225,23 +262,71 @@ lib_deps =
 **Using VS Code PlatformIO Extension (Recommended):**
 - Install the PlatformIO extension in VS Code
 - Open the project folder
+- Select the desired environment from the PlatformIO toolbar (bottom status bar)
 - Use the PlatformIO toolbar to build, upload, and monitor
 
 **Using PlatformIO CLI:**
+
+The project supports three controller types, each with its own build environment:
+
+#### Hobbywing Controller (Default - DroneCAN)
 ```bash
-# Build the project
-pio run
+# Build for Hobbywing ESC (DroneCAN protocol)
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
 
-# Upload to the microcontroller
-pio run --target upload
+# Or use the default environment
+~/.platformio/penv/bin/pio run -e lolin_c3_mini
 
-# Open the serial monitor
-pio device monitor
+# Upload firmware
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing -t upload
+
+# Monitor serial output
+~/.platformio/penv/bin/pio device monitor -e lolin_c3_mini_hobbywing
 ```
 
-**Build Modes:**
-- **Hobbywing Mode (default):** Full CAN bus support and DroneCAN communication
-- **XAG Mode:** For XAG motors (PWM-only control). Add `-D XAG=1` to `build_flags` in `platformio.ini`
+**Features:**
+- Full CAN bus support (500 kbps)
+- DroneCAN protocol communication
+- Complete telemetry (RPM, voltage, current, temperature)
+- LED control and ESC configuration
+
+#### T-Motor Controller (UAVCAN)
+```bash
+# Build for T-Motor ESC (UAVCAN protocol)
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
+
+# Upload firmware
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor -t upload
+
+# Monitor serial output
+~/.platformio/penv/bin/pio device monitor -e lolin_c3_mini_tmotor
+```
+
+**Features:**
+- Full CAN bus support (500 kbps)
+- UAVCAN protocol communication
+- Complete telemetry (RPM, voltage, current, temperature)
+- ESC configuration and control
+
+#### XAG Controller (PWM-only)
+```bash
+# Build for XAG motors (PWM-only, no CAN bus)
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
+
+# Upload firmware
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag -t upload
+
+# Monitor serial output
+~/.platformio/penv/bin/pio device monitor -e lolin_c3_mini_xag
+```
+
+**Features:**
+- PWM-only control (no CAN bus required)
+- Analog temperature sensors (NTC)
+- Battery voltage monitoring via voltage divider
+- Throttle ramp limiting for smooth acceleration/deceleration
+
+**Note:** The XAG mode includes smooth throttle ramp limiting (8 μs/tick acceleration, 16 μs/tick deceleration) to prevent jerky motor movements.
 
 ### 5. Pin Configuration
 ```cpp
@@ -251,28 +336,59 @@ pio device monitor
 #define MOTOR_TEMPERATURE_PIN 1  // GPIO1 - NTC 10K
 // XAG Mode only:
 #define ESC_TEMPERATURE_PIN   4  // GPIO4 - NTC 10K (XAG mode)
+#define BATTERY_VOLTAGE_PIN   3  // GPIO3 - Battery voltage divider (XAG mode)
 
 // Digital I/O
 #define BUTTON_PIN 5  // GPIO5 - Push button
 #define BUZZER_PIN 6  // GPIO6 - Passive Buzzer (PWM)
 #define ESC_PIN    7  // GPIO7 - ESC PWM signal
 
-// CAN Bus (TWAI) - Hobbywing mode only
+// CAN Bus (TWAI) - Hobbywing and T-Motor modes only
 #define CAN_TX_PIN 2  // GPIO2 - CAN TX
 #define CAN_RX_PIN 3  // GPIO3 - CAN RX
 ```
 
-### 6. Calibration
+### 6. Throttle Ramp Limiting Configuration
+```cpp
+// src/config.h - Throttle ramp limiting parameters
+#define THROTTLE_RAMP_RATE 8        // Maximum acceleration in μs/tick
+#define THROTTLE_DECEL_MULTIPLIER 2.0  // Deceleration multiplier (2x faster)
+```
+
+**Behavior:**
+- Acceleration: Limited to 8 μs per tick (smooth ramp-up)
+- Deceleration: Limited to 16 μs per tick (2x faster, responsive braking)
+- Applied to all controller types for smooth motor control
+
+### 7. Calibration
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
+
+**Calibration Process:**
+1. On startup, move throttle to maximum position and hold for 3 seconds
+2. Move throttle to minimum position and hold for 3 seconds
+3. Calibration complete - system is ready to arm
 
 ## 📊 Usage Example
 
 ### Operation Sequence
-1. **Initialization**: Automatic throttle calibration, CAN bus setup.
-2. **Arming**: Press the button to arm the system.
-3. **Operation**: Adjust the throttle; the system calculates and delivers safe power.
+1. **Initialization**: Automatic throttle calibration, CAN bus setup (if applicable).
+2. **Arming**: Press the button to arm the system (throttle must be at minimum).
+3. **Operation**: Adjust the throttle; the system calculates and delivers safe power with smooth ramp limiting.
 4. **Cruise**: Maintain throttle >30% for a few seconds to activate cruise control.
 5. **Disarm**: Press the button again to disarm.
+
+### Controller-Specific Notes
+
+**Hobbywing/T-Motor (CAN bus):**
+- Ensure CAN bus is properly connected (H/L lines)
+- ESC must be configured for DroneCAN (Hobbywing) or UAVCAN (T-Motor) mode
+- Full telemetry available via CAN bus
+
+**XAG (PWM-only):**
+- No CAN bus required
+- Temperature sensors must be connected (motor and ESC)
+- Battery voltage divider must be connected
+- Throttle ramp limiting provides smooth motor control
 
 ## 🛠️ Development
 
