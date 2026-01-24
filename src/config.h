@@ -103,11 +103,7 @@ extern Xctod xctod;
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== THROTTLE RAMP LIMITING ==========
-// Rate limiting: PWM updates at most every THROTTLE_UPDATE_INTERVAL_MS milliseconds
-// Ramp rate: Maximum change per update interval (in microseconds)
-// With 20ms interval: 20 μs/update = ~1.0s to go from 1050 to 1950 μs (smooth acceleration)
-#define THROTTLE_UPDATE_INTERVAL_MS 20 // Minimum time between PWM updates in milliseconds (rate limiting)
-#define THROTTLE_RAMP_RATE 20 // Maximum throttle acceleration in microseconds per update interval
+#define THROTTLE_RAMP_RATE 4 // Maximum throttle acceleration in microseconds per tick
 #define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
