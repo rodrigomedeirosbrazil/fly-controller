@@ -88,8 +88,14 @@ extern Xctod xctod;
 #define ESC_MAX_PWM 1950
 #endif
 
+#if IS_XAG
+#define ESC_MAX_TEMP 80000 // 80000 millicelsius = 80.000°C
+#define ESC_TEMP_REDUCTION_START 70000 // 70000 millicelsius = 70.000°C - Start reducing power at this temperature
+#else
 #define ESC_MAX_TEMP 110000 // 110000 millicelsius = 110.000°C
 #define ESC_TEMP_REDUCTION_START 80000 // 80000 millicelsius = 80.000°C - Start reducing power at this temperature
+#endif
+
 #define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
