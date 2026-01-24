@@ -16,6 +16,16 @@ Power::Power() {
     power = 100;
     batteryPowerFloor = 100;
     resetRampLimiting();
+    #if IS_XAG
+    smoothStartActive = false;
+    motorStoppedTime = 0;
+    smoothStartBeginTime = 0;
+    smoothStartInitialPwm = ESC_MIN_PWM;
+    preStartActive = false;
+    preStartBeginTime = 0;
+    // Calculate pre-start PWM: 5% of range
+    preStartPwm = ESC_MIN_PWM + (SMOOTH_START_PRE_START_PERCENT * (ESC_MAX_PWM - ESC_MIN_PWM)) / 100;
+    #endif
 }
 
 unsigned int Power::getPwm() {
@@ -40,6 +50,41 @@ unsigned int Power::getPwm() {
         ESC_MIN_PWM,
         ESC_MAX_PWM
     );
+
+    #if IS_XAG
+    // If pre-start is active, apply pre-start phase
+    if (preStartActive) {
+        // If target PWM goes back to minimum, cancel pre-start
+        if (targetPwm <= ESC_MIN_PWM) {
+            preStartActive = false;
+            prevPwm = ESC_MIN_PWM;
+            return ESC_MIN_PWM;
+        }
+        // applyPreStart() will handle transition to smooth start when duration completes
+        return applyPreStart();
+    }
+
+    // If smooth start is active, check if we should continue
+    if (smoothStartActive) {
+        // If target PWM goes back to minimum, cancel smooth start
+        if (targetPwm <= ESC_MIN_PWM) {
+            smoothStartActive = false;
+            prevPwm = ESC_MIN_PWM;
+            return ESC_MIN_PWM;
+        }
+        return applySmoothStart(targetPwm);
+    }
+
+    // Check if motor is stopped
+    bool motorStopped = detectMotorStopped();
+
+    // If motor is stopped and target PWM is above minimum, activate pre-start
+    if (motorStopped && targetPwm > ESC_MIN_PWM) {
+        preStartActive = true;
+        preStartBeginTime = millis();
+        return applyPreStart();
+    }
+    #endif
 
     // Apply ramp limiting to smooth acceleration/deceleration
     return applyRampLimiting(targetPwm);
@@ -196,6 +241,14 @@ void Power::resetBatteryPowerFloor() {
 
 void Power::resetRampLimiting() {
     prevPwm = ESC_MIN_PWM;
+    #if IS_XAG
+    smoothStartActive = false;
+    motorStoppedTime = 0;
+    smoothStartBeginTime = 0;
+    smoothStartInitialPwm = ESC_MIN_PWM;
+    preStartActive = false;
+    preStartBeginTime = 0;
+    #endif
 }
 
 unsigned int Power::applyRampLimiting(int targetPwm) {
@@ -211,3 +264,71 @@ unsigned int Power::applyRampLimiting(int targetPwm) {
 
     return (unsigned int)limitedPwm;
 }
+
+#if IS_XAG
+bool Power::detectMotorStopped() {
+    unsigned long now = millis();
+
+    // Check if current PWM is at minimum
+    if (prevPwm == ESC_MIN_PWM) {
+        // If timer not started, start it
+        if (motorStoppedTime == 0) {
+            motorStoppedTime = now;
+        }
+
+        // Check if motor has been stopped for required time
+        if (now - motorStoppedTime >= SMOOTH_START_MOTOR_STOPPED_TIME) {
+            return true;
+        }
+    } else {
+        // Motor is not at minimum, reset timer
+        motorStoppedTime = 0;
+    }
+
+    return false;
+}
+
+unsigned int Power::applyPreStart() {
+    unsigned long now = millis();
+
+    // Check if pre-start duration has elapsed
+    if (now - preStartBeginTime >= SMOOTH_START_PRE_START_DURATION) {
+        // Pre-start complete, transition to smooth start
+        preStartActive = false;
+        smoothStartActive = true;
+        smoothStartBeginTime = now;
+        smoothStartInitialPwm = preStartPwm;
+    }
+
+    // Update prevPwm to preStartPwm
+    prevPwm = preStartPwm;
+
+    // Return fixed 5% PWM value
+    return (unsigned int)preStartPwm;
+}
+
+unsigned int Power::applySmoothStart(int targetPwm) {
+    unsigned long now = millis();
+
+    // Calculate progress (0.0 to 1.0)
+    unsigned long elapsed = now - smoothStartBeginTime;
+    float progress = (float)elapsed / (float)SMOOTH_START_DURATION;
+
+    // Clamp progress to 1.0
+    if (progress >= 1.0f) {
+        progress = 1.0f;
+        smoothStartActive = false; // Smooth start complete
+    }
+
+    // Linear interpolation from smoothStartInitialPwm (preStartPwm) to targetPwm
+    int smoothPwm = smoothStartInitialPwm + (int)((targetPwm - smoothStartInitialPwm) * progress);
+
+    // Ensure the result is within valid PWM range
+    smoothPwm = constrain(smoothPwm, ESC_MIN_PWM, ESC_MAX_PWM);
+
+    // Update prevPwm for ramp limiting after smooth start
+    prevPwm = smoothPwm;
+
+    return (unsigned int)smoothPwm;
+}
+#endif
