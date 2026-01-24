@@ -106,6 +106,12 @@ extern Xctod xctod;
 #define THROTTLE_RAMP_RATE 4 // Maximum throttle acceleration in microseconds per tick
 #define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
 
+#if IS_XAG
+// ========== SMOOTH START (XAG only) ==========
+#define SMOOTH_START_MOTOR_STOPPED_TIME 1000  // ms - Time at ESC_MIN_PWM to consider motor stopped
+#define SMOOTH_START_DURATION 2000            // ms - Duration of smooth start ramp
+#endif
+
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
 #define ADC_MAX_VALUE 4095       // Maximum ADC reading
