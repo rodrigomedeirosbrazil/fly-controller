@@ -21,6 +21,10 @@ Power::Power() {
     motorStoppedTime = 0;
     smoothStartBeginTime = 0;
     smoothStartInitialPwm = ESC_MIN_PWM;
+    preStartActive = false;
+    preStartBeginTime = 0;
+    // Calculate pre-start PWM: 5% of range
+    preStartPwm = ESC_MIN_PWM + (SMOOTH_START_PRE_START_PERCENT * (ESC_MAX_PWM - ESC_MIN_PWM)) / 100;
     #endif
 }
 
@@ -48,6 +52,18 @@ unsigned int Power::getPwm() {
     );
 
     #if IS_XAG
+    // If pre-start is active, apply pre-start phase
+    if (preStartActive) {
+        // If target PWM goes back to minimum, cancel pre-start
+        if (targetPwm <= ESC_MIN_PWM) {
+            preStartActive = false;
+            prevPwm = ESC_MIN_PWM;
+            return ESC_MIN_PWM;
+        }
+        // applyPreStart() will handle transition to smooth start when duration completes
+        return applyPreStart();
+    }
+
     // If smooth start is active, check if we should continue
     if (smoothStartActive) {
         // If target PWM goes back to minimum, cancel smooth start
@@ -62,12 +78,11 @@ unsigned int Power::getPwm() {
     // Check if motor is stopped
     bool motorStopped = detectMotorStopped();
 
-    // If motor is stopped and target PWM is above minimum, activate smooth start
+    // If motor is stopped and target PWM is above minimum, activate pre-start
     if (motorStopped && targetPwm > ESC_MIN_PWM) {
-        smoothStartActive = true;
-        smoothStartBeginTime = millis();
-        smoothStartInitialPwm = ESC_MIN_PWM;
-        return applySmoothStart(targetPwm);
+        preStartActive = true;
+        preStartBeginTime = millis();
+        return applyPreStart();
     }
     #endif
 
@@ -231,6 +246,8 @@ void Power::resetRampLimiting() {
     motorStoppedTime = 0;
     smoothStartBeginTime = 0;
     smoothStartInitialPwm = ESC_MIN_PWM;
+    preStartActive = false;
+    preStartBeginTime = 0;
     #endif
 }
 
@@ -271,6 +288,25 @@ bool Power::detectMotorStopped() {
     return false;
 }
 
+unsigned int Power::applyPreStart() {
+    unsigned long now = millis();
+
+    // Check if pre-start duration has elapsed
+    if (now - preStartBeginTime >= SMOOTH_START_PRE_START_DURATION) {
+        // Pre-start complete, transition to smooth start
+        preStartActive = false;
+        smoothStartActive = true;
+        smoothStartBeginTime = now;
+        smoothStartInitialPwm = preStartPwm;
+    }
+
+    // Update prevPwm to preStartPwm
+    prevPwm = preStartPwm;
+
+    // Return fixed 5% PWM value
+    return (unsigned int)preStartPwm;
+}
+
 unsigned int Power::applySmoothStart(int targetPwm) {
     unsigned long now = millis();
 
@@ -284,8 +320,8 @@ unsigned int Power::applySmoothStart(int targetPwm) {
         smoothStartActive = false; // Smooth start complete
     }
 
-    // Linear interpolation from ESC_MIN_PWM to targetPwm
-    int smoothPwm = ESC_MIN_PWM + (int)((targetPwm - ESC_MIN_PWM) * progress);
+    // Linear interpolation from smoothStartInitialPwm (preStartPwm) to targetPwm
+    int smoothPwm = smoothStartInitialPwm + (int)((targetPwm - smoothStartInitialPwm) * progress);
 
     // Ensure the result is within valid PWM range
     smoothPwm = constrain(smoothPwm, ESC_MIN_PWM, ESC_MAX_PWM);

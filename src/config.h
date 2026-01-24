@@ -109,7 +109,9 @@ extern Xctod xctod;
 #if IS_XAG
 // ========== SMOOTH START (XAG only) ==========
 #define SMOOTH_START_MOTOR_STOPPED_TIME 1000  // ms - Time at ESC_MIN_PWM to consider motor stopped
-#define SMOOTH_START_DURATION 2000            // ms - Duration of smooth start ramp
+#define SMOOTH_START_PRE_START_DURATION 2000 // ms - Duration of pre-start phase (5% PWM)
+#define SMOOTH_START_DURATION 2000           // ms - Duration of smooth start ramp
+#define SMOOTH_START_PRE_START_PERCENT 5     // % - PWM percentage during pre-start phase
 #endif
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
