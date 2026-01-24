@@ -19,17 +19,16 @@ Power::Power() {
 }
 
 unsigned int Power::getPwm() {
+    if (!throttle.isCalibrated()) {
+        prevPwm = ESC_MIN_PWM;
+        return ESC_MIN_PWM;
+    }
+
     unsigned int throttleRaw = throttle.getThrottleRaw();
     unsigned int powerLimit = getPower(); // 0-100
 
     unsigned int throttleMin = throttle.getThrottlePinMin();
     unsigned int throttleMax = throttle.getThrottlePinMax();
-
-    // Check if throttle is calibrated (min and max are different)
-    if (throttleMin == throttleMax) {
-        prevPwm = ESC_MIN_PWM;
-        return ESC_MIN_PWM;
-    }
 
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
