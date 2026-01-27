@@ -255,9 +255,21 @@ void Xctod::writeThrottleInfo(String &data) {
 }
 
 void Xctod::writeMotorInfo(String &data) {
-    // Motor temperature is read from sensor (not from telemetry)
+    #if IS_TMOTOR
+    // Tmotor: use motor temperature from telemetry (received via CAN)
+    if (!telemetry || !telemetry->getData()) {
+        data += ","; // motor temperature not available
+    } else {
+        TelemetryData* telemetryData = telemetry->getData();
+        float motorTempCelsius = milliCelsiusToCelsius(telemetryData->motorTemperatureMilliCelsius);
+        data += String(motorTempCelsius, 0);
+    }
+    data += ",";
+    #else
+    // Other controllers: motor temperature is read from sensor (ADC)
     data += String(motorTemp.getTemperature(), 0);
     data += ",";
+    #endif
 
     if (!telemetry || !telemetry->getData()) {
         data += ",,"; // rpm, current
