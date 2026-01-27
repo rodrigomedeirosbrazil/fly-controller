@@ -21,15 +21,11 @@ static void hobbywingUpdate() {
         return;
     }
 
-    // Convert decivolts to millivolts: deciVolts * 100 = milliVolts
-    uint16_t deciVolts = hobbywing.getDeciVoltage();
-    data->batteryVoltageMilliVolts = (uint32_t)deciVolts * 100;
+    // Voltage is already in millivolts from Hobbywing class
+    data->batteryVoltageMilliVolts = hobbywing.getBatteryVoltageMilliVolts();
 
-    // Convert decicurrent to milliamperes: deciCurrent * 100 = milliAmps
-    uint16_t deciCurrent = hobbywing.getDeciCurrent();
-    data->batteryCurrentMilliAmps = (uint32_t)deciCurrent * 100;
+    data->batteryCurrent = hobbywing.getBatteryCurrent();
 
-    // RPM is already an integer
     data->rpm = hobbywing.getRpm();
 
     // Motor temperature is read separately (motorTemp) - will be updated from main loop
@@ -77,7 +73,7 @@ TelemetryProvider createHobbywingProvider() {
         .data = {
             .isReady = false,
             .batteryVoltageMilliVolts = 0,
-            .batteryCurrentMilliAmps = 0,
+            .batteryCurrent = 0,
             .rpm = 0,
             .motorTemperatureMilliCelsius = 0,
             .escTemperatureMilliCelsius = 0,

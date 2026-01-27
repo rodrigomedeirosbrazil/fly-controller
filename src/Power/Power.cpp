@@ -109,16 +109,6 @@ unsigned int Power::calcPower() {
     return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
-// Public wrapper for battery voltage reading (for backward compatibility)
-// Returns voltage in decivolts (tenths of volts)
-unsigned int Power::getBatteryVoltageDeciVolts() {
-    if (!telemetry || !telemetry->getData()) {
-        return 0;
-    }
-    // Convert millivolts to decivolts: mV / 100 = dV
-    return (unsigned int)(telemetry->getData()->batteryVoltageMilliVolts / 100);
-}
-
 unsigned int Power::calcBatteryLimit() {
     if (!telemetry || !telemetry->getData()) {
         return 0;
@@ -136,7 +126,7 @@ unsigned int Power::calcBatteryLimit() {
     }
 
     // Compare millivolts directly with constants in millivolts
-    uint32_t batteryMilliVolts = data->batteryVoltageMilliVolts;
+    uint16_t batteryMilliVolts = data->batteryVoltageMilliVolts;
     const unsigned int STEP_DECREASE = 5;
 
     if (batteryMilliVolts > BATTERY_MIN_VOLTAGE) {

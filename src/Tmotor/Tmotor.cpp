@@ -15,7 +15,7 @@ Tmotor::Tmotor() {
 
     escTemperature = 0;
     motorTemperature = 0;
-    batteryCurrentMilliAmps = 0;
+    batteryCurrent = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
     errorCount = 0;
@@ -77,12 +77,16 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     // Extract voltage (float16, bytes 4-5)
     uint16_t voltageFloat16 = (uint16_t)canMsg->data[4] | ((uint16_t)canMsg->data[5] << 8);
     float voltage = convertFloat16ToFloat(voltageFloat16);
-    batteryVoltageMilliVolts = (uint32_t)(voltage * 1000.0f + 0.5f);  // Convert to millivolts (3 decimal places)
+    // Convert to millivolts (3 decimal places)
+    // Maximum expected: 60.0V, so 60.0 * 1000 = 60000 mV < 65535 (uint16_t max)
+    batteryVoltageMilliVolts = (uint16_t)(voltage * 1000.0f + 0.5f);
 
     // Extract current (float16, bytes 6-7)
     uint16_t currentFloat16 = (uint16_t)canMsg->data[6] | ((uint16_t)canMsg->data[7] << 8);
     float current = convertFloat16ToFloat(currentFloat16);
-    batteryCurrentMilliAmps = (uint32_t)(current * 1000.0f + 0.5f);  // Convert to milliamperes (3 decimal places)
+    // Convert to amperes (integers, round to nearest)
+    // Maximum expected: 200.0A, so 200.0 < 255 (uint8_t max)
+    batteryCurrent = (uint8_t)(current + 0.5f);
 
     // Extract ESC temperature (float16, bytes 8-9) - in Kelvin
     uint16_t tempFloat16 = (uint16_t)canMsg->data[8] | ((uint16_t)canMsg->data[9] << 8);

@@ -13,7 +13,6 @@ public:
     unsigned int getPower();
     void resetBatteryPowerFloor();
     void resetRampLimiting(); // Reset ramp limiting state (prevPwm)
-    unsigned int getBatteryVoltageDeciVolts(); // For backward compatibility (returns decivolts)
 
 private:
     long lastPowerCalculationTime;
