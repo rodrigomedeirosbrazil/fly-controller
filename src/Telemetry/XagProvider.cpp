@@ -3,7 +3,7 @@
 #include "../Temperature/Temperature.h"
 
 // External temperature sensor for ESC (XAG mode only)
-#ifdef XAG
+#if IS_XAG
 extern Temperature escTemp;
 #endif
 
@@ -17,7 +17,7 @@ static void xagUpdate() {
 
     TelemetryData* data = &g_xagProvider->data;
 
-    #ifdef XAG
+    #if IS_XAG
     // Read battery voltage from ADC using voltage divider
     // Oversampling: take multiple readings and average them
     int oversampledValue = 0;
@@ -51,7 +51,7 @@ static void xagUpdate() {
     // Motor temperature is read separately (motorTemp) - will be updated from main loop
 
     // Read ESC temperature from NTC sensor
-    #ifdef XAG
+    #if IS_XAG
     float escTempCelsius = escTemp.getTemperature();
     data->escTemperatureMilliCelsius = (int32_t)(escTempCelsius * 1000.0f);
     #endif
