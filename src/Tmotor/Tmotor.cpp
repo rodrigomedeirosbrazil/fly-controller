@@ -77,7 +77,9 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     // Extract voltage (float16, bytes 4-5)
     uint16_t voltageFloat16 = (uint16_t)canMsg->data[4] | ((uint16_t)canMsg->data[5] << 8);
     float voltage = convertFloat16ToFloat(voltageFloat16);
-    batteryVoltageMilliVolts = (uint32_t)(voltage * 1000.0f + 0.5f);  // Convert to millivolts (3 decimal places)
+    // Convert to millivolts (3 decimal places)
+    // Maximum expected: 60.0V, so 60.0 * 1000 = 60000 mV < 65535 (uint16_t max)
+    batteryVoltageMilliVolts = (uint16_t)(voltage * 1000.0f + 0.5f);
 
     // Extract current (float16, bytes 6-7)
     uint16_t currentFloat16 = (uint16_t)canMsg->data[6] | ((uint16_t)canMsg->data[7] << 8);

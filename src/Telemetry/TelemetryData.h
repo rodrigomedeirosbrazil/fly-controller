@@ -12,7 +12,7 @@ struct TelemetryData {
     bool isReady;
 
     // Battery
-    uint32_t batteryVoltageMilliVolts;  // mV (ex: 44100 = 44.100V)
+    uint16_t batteryVoltageMilliVolts;  // mV (ex: 44100 = 44.100V, max 60V = 60000 mV)
     uint32_t batteryCurrentMilliAmps;    // mA (ex: 5000 = 5.000A)
 
     // Motor
@@ -30,7 +30,7 @@ struct TelemetryData {
  * Conversion functions for display purposes only
  * These return float only when necessary for formatting (e.g., in Xctod)
  */
-inline float milliVoltsToVolts(uint32_t mV) {
+inline float milliVoltsToVolts(uint16_t mV) {
     return mV / 1000.0f;
 }
 

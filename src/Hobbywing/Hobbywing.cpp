@@ -15,7 +15,7 @@ Hobbywing::Hobbywing() {
 
     temperature = 0;
     deciCurrent = 0;
-    deciVoltage = 0;
+    batteryVoltageMilliVolts = 0;
     rpm = 0;
     isCcwDirection = false;
 }
@@ -79,7 +79,7 @@ void Hobbywing::handleStatusMsg2(twai_message_t *canMsg) {
 
     temperature = getTemperatureFromPayload(canMsg->data);
     deciCurrent = getDeciCurrentFromPayload(canMsg->data);
-    deciVoltage = getDeciVoltageFromPayload(canMsg->data);
+    batteryVoltageMilliVolts = getBatteryVoltageMilliVoltsFromPayload(canMsg->data);
     lastReadStatusMsg1 = millis();
 }
 
@@ -92,8 +92,12 @@ uint16_t Hobbywing::getDeciCurrentFromPayload(uint8_t *payload) {
     return (payload[3] << 8) | payload[2];
 }
 
-uint16_t Hobbywing::getDeciVoltageFromPayload(uint8_t *payload) {
-    return (payload[1] << 8) | payload[0];
+uint16_t Hobbywing::getBatteryVoltageMilliVoltsFromPayload(uint8_t *payload) {
+    // Extract decivolts from CAN payload
+    uint16_t deciVolts = (payload[1] << 8) | payload[0];
+    // Convert to millivolts: deciVolts * 100
+    // Maximum expected: 60V = 600 decivolts, so 600 * 100 = 60000 mV < 65535 (uint16_t max)
+    return (uint16_t)(deciVolts * 100);
 }
 
 uint16_t Hobbywing::getRpmFromPayload(uint8_t *payload) {

@@ -168,7 +168,7 @@ void Xctod::recalibrateFromVoltage() {
     }
 
     // Use millivolts directly for comparison
-    uint32_t batteryMilliVolts = data->batteryVoltageMilliVolts;
+    uint16_t batteryMilliVolts = data->batteryVoltageMilliVolts;
 
     // Map voltage to percentage (0-100)
     int voltagePercentage = map(

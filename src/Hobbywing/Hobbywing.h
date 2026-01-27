@@ -59,7 +59,7 @@ public:
 
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
-    uint16_t getDeciVoltage() { return deciVoltage; }
+    uint16_t getBatteryVoltageMilliVolts() { return batteryVoltageMilliVolts; }
     uint16_t getDeciCurrent() { return deciCurrent; }
     uint8_t getTemperature() { return temperature; }
     bool getDirectionCCW() { return isCcwDirection; }
@@ -71,7 +71,7 @@ private:
     // ESC-specific data
     uint8_t temperature;
     uint16_t deciCurrent;
-    uint16_t deciVoltage;
+    uint16_t batteryVoltageMilliVolts;
     uint16_t rpm;
     bool isCcwDirection;
 
@@ -101,7 +101,7 @@ private:
     // Hobbywing payload data extraction methods
     uint8_t getTemperatureFromPayload(uint8_t *payload);
     uint16_t getDeciCurrentFromPayload(uint8_t *payload);
-    uint16_t getDeciVoltageFromPayload(uint8_t *payload);
+    uint16_t getBatteryVoltageMilliVoltsFromPayload(uint8_t *payload);
     uint16_t getRpmFromPayload(uint8_t *payload);
     bool getDirectionCCWFromPayload(uint8_t *payload);
 

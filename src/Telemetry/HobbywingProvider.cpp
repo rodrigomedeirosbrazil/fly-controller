@@ -21,9 +21,8 @@ static void hobbywingUpdate() {
         return;
     }
 
-    // Convert decivolts to millivolts: deciVolts * 100 = milliVolts
-    uint16_t deciVolts = hobbywing.getDeciVoltage();
-    data->batteryVoltageMilliVolts = (uint32_t)deciVolts * 100;
+    // Voltage is already in millivolts from Hobbywing class
+    data->batteryVoltageMilliVolts = hobbywing.getBatteryVoltageMilliVolts();
 
     // Convert decicurrent to milliamperes: deciCurrent * 100 = milliAmps
     uint16_t deciCurrent = hobbywing.getDeciCurrent();

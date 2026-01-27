@@ -36,7 +36,8 @@ static void xagUpdate() {
     double batteryVoltage = voltageAtPin * BATTERY_DIVIDER_RATIO;
 
     // Convert to millivolts directly
-    data->batteryVoltageMilliVolts = (uint32_t)(batteryVoltage * 1000.0 + 0.5);
+    // Maximum expected: 60.0V, so 60.0 * 1000 = 60000 mV < 65535 (uint16_t max)
+    data->batteryVoltageMilliVolts = (uint16_t)(batteryVoltage * 1000.0 + 0.5);
     #else
     data->batteryVoltageMilliVolts = 0;
     #endif
