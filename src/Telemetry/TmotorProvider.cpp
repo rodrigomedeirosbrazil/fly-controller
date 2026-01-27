@@ -21,11 +21,9 @@ static void tmotorUpdate() {
         return;
     }
 
-    // Voltage and current are already in millivolts and milliamperes (3 decimal places)
     data->batteryVoltageMilliVolts = tmotor.getBatteryVoltageMilliVolts();
-    data->batteryCurrentMilliAmps = tmotor.getBatteryCurrentMilliAmps();
+    data->batteryCurrent = tmotor.getBatteryCurrent();
 
-    // RPM is already an integer
     data->rpm = tmotor.getRpm();
 
     // Convert motor temperature (uint8_t Celsius) to millicelsius: temp * 1000
@@ -75,7 +73,7 @@ TelemetryProvider createTmotorProvider() {
         .data = {
             .isReady = false,
             .batteryVoltageMilliVolts = 0,
-            .batteryCurrentMilliAmps = 0,
+            .batteryCurrent = 0,
             .rpm = 0,
             .motorTemperatureMilliCelsius = 0,
             .escTemperatureMilliCelsius = 0,

@@ -13,7 +13,7 @@ struct TelemetryData {
 
     // Battery
     uint16_t batteryVoltageMilliVolts;  // mV (ex: 44100 = 44.100V, max 60V = 60000 mV)
-    uint32_t batteryCurrentMilliAmps;    // mA (ex: 5000 = 5.000A)
+    uint8_t batteryCurrent;  // A (ex: 50 = 50A, max 200A)
 
     // Motor
     uint16_t rpm;
@@ -32,10 +32,6 @@ struct TelemetryData {
  */
 inline float milliVoltsToVolts(uint16_t mV) {
     return mV / 1000.0f;
-}
-
-inline float milliAmpsToAmps(uint32_t mA) {
-    return mA / 1000.0f;
 }
 
 inline float milliCelsiusToCelsius(int32_t mC) {

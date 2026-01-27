@@ -14,7 +14,7 @@ Hobbywing::Hobbywing() {
     transferId = 0;
 
     temperature = 0;
-    deciCurrent = 0;
+    batteryCurrent = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
     isCcwDirection = false;
@@ -78,7 +78,7 @@ void Hobbywing::handleStatusMsg2(twai_message_t *canMsg) {
     }
 
     temperature = getTemperatureFromPayload(canMsg->data);
-    deciCurrent = getDeciCurrentFromPayload(canMsg->data);
+    batteryCurrent = getBatteryCurrentFromPayload(canMsg->data);
     batteryVoltageMilliVolts = getBatteryVoltageMilliVoltsFromPayload(canMsg->data);
     lastReadStatusMsg1 = millis();
 }
@@ -88,8 +88,12 @@ uint8_t Hobbywing::getTemperatureFromPayload(uint8_t *payload) {
     return payload[4];
 }
 
-uint16_t Hobbywing::getDeciCurrentFromPayload(uint8_t *payload) {
-    return (payload[3] << 8) | payload[2];
+uint8_t Hobbywing::getBatteryCurrentFromPayload(uint8_t *payload) {
+    // Extract decicurrents from CAN payload
+    uint16_t deciCurrent = (payload[3] << 8) | payload[2];
+    // Convert to amperes: deciCurrent / 10 (round to nearest integer)
+    // Maximum expected: 200A = 2000 decicurrents, so 2000 / 10 = 200A < 255 (uint8_t max)
+    return (uint8_t)((deciCurrent + 5) / 10);  // Round to nearest integer
 }
 
 uint16_t Hobbywing::getBatteryVoltageMilliVoltsFromPayload(uint8_t *payload) {

@@ -120,7 +120,7 @@ void Xctod::updateCoulombCount() {
     }
 
     // Check if we should recalibrate from voltage (no load condition)
-    if (data->batteryCurrentMilliAmps == 0) {
+    if (data->batteryCurrent == 0) {
         recalibrateFromVoltage();
         // Still update timestamp to avoid accumulation of time
         lastCoulombTs = currentTs;
@@ -132,8 +132,7 @@ void Xctod::updateCoulombCount() {
     float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
 
     // Calculate Ah consumed: ΔAh = I * Δt
-    // Convert milliamperes to amperes: mA / 1000.0
-    float currentAmps = data->batteryCurrentMilliAmps / 1000.0f;
+    float currentAmps = (float)data->batteryCurrent;
     float deltaAh = currentAmps * deltaHours;
 
     // Subtract from remaining capacity (discharging = positive current)
@@ -230,7 +229,7 @@ void Xctod::writeBatteryInfo(String &data) {
     float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
 
     // Calculate power in KW using current and voltage
-    float current = milliAmpsToAmps(telemetryData->batteryCurrentMilliAmps);
+    float current = (float)telemetryData->batteryCurrent; // Current is already in amperes
     float powerKw = (voltage * current) / 1000.0; // Convert to KW
 
     data += String(batteryPercentage);
@@ -278,8 +277,8 @@ void Xctod::writeMotorInfo(String &data) {
 
     data += String(telemetryData->rpm);
     data += ",";
-    // Convert milliamperes to amperes for display
-    float current = milliAmpsToAmps(telemetryData->batteryCurrentMilliAmps);
+    // Current is already in amperes
+    float current = (float)telemetryData->batteryCurrent;
     data += String(current, 2);
     data += ",";
     #endif
