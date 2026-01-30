@@ -199,24 +199,69 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
             return;
         }
 
-        // Debug: Print accumulated buffer
-        Serial.print("[Tmotor] Buffer: [");
+        // Debug: Print accumulated buffer with byte positions
+        Serial.print("[Tmotor] Buffer (");
+        Serial.print(escStatusBufferLen);
+        Serial.print(" bytes): [");
         for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
             if (i > 0) Serial.print(" ");
             if (escStatusBuffer[i] < 0x10) Serial.print("0");
             Serial.print(escStatusBuffer[i], HEX);
         }
         Serial.println("]");
+        Serial.print("[Tmotor] Byte positions: ");
+        for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
+            Serial.print(i);
+            if (i < 15) Serial.print(" ");
+        }
+        Serial.println();
 
-        // Extract error_count (uint32, little-endian)
+        // Debug: Check if voltage might be in a different position
+        // Since motor is stopped, voltage should have a value but RPM and current should be 0
+        // Let's check all possible float16 positions in the buffer
+        Serial.println("[Tmotor] Scanning for voltage (motor stopped, should have value):");
+        for (uint8_t i = 0; i + 1 < escStatusBufferLen && i < 12; i += 2) {
+            uint16_t testFloat16 = (uint16_t)escStatusBuffer[i] | ((uint16_t)escStatusBuffer[i + 1] << 8);
+            float testFloat = convertFloat16ToFloat(testFloat16);
+            // Voltage should be between 30-60V for a typical battery
+            if (testFloat > 20.0f && testFloat < 70.0f) {
+                Serial.print("  [POSSIBLE VOLTAGE] @");
+                Serial.print(i);
+                Serial.print("-");
+                Serial.print(i + 1);
+                Serial.print(": 0x");
+                Serial.print(testFloat16, HEX);
+                Serial.print(" -> ");
+                Serial.print(testFloat, 3);
+                Serial.println("V");
+            }
+        }
+
+        // According to TM-UAVCAN v2.3 PDF section 5.3.3:
+        // ESC_STATUS (1034) structure:
+        // uint32 error_count (4 bytes, bytes 0-3)
+        // float16 voltage (2 bytes, bytes 4-5)
+        // float16 current (2 bytes, bytes 6-7)
+        // float16 temperature (2 bytes, bytes 8-9) - in Kelvin (changed from Celsius in v2.3)
+        // int18 rpm (3 bytes, bytes 10-12)
+        // uint7 power_rating_pct (7 bits, byte 13 bits 0-6)
+        // uint5 esc_index (5 bits, byte 14 bits 0-4 or byte 13 bits 7-11)
+        // Total: 4 + 2 + 2 + 2 + 3 + 1 = 14 bytes minimum
+
+        // Extract error_count (uint32, little-endian, bytes 0-3)
         errorCount = (uint32_t)escStatusBuffer[0] |
                      ((uint32_t)escStatusBuffer[1] << 8) |
                      ((uint32_t)escStatusBuffer[2] << 16) |
                      ((uint32_t)escStatusBuffer[3] << 24);
+        Serial.print("[Tmotor] error_count: ");
+        Serial.println(errorCount);
 
-        // Extract voltage (float16, bytes 4-5)
-        uint16_t voltageFloat16 = (uint16_t)escStatusBuffer[4] | ((uint16_t)escStatusBuffer[5] << 8);
-        Serial.print("[Tmotor] Voltage float16: 0x");
+        // FIXED: Based on logs, voltage is actually at bytes 6-7, not 4-5
+        // The structure appears to have 2 bytes of padding after error_count
+        // Actual structure: error_count(4) + padding(2) + voltage(2) + current(2) + temperature(2) + rpm(3) + ...
+        // Extract voltage (float16, bytes 6-7, little-endian) - CORRECTED POSITION
+        uint16_t voltageFloat16 = (uint16_t)escStatusBuffer[6] | ((uint16_t)escStatusBuffer[7] << 8);
+        Serial.print("[Tmotor] Voltage@6-7: 0x");
         Serial.print(voltageFloat16, HEX);
         float voltage = convertFloat16ToFloat(voltageFloat16);
         Serial.print(" -> ");
@@ -224,9 +269,9 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         Serial.println("V");
         batteryVoltageMilliVolts = (uint16_t)(voltage * 1000.0f + 0.5f);
 
-        // Extract current (float16, bytes 6-7)
-        uint16_t currentFloat16 = (uint16_t)escStatusBuffer[6] | ((uint16_t)escStatusBuffer[7] << 8);
-        Serial.print("[Tmotor] Current float16: 0x");
+        // Extract current (float16, bytes 8-9, little-endian) - CORRECTED POSITION
+        uint16_t currentFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
+        Serial.print("[Tmotor] Current@8-9: 0x");
         Serial.print(currentFloat16, HEX);
         float current = convertFloat16ToFloat(currentFloat16);
         Serial.print(" -> ");
@@ -234,27 +279,54 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         Serial.println("A");
         batteryCurrent = (uint8_t)(current + 0.5f);
 
-        // Extract ESC temperature (float16, bytes 8-9) - in Kelvin
-        uint16_t tempFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
-        Serial.print("[Tmotor] Temp float16: 0x");
-        Serial.print(tempFloat16, HEX);
-        float tempKelvin = convertFloat16ToFloat(tempFloat16);
-        Serial.print(" -> ");
-        Serial.print(tempKelvin, 2);
-        Serial.print("K (");
-        Serial.print(tempKelvin - 273.15f, 2);
-        Serial.println("°C)");
-        escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
-
-        // Extract RPM (int18, bytes 10-12, signed 3-byte value)
-        int32_t rpmRaw = (int32_t)escStatusBuffer[10] |
-                         ((int32_t)escStatusBuffer[11] << 8) |
-                         ((int32_t)escStatusBuffer[12] << 16);
-        // Sign extend from 18 bits to 32 bits
-        if (rpmRaw & 0x20000) {  // Check sign bit (bit 17)
-            rpmRaw |= 0xFFFC0000;  // Sign extend
+        // Temperature might be in PUSHCAN message or at a different position
+        // For now, try bytes 4-5 (padding area) or leave as zero if not available
+        if (escStatusBufferLen >= 6) {
+            uint16_t tempFloat16 = (uint16_t)escStatusBuffer[4] | ((uint16_t)escStatusBuffer[5] << 8);
+            if (tempFloat16 != 0) {
+                Serial.print("[Tmotor] Temp@4-5: 0x");
+                Serial.print(tempFloat16, HEX);
+                float tempKelvin = convertFloat16ToFloat(tempFloat16);
+                Serial.print(" -> ");
+                Serial.print(tempKelvin, 2);
+                Serial.print("K (");
+                Serial.print(tempKelvin - 273.15f, 2);
+                Serial.println("°C)");
+                escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);
+            } else {
+                Serial.println("[Tmotor] Temp: 0 (may be in PUSHCAN message)");
+                escTemperature = 0;
+            }
+        } else {
+            escTemperature = 0;
         }
-        rpm = (uint16_t)abs(rpmRaw);
+
+        // Extract RPM (int18, bytes 10-12, signed 3-byte value, little-endian)
+        // RPM position seems correct at 10-12 based on buffer analysis
+        if (escStatusBufferLen >= 13) {
+            int32_t rpmRaw = (int32_t)escStatusBuffer[10] |
+                             ((int32_t)escStatusBuffer[11] << 8) |
+                             ((int32_t)(escStatusBuffer[12] & 0x03) << 16);  // Only lower 2 bits of byte 12
+            // Sign extend from 18 bits to 32 bits
+            if (rpmRaw & 0x20000) {  // Check sign bit (bit 17)
+                rpmRaw |= 0xFFFC0000;  // Sign extend
+            }
+            rpm = (uint16_t)abs(rpmRaw);
+            Serial.print("[Tmotor] RPM@10-12: bytes[");
+            if (escStatusBuffer[10] < 0x10) Serial.print("0");
+            Serial.print(escStatusBuffer[10], HEX);
+            Serial.print(" ");
+            if (escStatusBuffer[11] < 0x10) Serial.print("0");
+            Serial.print(escStatusBuffer[11], HEX);
+            Serial.print(" ");
+            if (escStatusBuffer[12] < 0x10) Serial.print("0");
+            Serial.print(escStatusBuffer[12], HEX);
+            Serial.print("] -> int18=");
+            Serial.println(rpm);
+        } else {
+            rpm = 0;
+            Serial.println("[Tmotor] RPM: buffer too small");
+        }
 
         // Extract power_rating_pct and esc_index (byte 13)
         if (escStatusBufferLen >= 14) {
