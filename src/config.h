@@ -59,7 +59,11 @@ extern Xctod xctod;
 #if USES_CAN_BUS
 #define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
 #define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
+#if IS_TMOTOR
+#define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()
+#else
 #define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()
+#endif
 #endif
 
 // ========== BATTERY PARAMETERS ==========
