@@ -68,6 +68,7 @@ void Xctod::init() {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE advertising started");
+    Serial.println("$XCTOD,battery_percent,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
 }
 
 void Xctod::write() {
