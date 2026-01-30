@@ -72,19 +72,11 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
 
-    Serial.print("[Tmotor] parseEscMessage: DataTypeID=");
-    Serial.print(dataTypeId);
-    Serial.print(" (expected: ESC_STATUS=1034, PUSHCAN=1039)");
-    Serial.print(" CAN ID=0x");
-    Serial.print(canMsg->identifier, HEX);
-    Serial.print(" DLC=");
-    Serial.println(canMsg->data_length_code);
-
     // Route to appropriate handler
     if (dataTypeId == escStatusDataTypeId) {
-        Serial.println("[Tmotor] -> Processing ESC_STATUS");
         handleEscStatus(canMsg);
-        Serial.print("[Tmotor] ESC_STATUS parsed: RPM=");
+        // Log final result only
+        Serial.print("[ESC] RPM=");
         Serial.print(rpm);
         Serial.print(" V=");
         Serial.print(batteryVoltageMilliVolts);
@@ -97,16 +89,12 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     }
 
     if (dataTypeId == pushCanDataTypeId) {
-        Serial.println("[Tmotor] -> Processing PUSHCAN");
         handlePushCan(canMsg);
-        Serial.print("[Tmotor] PUSHCAN parsed: T_Motor=");
+        Serial.print("[PUSHCAN] T_Motor=");
         Serial.print(motorTemperature);
         Serial.println("°C");
         return;
     }
-
-    Serial.print("[Tmotor] -> Unknown Data Type ID ");
-    Serial.println(dataTypeId);
 }
 
 bool Tmotor::isReady() {
@@ -122,17 +110,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     bool isEOF = CanUtils::isEndOfFrame(tailByte);
     bool isToggle = CanUtils::isToggleFrame(tailByte);
 
-    Serial.print("[Tmotor] handleEscStatus: DLC=");
-    Serial.print(canMsg->data_length_code);
-    Serial.print(" TID=");
-    Serial.print(frameTransferId);
-    Serial.print(" SOF=");
-    Serial.print(isSOF ? "1" : "0");
-    Serial.print(" EOF=");
-    Serial.print(isEOF ? "1" : "0");
-    Serial.print(" Toggle=");
-    Serial.print(isToggle ? "1" : "0");
-
     // Handle multi-frame transfer
     if (isSOF) {
         // Start of new transfer - reset buffer
@@ -140,18 +117,11 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         escStatusTransferId = frameTransferId;
         escStatusTransferActive = true;
         escStatusLastToggle = false;
-        Serial.print(" [NEW TRANSFER]");
     } else if (!escStatusTransferActive) {
         // Received non-SOF frame but no active transfer - ignore
-        Serial.println(" [IGNORED: No active transfer]");
         return;
     } else if (escStatusTransferId != frameTransferId) {
         // Transfer ID mismatch - reset
-        Serial.print(" [RESET: TID mismatch, expected ");
-        Serial.print(escStatusTransferId);
-        Serial.print(" got ");
-        Serial.print(frameTransferId);
-        Serial.println("]");
         escStatusBufferLen = 0;
         escStatusTransferActive = false;
         return;
@@ -160,7 +130,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     // Check toggle bit for intermediate frames (should alternate)
     if (!isSOF && !isEOF) {
         if (isToggle == escStatusLastToggle) {
-            Serial.println(" [ERROR: Toggle bit mismatch]");
             escStatusBufferLen = 0;
             escStatusTransferActive = false;
             return;
@@ -171,7 +140,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     // Extract payload data (excluding tail byte)
     uint8_t payloadLen = canMsg->data_length_code - 1;  // Exclude tail byte
     if (escStatusBufferLen + payloadLen > sizeof(escStatusBuffer)) {
-        Serial.println(" [ERROR: Buffer overflow]");
         escStatusBufferLen = 0;
         escStatusTransferActive = false;
         return;
@@ -181,61 +149,24 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     memcpy(escStatusBuffer + escStatusBufferLen, canMsg->data, payloadLen);
     escStatusBufferLen += payloadLen;
 
-    Serial.print(" [Accumulated: ");
-    Serial.print(escStatusBufferLen);
-    Serial.print(" bytes]");
-
     // If this is EOF, process the complete message
     if (isEOF) {
-        Serial.println(" [COMPLETE]");
         escStatusTransferActive = false;
 
         // Minimum payload size: 4 (error_count) + 2 (voltage) + 2 (current) + 2 (temp) + 3 (rpm) + 1 (power/index) = 14 bytes
         if (escStatusBufferLen < 14) {
-            Serial.print("[Tmotor] ERROR: Payload too small: ");
-            Serial.print(escStatusBufferLen);
-            Serial.println(" bytes (expected >= 14)");
             escStatusBufferLen = 0;
             return;
         }
 
-        // Debug: Print accumulated buffer with byte positions
-        Serial.print("[Tmotor] Buffer (");
-        Serial.print(escStatusBufferLen);
-        Serial.print(" bytes): [");
+        // Debug: Print accumulated buffer (essential for debugging)
+        Serial.print("[ESC] Buffer: [");
         for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
             if (i > 0) Serial.print(" ");
             if (escStatusBuffer[i] < 0x10) Serial.print("0");
             Serial.print(escStatusBuffer[i], HEX);
         }
         Serial.println("]");
-        Serial.print("[Tmotor] Byte positions: ");
-        for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
-            Serial.print(i);
-            if (i < 15) Serial.print(" ");
-        }
-        Serial.println();
-
-        // Debug: Check if voltage might be in a different position
-        // Since motor is stopped, voltage should have a value but RPM and current should be 0
-        // Let's check all possible float16 positions in the buffer
-        Serial.println("[Tmotor] Scanning for voltage (motor stopped, should have value):");
-        for (uint8_t i = 0; i + 1 < escStatusBufferLen && i < 12; i += 2) {
-            uint16_t testFloat16 = (uint16_t)escStatusBuffer[i] | ((uint16_t)escStatusBuffer[i + 1] << 8);
-            float testFloat = convertFloat16ToFloat(testFloat16);
-            // Voltage should be between 30-60V for a typical battery
-            if (testFloat > 20.0f && testFloat < 70.0f) {
-                Serial.print("  [POSSIBLE VOLTAGE] @");
-                Serial.print(i);
-                Serial.print("-");
-                Serial.print(i + 1);
-                Serial.print(": 0x");
-                Serial.print(testFloat16, HEX);
-                Serial.print(" -> ");
-                Serial.print(testFloat, 3);
-                Serial.println("V");
-            }
-        }
 
         // According to TM-UAVCAN v2.3 PDF section 5.3.3:
         // ESC_STATUS (1034) structure:
@@ -253,30 +184,18 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
                      ((uint32_t)escStatusBuffer[1] << 8) |
                      ((uint32_t)escStatusBuffer[2] << 16) |
                      ((uint32_t)escStatusBuffer[3] << 24);
-        Serial.print("[Tmotor] error_count: ");
-        Serial.println(errorCount);
 
         // FIXED: Based on logs, voltage is actually at bytes 6-7, not 4-5
         // The structure appears to have 2 bytes of padding after error_count
         // Actual structure: error_count(4) + padding(2) + voltage(2) + current(2) + temperature(2) + rpm(3) + ...
         // Extract voltage (float16, bytes 6-7, little-endian) - CORRECTED POSITION
         uint16_t voltageFloat16 = (uint16_t)escStatusBuffer[6] | ((uint16_t)escStatusBuffer[7] << 8);
-        Serial.print("[Tmotor] Voltage@6-7: 0x");
-        Serial.print(voltageFloat16, HEX);
         float voltage = convertFloat16ToFloat(voltageFloat16);
-        Serial.print(" -> ");
-        Serial.print(voltage, 3);
-        Serial.println("V");
         batteryVoltageMilliVolts = (uint16_t)(voltage * 1000.0f + 0.5f);
 
         // Extract current (float16, bytes 8-9, little-endian) - CORRECTED POSITION
         uint16_t currentFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
-        Serial.print("[Tmotor] Current@8-9: 0x");
-        Serial.print(currentFloat16, HEX);
         float current = convertFloat16ToFloat(currentFloat16);
-        Serial.print(" -> ");
-        Serial.print(current, 3);
-        Serial.println("A");
         batteryCurrent = (uint8_t)(current + 0.5f);
 
         // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
@@ -284,17 +203,9 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         // Temperature is in Kelvin (v2.3)
         if (escStatusBufferLen >= 12) {
             uint16_t tempFloat16 = (uint16_t)escStatusBuffer[10] | ((uint16_t)escStatusBuffer[11] << 8);
-            Serial.print("[Tmotor] Temp@10-11: 0x");
-            Serial.print(tempFloat16, HEX);
             float tempKelvin = convertFloat16ToFloat(tempFloat16);
-            Serial.print(" -> ");
-            Serial.print(tempKelvin, 2);
-            Serial.print("K (");
-            Serial.print(tempKelvin - 273.15f, 2);
-            Serial.println("°C)");
             escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
         } else {
-            Serial.println("[Tmotor] Temp: buffer too small");
             escTemperature = 0;
         }
 
@@ -310,20 +221,8 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
                 rpmRaw |= 0xFFFC0000;  // Sign extend
             }
             rpm = (uint16_t)abs(rpmRaw);
-            Serial.print("[Tmotor] RPM@12-14: bytes[");
-            if (escStatusBuffer[12] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[12], HEX);
-            Serial.print(" ");
-            if (escStatusBuffer[13] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[13], HEX);
-            Serial.print(" ");
-            if (escStatusBuffer[14] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[14], HEX);
-            Serial.print("] -> int18=");
-            Serial.println(rpm);
         } else {
             rpm = 0;
-            Serial.println("[Tmotor] RPM: buffer too small");
         }
 
         // Extract power_rating_pct and esc_index (byte 13)
@@ -334,15 +233,7 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
             }
         }
 
-        Serial.print("[Tmotor] ESC_STATUS parsed: RPM=");
-        Serial.print(rpm);
-        Serial.print(" V=");
-        Serial.print(batteryVoltageMilliVolts);
-        Serial.print("mV I=");
-        Serial.print(batteryCurrent);
-        Serial.print("A T_ESC=");
-        Serial.print(escTemperature);
-        Serial.println("°C");
+        // Log is printed in parseEscMessage after handleEscStatus returns
 
         lastReadEscStatus = millis();
         escStatusBufferLen = 0;  // Reset for next transfer
