@@ -29,7 +29,7 @@ const char* INDEX_HTML = R"rawliteral(
         .message { margin-top: 20px; padding: 10px; border-radius: 4px; }
         .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
-        
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; }
@@ -41,7 +41,7 @@ const char* INDEX_HTML = R"rawliteral(
 <body>
     <div class="container">
         <h1>FlyController</h1>
-        
+
         <h2>Firmware Update</h2>
         <p>Select a .bin file to update the device.</p>
         <form method="POST" action="/update" enctype="multipart/form-data">
@@ -112,7 +112,7 @@ const char* INDEX_HTML = R"rawliteral(
                 .then(files => {
                     const tbody = document.querySelector('#fileTable tbody');
                     tbody.innerHTML = '';
-                    
+
                     if(files.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="3">No logs found.</td></tr>';
                         return;
@@ -124,7 +124,7 @@ const char* INDEX_HTML = R"rawliteral(
                     files.forEach(file => {
                         const tr = document.createElement('tr');
                         const downloadLink = '/logs' + file.name;
-                        
+
                         tr.innerHTML = `
                             <td>${file.name.replace('/', '')}</td>
                             <td>${formatBytes(file.size)}</td>
@@ -201,7 +201,7 @@ void ControllerWebServer::startAP() {
                 String fileName = String(file.name());
                 // Ensure leading slash for consistency
                 if(!fileName.startsWith("/")) fileName = "/" + fileName;
-                
+
                 // Only list .txt files (logs)
                 if(fileName.endsWith(".txt")) {
                     if(!first) json += ",";
@@ -221,7 +221,7 @@ void ControllerWebServer::startAP() {
             String filename = request->getParam("file")->value();
             // Security: basic check to ensure we only delete what we expect
             if(!filename.startsWith("/")) filename = "/" + filename;
-            
+
             if(LittleFS.exists(filename)){
                 LittleFS.remove(filename);
                 request->send(200, "text/plain", "Deleted");
@@ -304,8 +304,6 @@ void ControllerWebServer::handleClient() {
 
     if (isActive) {
         ElegantOTA.loop(); // Process ElegantOTA events only if the server is active
+        dnsServer.processNextRequest(); // Only process DNS when WiFi is active
     }
-
-    // The DNSServer might need to be serviced even if the web server is stopped
-    dnsServer.processNextRequest();
 }
