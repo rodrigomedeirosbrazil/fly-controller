@@ -20,6 +20,9 @@
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/Hobbywing.h"
 #endif
+#if USES_CAN_BUS && IS_TMOTOR
+#include "Tmotor/Tmotor.h"
+#endif
 
 using namespace ace_button;
 #include "Button/Button.h"
@@ -73,8 +76,32 @@ void setup()
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
-  twai_driver_install(&g_config, &t_config, &f_config);
-  twai_start();
+  esp_err_t install_result = twai_driver_install(&g_config, &t_config, &f_config);
+  if (install_result != ESP_OK) {
+    Serial.print("[Main] ERROR: Failed to install TWAI driver - Error: ");
+    Serial.println(install_result);
+  } else {
+    Serial.println("[Main] TWAI driver installed successfully");
+  }
+
+  esp_err_t start_result = twai_start();
+  if (start_result != ESP_OK) {
+    Serial.print("[Main] ERROR: Failed to start TWAI driver - Error: ");
+    Serial.println(start_result);
+  } else {
+    Serial.println("[Main] TWAI driver started successfully");
+
+    // Wait a bit for driver to be ready
+    delay(50);
+
+    // Check driver status (using only standard fields)
+    twai_status_info_t status_info;
+    twai_get_status_info(&status_info);
+    Serial.print("[Main] TWAI Status - TX Errors: ");
+    Serial.print(status_info.tx_error_counter);
+    Serial.print(", RX Errors: ");
+    Serial.println(status_info.rx_error_counter);
+  }
 
   // Announce presence on CAN bus
   if (telemetry && telemetry->announce) {
@@ -87,6 +114,16 @@ void setup()
   hobbywing.requestEscId();
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
+  #endif
+
+  // Tmotor-specific initialization
+  #if IS_TMOTOR
+  extern Tmotor tmotor;
+  // Request NodeInfo to discover ESC capabilities
+  // This may help the ESC start sending telemetry
+  delay(100);  // Small delay after CAN bus start
+  tmotor.requestNodeInfo();
+  Serial.println("[Main] Tmotor initialization: GetNodeInfo requested");
   #endif
 #endif
 
@@ -124,6 +161,18 @@ void loop()
     if (data) {
       float motorTempCelsius = motorTemp.getTemperature();
       data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0f);
+    }
+  }
+  #endif
+
+  // Send periodic RawCommand with throttle=0 for Tmotor (every 100ms)
+  #if USES_CAN_BUS && IS_TMOTOR
+  {
+    static unsigned long lastThrottleZero = 0;
+    if (millis() - lastThrottleZero >= 100) {
+      extern Tmotor tmotor;
+      tmotor.setRawThrottle(0);
+      lastThrottleZero = millis();
     }
   }
   #endif

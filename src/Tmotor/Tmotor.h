@@ -39,6 +39,12 @@ public:
     void announce();
     void setRawThrottle(int16_t throttle);
 
+    // Initialization and configuration methods
+    void requestNodeInfo();  // Request GetNodeInfo to discover ESC
+    void requestParam(uint16_t paramIndex);  // Request parameter value
+    void handleNodeStatus(twai_message_t *canMsg);  // Handle NodeStatus from ESC and configure telemetry
+    void sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate = 50, bool savePermanent = true);  // Send ParamCfg to configure ESC telemetry rate
+
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
     uint16_t getBatteryVoltageMilliVolts() { return batteryVoltageMilliVolts; }
@@ -70,6 +76,24 @@ private:
 
     // Transfer control
     uint8_t transferId;
+
+    // ESC configuration control
+    uint8_t detectedEscNodeId;  // Node ID do ESC detectado via NodeStatus
+    bool paramCfgSent;          // Flag para evitar envio repetitivo
+    unsigned long lastParamCfgSent;  // Timestamp do último envio
+
+    // Multi-frame transfer buffers and state
+    uint8_t escStatusBuffer[64];  // Buffer for accumulating ESC_STATUS frames
+    uint8_t escStatusBufferLen;   // Current length of accumulated data
+    uint8_t escStatusTransferId;   // Transfer ID for current ESC_STATUS transfer
+    bool escStatusTransferActive;  // Is ESC_STATUS transfer in progress?
+    bool escStatusLastToggle;      // Last toggle bit value for ESC_STATUS
+
+    uint8_t pushCanBuffer[64];     // Buffer for accumulating PUSHCAN frames
+    uint8_t pushCanBufferLen;      // Current length of accumulated data
+    uint8_t pushCanTransferId;     // Transfer ID for current PUSHCAN transfer
+    bool pushCanTransferActive;    // Is PUSHCAN transfer in progress?
+    bool pushCanLastToggle;        // Last toggle bit value for PUSHCAN
 
     // CAN bus constants
     const uint8_t nodeId = 0x13;
