@@ -279,48 +279,46 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         Serial.println("A");
         batteryCurrent = (uint8_t)(current + 0.5f);
 
-        // Temperature might be in PUSHCAN message or at a different position
-        // For now, try bytes 4-5 (padding area) or leave as zero if not available
-        if (escStatusBufferLen >= 6) {
-            uint16_t tempFloat16 = (uint16_t)escStatusBuffer[4] | ((uint16_t)escStatusBuffer[5] << 8);
-            if (tempFloat16 != 0) {
-                Serial.print("[Tmotor] Temp@4-5: 0x");
-                Serial.print(tempFloat16, HEX);
-                float tempKelvin = convertFloat16ToFloat(tempFloat16);
-                Serial.print(" -> ");
-                Serial.print(tempKelvin, 2);
-                Serial.print("K (");
-                Serial.print(tempKelvin - 273.15f, 2);
-                Serial.println("°C)");
-                escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);
-            } else {
-                Serial.println("[Tmotor] Temp: 0 (may be in PUSHCAN message)");
-                escTemperature = 0;
-            }
+        // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
+        // With 2-byte padding after error_count, temperature is at bytes 10-11 instead of 8-9
+        // Temperature is in Kelvin (v2.3)
+        if (escStatusBufferLen >= 12) {
+            uint16_t tempFloat16 = (uint16_t)escStatusBuffer[10] | ((uint16_t)escStatusBuffer[11] << 8);
+            Serial.print("[Tmotor] Temp@10-11: 0x");
+            Serial.print(tempFloat16, HEX);
+            float tempKelvin = convertFloat16ToFloat(tempFloat16);
+            Serial.print(" -> ");
+            Serial.print(tempKelvin, 2);
+            Serial.print("K (");
+            Serial.print(tempKelvin - 273.15f, 2);
+            Serial.println("°C)");
+            escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
         } else {
+            Serial.println("[Tmotor] Temp: buffer too small");
             escTemperature = 0;
         }
 
-        // Extract RPM (int18, bytes 10-12, signed 3-byte value, little-endian)
-        // RPM position seems correct at 10-12 based on buffer analysis
-        if (escStatusBufferLen >= 13) {
-            int32_t rpmRaw = (int32_t)escStatusBuffer[10] |
-                             ((int32_t)escStatusBuffer[11] << 8) |
-                             ((int32_t)(escStatusBuffer[12] & 0x03) << 16);  // Only lower 2 bits of byte 12
+        // Extract RPM (int18, bytes 12-14, signed 3-byte value, little-endian)
+        // With 2-byte padding after error_count, RPM is at bytes 12-14 instead of 10-12
+        // int18 uses 18 bits: bits 0-7 in byte 12, bits 8-15 in byte 13, bits 16-17 in byte 14
+        if (escStatusBufferLen >= 15) {
+            int32_t rpmRaw = (int32_t)escStatusBuffer[12] |
+                             ((int32_t)escStatusBuffer[13] << 8) |
+                             ((int32_t)(escStatusBuffer[14] & 0x03) << 16);  // Only lower 2 bits of byte 14
             // Sign extend from 18 bits to 32 bits
             if (rpmRaw & 0x20000) {  // Check sign bit (bit 17)
                 rpmRaw |= 0xFFFC0000;  // Sign extend
             }
             rpm = (uint16_t)abs(rpmRaw);
-            Serial.print("[Tmotor] RPM@10-12: bytes[");
-            if (escStatusBuffer[10] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[10], HEX);
-            Serial.print(" ");
-            if (escStatusBuffer[11] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[11], HEX);
-            Serial.print(" ");
+            Serial.print("[Tmotor] RPM@12-14: bytes[");
             if (escStatusBuffer[12] < 0x10) Serial.print("0");
             Serial.print(escStatusBuffer[12], HEX);
+            Serial.print(" ");
+            if (escStatusBuffer[13] < 0x10) Serial.print("0");
+            Serial.print(escStatusBuffer[13], HEX);
+            Serial.print(" ");
+            if (escStatusBuffer[14] < 0x10) Serial.print("0");
+            Serial.print(escStatusBuffer[14], HEX);
             Serial.print("] -> int18=");
             Serial.println(rpm);
         } else {
