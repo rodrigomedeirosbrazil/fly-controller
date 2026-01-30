@@ -237,8 +237,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
 
         lastReadEscStatus = millis();
         escStatusBufferLen = 0;  // Reset for next transfer
-    } else {
-        Serial.println();  // New line for intermediate frames
     }
 }
 
@@ -249,17 +247,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     bool isEOF = CanUtils::isEndOfFrame(tailByte);
     bool isToggle = CanUtils::isToggleFrame(tailByte);
 
-    Serial.print("[Tmotor] handlePushCan: DLC=");
-    Serial.print(canMsg->data_length_code);
-    Serial.print(" TID=");
-    Serial.print(frameTransferId);
-    Serial.print(" SOF=");
-    Serial.print(isSOF ? "1" : "0");
-    Serial.print(" EOF=");
-    Serial.print(isEOF ? "1" : "0");
-    Serial.print(" Toggle=");
-    Serial.print(isToggle ? "1" : "0");
-
     // Handle multi-frame transfer
     if (isSOF) {
         // Start of new transfer - reset buffer
@@ -267,18 +254,11 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
         pushCanTransferId = frameTransferId;
         pushCanTransferActive = true;
         pushCanLastToggle = false;
-        Serial.print(" [NEW TRANSFER]");
     } else if (!pushCanTransferActive) {
         // Received non-SOF frame but no active transfer - ignore
-        Serial.println(" [IGNORED: No active transfer]");
         return;
     } else if (pushCanTransferId != frameTransferId) {
         // Transfer ID mismatch - reset
-        Serial.print(" [RESET: TID mismatch, expected ");
-        Serial.print(pushCanTransferId);
-        Serial.print(" got ");
-        Serial.print(frameTransferId);
-        Serial.println("]");
         pushCanBufferLen = 0;
         pushCanTransferActive = false;
         return;
@@ -287,7 +267,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     // Check toggle bit for intermediate frames (should alternate)
     if (!isSOF && !isEOF) {
         if (isToggle == pushCanLastToggle) {
-            Serial.println(" [ERROR: Toggle bit mismatch]");
             pushCanBufferLen = 0;
             pushCanTransferActive = false;
             return;
@@ -298,7 +277,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     // Extract payload data (excluding tail byte)
     uint8_t payloadLen = canMsg->data_length_code - 1;  // Exclude tail byte
     if (pushCanBufferLen + payloadLen > sizeof(pushCanBuffer)) {
-        Serial.println(" [ERROR: Buffer overflow]");
         pushCanBufferLen = 0;
         pushCanTransferActive = false;
         return;
@@ -308,13 +286,8 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     memcpy(pushCanBuffer + pushCanBufferLen, canMsg->data, payloadLen);
     pushCanBufferLen += payloadLen;
 
-    Serial.print(" [Accumulated: ");
-    Serial.print(pushCanBufferLen);
-    Serial.print(" bytes]");
-
     // If this is EOF, process the complete message
     if (isEOF) {
-        Serial.println(" [COMPLETE]");
         pushCanTransferActive = false;
 
         // PUSHCAN structure:
@@ -324,9 +297,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
 
         // Minimum size: 4 (data_sequence) + 1 (len) + 20 (to reach bytes 19-20) = 25 bytes
         if (pushCanBufferLen < 25) {
-            Serial.print("[Tmotor] ERROR: Payload too small: ");
-            Serial.print(pushCanBufferLen);
-            Serial.println(" bytes (expected >= 25)");
             pushCanBufferLen = 0;
             return;
         }
@@ -336,9 +306,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
 
         // Check if we have enough data to read bytes 19-20
         if (dataLen < 21) {
-            Serial.print("[Tmotor] ERROR: Data length too small: ");
-            Serial.print(dataLen);
-            Serial.println(" (expected >= 21)");
             pushCanBufferLen = 0;
             return;
         }
@@ -352,10 +319,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
         // If it's in Kelvin, convert to Celsius
         float tempKelvin = convertFloat16ToFloat(motorTempValue);
         motorTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
-
-        Serial.print("[Tmotor] PUSHCAN parsed: T_Motor=");
-        Serial.print(motorTemperature);
-        Serial.println("°C");
 
         lastReadPushCan = millis();
         pushCanBufferLen = 0;  // Reset for next transfer
@@ -411,44 +374,7 @@ void Tmotor::announce() {
 
     localCanMsg.data_length_code = 8;  // CAN 2.0 maximum
 
-    Serial.print("[Tmotor] TX: NodeStatus announcement - CAN ID=0x");
-    Serial.print(canId, HEX);
-    Serial.print(" Uptime=");
-    Serial.print(uptimeSec);
-    Serial.print("s DLC=");
-    Serial.print(localCanMsg.data_length_code);
-    Serial.print(" Data=[");
-    for (uint8_t i = 0; i < localCanMsg.data_length_code; i++) {
-        if (i > 0) Serial.print(" ");
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-    }
-    Serial.print("]");
-
-    // Check driver status before transmitting
-    twai_status_info_t status_info;
-    twai_get_status_info(&status_info);
-    Serial.print(" TXErr=");
-    Serial.print(status_info.tx_error_counter);
-    Serial.print(" RXErr=");
-    Serial.print(status_info.rx_error_counter);
-
     esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));  // Increased timeout to 100ms
-    if (tx_result == ESP_OK) {
-        Serial.println(" - OK");
-    } else {
-        Serial.print(" - ERROR: ");
-        if (tx_result == ESP_ERR_INVALID_STATE) {
-            Serial.println("INVALID_STATE (driver not ready)");
-        } else if (tx_result == ESP_ERR_INVALID_ARG) {
-            Serial.println("INVALID_ARG (bad message format)");
-        } else if (tx_result == ESP_ERR_TIMEOUT) {
-            Serial.println("TIMEOUT (TX queue full)");
-        } else {
-            Serial.print("Code ");
-            Serial.println(tx_result);
-        }
-    }
     transferId++;
 }
 
@@ -533,9 +459,6 @@ void Tmotor::requestParam(uint16_t paramIndex) {
 }
 
 void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePermanent) {
-    Serial.println("========================================");
-    Serial.println("[Tmotor] DEBUG: Enviando ParamCfg COM CRC");
-    Serial.println("========================================");
 
     // ParamCfg structure: 27 bytes total
     uint8_t payload[27];
@@ -568,9 +491,6 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     crc = crcAddSignature(crc, signature);
     crc = crcAdd(crc, payload, 27);
 
-    Serial.print("[DEBUG] CRC16 calculated: 0x");
-    Serial.println(crc, HEX);
-
     // Build CAN ID for ParamCfg (1033)
     uint32_t dataTypeId = paramCfgDataTypeId;
     uint32_t priority = 0x18;  // LOW priority
@@ -582,9 +502,6 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
                      (service << 7) |
                      (srcNodeId & 0x7F);
 
-    Serial.print("[DEBUG] CAN ID: 0x");
-    Serial.println(canId, HEX);
-
     twai_message_t localCanMsg;
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;
@@ -595,8 +512,6 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
 
     // Save current TransferID (MUST be same for all frames!)
     uint8_t currentTransferId = transferId;
-    Serial.print("[DEBUG] TransferID: ");
-    Serial.println(currentTransferId);
 
     esp_err_t tx_result;
 
@@ -609,7 +524,6 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     // Frame 5: payload[26] (1 byte)
 
     // Frame 1: CRC + payload[0-4]
-    Serial.println("[DEBUG] Frame 1: CRC + payload[0-4]");
     localCanMsg.data[0] = (uint8_t)(crc & 0xFF);         // CRC low byte
     localCanMsg.data[1] = (uint8_t)((crc >> 8) & 0xFF);  // CRC high byte
     localCanMsg.data[2] = payload[0];  // esc_index
@@ -620,24 +534,13 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     localCanMsg.data[7] = 0x80 | (currentTransferId & 0x1F);  // SOF=1, EOF=0, Toggle=0
     localCanMsg.data_length_code = 8;
 
-    Serial.print("  Data: [");
-    for (int i = 0; i < 8; i++) {
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-        if (i < 7) Serial.print(" ");
-    }
-    Serial.println("]");
-
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 1 TX failed");
         return;
     }
-    Serial.println("  OK");
     delay(2);
 
     // Frame 2: payload[5-11]
-    Serial.println("[DEBUG] Frame 2: payload[5-11]");
     localCanMsg.data[0] = payload[5];
     localCanMsg.data[1] = payload[6];
     localCanMsg.data[2] = payload[7];
@@ -648,24 +551,13 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     localCanMsg.data[7] = 0x20 | (currentTransferId & 0x1F);  // SOF=0, EOF=0, Toggle=1
     localCanMsg.data_length_code = 8;
 
-    Serial.print("  Data: [");
-    for (int i = 0; i < 8; i++) {
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-        if (i < 7) Serial.print(" ");
-    }
-    Serial.println("]");
-
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 2 TX failed");
         return;
     }
-    Serial.println("  OK");
     delay(2);
 
     // Frame 3: payload[12-18]
-    Serial.println("[DEBUG] Frame 3: payload[12-18]");
     localCanMsg.data[0] = payload[12];
     localCanMsg.data[1] = payload[13];
     localCanMsg.data[2] = payload[14];
@@ -676,24 +568,13 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     localCanMsg.data[7] = 0x00 | (currentTransferId & 0x1F);  // SOF=0, EOF=0, Toggle=0
     localCanMsg.data_length_code = 8;
 
-    Serial.print("  Data: [");
-    for (int i = 0; i < 8; i++) {
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-        if (i < 7) Serial.print(" ");
-    }
-    Serial.println("]");
-
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 3 TX failed");
         return;
     }
-    Serial.println("  OK");
     delay(2);
 
     // Frame 4: payload[19-25]
-    Serial.println("[DEBUG] Frame 4: payload[19-25]");
     localCanMsg.data[0] = payload[19];
     localCanMsg.data[1] = payload[20];
     localCanMsg.data[2] = payload[21];
@@ -704,24 +585,13 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     localCanMsg.data[7] = 0x20 | (currentTransferId & 0x1F);  // SOF=0, EOF=0, Toggle=1
     localCanMsg.data_length_code = 8;
 
-    Serial.print("  Data: [");
-    for (int i = 0; i < 8; i++) {
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-        if (i < 7) Serial.print(" ");
-    }
-    Serial.println("]");
-
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 4 TX failed");
         return;
     }
-    Serial.println("  OK");
     delay(2);
 
     // Frame 5: payload[26] (LAST FRAME)
-    Serial.println("[DEBUG] Frame 5: payload[26] (LAST)");
     localCanMsg.data[0] = payload[26];  // esc_save_option
     localCanMsg.data[1] = 0x00;  // Padding
     localCanMsg.data[2] = 0x00;
@@ -732,37 +602,13 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     localCanMsg.data[7] = 0x40 | (currentTransferId & 0x1F);  // SOF=0, EOF=1, Toggle=0
     localCanMsg.data_length_code = 8;
 
-    Serial.print("  Data: [");
-    for (int i = 0; i < 8; i++) {
-        if (localCanMsg.data[i] < 0x10) Serial.print("0");
-        Serial.print(localCanMsg.data[i], HEX);
-        if (i < 7) Serial.print(" ");
-    }
-    Serial.println("]");
-
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 5 TX failed");
         return;
     }
-    Serial.println("  OK");
 
     // Increment TransferID only AFTER all frames sent
     transferId = (transferId + 1) & 0x1F;
-
-    Serial.println("========================================");
-    Serial.println("[Tmotor] ParamCfg COM CRC enviado!");
-    Serial.print("  CRC16: 0x");
-    Serial.println(crc, HEX);
-    Serial.print("  TransferID: ");
-    Serial.println(currentTransferId);
-    Serial.print("  esc_fdb_rate: ");
-    Serial.print(feedbackRate);
-    Serial.println(" Hz");
-    Serial.println("  Total: 5 frames (com CRC)");
-    Serial.println("========================================");
-    Serial.println();
-    Serial.println("[IMPORTANTE] Aguardando ParamGet (1332)...");
     Serial.println();
 }
 
@@ -775,15 +621,9 @@ void Tmotor::handleNodeStatus(twai_message_t *canMsg) {
         return;
     }
 
-    Serial.print("[Tmotor] handleNodeStatus: Received from Node ID ");
-    Serial.print(sourceNodeId, HEX);
-    Serial.println(" (ESC detected)");
-
     // Store detected ESC Node ID
     if (detectedEscNodeId == 0) {
         detectedEscNodeId = sourceNodeId;
-        Serial.print("[Tmotor] ESC Node ID detected: ");
-        Serial.println(detectedEscNodeId, HEX);
     }
 
     // Check if we already sent ParamCfg recently (within last 5 seconds)
@@ -794,7 +634,6 @@ void Tmotor::handleNodeStatus(twai_message_t *canMsg) {
 
     // Send ParamCfg to configure telemetry rate
     // Use 50 Hz as default feedback rate (conservative, avoids bus overload)
-    Serial.println("[Tmotor] Sending ParamCfg to configure ESC telemetry rate...");
     sendParamCfg(detectedEscNodeId, 50, true);  // 50 Hz, permanent save
 
     paramCfgSent = true;
@@ -913,18 +752,7 @@ void Tmotor::setRawThrottle(int16_t throttle) {
     localCanMsg.data_length_code = 8;
 
     // Send
-    esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
-
-    if (tx_result == ESP_OK) {
-        Serial.print("[Tmotor] TX: RawCommand (1030) - Throttle=");
-        Serial.print(throttle);
-        Serial.print(" CAN ID=0x");
-        Serial.print(canId, HEX);
-        Serial.println(" - OK");
-    } else {
-        Serial.print("[Tmotor] TX: RawCommand ERROR: ");
-        Serial.println(tx_result);
-    }
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
 
     transferId = (transferId + 1) & 0x1F;
 }
