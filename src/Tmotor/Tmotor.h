@@ -37,7 +37,6 @@ public:
 
     // ESC control methods
     void announce();
-    void sendPushSci();  // Send PUSHSCI query to request PUSHCAN telemetry
     void setRawThrottle(int16_t throttle);
 
     // Initialization and configuration methods

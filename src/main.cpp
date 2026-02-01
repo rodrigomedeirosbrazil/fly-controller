@@ -175,11 +175,6 @@ void loop()
       lastThrottleZero = millis();
     }
   }
-  // Send periodic PUSHSCI query to request PUSHCAN telemetry (every 1 second)
-  {
-    extern Tmotor tmotor;
-    tmotor.sendPushSci();  // Timing control is handled inside sendPushSci()
-  }
   #endif
 
   handleEsc();
