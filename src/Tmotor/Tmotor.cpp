@@ -41,6 +41,7 @@ Tmotor::Tmotor() {
     lastReadEscStatus = 0;
     lastReadPushCan = 0;
     lastAnnounce = millis();
+    lastPushSci = 0;
     transferId = 0;
 
     escTemperature = 0;
@@ -71,12 +72,24 @@ Tmotor::Tmotor() {
 void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
+    uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
+
+    // Capture Source Node ID to auto-detect ESC
+    if (sourceNodeId > 0 && sourceNodeId < 128) {
+        if (detectedEscNodeId != sourceNodeId) {
+            detectedEscNodeId = sourceNodeId;
+            Serial.print("[Tmotor] Detected ESC at Node ID: ");
+            Serial.println(detectedEscNodeId);
+        }
+    }
 
     // Route to appropriate handler
     if (dataTypeId == escStatusDataTypeId) {
         handleEscStatus(canMsg);
         // Log final result only
-        Serial.print("[ESC] RPM=");
+        Serial.print("[ESC] ID=");
+        Serial.print(sourceNodeId);
+        Serial.print(" RPM=");
         Serial.print(rpm);
         Serial.print(" V=");
         Serial.print(batteryVoltageMilliVolts);
@@ -89,6 +102,15 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     }
 
     if (dataTypeId == pushCanDataTypeId) {
+        Serial.print("[PUSHCAN] Frame received - DLC=");
+        Serial.print(canMsg->data_length_code);
+        Serial.print(" Data=[");
+        for (uint8_t i = 0; i < canMsg->data_length_code && i < 8; i++) {
+            if (i > 0) Serial.print(" ");
+            if (canMsg->data[i] < 0x10) Serial.print("0");
+            Serial.print(canMsg->data[i], HEX);
+        }
+        Serial.println("]");
         handlePushCan(canMsg);
         Serial.print("[PUSHCAN] T_Motor=");
         Serial.print(motorTemperature);
@@ -153,31 +175,20 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     if (isEOF) {
         escStatusTransferActive = false;
 
-        // Minimum payload size: 4 (error_count) + 2 (voltage) + 2 (current) + 2 (temp) + 3 (rpm) + 1 (power/index) = 14 bytes
+        // Minimum payload size: 14 bytes
         if (escStatusBufferLen < 14) {
             escStatusBufferLen = 0;
             return;
         }
 
-        // Debug: Print accumulated buffer (essential for debugging)
-        Serial.print("[ESC] Buffer: [");
-        for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
-            if (i > 0) Serial.print(" ");
-            if (escStatusBuffer[i] < 0x10) Serial.print("0");
-            Serial.print(escStatusBuffer[i], HEX);
-        }
-        Serial.println("]");
-
-        // According to TM-UAVCAN v2.3 PDF section 5.3.3:
-        // ESC_STATUS (1034) structure:
-        // uint32 error_count (4 bytes, bytes 0-3)
-        // float16 voltage (2 bytes, bytes 4-5)
-        // float16 current (2 bytes, bytes 6-7)
-        // float16 temperature (2 bytes, bytes 8-9) - in Kelvin (changed from Celsius in v2.3)
-        // int18 rpm (3 bytes, bytes 10-12)
-        // uint7 power_rating_pct (7 bits, byte 13 bits 0-6)
-        // uint5 esc_index (5 bits, byte 14 bits 0-4 or byte 13 bits 7-11)
-        // Total: 4 + 2 + 2 + 2 + 3 + 1 = 14 bytes minimum
+        // Debug: Print accumulated buffer
+        // Serial.print("[ESC] Buffer: [");
+        // for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
+        //     if (i > 0) Serial.print(" ");
+        //     if (escStatusBuffer[i] < 0x10) Serial.print("0");
+        //     Serial.print(escStatusBuffer[i], HEX);
+        // }
+        // Serial.println("]");
 
         // Extract error_count (uint32, little-endian, bytes 0-3)
         errorCount = (uint32_t)escStatusBuffer[0] |
@@ -185,9 +196,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
                      ((uint32_t)escStatusBuffer[2] << 16) |
                      ((uint32_t)escStatusBuffer[3] << 24);
 
-        // FIXED: Based on logs, voltage is actually at bytes 6-7, not 4-5
-        // The structure appears to have 2 bytes of padding after error_count
-        // Actual structure: error_count(4) + padding(2) + voltage(2) + current(2) + temperature(2) + rpm(3) + ...
         // Extract voltage (float16, bytes 6-7, little-endian) - CORRECTED POSITION
         uint16_t voltageFloat16 = (uint16_t)escStatusBuffer[6] | ((uint16_t)escStatusBuffer[7] << 8);
         float voltage = convertFloat16ToFloat(voltageFloat16);
@@ -199,8 +207,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         batteryCurrent = (uint8_t)(current + 0.5f);
 
         // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
-        // With 2-byte padding after error_count, temperature is at bytes 10-11 instead of 8-9
-        // Temperature is in Kelvin (v2.3)
         if (escStatusBufferLen >= 12) {
             uint16_t tempFloat16 = (uint16_t)escStatusBuffer[10] | ((uint16_t)escStatusBuffer[11] << 8);
             float tempKelvin = convertFloat16ToFloat(tempFloat16);
@@ -210,8 +216,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         }
 
         // Extract RPM (int18, bytes 12-14, signed 3-byte value, little-endian)
-        // With 2-byte padding after error_count, RPM is at bytes 12-14 instead of 10-12
-        // int18 uses 18 bits: bits 0-7 in byte 12, bits 8-15 in byte 13, bits 16-17 in byte 14
         if (escStatusBufferLen >= 15) {
             int32_t rpmRaw = (int32_t)escStatusBuffer[12] |
                              ((int32_t)escStatusBuffer[13] << 8) |
@@ -232,8 +236,6 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
                 escIndex = escStatusBuffer[14] & 0x1F;  // Lower 5 bits
             }
         }
-
-        // Log is printed in parseEscMessage after handleEscStatus returns
 
         lastReadEscStatus = millis();
         escStatusBufferLen = 0;  // Reset for next transfer
@@ -290,30 +292,28 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     if (isEOF) {
         pushCanTransferActive = false;
 
-        // PUSHCAN structure:
+        // PUSHCAN structure (Based on Manual Page 12, bytes list, NO LENGTH BYTE):
         // uint32 data_sequence (bytes 0-3)
-        // struct { uint8_t len; uint8_t data[255]; }data;
-        // The motor temperature is in bytes 19-20 of the data array
+        // Raw data value starts at byte 4
+        //
+        // Data Packet Structure (inside Raw data):
+        // Offset 0-1: Frame header
+        // Offset 2: Frame ID
+        // ...
+        // Offset 18-19: Temperature (2 bytes)
+        //
+        // Total offset in pushCanBuffer: 4 (sequence) + 18 = 22
 
-        // Minimum size: 4 (data_sequence) + 1 (len) + 20 (to reach bytes 19-20) = 25 bytes
-        if (pushCanBufferLen < 25) {
+        // Minimum size: 4 (data_sequence) + 20 (to reach bytes 19-20) = 24 bytes
+        if (pushCanBufferLen < 24) {
             pushCanBufferLen = 0;
             return;
         }
 
-        // Extract data length (byte 4, after data_sequence)
-        uint8_t dataLen = pushCanBuffer[4];
-
-        // Check if we have enough data to read bytes 19-20
-        if (dataLen < 21) {
-            pushCanBufferLen = 0;
-            return;
-        }
-
-        // Extract motor temperature from bytes 19-20 of data array
-        // data array starts at byte 5 (after data_sequence and len)
-        // So bytes 19-20 of data array are at indices 5+19=24 and 5+20=25
-        uint16_t motorTempValue = (uint16_t)pushCanBuffer[24] | ((uint16_t)pushCanBuffer[25] << 8);
+        // Extract motor temperature from bytes 18-19 of data array
+        // data array starts at byte 4 (after data_sequence)
+        // So bytes 18-19 of data array are at indices 4+18=22 and 4+19=23
+        uint16_t motorTempValue = (uint16_t)pushCanBuffer[22] | ((uint16_t)pushCanBuffer[23] << 8);
 
         // Assuming temperature is in float16 format (similar to ESC_STATUS)
         // If it's in Kelvin, convert to Celsius
@@ -349,23 +349,12 @@ void Tmotor::announce() {
     localCanMsg.extd = 1;  // Extended frame (29-bit)
     localCanMsg.rtr = 0;   // Data frame (not remote transmission request)
 
-    // NodeStatus structure (8 bytes total to fit in CAN 2.0 frame):
-    // Bytes 0-3: uptime (uint32, little-endian)
-    // Byte 4: health (uint2) + mode (uint3) + sub_mode (uint3) - packed in 1 byte
-    // Byte 5: vendor_specific_status_code (uint16 LSB)
-    // Byte 6: vendor_specific_status_code (uint16 MSB) - can be 0
-    // Byte 7: tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
-
     localCanMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
     localCanMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
     localCanMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
     localCanMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
 
-    // Pack health (2 bits), mode (3 bits), sub_mode (3 bits) into byte 4
-    // health: 0=OK, mode: 0=OPERATIONAL, sub_mode: 0=normal
     localCanMsg.data[4] = 0x00; // health=0, mode=0, sub_mode=0
-
-    // vendor_specific_status_code (uint16, little-endian) - can be 0
     localCanMsg.data[5] = 0x00; // LSB
     localCanMsg.data[6] = 0x00; // MSB
 
@@ -374,8 +363,221 @@ void Tmotor::announce() {
 
     localCanMsg.data_length_code = 8;  // CAN 2.0 maximum
 
-    esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));  // Increased timeout to 100ms
+    twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     transferId++;
+}
+
+void Tmotor::sendPushSci() {
+    // Check timing - send every 200ms (5Hz) to ensure ESC sees us as active
+    if (millis() - lastPushSci < 200) {
+        return;
+    }
+
+    lastPushSci = millis();
+
+    // PUSHSCI (1038) - Controller output control data frame
+    // This is a QUERY command (Control mode = 0x00) that requests
+    // the ESC to send PUSHCAN (1039) with complete telemetry including motor temperature
+
+    static uint32_t dataSequence = 0;
+    static uint8_t frameCount = 0;
+
+    // ========================================================================
+    // PART 1: Build the inner T-Motor data packet (12 bytes)
+    // ========================================================================
+    // Structure from manual section 4.4.4, item 4:
+    // "Controller output control data frame (Controller → Power System)"
+
+    uint8_t dataPacket[12];
+
+    // Frame header (bytes 0-1): Always 0xEC 0x96 for T-Motor protocol
+    dataPacket[0] = 0xEC;
+    dataPacket[1] = 0x96;
+
+    // Frame ID (byte 2): 0x06 = Controller output control
+    dataPacket[2] = 0x06;
+
+    // Frame count (byte 3): Increments 0-255 cyclically
+    dataPacket[3] = frameCount++;
+
+    // Power unit ID (byte 4):
+    // 0xA1-0xA9 correspond to ESC units 1-9
+    // Use detectedEscNodeId if available, otherwise default to unit 1 (0xA1)
+    if (detectedEscNodeId > 0 && detectedEscNodeId <= 9) {
+        dataPacket[4] = 0xA0 + detectedEscNodeId;
+    } else {
+        dataPacket[4] = 0xA1;
+    }
+
+    // Frame length (byte 5): Always 0x0C (12 bytes) for this command
+    dataPacket[5] = 0x0C;
+
+    // Control mode (byte 6): THIS IS THE KEY!
+    // 0x00 = "No rotor locking mode, responds normally to flight control PWM
+    //         and also serves as the power system query command"
+    // When mode = 0x00, ESC will respond with PUSHCAN containing telemetry!
+    dataPacket[6] = 0x00;  // QUERY MODE
+
+    // Motor control type throttle/duty/speed/position (bytes 7-8)
+    // Not used in query mode (0x00), set to 0
+    dataPacket[7] = 0x00;
+    dataPacket[8] = 0x00;
+
+    // Reserved (bytes 9-10)
+    dataPacket[9] = 0x00;
+    dataPacket[10] = 0x00;
+
+    // Checksum (byte 11): Sum of bytes 0-10, lower 8 bits
+    uint8_t checksum = 0;
+    for (int i = 0; i < 11; i++) {
+        checksum += dataPacket[i];
+    }
+    dataPacket[11] = checksum;
+
+    // ========================================================================
+    // PART 2: Build PUSHSCI payload (data_sequence + data packet)
+    // ========================================================================
+    // PUSHSCI structure from manual section 4.4.4:
+    // - uint32 data_sequence (4 bytes)
+    // - Raw data value (byte count 0-255) -> dataPacket (12 bytes)
+    //
+    // Removing Length byte (back to 16 bytes total) to test Page 10 strict compliance.
+    // Total: 4 (sequence) + 12 (packet) = 16 bytes
+
+    uint8_t payload[16];
+
+    // Bytes 0-3: data_sequence (uint32, little-endian)
+    payload[0] = (uint8_t)(dataSequence & 0xFF);
+    payload[1] = (uint8_t)((dataSequence >> 8) & 0xFF);
+    payload[2] = (uint8_t)((dataSequence >> 16) & 0xFF);
+    payload[3] = (uint8_t)((dataSequence >> 24) & 0xFF);
+
+    // Bytes 4-15: dataPacket (12 bytes)
+    memcpy(&payload[4], dataPacket, 12);
+
+    // Debug: Print Payload and Target
+    Serial.print("[PUSHSCI] Target: 0x");
+    Serial.print(dataPacket[4], HEX);
+    Serial.print(" Payload: [");
+    for (int i = 0; i < 16; i++) {
+        if (i > 0) Serial.print(" ");
+        if (payload[i] < 0x10) Serial.print("0");
+        Serial.print(payload[i], HEX);
+    }
+    Serial.println("]");
+
+    // ========================================================================
+    // PART 3: Calculate CRC for multi-frame transfer
+    // ========================================================================
+    // From manual section 4.3.1: PUSHSCI signature = 0xCE2B6D6B6BDC0AE8
+    uint64_t signature = 0xCE2B6D6B6BDC0AE8ULL;
+
+    uint16_t crc = 0xFFFF;
+    crc = crcAddSignature(crc, signature);
+    crc = crcAdd(crc, payload, 16);
+
+    // ========================================================================
+    // PART 4: Build CAN ID for PUSHSCI (1038)
+    // ========================================================================
+    uint32_t priority = 0x00;  // HIGH priority (TRYING 0 INSTEAD OF 0x18)
+    uint32_t dataTypeId = pushSciDataTypeId;  // PUSHSCI
+    uint32_t service = 0;  // Message frame (not service frame)
+    uint32_t srcNodeId = nodeId;  // Our node ID (0x13)
+
+    uint32_t canId = (priority << 24) |
+                     (dataTypeId << 8) |
+                     (service << 7) |
+                     (srcNodeId & 0x7F);
+
+    // ========================================================================
+    // PART 5: Send multi-frame transfer
+    // ========================================================================
+    // Total payload: 16 bytes
+    // Frame 1: CRC(2) + payload[0-4] = 7 bytes → SOF
+    // Frame 2: payload[5-11] = 7 bytes
+    // Frame 3: payload[12-15] = 4 bytes → EOF
+
+    twai_message_t localCanMsg;
+    uint8_t currentTransferId = transferId;
+    esp_err_t result;
+
+    // -------------------- FRAME 1 (Start Of Frame) --------------------
+    memset(&localCanMsg, 0, sizeof(twai_message_t));
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;
+    localCanMsg.rtr = 0;
+    localCanMsg.ss = 0;
+    localCanMsg.self = 0;
+    localCanMsg.dlc_non_comp = 0;
+
+    // Payload: CRC (2 bytes) + payload[0-4] (5 bytes)
+    localCanMsg.data[0] = (uint8_t)(crc & 0xFF);         // CRC low byte
+    localCanMsg.data[1] = (uint8_t)((crc >> 8) & 0xFF);  // CRC high byte
+    localCanMsg.data[2] = payload[0];  // data_sequence[0]
+    localCanMsg.data[3] = payload[1];  // data_sequence[1]
+    localCanMsg.data[4] = payload[2];  // data_sequence[2]
+    localCanMsg.data[5] = payload[3];  // data_sequence[3]
+    localCanMsg.data[6] = payload[4];  // dataPacket[0] (Header 0xEC)
+
+    // Tail byte: SOF=1, EOF=0, Toggle=0
+    localCanMsg.data[7] = 0x80 | (currentTransferId & 0x1F);
+    localCanMsg.data_length_code = 8;
+
+    result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
+    if (result != ESP_OK) {
+        Serial.print("[PUSHSCI] Frame 1 failed: ");
+        Serial.println(result);
+        return;
+    }
+    delayMicroseconds(200);  // Small delay between frames
+
+    // -------------------- FRAME 2 (Middle frame) --------------------
+    // Payload: payload[5-11] (7 bytes)
+    localCanMsg.data[0] = payload[5];   // dataPacket[1]
+    localCanMsg.data[1] = payload[6];   // dataPacket[2]
+    localCanMsg.data[2] = payload[7];   // dataPacket[3]
+    localCanMsg.data[3] = payload[8];   // dataPacket[4]
+    localCanMsg.data[4] = payload[9];   // dataPacket[5]
+    localCanMsg.data[5] = payload[10];  // dataPacket[6]
+    localCanMsg.data[6] = payload[11];  // dataPacket[7]
+
+    // Tail byte: SOF=0, EOF=0, Toggle=1
+    localCanMsg.data[7] = 0x20 | (currentTransferId & 0x1F);
+    localCanMsg.data_length_code = 8;
+
+    result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
+    if (result != ESP_OK) {
+        Serial.print("[PUSHSCI] Frame 2 failed: ");
+        Serial.println(result);
+        return;
+    }
+    delayMicroseconds(200);
+
+    // -------------------- FRAME 3 (End Of Frame) --------------------
+    // Payload: payload[12-15] (4 bytes)
+    localCanMsg.data[0] = payload[12];  // dataPacket[8]
+    localCanMsg.data[1] = payload[13];  // dataPacket[9]
+    localCanMsg.data[2] = payload[14];  // dataPacket[10]
+    localCanMsg.data[3] = payload[15];  // dataPacket[11] (Checksum)
+    localCanMsg.data[4] = 0x00;  // Padding
+    localCanMsg.data[5] = 0x00;  // Padding
+    localCanMsg.data[6] = 0x00;  // Padding
+
+    // Tail byte: SOF=0, EOF=1, Toggle=0
+    localCanMsg.data[7] = 0x40 | (currentTransferId & 0x1F);
+    localCanMsg.data_length_code = 8;
+
+    result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
+    if (result == ESP_OK) {
+        Serial.println("[PUSHSCI] Query sent successfully (3 frames)");
+
+        // Increment counters only after successful transmission
+        dataSequence++;
+        transferId = (transferId + 1) & 0x1F;
+    } else {
+        Serial.print("[PUSHSCI] Frame 3 failed: ");
+        Serial.println(result);
+    }
 }
 
 void Tmotor::requestNodeInfo() {

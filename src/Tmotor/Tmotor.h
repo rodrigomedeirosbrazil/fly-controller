@@ -37,6 +37,7 @@ public:
 
     // ESC control methods
     void announce();
+    void sendPushSci();  // Send PUSHSCI query to request PUSHCAN telemetry
     void setRawThrottle(int16_t throttle);
 
     // Initialization and configuration methods
@@ -73,6 +74,7 @@ private:
     unsigned long lastReadEscStatus;
     unsigned long lastReadPushCan;
     unsigned long lastAnnounce;
+    unsigned long lastPushSci;
 
     // Transfer control
     uint8_t transferId;
@@ -103,6 +105,7 @@ private:
     const uint16_t rawCommandDataTypeId = 1030;      // RawCommand
     const uint16_t paramCfgDataTypeId = 1033;        // ParamCfg
     const uint16_t escStatusDataTypeId = 1034;        // ESC_STATUS
+    const uint16_t pushSciDataTypeId = 1038;           // PUSHSCI
     const uint16_t pushCanDataTypeId = 1039;         // PUSHCAN
     const uint16_t paramGetDataTypeId = 1332;         // ParamGet
     const uint16_t nodeStatusDataTypeId = 341;        // NodeStatus
