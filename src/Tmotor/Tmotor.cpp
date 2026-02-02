@@ -5,6 +5,7 @@
 #include "../config.h"
 #include "Tmotor.h"
 #include "../Canbus/CanUtils.h"
+#include "../Throttle/Throttle.h"
 
 extern twai_message_t canMsg;
 
@@ -42,6 +43,7 @@ Tmotor::Tmotor() {
     lastReadPushCan = 0;
     lastAnnounce = millis();
     lastPushSci = 0;
+    lastThrottleSend = 0;
     transferId = 0;
 
     escTemperature = 0;
@@ -744,4 +746,16 @@ void Tmotor::setRawThrottle(int16_t throttle) {
     twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
 
     transferId = (transferId + 1) & 0x1F;
+}
+
+void Tmotor::handle() {
+    // CAN throttle period: 2.5ms (400 Hz)
+    // Check if 2ms has elapsed (allowing for some jitter)
+    if (millis() - lastThrottleSend < 2) {
+        return;
+    }
+
+    setRawThrottle(0);
+
+    lastThrottleSend = millis();
 }

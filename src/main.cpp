@@ -165,18 +165,6 @@ void loop()
   }
   #endif
 
-  // Send periodic RawCommand with throttle=0 for Tmotor (every 100ms)
-  #if USES_CAN_BUS && IS_TMOTOR
-  {
-    static unsigned long lastThrottleZero = 0;
-    if (millis() - lastThrottleZero >= 100) {
-      extern Tmotor tmotor;
-      tmotor.setRawThrottle(0);
-      lastThrottleZero = millis();
-    }
-  }
-  #endif
-
   handleEsc();
   handleArmedBeep();
 
@@ -211,6 +199,9 @@ void checkCanbus()
     if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
         canbus.parseCanMsg(&canMsg);
     }
+
+    // Handle periodic CAN commands (400 Hz throttle)
+    canbus.handle();
 
     // Announce presence on CAN bus periodically
     if (telemetry && telemetry->announce) {

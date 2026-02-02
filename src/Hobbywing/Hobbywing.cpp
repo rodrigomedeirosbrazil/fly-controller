@@ -4,6 +4,7 @@
 #include "../config.h"
 #include "Hobbywing.h"
 #include "../Canbus/CanUtils.h"
+#include "../Throttle/Throttle.h"
 
 extern twai_message_t canMsg;
 
@@ -317,4 +318,7 @@ void Hobbywing::sendMessage(
 
 uint8_t Hobbywing::getEscThrottleIdFromPayload(uint8_t *payload) {
     return payload[1];
+}
+
+void Hobbywing::handle() {
 }

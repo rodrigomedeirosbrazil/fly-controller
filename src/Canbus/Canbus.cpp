@@ -110,3 +110,15 @@ bool Canbus::isTmotorEscMessage(uint16_t dataTypeId) {
             dataTypeId == 1332);   // ParamGet
 }
 
+void Canbus::handle() {
+    // Route to the appropriate motor handler based on ESC type
+    #if USES_CAN_BUS && IS_TMOTOR
+    extern Tmotor tmotor;
+    tmotor.handle();
+    #endif
+    #if USES_CAN_BUS && IS_HOBBYWING
+    extern Hobbywing hobbywing;
+    hobbywing.handle();
+    #endif
+}
+

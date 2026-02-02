@@ -38,6 +38,7 @@ public:
     // ESC control methods
     void announce();
     void setRawThrottle(int16_t throttle);
+    void handle();
 
     // Initialization and configuration methods
     void requestNodeInfo();  // Request GetNodeInfo to discover ESC
@@ -74,6 +75,7 @@ private:
     unsigned long lastReadPushCan;
     unsigned long lastAnnounce;
     unsigned long lastPushSci;
+    unsigned long lastThrottleSend;
 
     // Transfer control
     uint8_t transferId;

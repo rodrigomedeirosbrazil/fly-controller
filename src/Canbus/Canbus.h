@@ -17,6 +17,7 @@ class Canbus
     public:
         void parseCanMsg(twai_message_t *canMsg);
         void printCanMsg(twai_message_t *canMsg);
+        void handle();
 
     private:
         // Device type detection

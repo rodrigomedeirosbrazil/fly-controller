@@ -56,6 +56,7 @@ public:
     void setThrottleSource(uint8_t source);
     void setRawThrottle(int16_t throttle);
     void requestEscId();
+    void handle();
 
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
