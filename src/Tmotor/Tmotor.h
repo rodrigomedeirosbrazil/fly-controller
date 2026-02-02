@@ -99,7 +99,6 @@ private:
     bool pushCanLastToggle;        // Last toggle bit value for PUSHCAN
 
     // CAN bus constants
-    const uint8_t nodeId = 0x13;
     const uint8_t escThrottleId = 0x00;  // Default ESC index for throttle
 
     // T-Motor protocol constants (DroneCAN message IDs)

@@ -131,7 +131,7 @@ void Hobbywing::announce()
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
-    canId |= (uint32_t)(nodeId & 0xFF);        // Source node ID
+    canId |= (uint32_t)(canbus.getNodeId() & 0xFF);        // Source node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
 
@@ -210,7 +210,7 @@ void Hobbywing::setRawThrottle(int16_t throttle)
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority = 0
     canId |= (dataTypeId << 8);                // DataType ID
-    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canId |= (canbus.getNodeId() & 0xFF);                  // Source Node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
 
@@ -240,7 +240,7 @@ void Hobbywing::requestEscId() {
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= (dataTypeId << 8);                // DataType ID
-    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canId |= (canbus.getNodeId() & 0xFF);                  // Source Node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
 
@@ -292,7 +292,7 @@ void Hobbywing::sendMessage(
     canId |= (1U << 15); // Request, not response
     canId |= ((uint32_t)(destNodeId & 0x7F)) << 8;
     canId |= (1U << 7);  // Service, not message
-    canId |= (uint32_t)(nodeId & 0x7F);
+    canId |= (uint32_t)(canbus.getNodeId() & 0x7F);
 
     // Note: CanUtils functions are available but we construct CAN ID directly here
 

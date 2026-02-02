@@ -18,8 +18,12 @@ class Canbus
         void parseCanMsg(twai_message_t *canMsg);
         void printCanMsg(twai_message_t *canMsg);
         void handle();
+        uint8_t getNodeId() const { return nodeId; }
 
     private:
+        // CAN bus node ID
+        const uint8_t nodeId = 0x13;
+
         // Device type detection
         bool isHobbywingEscMessage(uint16_t dataTypeId);
         bool isTmotorEscMessage(uint16_t dataTypeId);

@@ -85,7 +85,6 @@ private:
     uint8_t transferId;
 
     // CAN bus constants
-    const uint8_t nodeId = 0x13;
     const uint8_t escNodeId = 0x03;
     const uint8_t escThrottleId = 0x03;
 

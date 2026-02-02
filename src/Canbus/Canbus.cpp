@@ -54,8 +54,8 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
     // Handle NodeStatus from ESC (not our own)
     if (dataTypeId == 341) {
         uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
-        // Check if it's from ESC (not our own nodeId = 0x13)
-        if (sourceNodeId != 0x13) {
+        // Check if it's from ESC (not our own nodeId)
+        if (sourceNodeId != getNodeId()) {
             tmotor.handleNodeStatus(canMsg);
             return;
         }

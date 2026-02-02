@@ -346,7 +346,7 @@ void Tmotor::announce() {
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
-    canId |= (uint32_t)(nodeId & 0xFF);        // Source node ID
+    canId |= (uint32_t)(canbus.getNodeId() & 0xFF);        // Source node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
     localCanMsg.rtr = 0;   // Data frame (not remote transmission request)
@@ -391,7 +391,7 @@ void Tmotor::requestNodeInfo() {
     canId |= (1U << 15);                       // Request (not response)
     canId |= ((uint32_t)1 << 8);               // Destination Node ID = 1 (ESC)
     canId |= (1U << 7);                        // Service frame
-    canId |= (uint32_t)(nodeId & 0x7F);        // Source Node ID
+    canId |= (uint32_t)(canbus.getNodeId() & 0x7F);        // Source Node ID
 
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
@@ -486,7 +486,7 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     uint32_t dataTypeId = paramCfgDataTypeId;
     uint32_t priority = 0x18;  // LOW priority
     uint32_t service = 0;  // Message frame
-    uint32_t srcNodeId = nodeId;  // 0x13
+    uint32_t srcNodeId = canbus.getNodeId();
 
     uint32_t canId = (priority << 24) |
                      (dataTypeId << 8) |
@@ -607,8 +607,8 @@ void Tmotor::handleNodeStatus(twai_message_t *canMsg) {
     // Extract Node ID from CAN ID
     uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
 
-    // Ignore our own NodeStatus (nodeId = 0x13)
-    if (sourceNodeId == nodeId) {
+    // Ignore our own NodeStatus
+    if (sourceNodeId == canbus.getNodeId()) {
         return;
     }
 
@@ -711,7 +711,7 @@ void Tmotor::setRawThrottle(int16_t throttle) {
     uint32_t priority = 0x10;  // MEDIUM priority
     uint32_t dataTypeId = rawCommandDataTypeId;  // 1030
     uint32_t service = 0;
-    uint32_t srcNodeId = nodeId;
+    uint32_t srcNodeId = canbus.getNodeId();
 
     uint32_t canId = (priority << 24) |
                      (dataTypeId << 8) |
