@@ -36,14 +36,12 @@ public:
     void parseEscMessage(twai_message_t *canMsg);
 
     // ESC control methods
-    void announce();
     void setRawThrottle(int16_t throttle);
     void handle();
 
     // Initialization and configuration methods
     void requestNodeInfo();  // Request GetNodeInfo to discover ESC
     void requestParam(uint16_t paramIndex);  // Request parameter value
-    void handleNodeStatus(twai_message_t *canMsg);  // Handle NodeStatus from ESC and configure telemetry
     void sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate = 50, bool savePermanent = true);  // Send ParamCfg to configure ESC telemetry rate
 
     // Getters for ESC data
@@ -57,7 +55,8 @@ public:
     uint8_t getEscIndex() { return escIndex; }
 
     // Connectivity status
-    bool isReady();
+    bool isReady();  // Checks if ESC is available on the network (detected via NodeStatus)
+    bool hasTelemetry();  // Checks if telemetry data is available
 
 private:
     // ESC-specific data
@@ -73,17 +72,11 @@ private:
     // Timestamps for connectivity control
     unsigned long lastReadEscStatus;
     unsigned long lastReadPushCan;
-    unsigned long lastAnnounce;
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
 
     // Transfer control
     uint8_t transferId;
-
-    // ESC configuration control
-    uint8_t detectedEscNodeId;  // Node ID do ESC detectado via NodeStatus
-    bool paramCfgSent;          // Flag para evitar envio repetitivo
-    unsigned long lastParamCfgSent;  // Timestamp do último envio
 
     // Multi-frame transfer buffers and state
     uint8_t escStatusBuffer[64];  // Buffer for accumulating ESC_STATUS frames
@@ -108,7 +101,6 @@ private:
     const uint16_t pushSciDataTypeId = 1038;           // PUSHSCI
     const uint16_t pushCanDataTypeId = 1039;         // PUSHCAN
     const uint16_t paramGetDataTypeId = 1332;         // ParamGet
-    const uint16_t nodeStatusDataTypeId = 341;        // NodeStatus
 
     // T-Motor-specific parsing methods
     void handleEscStatus(twai_message_t *canMsg);

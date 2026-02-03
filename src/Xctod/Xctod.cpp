@@ -106,7 +106,7 @@ void Xctod::updateCoulombCount() {
     // XAG mode: no current data available, skip Coulomb counting
     return;
     #else
-    if (!data->isReady) {
+    if (!data->hasTelemetry) {
         return;
     }
 
@@ -158,7 +158,7 @@ void Xctod::recalibrateFromVoltage() {
     // XAG mode: no voltage data available, skip recalibration
     return;
     #else
-    if (!data->isReady) {
+    if (!data->hasTelemetry) {
         return;
     }
 
@@ -217,7 +217,7 @@ void Xctod::writeBatteryInfo(String &data) {
     data += ",";
     data += ","; // power_kw (not available)
     #else
-    if (!telemetryData->isReady) {
+    if (!telemetryData->hasTelemetry) {
         data += ",,,"; // battery percentage, voltage, power_kw
         return;
     }
@@ -283,7 +283,7 @@ void Xctod::writeMotorInfo(String &data) {
     // XAG mode: no RPM or current data available
     data += ",,"; // rpm, current
     #else
-    if (!telemetryData->isReady) {
+    if (!telemetryData->hasTelemetry) {
         data += ",,"; // rpm, current
         return;
     }

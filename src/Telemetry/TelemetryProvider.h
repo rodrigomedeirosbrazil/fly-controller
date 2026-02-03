@@ -21,9 +21,9 @@ struct TelemetryProvider {
     void (*update)(void);                    // Update telemetry data
     void (*init)(void);                       // Initialize provider
     TelemetryData* (*getData)(void);          // Get pointer to telemetry data
-    void (*announce)(void);                   // Announce presence (for CAN controllers)
+    void (*sendNodeStatus)(void);                   // Send NodeStatus message (for CAN controllers)
     void (*handleCanMessage)(twai_message_t*); // Handle CAN message (for CAN controllers)
-    bool (*isReady)(void);                    // Check connectivity status
+    bool (*hasTelemetry)(void);                    // Check if telemetry data is available
 
     // Telemetry data instance (one per provider)
     TelemetryData data;

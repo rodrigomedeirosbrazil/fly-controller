@@ -41,7 +41,6 @@ static uint16_t crcAdd(uint16_t crc_val, const uint8_t* bytes, size_t len) {
 Tmotor::Tmotor() {
     lastReadEscStatus = 0;
     lastReadPushCan = 0;
-    lastAnnounce = millis();
     lastPushSci = 0;
     lastThrottleSend = 0;
     transferId = 0;
@@ -54,10 +53,6 @@ Tmotor::Tmotor() {
     errorCount = 0;
     powerRatingPct = 0;
     escIndex = 0;
-
-    detectedEscNodeId = 0;
-    paramCfgSent = false;
-    lastParamCfgSent = 0;
 
     // Initialize multi-frame transfer state
     escStatusBufferLen = 0;
@@ -75,15 +70,6 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
     uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
-
-    // Capture Source Node ID to auto-detect ESC
-    if (sourceNodeId > 0 && sourceNodeId < 128) {
-        if (detectedEscNodeId != sourceNodeId) {
-            detectedEscNodeId = sourceNodeId;
-            Serial.print("[Tmotor] Detected ESC at Node ID: ");
-            Serial.println(detectedEscNodeId);
-        }
-    }
 
     // Route to appropriate handler
     if (dataTypeId == escStatusDataTypeId) {
@@ -121,10 +107,16 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     }
 }
 
-bool Tmotor::isReady() {
-    // Consider ready if we've received ESC_STATUS within the last second
+bool Tmotor::hasTelemetry() {
+    // Consider telemetry available if we've received ESC_STATUS within the last second
     return lastReadEscStatus != 0
         && millis() - lastReadEscStatus < 1000;
+}
+
+bool Tmotor::isReady() {
+    // ESC is ready if it has been detected via NodeStatus
+    extern Canbus canbus;
+    return canbus.getEscNodeId() != 0;
 }
 
 void Tmotor::handleEscStatus(twai_message_t *canMsg) {
@@ -327,46 +319,6 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
     } else {
         Serial.println();  // New line for intermediate frames
     }
-}
-
-void Tmotor::announce() {
-    if (millis() - lastAnnounce < 1000) {
-        return;
-    }
-
-    lastAnnounce = millis();
-
-    uint32_t uptimeSec = millis() / 1000;
-
-    twai_message_t localCanMsg;
-    memset(&localCanMsg, 0, sizeof(twai_message_t));  // Initialize all fields to zero
-
-    uint32_t dataTypeId = nodeStatusDataTypeId;
-
-    uint32_t canId = 0;
-    canId |= ((uint32_t)0 << 26);              // Priority
-    canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
-    canId |= (uint32_t)(canbus.getNodeId() & 0xFF);        // Source node ID
-    localCanMsg.identifier = canId;
-    localCanMsg.extd = 1;  // Extended frame (29-bit)
-    localCanMsg.rtr = 0;   // Data frame (not remote transmission request)
-
-    localCanMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
-    localCanMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
-    localCanMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
-    localCanMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
-
-    localCanMsg.data[4] = 0x00; // health=0, mode=0, sub_mode=0
-    localCanMsg.data[5] = 0x00; // LSB
-    localCanMsg.data[6] = 0x00; // MSB
-
-    // Tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
-    localCanMsg.data[7] = 0xC0 | (transferId & 0x1F);
-
-    localCanMsg.data_length_code = 8;  // CAN 2.0 maximum
-
-    twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
-    transferId++;
 }
 
 void Tmotor::requestNodeInfo() {
@@ -601,34 +553,6 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
     // Increment TransferID only AFTER all frames sent
     transferId = (transferId + 1) & 0x1F;
     Serial.println();
-}
-
-void Tmotor::handleNodeStatus(twai_message_t *canMsg) {
-    // Extract Node ID from CAN ID
-    uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
-
-    // Ignore our own NodeStatus
-    if (sourceNodeId == canbus.getNodeId()) {
-        return;
-    }
-
-    // Store detected ESC Node ID
-    if (detectedEscNodeId == 0) {
-        detectedEscNodeId = sourceNodeId;
-    }
-
-    // Check if we already sent ParamCfg recently (within last 5 seconds)
-    // This prevents spamming the bus with configuration messages
-    if (paramCfgSent && (millis() - lastParamCfgSent < 5000)) {
-        return;  // Already configured recently, skip
-    }
-
-    // Send ParamCfg to configure telemetry rate
-    // Use 50 Hz as default feedback rate (conservative, avoids bus overload)
-    sendParamCfg(detectedEscNodeId, 50, true);  // 50 Hz, permanent save
-
-    paramCfgSent = true;
-    lastParamCfgSent = millis();
 }
 
 // Float16 conversion functions (based on PDF section 5.2)

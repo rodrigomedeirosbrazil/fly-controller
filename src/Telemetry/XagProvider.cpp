@@ -57,13 +57,13 @@ static void xagUpdate() {
     #endif
 
     data->lastUpdate = millis();
-    data->isReady = true;
+    data->hasTelemetry = true;
 }
 
 static void xagInit() {
     // XAG mode initialization (if needed)
     if (g_xagProvider) {
-        g_xagProvider->data.isReady = true;
+        g_xagProvider->data.hasTelemetry = true;
     }
 }
 
@@ -72,7 +72,7 @@ static TelemetryData* xagGetData() {
     return &g_xagProvider->data;
 }
 
-static void xagAnnounce() {
+static void xagSendNodeStatus() {
     // No-op for XAG (no CAN bus)
 }
 
@@ -81,8 +81,8 @@ static void xagHandleCanMessage(twai_message_t* msg) {
     (void)msg; // Suppress unused parameter warning
 }
 
-static bool xagIsReady() {
-    // XAG is always ready (no connectivity check needed)
+static bool xagHasTelemetry() {
+    // XAG always has telemetry (data is read from sensors)
     return true;
 }
 
@@ -91,11 +91,11 @@ TelemetryProvider createXagProvider() {
         .update = xagUpdate,
         .init = xagInit,
         .getData = xagGetData,
-        .announce = xagAnnounce,
+        .sendNodeStatus = xagSendNodeStatus,
         .handleCanMessage = xagHandleCanMessage,
-        .isReady = xagIsReady,
+        .hasTelemetry = xagHasTelemetry,
         .data = {
-            .isReady = true,
+            .hasTelemetry = true,
             .batteryVoltageMilliVolts = 0,
             .batteryCurrent = 0,
             .rpm = 0,

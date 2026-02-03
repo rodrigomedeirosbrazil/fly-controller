@@ -103,11 +103,6 @@ void setup()
     Serial.println(status_info.rx_error_counter);
   }
 
-  // Announce presence on CAN bus
-  if (telemetry && telemetry->announce) {
-    telemetry->announce();
-  }
-
   // Hobbywing-specific initialization
   #if IS_HOBBYWING
   extern Hobbywing hobbywing;
@@ -203,9 +198,9 @@ void checkCanbus()
     // Handle periodic CAN commands (400 Hz throttle)
     canbus.handle();
 
-    // Announce presence on CAN bus periodically
-    if (telemetry && telemetry->announce) {
-        telemetry->announce();
+    // Send NodeStatus to announce presence on CAN bus periodically
+    if (telemetry && telemetry->sendNodeStatus) {
+        telemetry->sendNodeStatus();
     }
 #endif
 }

@@ -122,7 +122,7 @@ unsigned int Power::calcBatteryLimit() {
     #if IS_XAG
     return 100;
     #else
-    if (!data->isReady) {
+    if (!data->hasTelemetry) {
         return 0;
     }
 
@@ -155,8 +155,8 @@ unsigned int Power::calcMotorTempLimit() {
     }
 
     TelemetryData* data = telemetry->getData();
-    if (!data->isReady) {
-        return 100; // ESC not ready, allow other limits to control
+    if (!data->hasTelemetry) {
+        return 100; // Telemetry not available, allow other limits to control
     }
 
     motorTempMilliCelsius = data->motorTemperatureMilliCelsius;
@@ -205,8 +205,8 @@ unsigned int Power::calcEscTempLimit() {
     int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
     #else
     // CAN controllers: use ESC temperature from telemetry
-    if (!data->isReady) {
-        return 100; // ESC not ready, allow other limits to control
+    if (!data->hasTelemetry) {
+        return 100; // Telemetry not available, allow other limits to control
     }
 
     int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;

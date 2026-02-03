@@ -16,8 +16,8 @@ static void tmotorUpdate() {
 
     TelemetryData* data = &g_tmotorProvider->data;
 
-    if (!tmotor.isReady()) {
-        data->isReady = false;
+    if (!tmotor.hasTelemetry()) {
+        data->hasTelemetry = false;
         return;
     }
 
@@ -35,13 +35,13 @@ static void tmotorUpdate() {
     data->escTemperatureMilliCelsius = (int32_t)escTempCelsius * 1000;
 
     data->lastUpdate = millis();
-    data->isReady = true;
+    data->hasTelemetry = true;
 }
 
 static void tmotorInit() {
     // Tmotor initialization is done in main.cpp
     if (g_tmotorProvider) {
-        g_tmotorProvider->data.isReady = false; // Will be set to true when data arrives
+        g_tmotorProvider->data.hasTelemetry = false; // Will be set to true when data arrives
     }
 }
 
@@ -50,16 +50,17 @@ static TelemetryData* tmotorGetData() {
     return &g_tmotorProvider->data;
 }
 
-static void tmotorAnnounce() {
-    tmotor.announce();
+static void tmotorSendNodeStatus() {
+    extern Canbus canbus;
+    canbus.sendNodeStatus();
 }
 
 static void tmotorHandleCanMessage(twai_message_t* msg) {
     tmotor.parseEscMessage(msg);
 }
 
-static bool tmotorIsReady() {
-    return tmotor.isReady();
+static bool tmotorHasTelemetry() {
+    return tmotor.hasTelemetry();
 }
 
 TelemetryProvider createTmotorProvider() {
@@ -67,11 +68,11 @@ TelemetryProvider createTmotorProvider() {
         .update = tmotorUpdate,
         .init = tmotorInit,
         .getData = tmotorGetData,
-        .announce = tmotorAnnounce,
+        .sendNodeStatus = tmotorSendNodeStatus,
         .handleCanMessage = tmotorHandleCanMessage,
-        .isReady = tmotorIsReady,
+        .hasTelemetry = tmotorHasTelemetry,
         .data = {
-            .isReady = false,
+            .hasTelemetry = false,
             .batteryVoltageMilliVolts = 0,
             .batteryCurrent = 0,
             .rpm = 0,
@@ -91,9 +92,9 @@ TelemetryProvider createTmotorProvider() {
         .update = nullptr,
         .init = nullptr,
         .getData = nullptr,
-        .announce = nullptr,
+        .sendNodeStatus = nullptr,
         .handleCanMessage = nullptr,
-        .isReady = nullptr,
+        .hasTelemetry = nullptr,
         .data = {}
     };
     return provider;
