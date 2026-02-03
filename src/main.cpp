@@ -212,29 +212,7 @@ void checkCanbus()
 
 bool isMotorRunning()
 {
-    if (!telemetry || !telemetry->getData) {
-        // Fallback: check throttle position
-        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    }
-
-    TelemetryData* data = telemetry->getData();
-    if (!data) {
-        // Fallback: check throttle position
-        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    }
-
-    #if IS_XAG
-    // XAG mode: check throttle position only (no RPM data available)
-    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    #else
-    // CAN controllers: check if ESC is ready and has RPM data
-    if (data->isReady && data->rpm > 10) {
-        return true;
-    }
-
-    // Fallback: check throttle position
-    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    #endif
+    return throttle.getThrottlePercentage() > 1 && throttle.isArmed();
 }
 
 void handleArmedBeep()
