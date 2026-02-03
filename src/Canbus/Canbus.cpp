@@ -105,6 +105,7 @@ bool Canbus::isTmotorEscMessage(uint16_t dataTypeId) {
             dataTypeId == 1033 ||  // ParamCfg
             dataTypeId == 1034 ||  // ESC_STATUS
             dataTypeId == 1039 ||  // PUSHCAN
+            dataTypeId == 1154 ||  // Status 5 (motor temperature)
             dataTypeId == 1332);   // ParamGet
 }
 
