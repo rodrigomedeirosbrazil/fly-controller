@@ -25,7 +25,7 @@ class Canbus
     private:
         // CAN bus node ID
         const uint8_t nodeId = 0x13;
-        const uint8_t nodeStatusDataTypeId = 341;
+        const uint16_t nodeStatusDataTypeId = 341;
 
         // ESC detection
         uint8_t escNodeId = 0;  // Node ID of ESC detected via NodeStatus
