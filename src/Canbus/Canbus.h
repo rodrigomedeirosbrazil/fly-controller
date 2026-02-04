@@ -21,6 +21,7 @@ class Canbus
         uint8_t getNodeId() const { return nodeId; }
         uint8_t getEscNodeId() const { return escNodeId; }
         void sendNodeStatus();
+        void requestNodeInfo(uint8_t targetNodeId);  // Request GetNodeInfo from a specific node
 
     private:
         // CAN bus node ID

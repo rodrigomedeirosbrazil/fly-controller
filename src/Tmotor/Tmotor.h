@@ -44,7 +44,6 @@ public:
     void handle();
 
     // Initialization and configuration methods
-    void requestNodeInfo();  // Request GetNodeInfo to discover ESC
     void requestParam(uint16_t paramIndex);  // Request parameter value
     void sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate = 50, bool savePermanent = true);  // Send ParamCfg to configure ESC telemetry rate
     void sendEnableReporting(bool enable);  // Send Enable Reporting command (Message ID 1000) to enable/disable ESC status reporting

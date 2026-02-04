@@ -280,3 +280,75 @@ void Canbus::sendGetNodeInfoResponse(uint8_t requestorNodeId, uint8_t transferId
     }
 }
 
+void Canbus::requestNodeInfo(uint8_t targetNodeId) {
+    Serial.print("[Canbus] requestNodeInfo() called for Node ID: ");
+    Serial.println(targetNodeId);
+
+    // Send GetNodeInfo service request to discover node capabilities
+    // Service ID for GetNodeInfo is 1 (uavcan.protocol.GetNodeInfo)
+    twai_message_t localCanMsg;
+    memset(&localCanMsg, 0, sizeof(twai_message_t));  // Initialize all fields to zero
+
+    // DroneCAN service frame format for GetNodeInfo request:
+    // [28:26] Priority (3 bits) = 0
+    // [25:16] Service Type ID (10 bits) = 1 (GetNodeInfo)
+    // [15]    Request/Response (1 bit) = 1 (Request)
+    // [14:8]  Destination Node ID (7 bits) = targetNodeId
+    // [7]     Service/Message (1 bit) = 1 (Service)
+    // [6:0]   Source Node ID (7 bits) = nodeId (0x13)
+
+    uint32_t canId = 0;
+    canId |= ((uint32_t)0 << 26);              // Priority = 0
+    canId |= ((uint32_t)1 << 16);              // Service Type ID = 1 (GetNodeInfo)
+    canId |= (1U << 15);                       // Request (not response)
+    canId |= ((uint32_t)(targetNodeId & 0x7F)) << 8;  // Destination Node ID
+    canId |= (1U << 7);                        // Service frame
+    canId |= (uint32_t)(nodeId & 0x7F);        // Source Node ID
+
+    localCanMsg.identifier = canId;
+    localCanMsg.extd = 1;  // Extended frame (29-bit)
+    localCanMsg.rtr = 0;   // Data frame (not remote transmission request)
+
+    // GetNodeInfo request has no payload (empty request)
+    localCanMsg.data[0] = 0xC0 | (transferId & 0x1F);  // Tail byte (SOF=1, EOF=1, TID)
+    localCanMsg.data_length_code = 1;
+
+    Serial.print("[Canbus] TX: GetNodeInfo request to Node ");
+    Serial.print(targetNodeId);
+    Serial.print(" - CAN ID=0x");
+    Serial.print(canId, HEX);
+    Serial.print(" DLC=");
+    Serial.print(localCanMsg.data_length_code);
+    Serial.print(" Data=[");
+    for (uint8_t i = 0; i < localCanMsg.data_length_code; i++) {
+        if (i > 0) Serial.print(" ");
+        if (localCanMsg.data[i] < 0x10) Serial.print("0");
+        Serial.print(localCanMsg.data[i], HEX);
+    }
+    Serial.print("]");
+
+    // Check driver status
+    twai_status_info_t status_info;
+    twai_get_status_info(&status_info);
+    Serial.print(" TXErr=");
+    Serial.print(status_info.tx_error_counter);
+
+    esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));  // Increased timeout
+    if (tx_result == ESP_OK) {
+        Serial.println(" - OK");
+    } else {
+        Serial.print(" - ERROR: ");
+        if (tx_result == ESP_ERR_INVALID_STATE) {
+            Serial.println("INVALID_STATE");
+        } else if (tx_result == ESP_ERR_INVALID_ARG) {
+            Serial.println("INVALID_ARG");
+        } else if (tx_result == ESP_ERR_TIMEOUT) {
+            Serial.println("TIMEOUT");
+        } else {
+            Serial.print("Code ");
+            Serial.println(tx_result);
+        }
+    }
+    transferId = (transferId + 1) & 0x1F;
+}
+

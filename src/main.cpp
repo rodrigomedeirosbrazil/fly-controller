@@ -110,16 +110,6 @@ void setup()
   hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
   hobbywing.setLedColor(Hobbywing::ledColorGreen);
   #endif
-
-  // Tmotor-specific initialization
-  #if IS_TMOTOR
-  extern Tmotor tmotor;
-  // Request NodeInfo to discover ESC capabilities
-  // This may help the ESC start sending telemetry
-  delay(100);  // Small delay after CAN bus start
-  tmotor.requestNodeInfo();
-  Serial.println("[Main] Tmotor initialization: GetNodeInfo requested");
-  #endif
 #endif
 
   buzzer.beepWarning();
