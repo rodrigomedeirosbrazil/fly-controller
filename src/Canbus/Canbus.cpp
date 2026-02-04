@@ -21,8 +21,6 @@ extern TelemetryProvider* telemetry;
 
 #if USES_CAN_BUS
 void Canbus::parseCanMsg(twai_message_t *canMsg) {
-    printCanMsg(canMsg);
-
     // Handle service frames (e.g., GetNodeInfo requests)
     if (CanUtils::isServiceFrame(canMsg->identifier)) {
         uint16_t serviceTypeId = CanUtils::getServiceTypeIdFromCanId(canMsg->identifier);
@@ -80,6 +78,8 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
         return;
     }
     #endif
+
+    printCanMsg(canMsg);
 }
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {

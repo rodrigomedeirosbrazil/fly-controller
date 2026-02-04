@@ -139,8 +139,6 @@ void loop()
   }
 
   // Update motor temperature in telemetry (read from sensor)
-  // Note: Tmotor receives motor temperature via CAN, so don't overwrite it
-  #if !IS_TMOTOR
   if (telemetry && telemetry->getData) {
     TelemetryData* data = telemetry->getData();
     if (data) {
@@ -148,7 +146,6 @@ void loop()
       data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0f);
     }
   }
-  #endif
 
   handleEsc();
   handleArmedBeep();

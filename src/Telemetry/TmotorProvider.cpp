@@ -26,9 +26,10 @@ static void tmotorUpdate() {
 
     data->rpm = tmotor.getRpm();
 
-    // Convert motor temperature (uint8_t Celsius) to millicelsius: temp * 1000
-    uint8_t motorTempCelsius = tmotor.getMotorTemperature();
-    data->motorTemperatureMilliCelsius = (int32_t)motorTempCelsius * 1000;
+    // Use motor temperature from sensor (ADC)
+    extern Temperature motorTemp;
+    double motorTempCelsius = motorTemp.getTemperature();
+    data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0);
 
     // Convert ESC temperature (uint8_t Celsius) to millicelsius: temp * 1000
     uint8_t escTempCelsius = tmotor.getEscTemperature();

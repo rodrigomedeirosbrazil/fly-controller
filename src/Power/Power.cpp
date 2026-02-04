@@ -148,23 +148,9 @@ unsigned int Power::calcBatteryLimit() {
 unsigned int Power::calcMotorTempLimit() {
     int32_t motorTempMilliCelsius;
 
-    #if IS_TMOTOR
-    // Tmotor: use motor temperature from telemetry (received via CAN)
-    if (!telemetry || !telemetry->getData()) {
-        return 100; // Telemetry not available, allow other limits to control
-    }
-
-    TelemetryData* data = telemetry->getData();
-    if (!data->hasTelemetry) {
-        return 100; // Telemetry not available, allow other limits to control
-    }
-
-    motorTempMilliCelsius = data->motorTemperatureMilliCelsius;
-    #else
-    // Other controllers: use motor temperature from sensor (ADC)
+    // Use motor temperature from sensor (ADC)
     double readedMotorTemp = motorTemp.getTemperature();
     motorTempMilliCelsius = (int32_t)(readedMotorTemp * 1000.0);
-    #endif
 
     // Validate temperature reading (compare in millicelsius)
     if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID) {
