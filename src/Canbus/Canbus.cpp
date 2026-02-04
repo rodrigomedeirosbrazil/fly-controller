@@ -65,6 +65,8 @@ void Canbus::parseCanMsg(twai_message_t *canMsg) {
         return;
     }
     #endif
+
+    printCanMsg(canMsg);
 }
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {

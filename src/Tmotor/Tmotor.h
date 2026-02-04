@@ -80,9 +80,6 @@ private:
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
 
-    // Enable Reporting state
-    bool enableReportingSent;  // Track if Enable Reporting command was successfully sent
-
     // Transfer control
     uint8_t transferId;
 
