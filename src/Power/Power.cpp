@@ -91,6 +91,7 @@ unsigned int Power::getPwm() {
 }
 
 unsigned int Power::getPower() {
+    return 100;
     if (millis() - lastPowerCalculationTime < 1000) {
         return power;
     }
@@ -121,7 +122,7 @@ unsigned int Power::calcBatteryLimit() {
     #if IS_XAG
     return 100;
     #else
-    if (!data->isReady) {
+    if (!data->hasTelemetry) {
         return 0;
     }
 
@@ -147,23 +148,9 @@ unsigned int Power::calcBatteryLimit() {
 unsigned int Power::calcMotorTempLimit() {
     int32_t motorTempMilliCelsius;
 
-    #if IS_TMOTOR
-    // Tmotor: use motor temperature from telemetry (received via CAN)
-    if (!telemetry || !telemetry->getData()) {
-        return 100; // Telemetry not available, allow other limits to control
-    }
-
-    TelemetryData* data = telemetry->getData();
-    if (!data->isReady) {
-        return 100; // ESC not ready, allow other limits to control
-    }
-
-    motorTempMilliCelsius = data->motorTemperatureMilliCelsius;
-    #else
-    // Other controllers: use motor temperature from sensor (ADC)
+    // Use motor temperature from sensor (ADC)
     double readedMotorTemp = motorTemp.getTemperature();
     motorTempMilliCelsius = (int32_t)(readedMotorTemp * 1000.0);
-    #endif
 
     // Validate temperature reading (compare in millicelsius)
     if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID) {
@@ -204,8 +191,8 @@ unsigned int Power::calcEscTempLimit() {
     int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
     #else
     // CAN controllers: use ESC temperature from telemetry
-    if (!data->isReady) {
-        return 100; // ESC not ready, allow other limits to control
+    if (!data->hasTelemetry) {
+        return 100; // Telemetry not available, allow other limits to control
     }
 
     int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;

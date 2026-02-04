@@ -50,12 +50,12 @@ public:
     void parseEscMessage(twai_message_t *canMsg);
 
     // ESC control methods
-    void announce();
     void setLedColor(uint8_t color, uint8_t blink = ledBlinkOff);
     void setDirection(bool isCcw);
     void setThrottleSource(uint8_t source);
     void setRawThrottle(int16_t throttle);
     void requestEscId();
+    void handle();
 
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
@@ -65,7 +65,8 @@ public:
     bool getDirectionCCW() { return isCcwDirection; }
 
     // Connectivity status
-    bool isReady();
+    bool isReady();  // Checks if ESC is available on the network (detected via NodeStatus)
+    bool hasTelemetry();  // Checks if telemetry data is available
 
 private:
     // ESC-specific data
@@ -78,14 +79,12 @@ private:
     // Timestamps for connectivity control
     unsigned long lastReadStatusMsg1;
     unsigned long lastReadStatusMsg2;
-    unsigned long lastAnnounce;
 
     // Transfer control
     uint8_t transferId;
 
     // CAN bus constants
-    const uint8_t nodeId = 0x13;
-    const uint8_t escNodeId = 0x03;
+    const uint8_t escNodeId = 0x03;  // Fallback hardcoded node ID
     const uint8_t escThrottleId = 0x03;
 
     // Hobbywing protocol constants

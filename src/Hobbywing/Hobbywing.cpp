@@ -4,13 +4,13 @@
 #include "../config.h"
 #include "Hobbywing.h"
 #include "../Canbus/CanUtils.h"
+#include "../Throttle/Throttle.h"
 
 extern twai_message_t canMsg;
 
 Hobbywing::Hobbywing() {
     lastReadStatusMsg1 = 0;
     lastReadStatusMsg2 = 0;
-    lastAnnounce = millis();
     transferId = 0;
 
     temperature = 0;
@@ -54,11 +54,17 @@ void Hobbywing::parseEscMessage(twai_message_t *canMsg) {
     }
 }
 
-bool Hobbywing::isReady() {
+bool Hobbywing::hasTelemetry() {
     return lastReadStatusMsg1 != 0
         && lastReadStatusMsg2 != 0
         && millis() - lastReadStatusMsg1 < 1000
         && millis() - lastReadStatusMsg2 < 1000;
+}
+
+bool Hobbywing::isReady() {
+    // ESC is ready if it has been detected via NodeStatus
+    extern Canbus canbus;
+    return canbus.getEscNodeId() != 0;
 }
 
 void Hobbywing::handleStatusMsg1(twai_message_t *canMsg) {
@@ -114,44 +120,6 @@ bool Hobbywing::getDirectionCCWFromPayload(uint8_t *payload) {
 
 // ESC Control Methods
 
-void Hobbywing::announce()
-{
-    if (millis() - lastAnnounce < 1000) {
-        return;
-    }
-
-    lastAnnounce = millis();
-
-    uint32_t uptimeSec = millis() / 1000;
-
-    twai_message_t localCanMsg;
-    uint32_t dataTypeId = 341;
-
-    uint32_t canId = 0;
-    canId |= ((uint32_t)0 << 26);              // Priority
-    canId |= ((uint32_t)dataTypeId << 8);      // DataType ID
-    canId |= (uint32_t)(nodeId & 0xFF);        // Source node ID
-    localCanMsg.identifier = canId;
-    localCanMsg.extd = 1;  // Extended frame (29-bit)
-
-    localCanMsg.data[0] = (uint8_t)(uptimeSec & 0xFF);
-    localCanMsg.data[1] = (uint8_t)((uptimeSec >> 8) & 0xFF);
-    localCanMsg.data[2] = (uint8_t)((uptimeSec >> 16) & 0xFF);
-    localCanMsg.data[3] = (uint8_t)((uptimeSec >> 24) & 0xFF);
-    localCanMsg.data[4] = 0x00; // health: OK
-    localCanMsg.data[5] = 0x00; // mode: operational
-    localCanMsg.data[6] = 0x00; // sub_mode: normal
-    localCanMsg.data[7] = 0x00; // vendor_specific_status_code LSB (rest can be zero)
-
-    // Tail byte (SOF=1, EOF=1, Toggle=0, Transfer ID)
-    localCanMsg.data[8] = 0xC0 | (transferId & 0x1F);
-
-    localCanMsg.data_length_code = 9;
-
-    twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
-    transferId++;
-}
-
 void Hobbywing::setLedColor(uint8_t color, uint8_t blink)
 {
     uint8_t data[3];
@@ -159,10 +127,13 @@ void Hobbywing::setLedColor(uint8_t color, uint8_t blink)
     data[1] = color; // ledColorRed = 0x04 / ledColorGreen = 0x02 / ledColorBlue = 0x01
     data[2] = blink; // blinkOff = 0x00 / Blink1Hz = 0x01 / Blink2Hz = 0x02 / Blink5Hz = 0x05
 
+    // Use detected ESC node ID if available, otherwise fallback to hardcoded
+    extern Canbus canbus;
+    uint8_t targetNodeId = (canbus.getEscNodeId() != 0) ? canbus.getEscNodeId() : escNodeId;
     sendMessage(
         0x00, // priority
         0xd4, // serviceTypeId
-        escNodeId,
+        targetNodeId,
         data,
         3
     );
@@ -174,10 +145,13 @@ void Hobbywing::setDirection(bool isCcw)
 
     data[0] = isCcw ? 0x00 : 0x01;
 
+    // Use detected ESC node ID if available, otherwise fallback to hardcoded
+    extern Canbus canbus;
+    uint8_t targetNodeId = (canbus.getEscNodeId() != 0) ? canbus.getEscNodeId() : escNodeId;
     sendMessage(
         0x00, // priority
         0xD5, // serviceTypeId
-        escNodeId,
+        targetNodeId,
         data,
         1
     );
@@ -189,10 +163,13 @@ void Hobbywing::setThrottleSource(uint8_t source)
 
     data[0] = source;
 
+    // Use detected ESC node ID if available, otherwise fallback to hardcoded
+    extern Canbus canbus;
+    uint8_t targetNodeId = (canbus.getEscNodeId() != 0) ? canbus.getEscNodeId() : escNodeId;
     sendMessage(
         0x00, // priority
         0xD7, // serviceTypeId (0xD7 is 215 in hex)
-        escNodeId,
+        targetNodeId,
         data,
         1 // data length
     );
@@ -209,7 +186,7 @@ void Hobbywing::setRawThrottle(int16_t throttle)
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority = 0
     canId |= (dataTypeId << 8);                // DataType ID
-    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canId |= (canbus.getNodeId() & 0xFF);                  // Source Node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
 
@@ -239,7 +216,7 @@ void Hobbywing::requestEscId() {
     uint32_t canId = 0;
     canId |= ((uint32_t)0 << 26);              // Priority
     canId |= (dataTypeId << 8);                // DataType ID
-    canId |= (nodeId & 0xFF);                  // Source Node ID
+    canId |= (canbus.getNodeId() & 0xFF);                  // Source Node ID
     localCanMsg.identifier = canId;
     localCanMsg.extd = 1;  // Extended frame (29-bit)
 
@@ -291,7 +268,7 @@ void Hobbywing::sendMessage(
     canId |= (1U << 15); // Request, not response
     canId |= ((uint32_t)(destNodeId & 0x7F)) << 8;
     canId |= (1U << 7);  // Service, not message
-    canId |= (uint32_t)(nodeId & 0x7F);
+    canId |= (uint32_t)(canbus.getNodeId() & 0x7F);
 
     // Note: CanUtils functions are available but we construct CAN ID directly here
 
@@ -317,4 +294,7 @@ void Hobbywing::sendMessage(
 
 uint8_t Hobbywing::getEscThrottleIdFromPayload(uint8_t *payload) {
     return payload[1];
+}
+
+void Hobbywing::handle() {
 }

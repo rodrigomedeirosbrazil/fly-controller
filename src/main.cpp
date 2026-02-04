@@ -20,6 +20,9 @@
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/Hobbywing.h"
 #endif
+#if USES_CAN_BUS && IS_TMOTOR
+#include "Tmotor/Tmotor.h"
+#endif
 
 using namespace ace_button;
 #include "Button/Button.h"
@@ -73,12 +76,31 @@ void setup()
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
-  twai_driver_install(&g_config, &t_config, &f_config);
-  twai_start();
+  esp_err_t install_result = twai_driver_install(&g_config, &t_config, &f_config);
+  if (install_result != ESP_OK) {
+    Serial.print("[Main] ERROR: Failed to install TWAI driver - Error: ");
+    Serial.println(install_result);
+  } else {
+    Serial.println("[Main] TWAI driver installed successfully");
+  }
 
-  // Announce presence on CAN bus
-  if (telemetry && telemetry->announce) {
-    telemetry->announce();
+  esp_err_t start_result = twai_start();
+  if (start_result != ESP_OK) {
+    Serial.print("[Main] ERROR: Failed to start TWAI driver - Error: ");
+    Serial.println(start_result);
+  } else {
+    Serial.println("[Main] TWAI driver started successfully");
+
+    // Wait a bit for driver to be ready
+    delay(50);
+
+    // Check driver status (using only standard fields)
+    twai_status_info_t status_info;
+    twai_get_status_info(&status_info);
+    Serial.print("[Main] TWAI Status - TX Errors: ");
+    Serial.print(status_info.tx_error_counter);
+    Serial.print(", RX Errors: ");
+    Serial.println(status_info.rx_error_counter);
   }
 
   // Hobbywing-specific initialization
@@ -117,8 +139,6 @@ void loop()
   }
 
   // Update motor temperature in telemetry (read from sensor)
-  // Note: Tmotor receives motor temperature via CAN, so don't overwrite it
-  #if !IS_TMOTOR
   if (telemetry && telemetry->getData) {
     TelemetryData* data = telemetry->getData();
     if (data) {
@@ -126,7 +146,6 @@ void loop()
       data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0f);
     }
   }
-  #endif
 
   handleEsc();
   handleArmedBeep();
@@ -163,38 +182,19 @@ void checkCanbus()
         canbus.parseCanMsg(&canMsg);
     }
 
-    // Announce presence on CAN bus periodically
-    if (telemetry && telemetry->announce) {
-        telemetry->announce();
+    // Handle periodic CAN commands (400 Hz throttle)
+    canbus.handle();
+
+    // Send NodeStatus to announce presence on CAN bus periodically
+    if (telemetry && telemetry->sendNodeStatus) {
+        telemetry->sendNodeStatus();
     }
 #endif
 }
 
 bool isMotorRunning()
 {
-    if (!telemetry || !telemetry->getData) {
-        // Fallback: check throttle position
-        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    }
-
-    TelemetryData* data = telemetry->getData();
-    if (!data) {
-        // Fallback: check throttle position
-        return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    }
-
-    #if IS_XAG
-    // XAG mode: check throttle position only (no RPM data available)
-    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    #else
-    // CAN controllers: check if ESC is ready and has RPM data
-    if (data->isReady && data->rpm > 10) {
-        return true;
-    }
-
-    // Fallback: check throttle position
-    return throttle.getThrottlePercentage() > 5 && throttle.isArmed();
-    #endif
+    return throttle.getThrottlePercentage() > 1 && throttle.isArmed();
 }
 
 void handleArmedBeep()

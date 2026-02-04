@@ -16,8 +16,8 @@ static void hobbywingUpdate() {
 
     TelemetryData* data = &g_hobbywingProvider->data;
 
-    if (!hobbywing.isReady()) {
-        data->isReady = false;
+    if (!hobbywing.hasTelemetry()) {
+        data->hasTelemetry = false;
         return;
     }
 
@@ -35,13 +35,13 @@ static void hobbywingUpdate() {
     data->escTemperatureMilliCelsius = (int32_t)escTempCelsius * 1000;
 
     data->lastUpdate = millis();
-    data->isReady = true;
+    data->hasTelemetry = true;
 }
 
 static void hobbywingInit() {
     // Hobbywing initialization is done in main.cpp
     if (g_hobbywingProvider) {
-        g_hobbywingProvider->data.isReady = false; // Will be set to true when data arrives
+        g_hobbywingProvider->data.hasTelemetry = false; // Will be set to true when data arrives
     }
 }
 
@@ -50,16 +50,17 @@ static TelemetryData* hobbywingGetData() {
     return &g_hobbywingProvider->data;
 }
 
-static void hobbywingAnnounce() {
-    hobbywing.announce();
+static void hobbywingSendNodeStatus() {
+    extern Canbus canbus;
+    canbus.sendNodeStatus();
 }
 
 static void hobbywingHandleCanMessage(twai_message_t* msg) {
     hobbywing.parseEscMessage(msg);
 }
 
-static bool hobbywingIsReady() {
-    return hobbywing.isReady();
+static bool hobbywingHasTelemetry() {
+    return hobbywing.hasTelemetry();
 }
 
 TelemetryProvider createHobbywingProvider() {
@@ -67,11 +68,11 @@ TelemetryProvider createHobbywingProvider() {
         .update = hobbywingUpdate,
         .init = hobbywingInit,
         .getData = hobbywingGetData,
-        .announce = hobbywingAnnounce,
+        .sendNodeStatus = hobbywingSendNodeStatus,
         .handleCanMessage = hobbywingHandleCanMessage,
-        .isReady = hobbywingIsReady,
+        .hasTelemetry = hobbywingHasTelemetry,
         .data = {
-            .isReady = false,
+            .hasTelemetry = false,
             .batteryVoltageMilliVolts = 0,
             .batteryCurrent = 0,
             .rpm = 0,
@@ -91,9 +92,9 @@ TelemetryProvider createHobbywingProvider() {
         .update = nullptr,
         .init = nullptr,
         .getData = nullptr,
-        .announce = nullptr,
+        .sendNodeStatus = nullptr,
         .handleCanMessage = nullptr,
-        .isReady = nullptr,
+        .hasTelemetry = nullptr,
         .data = {}
     };
     return provider;

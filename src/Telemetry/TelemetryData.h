@@ -9,7 +9,7 @@
  */
 struct TelemetryData {
     // Status
-    bool isReady;
+    bool hasTelemetry;
 
     // Battery
     uint16_t batteryVoltageMilliVolts;  // mV (ex: 44100 = 44.100V, max 60V = 60000 mV)
