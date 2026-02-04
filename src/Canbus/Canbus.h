@@ -40,6 +40,10 @@ class Canbus
 
         // NodeStatus handling (generic DroneCAN protocol)
         void handleNodeStatus(twai_message_t *canMsg);
+
+        // GetNodeInfo service handling
+        void handleGetNodeInfoRequest(twai_message_t *canMsg);
+        void sendGetNodeInfoResponse(uint8_t requestorNodeId, uint8_t transferId);
 };
 
 #endif

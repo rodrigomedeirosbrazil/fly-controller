@@ -101,6 +101,24 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     }
 }
 
+void Tmotor::handle() {
+    // Check if ESC is detected and Enable Reporting not sent yet
+    extern Canbus canbus;
+    if (canbus.getEscNodeId() == 0) {
+        return;
+    }
+
+    // CAN throttle period: 2.5ms (400 Hz)
+    // Check if 2ms has elapsed (allowing for some jitter)
+    if (millis() - lastThrottleSend < 2) {
+        return;
+    }
+
+    setRawThrottle(0);
+
+    lastThrottleSend = millis();
+}
+
 bool Tmotor::hasTelemetry() {
     // Consider telemetry available if we've received ESC_STATUS within the last second
     return lastReadEscStatus != 0
@@ -797,22 +815,4 @@ void Tmotor::setRawThrottle(int16_t throttle) {
     twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
 
     transferId = (transferId + 1) & 0x1F;
-}
-
-void Tmotor::handle() {
-    // Check if ESC is detected and Enable Reporting not sent yet
-    extern Canbus canbus;
-    if (canbus.getEscNodeId() == 0) {
-        return;
-    }
-
-    // CAN throttle period: 2.5ms (400 Hz)
-    // Check if 2ms has elapsed (allowing for some jitter)
-    if (millis() - lastThrottleSend < 2) {
-        return;
-    }
-
-    setRawThrottle(0);
-
-    lastThrottleSend = millis();
 }
