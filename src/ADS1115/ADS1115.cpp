@@ -4,6 +4,7 @@ ADS1115::ADS1115() {
     initialized = false;
     for (int i = 0; i < 4; i++) {
         lastValue[i] = 0;
+        lastVoltage[i] = 0.0;
     }
 }
 
@@ -49,6 +50,10 @@ int ADS1115::readChannel(uint8_t channel) {
         return lastValue[channel];
     }
 
+    // Calculate voltage from raw value (for accurate calculations)
+    double voltage = (rawValue * ADS1115_VREF) / ADS1115_MAX_VALUE;
+    lastVoltage[channel] = voltage;
+
     // Convert to 12-bit equivalent (0-4095) for compatibility with existing code
     int convertedValue = convertTo12Bit(rawValue);
 
@@ -56,6 +61,21 @@ int ADS1115::readChannel(uint8_t channel) {
     lastValue[channel] = convertedValue;
 
     return convertedValue;
+}
+
+double ADS1115::readVoltage(uint8_t channel) {
+    if (!initialized) {
+        return lastVoltage[channel];
+    }
+
+    if (channel > 3) {
+        return lastVoltage[channel];
+    }
+
+    // Read channel to update voltage cache
+    readChannel(channel);
+
+    return lastVoltage[channel];
 }
 
 int ADS1115::convertTo12Bit(int adsValue) {
