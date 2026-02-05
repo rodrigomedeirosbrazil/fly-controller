@@ -112,7 +112,7 @@ void setup()
   #endif
 #endif
 
-  buzzer.beepWarning();
+  buzzer.beepSystemStart();
 
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
@@ -207,7 +207,7 @@ void handleArmedBeep()
 
     // Start continuous beep when armed and motor stops
     if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
-        buzzer.beepCustom(500, 255); // 500ms beep, 255 repetitions (continuous)
+        buzzer.beepArmedAlert(); // Continuous intermittent beep - critical safety alert
     }
 
     // Stop beep when motor starts running or throttle is disarmed
