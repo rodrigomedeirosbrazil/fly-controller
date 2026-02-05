@@ -39,7 +39,13 @@ void Temperature::readTemperature() {
   // This reduces random noise from the ADC
   int oversampledValue = 0;
   for (int i = 0; i < oversample; i++) {
+#if IS_TMOTOR
+    // Use ADS1115 for Tmotor
+    oversampledValue += ads1115.readChannel(ADS1115_TEMP_CHANNEL);
+#else
+    // Use built-in ADC for Hobbywing and XAG
     oversampledValue += analogRead(pin);
+#endif
   }
   pinValues[samples - 1] = oversampledValue / oversample;
 
@@ -53,6 +59,7 @@ void Temperature::readTemperature() {
   // Divider: 3.3V -> [R 10K] -> GPIO1 -> [NTC rt] -> GND
   // Voltage at GPIO1: v = ADC_VREF * rt / (R + rt)
   // Solving for rt: rt = (v * R) / (ADC_VREF - v)
+  // Note: ADS1115 values are already converted to 12-bit equivalent (0-4095)
   double v = (ADC_VREF * sum) / (samples * ADC_MAX_VALUE);
   double rt = (v * R) / (ADC_VREF - v);
 
