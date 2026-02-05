@@ -17,6 +17,9 @@
 #include <driver/twai.h>
 #endif
 #include "Power/Power.h"
+#if IS_TMOTOR
+#include "ADS1115/ADS1115.h"
+#endif
 
 class Power;
 class Xctod;
@@ -40,6 +43,9 @@ extern Temperature escTemp;
 #endif
 extern Power power;
 extern Xctod xctod;
+#if IS_TMOTOR
+extern ADS1115 ads1115;
+#endif
 // TelemetryProvider* is declared in config.cpp after including TelemetryProvider.h
 
 // ========== ANALOG INPUTS (ADC1 - WiFi compatible) ==========
@@ -123,5 +129,13 @@ extern Xctod xctod;
 #define ADC_MAX_VALUE 4095       // Maximum ADC reading
 #define ADC_VREF 3.3             // Reference voltage (3.3V)
 #define ADC_ATTENUATION ADC_11db // Full range 0-3.3V
+
+// ========== I2C CONFIGURATION (Tmotor only - ADS1115) ==========
+#if IS_TMOTOR
+#define I2C_SDA_PIN 20           // GPIO20 - I2C SDA for ADS1115
+#define I2C_SCL_PIN 21           // GPIO21 - I2C SCL for ADS1115
+#define ADS1115_THROTTLE_CHANNEL 0  // ADS1115 Channel A0 - Throttle Hall Sensor
+#define ADS1115_TEMP_CHANNEL 1      // ADS1115 Channel A1 - Motor NTC Sensor
+#endif
 
 #endif

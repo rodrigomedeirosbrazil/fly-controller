@@ -38,6 +38,12 @@ void setup()
   Serial.begin(115200);
   webServer.begin();
 
+#if IS_TMOTOR
+  // Initialize ADS1115 for Tmotor
+  extern ADS1115 ads1115;
+  ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+#else
+  // Initialize built-in ADC for Hobbywing and XAG
   analogReadResolution(ADC_RESOLUTION);
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
@@ -56,6 +62,7 @@ void setup()
 #endif
     delay(10);
   }
+#endif
 
   xctod.init();
   logger.init();
