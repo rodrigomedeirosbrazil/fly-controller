@@ -35,6 +35,9 @@ Temperature escTemp(ESC_TEMPERATURE_PIN);
 
 Power power;
 Xctod xctod;
+#if IS_TMOTOR
+ADS1115 ads1115;
+#endif
 
 // Define telemetry pointer (declared above after includes)
 TelemetryProvider* telemetry = &telemetryProvider;
