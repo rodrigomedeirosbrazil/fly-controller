@@ -24,7 +24,6 @@ private:
     void openLogFile();
     void closeLogFile();
     void stopLogging();
-    void checkSpaceAndRotate();
 };
 
 #endif
