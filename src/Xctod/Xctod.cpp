@@ -213,7 +213,18 @@ void Xctod::writeBatteryInfo(String &data) {
     // Power is not calculated in XAG mode (no current data)
     data += String(voltagePercentage);
     data += ",";
-    data += String(voltage, 2);
+    // Format directly from millivolts using integer operations only
+    uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
+    uint16_t volts = millivolts / 1000;
+    uint16_t decimals = millivolts % 1000;
+    data += String(volts);
+    data += ".";
+    if (decimals < 10) {
+        data += "00";
+    } else if (decimals < 100) {
+        data += "0";
+    }
+    data += String(decimals);
     data += ",";
     data += ","; // power_kw (not available)
     #else
@@ -226,8 +237,11 @@ void Xctod::writeBatteryInfo(String &data) {
     int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
     batteryPercentage = constrain(batteryPercentage, 0, 100);
 
-    // Get voltage for display and power calculation (not for SoC)
-    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
+    // Format voltage directly from millivolts using integer operations only
+    uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
+    uint16_t volts = millivolts / 1000;
+    uint16_t decimals = millivolts % 1000;
+    float voltage = millivolts / 1000.0f; // Still need float for power calculation
 
     // Calculate power in KW using current and voltage
     float current = (float)telemetryData->batteryCurrent; // Current is already in amperes
@@ -235,7 +249,14 @@ void Xctod::writeBatteryInfo(String &data) {
 
     data += String(batteryPercentage);
     data += ",";
-    data += String(voltage, 2);
+    data += String(volts);
+    data += ".";
+    if (decimals < 10) {
+        data += "00";
+    } else if (decimals < 100) {
+        data += "0";
+    }
+    data += String(decimals);
     data += ",";
     data += String(powerKw, 1);
     data += ",";
@@ -290,9 +311,8 @@ void Xctod::writeMotorInfo(String &data) {
 
     data += String(telemetryData->rpm);
     data += ",";
-    // Current is already in amperes
-    float current = (float)telemetryData->batteryCurrent;
-    data += String(current, 2);
+    // Current is already an integer in amperes, format directly without float conversion
+    data += String(telemetryData->batteryCurrent);
     data += ",";
     #endif
 }
