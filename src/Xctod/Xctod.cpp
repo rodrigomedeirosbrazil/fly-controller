@@ -29,8 +29,8 @@ class ServerCallbacks : public BLEServerCallbacks {
 
 Xctod::Xctod() {
     lastUpdate = 0;
-    batteryCapacityAh = 65.0;
-    remainingAh = 65.0;
+    batteryCapacityMilliAh = 65000;  // 65.0 Ah = 65000 mAh
+    remainingMilliAh = 65000;
     lastCoulombTs = 0;
     pServer = nullptr;
     pService = nullptr;
@@ -128,19 +128,24 @@ void Xctod::updateCoulombCount() {
         return;
     }
 
-    // Calculate time delta in hours
+    // Calculate time delta in milliseconds
     unsigned long deltaMs = currentTs - lastCoulombTs;
-    float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
 
-    // Calculate Ah consumed: ΔAh = I * Δt
-    float currentAmps = (float)data->batteryCurrent;
-    float deltaAh = currentAmps * deltaHours;
+    // Calculate mAh consumed using integer arithmetic: ΔmAh = (I(A) * Δt(ms)) / 3600
+    // This avoids float conversion: current is in amperes, deltaMs in milliseconds
+    uint32_t deltaMilliAh = ((uint32_t)data->batteryCurrent * deltaMs) / 3600;
 
     // Subtract from remaining capacity (discharging = positive current)
-    remainingAh -= deltaAh;
+    if (deltaMilliAh <= remainingMilliAh) {
+        remainingMilliAh -= deltaMilliAh;
+    } else {
+        remainingMilliAh = 0;  // Prevent underflow
+    }
 
-    // Constrain to valid range: 0.0 ≤ remainingAh ≤ batteryCapacityAh
-    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
+    // Constrain to valid range: 0 ≤ remainingMilliAh ≤ batteryCapacityMilliAh
+    if (remainingMilliAh > batteryCapacityMilliAh) {
+        remainingMilliAh = batteryCapacityMilliAh;
+    }
 
     // Update timestamp
     lastCoulombTs = currentTs;
@@ -180,11 +185,13 @@ void Xctod::recalibrateFromVoltage() {
     );
     voltagePercentage = constrain(voltagePercentage, 0, 100);
 
-    // Calculate remainingAh from voltage percentage
-    remainingAh = (voltagePercentage / 100.0) * batteryCapacityAh;
+    // Calculate remainingMilliAh from voltage percentage using integer arithmetic
+    remainingMilliAh = ((uint32_t)voltagePercentage * batteryCapacityMilliAh) / 100;
 
-    // Constrain to valid range
-    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
+    // Constrain to valid range: 0 ≤ remainingMilliAh ≤ batteryCapacityMilliAh
+    if (remainingMilliAh > batteryCapacityMilliAh) {
+        remainingMilliAh = batteryCapacityMilliAh;
+    }
     #endif
 }
 
@@ -198,8 +205,6 @@ void Xctod::writeBatteryInfo(String &data) {
 
     #if IS_XAG
     // XAG mode: read battery voltage from telemetry
-    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
-
     // Calculate battery percentage from voltage (not reliable for power control)
     int voltagePercentage = map(
         telemetryData->batteryVoltageMilliVolts,
@@ -233,19 +238,20 @@ void Xctod::writeBatteryInfo(String &data) {
         return;
     }
 
-    // Calculate battery percentage from Coulomb Counting
-    int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
+    // Calculate battery percentage from Coulomb Counting using integer arithmetic
+    int batteryPercentage = (remainingMilliAh * 100) / batteryCapacityMilliAh;
     batteryPercentage = constrain(batteryPercentage, 0, 100);
 
     // Format voltage directly from millivolts using integer operations only
     uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
-    float voltage = millivolts / 1000.0f; // Still need float for power calculation
 
-    // Calculate power in KW using current and voltage
-    float current = (float)telemetryData->batteryCurrent; // Current is already in amperes
-    float powerKw = (voltage * current) / 1000.0; // Convert to KW
+    // Calculate power in milliwatts using integer arithmetic: P(mW) = V(mV) * I(A)
+    uint32_t powerMilliWatts = (uint32_t)millivolts * (uint32_t)telemetryData->batteryCurrent;
+    // Convert to kW for display: divide by 1,000,000
+    uint32_t powerKwInt = powerMilliWatts / 1000000;
+    uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10; // First decimal place
 
     data += String(batteryPercentage);
     data += ",";
@@ -258,7 +264,10 @@ void Xctod::writeBatteryInfo(String &data) {
     }
     data += String(decimals);
     data += ",";
-    data += String(powerKw, 1);
+    // Format power in kW with 1 decimal place
+    data += String(powerKwInt);
+    data += ".";
+    data += String(powerKwDecimal);
     data += ",";
     #endif
 }
@@ -283,8 +292,9 @@ void Xctod::writeMotorInfo(String &data) {
         data += ","; // motor temperature not available
     } else {
         TelemetryData* telemetryData = telemetry->getData();
-        float motorTempCelsius = milliCelsiusToCelsius(telemetryData->motorTemperatureMilliCelsius);
-        data += String(motorTempCelsius, 0);
+        // Format directly from millicelsius using integer division
+        int32_t tempCelsius = telemetryData->motorTemperatureMilliCelsius / 1000;
+        data += String(tempCelsius);
     }
     data += ",";
     #else
@@ -325,9 +335,9 @@ void Xctod::writeEscInfo(String &data) {
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    // Convert millicelsius to celsius for display
-    float escTempCelsius = milliCelsiusToCelsius(telemetryData->escTemperatureMilliCelsius);
-    data += String(escTempCelsius, 0);
+    // Format directly from millicelsius using integer division
+    int32_t escTempCelsius = telemetryData->escTemperatureMilliCelsius / 1000;
+    data += String(escTempCelsius);
     data += ",";
 }
 

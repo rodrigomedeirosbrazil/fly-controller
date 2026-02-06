@@ -22,9 +22,9 @@ private:
     unsigned long lastUpdate;
     static const unsigned long UPDATE_INTERVAL = 1000;
 
-    // Coulomb Counting state
-    float batteryCapacityAh;
-    float remainingAh;
+    // Coulomb Counting state (using milliampere-hours to avoid float)
+    uint32_t batteryCapacityMilliAh;  // Capacity in mAh (e.g., 65000 = 65.0 Ah)
+    uint32_t remainingMilliAh;        // Remaining capacity in mAh
     unsigned long lastCoulombTs;
 
     BLEServer *pServer;
