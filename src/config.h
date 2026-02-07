@@ -17,6 +17,7 @@
 #include <driver/twai.h>
 #endif
 #include "Power/Power.h"
+#include "BatteryMonitor/BatteryMonitor.h"
 #if IS_TMOTOR
 #include "ADS1115/ADS1115.h"
 #endif
@@ -42,6 +43,7 @@ extern twai_message_t canMsg;
 extern Temperature escTemp;
 #endif
 extern Power power;
+extern BatteryMonitor batteryMonitor;
 extern Xctod xctod;
 #if IS_TMOTOR
 extern ADS1115 ads1115;
@@ -75,6 +77,7 @@ extern ADS1115 ads1115;
 // ========== BATTERY PARAMETERS ==========
 #define BATTERY_MIN_VOLTAGE 44100 // 44100 millivolts = 44.100 V - ~3.15 V per cell
 #define BATTERY_MAX_VOLTAGE 58500 // 58500 millivolts = 58.500 V - 4.15 V per cell
+#define BATTERY_CELL_COUNT 14  // 14S LiPo battery pack
 #if IS_XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0

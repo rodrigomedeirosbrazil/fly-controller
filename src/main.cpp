@@ -14,6 +14,7 @@
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Power/Power.h"
+#include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
 #include "WebServer/ControllerWebServer.h"
 #include "Telemetry/TelemetryProvider.h"
@@ -144,6 +145,10 @@ void loop()
   if (telemetry && telemetry->update) {
     telemetry->update();
   }
+
+  // Update battery monitor (Coulomb counting, SoC)
+  extern BatteryMonitor batteryMonitor;
+  batteryMonitor.update();
 
   // Update motor temperature in telemetry (read from sensor)
   if (telemetry && telemetry->getData) {
