@@ -91,7 +91,6 @@ unsigned int Power::getPwm() {
 }
 
 unsigned int Power::getPower() {
-    return 100;
     if (millis() - lastPowerCalculationTime < 1000) {
         return power;
     }
