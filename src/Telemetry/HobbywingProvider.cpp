@@ -24,7 +24,7 @@ static void hobbywingUpdate() {
     // Voltage is already in millivolts from Hobbywing class
     data->batteryVoltageMilliVolts = hobbywing.getBatteryVoltageMilliVolts();
 
-    data->batteryCurrent = hobbywing.getBatteryCurrent();
+    data->batteryCurrentMilliAmps = hobbywing.getBatteryCurrent();
 
     data->rpm = hobbywing.getRpm();
 
@@ -74,7 +74,7 @@ TelemetryProvider createHobbywingProvider() {
         .data = {
             .hasTelemetry = false,
             .batteryVoltageMilliVolts = 0,
-            .batteryCurrent = 0,
+            .batteryCurrentMilliAmps = 0,
             .rpm = 0,
             .motorTemperatureMilliCelsius = 0,
             .escTemperatureMilliCelsius = 0,

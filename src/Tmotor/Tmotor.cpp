@@ -47,7 +47,7 @@ Tmotor::Tmotor() {
 
     escTemperature = 0;
     motorTemperature = 0;
-    batteryCurrent = 0;
+    batteryCurrentMilliAmps = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
     errorCount = 0;
@@ -210,7 +210,7 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         // Extract current (float16, bytes 8-9, little-endian) - CORRECTED POSITION
         uint16_t currentFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
         float current = convertFloat16ToFloat(currentFloat16);
-        batteryCurrent = (uint8_t)(current + 0.5f);
+        batteryCurrentMilliAmps = (uint32_t)(current * 1000.0f + 0.5f);
 
         // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
         if (escStatusBufferLen >= 12) {

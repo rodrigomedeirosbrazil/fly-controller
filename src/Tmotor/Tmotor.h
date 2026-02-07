@@ -51,7 +51,7 @@ public:
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
     uint16_t getBatteryVoltageMilliVolts() { return batteryVoltageMilliVolts; }
-    uint8_t getBatteryCurrent() { return batteryCurrent; }
+    uint32_t getBatteryCurrent() { return batteryCurrentMilliAmps; }
     uint8_t getEscTemperature() { return escTemperature; }  // ESC temperature in Celsius
     uint8_t getMotorTemperature() { return motorTemperature; }  // Motor temperature in Celsius
     uint32_t getErrorCount() { return errorCount; }
@@ -66,7 +66,7 @@ private:
     // ESC-specific data
     uint8_t escTemperature;      // ESC temperature in Celsius
     uint8_t motorTemperature;    // Motor temperature in Celsius
-    uint8_t batteryCurrent;  // Current in amperes (integers, ex: 50 = 50A, max 200A)
+    uint32_t batteryCurrentMilliAmps;  // Current in milliamperes (ex: 50000 = 50.000A, max 500A = 500000 mA)
     uint16_t batteryVoltageMilliVolts; // Voltage in millivolts (3 decimal places, ex: 44100 = 44.100V, max 60V = 60000 mV)
     uint16_t rpm;                // RPM
     uint32_t errorCount;         // Error count

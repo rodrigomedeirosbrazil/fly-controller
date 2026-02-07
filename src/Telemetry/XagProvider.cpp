@@ -43,7 +43,7 @@ static void xagUpdate() {
     #endif
 
     // XAG mode: no current data available
-    data->batteryCurrent = 0;
+    data->batteryCurrentMilliAmps = 0;
 
     // XAG mode: no RPM data available
     data->rpm = 0;
@@ -97,7 +97,7 @@ TelemetryProvider createXagProvider() {
         .data = {
             .hasTelemetry = true,
             .batteryVoltageMilliVolts = 0,
-            .batteryCurrent = 0,
+            .batteryCurrentMilliAmps = 0,
             .rpm = 0,
             .motorTemperatureMilliCelsius = 0,
             .escTemperatureMilliCelsius = 0,

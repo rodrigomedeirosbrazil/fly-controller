@@ -121,7 +121,7 @@ void Xctod::updateCoulombCount() {
     }
 
     // Check if we should recalibrate from voltage (no load condition)
-    if (data->batteryCurrent == 0) {
+    if (data->batteryCurrentMilliAmps == 0) {
         recalibrateFromVoltage();
         // Still update timestamp to avoid accumulation of time
         lastCoulombTs = currentTs;
@@ -131,9 +131,9 @@ void Xctod::updateCoulombCount() {
     // Calculate time delta in milliseconds
     unsigned long deltaMs = currentTs - lastCoulombTs;
 
-    // Calculate mAh consumed using integer arithmetic: ΔmAh = (I(A) * Δt(ms)) / 3600
-    // This avoids float conversion: current is in amperes, deltaMs in milliseconds
-    uint32_t deltaMilliAh = ((uint32_t)data->batteryCurrent * deltaMs) / 3600;
+    // Calculate mAh consumed using integer arithmetic: ΔmAh = (I(mA) * Δt(ms)) / 3600000
+    // This avoids float conversion: current is in milliamperes, deltaMs in milliseconds
+    uint32_t deltaMilliAh = (data->batteryCurrentMilliAmps * deltaMs) / 3600000;
 
     // Subtract from remaining capacity (discharging = positive current)
     if (deltaMilliAh <= remainingMilliAh) {
@@ -247,8 +247,8 @@ void Xctod::writeBatteryInfo(String &data) {
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
-    // Calculate power in milliwatts using integer arithmetic: P(mW) = V(mV) * I(A)
-    uint32_t powerMilliWatts = (uint32_t)millivolts * (uint32_t)telemetryData->batteryCurrent;
+    // Calculate power in milliwatts using integer arithmetic: P(mW) = V(mV) * I(mA) / 1000
+    uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetryData->batteryCurrentMilliAmps) / 1000;
     // Convert to kW for display: divide by 1,000,000
     uint32_t powerKwInt = powerMilliWatts / 1000000;
     uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10; // First decimal place
@@ -321,8 +321,8 @@ void Xctod::writeMotorInfo(String &data) {
 
     data += String(telemetryData->rpm);
     data += ",";
-    // Current is already an integer in amperes, format directly without float conversion
-    data += String(telemetryData->batteryCurrent);
+    // Convert current from milliamperes to amperes (integer): I(A) = I(mA) / 1000
+    data += String(telemetryData->batteryCurrentMilliAmps / 1000);
     data += ",";
     #endif
 }

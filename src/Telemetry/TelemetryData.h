@@ -13,7 +13,7 @@ struct TelemetryData {
 
     // Battery
     uint16_t batteryVoltageMilliVolts;  // mV (ex: 44100 = 44.100V, max 60V = 60000 mV)
-    uint8_t batteryCurrent;  // A (ex: 50 = 50A, max 200A)
+    uint32_t batteryCurrentMilliAmps;  // mA (ex: 50000 = 50.000A, max 500A = 500000 mA)
 
     // Motor
     uint16_t rpm;
