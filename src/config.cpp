@@ -1,6 +1,7 @@
 #include "config.h"
 #include "Telemetry/TelemetryProvider.h"
 #include "Power/Power.h"
+#include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
 
 // Select telemetry provider based on build configuration
@@ -34,6 +35,7 @@ Temperature escTemp(ESC_TEMPERATURE_PIN);
 #endif
 
 Power power;
+BatteryMonitor batteryMonitor;
 Xctod xctod;
 #if IS_TMOTOR
 ADS1115 ads1115;

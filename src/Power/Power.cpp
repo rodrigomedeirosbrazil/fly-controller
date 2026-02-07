@@ -91,7 +91,6 @@ unsigned int Power::getPwm() {
 }
 
 unsigned int Power::getPower() {
-    return 100;
     if (millis() - lastPowerCalculationTime < 1000) {
         return power;
     }
@@ -301,18 +300,19 @@ unsigned int Power::applyPreStart() {
 unsigned int Power::applySmoothStart(int targetPwm) {
     unsigned long now = millis();
 
-    // Calculate progress (0.0 to 1.0)
+    // Calculate progress in permille (0 to 1000) using integer arithmetic
     unsigned long elapsed = now - smoothStartBeginTime;
-    float progress = (float)elapsed / (float)SMOOTH_START_DURATION;
+    uint16_t progressPermille = (elapsed * 1000) / SMOOTH_START_DURATION;
 
-    // Clamp progress to 1.0
-    if (progress >= 1.0f) {
-        progress = 1.0f;
+    // Clamp progress to 1000 (100%)
+    if (progressPermille >= 1000) {
+        progressPermille = 1000;
         smoothStartActive = false; // Smooth start complete
     }
 
     // Linear interpolation from smoothStartInitialPwm (preStartPwm) to targetPwm
-    int smoothPwm = smoothStartInitialPwm + (int)((targetPwm - smoothStartInitialPwm) * progress);
+    // Using integer arithmetic: smoothPwm = initial + ((target - initial) * progressPermille) / 1000
+    int smoothPwm = smoothStartInitialPwm + ((targetPwm - smoothStartInitialPwm) * progressPermille) / 1000;
 
     // Ensure the result is within valid PWM range
     smoothPwm = constrain(smoothPwm, ESC_MIN_PWM, ESC_MAX_PWM);

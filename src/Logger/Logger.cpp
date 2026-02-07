@@ -1,8 +1,6 @@
 #include "Logger.h"
 #include "../Throttle/Throttle.h"
 
-#define MIN_FREE_SPACE_BYTES 102400 // 100KB
-
 extern Throttle throttle;
 
 Logger::Logger() {
@@ -155,8 +153,6 @@ void Logger::log(const String &data) {
 
     if (currentFileName.length() == 0) return;
 
-    checkSpaceAndRotate();
-
     // Ensure file is open
     if (!fileOpen) {
         openLogFile();
@@ -168,99 +164,4 @@ void Logger::log(const String &data) {
 
     logFile.print(data);
     logFile.flush(); // Force data to be written to storage immediately
-}
-
-void Logger::checkSpaceAndRotate() {
-    size_t total = LittleFS.totalBytes();
-    size_t used = LittleFS.usedBytes();
-    size_t free = total - used;
-
-    while (free < MIN_FREE_SPACE_BYTES) {
-        Serial.printf("Low space: %u bytes. Rotating...\n", free);
-
-        closeLogFile();
-
-        File root = LittleFS.open("/");
-        if (!root) {
-            Serial.println("Failed to open directory for rotation");
-            openLogFile();
-            break;
-        }
-
-        root.rewindDirectory();
-
-        int minFileNum = -1;
-        String oldestFileName = "";
-
-        String currentNumPart = currentFileName;
-        if (currentNumPart.startsWith("/")) {
-            currentNumPart = currentNumPart.substring(1);
-        }
-        int dotIndexCurrent = currentNumPart.indexOf('.');
-        int currentFileNum = -1;
-        if (dotIndexCurrent > 0) {
-            String numPart = currentNumPart.substring(0, dotIndexCurrent);
-            currentFileNum = numPart.toInt();
-        }
-
-        File file = root.openNextFile();
-        while (file) {
-            String fileName = file.name();
-            if (fileName.startsWith("/")) {
-                fileName = fileName.substring(1);
-            }
-
-            // Only rotate our log files
-            int dotIndex = fileName.indexOf('.');
-            if (dotIndex > 0) {
-                String numPart = fileName.substring(0, dotIndex);
-                bool isDigit = true;
-                for (unsigned int i = 0; i < numPart.length(); i++) {
-                    if (!isdigit(numPart.charAt(i))) {
-                        isDigit = false;
-                        break;
-                    }
-                }
-                if (isDigit) {
-                    int num = numPart.toInt();
-                    if (currentFileNum != -1 && num != currentFileNum) {
-                        if (minFileNum == -1 || num < minFileNum) {
-                            minFileNum = num;
-                            oldestFileName = file.name(); // Keep original name with slash if needed by FS
-                        }
-                    }
-                }
-            }
-            file.close();
-            file = root.openNextFile();
-        }
-
-        root.close();
-
-        if (minFileNum != -1 && oldestFileName.length() > 0) {
-            // Ensure path has slash
-            String pathToDelete = oldestFileName;
-            if (!pathToDelete.startsWith("/")) {
-                pathToDelete = "/" + pathToDelete;
-            }
-
-            if (pathToDelete != currentFileName) {
-                Serial.print("Deleting old log: ");
-                Serial.println(pathToDelete);
-                LittleFS.remove(pathToDelete);
-
-                // Update free space
-                used = LittleFS.usedBytes();
-                free = total - used;
-            } else {
-                Serial.println("Error: Attempted to delete current log file. Skipping rotation.");
-                break;
-            }
-        } else {
-            Serial.println("No deletable log files found or disk full with current file.");
-            break;
-        }
-
-        openLogFile();
-    }
 }

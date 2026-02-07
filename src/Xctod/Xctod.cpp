@@ -4,6 +4,7 @@
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
+#include "../BatteryMonitor/BatteryMonitor.h"
 #include "../config.h"
 #include "../Logger/Logger.h"
 
@@ -14,6 +15,7 @@ extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
 extern TelemetryProvider* telemetry;
+extern BatteryMonitor batteryMonitor;
 extern Logger logger;
 
 class ServerCallbacks : public BLEServerCallbacks {
@@ -29,9 +31,6 @@ class ServerCallbacks : public BLEServerCallbacks {
 
 Xctod::Xctod() {
     lastUpdate = 0;
-    batteryCapacityAh = 65.0;
-    remainingAh = 65.0;
-    lastCoulombTs = 0;
     pServer = nullptr;
     pService = nullptr;
     pCharacteristic = nullptr;
@@ -78,8 +77,6 @@ void Xctod::write() {
 
     lastUpdate = millis();
 
-    updateCoulombCount();
-
     String data = "$XCTOD,";
 
     writeBatteryInfo(data);
@@ -95,99 +92,6 @@ void Xctod::write() {
     pCharacteristic->notify();
 }
 
-void Xctod::updateCoulombCount() {
-    if (!telemetry || !telemetry->getData()) {
-        return;
-    }
-
-    TelemetryData* data = telemetry->getData();
-
-    #if IS_XAG
-    // XAG mode: no current data available, skip Coulomb counting
-    return;
-    #else
-    if (!data->hasTelemetry) {
-        return;
-    }
-
-    unsigned long currentTs = millis();
-
-    // Initialize timestamp on first call
-    if (lastCoulombTs == 0) {
-        lastCoulombTs = currentTs;
-        // Recalibrate from voltage on first call if system is ready
-        recalibrateFromVoltage();
-        return;
-    }
-
-    // Check if we should recalibrate from voltage (no load condition)
-    if (data->batteryCurrent == 0) {
-        recalibrateFromVoltage();
-        // Still update timestamp to avoid accumulation of time
-        lastCoulombTs = currentTs;
-        return;
-    }
-
-    // Calculate time delta in hours
-    unsigned long deltaMs = currentTs - lastCoulombTs;
-    float deltaHours = deltaMs / 3600000.0;  // Convert milliseconds to hours
-
-    // Calculate Ah consumed: ΔAh = I * Δt
-    float currentAmps = (float)data->batteryCurrent;
-    float deltaAh = currentAmps * deltaHours;
-
-    // Subtract from remaining capacity (discharging = positive current)
-    remainingAh -= deltaAh;
-
-    // Constrain to valid range: 0.0 ≤ remainingAh ≤ batteryCapacityAh
-    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
-
-    // Update timestamp
-    lastCoulombTs = currentTs;
-    #endif
-}
-
-void Xctod::recalibrateFromVoltage() {
-    if (!telemetry || !telemetry->getData()) {
-        return;
-    }
-
-    TelemetryData* data = telemetry->getData();
-
-    #if IS_XAG
-    // XAG mode: no voltage data available, skip recalibration
-    return;
-    #else
-    if (!data->hasTelemetry) {
-        return;
-    }
-
-    // Check if voltage range is valid (min != max)
-    if (BATTERY_MIN_VOLTAGE == BATTERY_MAX_VOLTAGE) {
-        return;
-    }
-
-    // Use millivolts directly for comparison
-    uint16_t batteryMilliVolts = data->batteryVoltageMilliVolts;
-
-    // Map voltage to percentage (0-100)
-    int voltagePercentage = map(
-        batteryMilliVolts,
-        BATTERY_MIN_VOLTAGE,
-        BATTERY_MAX_VOLTAGE,
-        0,
-        100
-    );
-    voltagePercentage = constrain(voltagePercentage, 0, 100);
-
-    // Calculate remainingAh from voltage percentage
-    remainingAh = (voltagePercentage / 100.0) * batteryCapacityAh;
-
-    // Constrain to valid range
-    remainingAh = constrain(remainingAh, 0.0, batteryCapacityAh);
-    #endif
-}
-
 void Xctod::writeBatteryInfo(String &data) {
     if (!telemetry || !telemetry->getData()) {
         data += ",,,"; // battery percentage, voltage, power_kw
@@ -196,48 +100,43 @@ void Xctod::writeBatteryInfo(String &data) {
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    #if IS_XAG
-    // XAG mode: read battery voltage from telemetry
-    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
+    // Get SoC from BatteryMonitor
+    uint8_t batteryPercentage = batteryMonitor.getSoC();
 
-    // Calculate battery percentage from voltage (not reliable for power control)
-    int voltagePercentage = map(
-        telemetryData->batteryVoltageMilliVolts,
-        BATTERY_MIN_VOLTAGE,
-        BATTERY_MAX_VOLTAGE,
-        0,
-        100
-    );
-    voltagePercentage = constrain(voltagePercentage, 0, 100);
-
-    // Power is not calculated in XAG mode (no current data)
-    data += String(voltagePercentage);
-    data += ",";
-    data += String(voltage, 2);
-    data += ",";
-    data += ","; // power_kw (not available)
-    #else
-    if (!telemetryData->hasTelemetry) {
-        data += ",,,"; // battery percentage, voltage, power_kw
-        return;
-    }
-
-    // Calculate battery percentage from Coulomb Counting
-    int batteryPercentage = (remainingAh / batteryCapacityAh) * 100.0;
-    batteryPercentage = constrain(batteryPercentage, 0, 100);
-
-    // Get voltage for display and power calculation (not for SoC)
-    float voltage = milliVoltsToVolts(telemetryData->batteryVoltageMilliVolts);
-
-    // Calculate power in KW using current and voltage
-    float current = (float)telemetryData->batteryCurrent; // Current is already in amperes
-    float powerKw = (voltage * current) / 1000.0; // Convert to KW
+    // Format voltage
+    uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
+    uint16_t volts = millivolts / 1000;
+    uint16_t decimals = millivolts % 1000;
 
     data += String(batteryPercentage);
     data += ",";
-    data += String(voltage, 2);
+    data += String(volts);
+    data += ".";
+    if (decimals < 10) {
+        data += "00";
+    } else if (decimals < 100) {
+        data += "0";
+    }
+    data += String(decimals);
     data += ",";
-    data += String(powerKw, 1);
+
+    #if IS_XAG
+    // XAG: power not calculable (no current data)
+    data += ",";
+    #else
+    if (!telemetryData->hasTelemetry) {
+        data += ","; // power_kw
+        return;
+    }
+
+    // Calculate power in milliwatts: P(mW) = V(mV) * I(mA) / 1000
+    uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetryData->batteryCurrentMilliAmps) / 1000;
+    uint32_t powerKwInt = powerMilliWatts / 1000000;
+    uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
+
+    data += String(powerKwInt);
+    data += ".";
+    data += String(powerKwDecimal);
     data += ",";
     #endif
 }
@@ -262,8 +161,9 @@ void Xctod::writeMotorInfo(String &data) {
         data += ","; // motor temperature not available
     } else {
         TelemetryData* telemetryData = telemetry->getData();
-        float motorTempCelsius = milliCelsiusToCelsius(telemetryData->motorTemperatureMilliCelsius);
-        data += String(motorTempCelsius, 0);
+        // Format directly from millicelsius using integer division
+        int32_t tempCelsius = telemetryData->motorTemperatureMilliCelsius / 1000;
+        data += String(tempCelsius);
     }
     data += ",";
     #else
@@ -290,9 +190,8 @@ void Xctod::writeMotorInfo(String &data) {
 
     data += String(telemetryData->rpm);
     data += ",";
-    // Current is already in amperes
-    float current = (float)telemetryData->batteryCurrent;
-    data += String(current, 2);
+    // Convert current from milliamperes to amperes (integer): I(A) = I(mA) / 1000
+    data += String(telemetryData->batteryCurrentMilliAmps / 1000);
     data += ",";
     #endif
 }
@@ -305,9 +204,9 @@ void Xctod::writeEscInfo(String &data) {
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    // Convert millicelsius to celsius for display
-    float escTempCelsius = milliCelsiusToCelsius(telemetryData->escTemperatureMilliCelsius);
-    data += String(escTempCelsius, 0);
+    // Format directly from millicelsius using integer division
+    int32_t escTempCelsius = telemetryData->escTemperatureMilliCelsius / 1000;
+    data += String(escTempCelsius);
     data += ",";
 }
 

@@ -22,7 +22,7 @@ static void tmotorUpdate() {
     }
 
     data->batteryVoltageMilliVolts = tmotor.getBatteryVoltageMilliVolts();
-    data->batteryCurrent = tmotor.getBatteryCurrent();
+    data->batteryCurrentMilliAmps = tmotor.getBatteryCurrent();
 
     data->rpm = tmotor.getRpm();
 
@@ -75,7 +75,7 @@ TelemetryProvider createTmotorProvider() {
         .data = {
             .hasTelemetry = false,
             .batteryVoltageMilliVolts = 0,
-            .batteryCurrent = 0,
+            .batteryCurrentMilliAmps = 0,
             .rpm = 0,
             .motorTemperatureMilliCelsius = 0,
             .escTemperatureMilliCelsius = 0,

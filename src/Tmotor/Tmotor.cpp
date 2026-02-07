@@ -47,7 +47,7 @@ Tmotor::Tmotor() {
 
     escTemperature = 0;
     motorTemperature = 0;
-    batteryCurrent = 0;
+    batteryCurrentMilliAmps = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
     errorCount = 0;
@@ -210,7 +210,7 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         // Extract current (float16, bytes 8-9, little-endian) - CORRECTED POSITION
         uint16_t currentFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
         float current = convertFloat16ToFloat(currentFloat16);
-        batteryCurrent = (uint8_t)(current + 0.5f);
+        batteryCurrentMilliAmps = (uint32_t)(current * 1000.0f + 0.5f);
 
         // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
         if (escStatusBufferLen >= 12) {
@@ -364,15 +364,26 @@ void Tmotor::handleEscStatus5(twai_message_t *canMsg) {
     int16_t motor_temp_raw = (int16_t)((uint16_t)canMsg->data[4] |
                                        ((uint16_t)canMsg->data[5] << 8));
 
-    // Convert to Celsius (comes in 0.1°C)
-    float cap_temp_celsius = cap_temp_raw / 10.0f;
-    float motor_temp_celsius = motor_temp_raw / 10.0f;
+    // Convert to Celsius (comes in 0.1°C) using integer division with rounding
+    // For positive values: (value + 5) / 10 rounds correctly
+    // For negative values: (value - 5) / 10 rounds correctly
+    int16_t cap_temp_celsius = (cap_temp_raw >= 0) ? (cap_temp_raw + 5) / 10 : (cap_temp_raw - 5) / 10;
+    int16_t motor_temp_celsius = (motor_temp_raw >= 0) ? (motor_temp_raw + 5) / 10 : (motor_temp_raw - 5) / 10;
 
-    // Store (convert to uint8_t, rounding)
-    this->motorTemperature = (uint8_t)(motor_temp_celsius + 0.5f);
+    // Store (convert to uint8_t, with range check)
+    if (motor_temp_celsius < 0) {
+        this->motorTemperature = 0;
+    } else if (motor_temp_celsius > 255) {
+        this->motorTemperature = 255;
+    } else {
+        this->motorTemperature = (uint8_t)motor_temp_celsius;
+    }
 
     Serial.print("[Tmotor] Status 5: IDC=");
-    Serial.print(idc * 0.1f);
+    // Format current with 1 decimal: idc is in 0.1A units
+    Serial.print(idc / 10);
+    Serial.print(".");
+    Serial.print(abs(idc % 10));
     Serial.print("A, Cap=");
     Serial.print(cap_temp_celsius);
     Serial.print("°C, Motor=");
