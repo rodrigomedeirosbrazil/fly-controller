@@ -84,8 +84,8 @@ extern ADS1115 ads1115;
 #endif
 
 // ========== MOTOR PARAMETERS ==========
-#define MOTOR_MAX_TEMP 60000 // 60000 millicelsius = 60.000°C
-#define MOTOR_TEMP_REDUCTION_START 50000 // 50000 millicelsius = 50.000°C - Start reducing power at this temperature
+#define MOTOR_MAX_TEMP 100000 // 60000 millicelsius = 60.000°C
+#define MOTOR_TEMP_REDUCTION_START 80000 // 50000 millicelsius = 50.000°C - Start reducing power at this temperature
 #define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
 #define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
 
