@@ -38,9 +38,10 @@ class Buzzer {
     uint8_t currentNoteIndex;
     uint32_t noteStartTime;
     bool noteIsOn;
+    bool melodyRepeat;  // If true, melody repeats continuously
 
     void startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency = 0);
-    void startMelody(const Melody* melody);
+    void startMelody(const Melody* melody, bool repeat = false);
     bool isPlaying() { return playing || playingMelody; };
     void setPwmOn();
     void setPwmOff();
