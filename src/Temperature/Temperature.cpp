@@ -39,11 +39,11 @@ void Temperature::readTemperature() {
   // This reduces random noise from the ADC
   // ADS1115 is more precise, so we use less oversampling for it
   int oversampledValue = 0;
-#if IS_TMOTOR
-  // Use ADS1115 for Tmotor - single read is sufficient (ADS1115 is 16-bit, more precise)
+#if IS_TMOTOR || IS_HOBBYWING
+  // Use ADS1115 for Tmotor and Hobbywing - single read is sufficient (ADS1115 is 16-bit, more precise)
   oversampledValue = ads1115.readChannel(ADS1115_TEMP_CHANNEL);
 #else
-  // Use built-in ADC for Hobbywing and XAG - multiple reads needed for noise reduction
+  // Use built-in ADC for XAG - multiple reads needed for noise reduction
   for (int i = 0; i < oversample; i++) {
     oversampledValue += analogRead(pin);
   }
@@ -58,7 +58,7 @@ void Temperature::readTemperature() {
   }
 
   double v; // Voltage at the divider point
-#if IS_TMOTOR
+#if IS_TMOTOR || IS_HOBBYWING
   // ADS1115: Calculate voltage from averaged ADC values using correct reference
   // ADS1115 uses 4.096V reference (GAIN_ONE), but values are converted to 0-4095 scale
   // To get accurate voltage, we need to convert back: v = (value * 4.096) / 4095

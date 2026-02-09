@@ -37,7 +37,7 @@ Temperature escTemp(ESC_TEMPERATURE_PIN);
 Power power;
 BatteryMonitor batteryMonitor;
 Xctod xctod;
-#if IS_TMOTOR
+#if IS_TMOTOR || IS_HOBBYWING
 ADS1115 ads1115;
 #endif
 

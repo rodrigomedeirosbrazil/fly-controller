@@ -149,11 +149,11 @@ void Throttle::readThrottlePin()
   // This reduces random noise from the ADC
   // ADS1115 is more precise, so we use less oversampling for it
   int oversampledValue = 0;
-#if IS_TMOTOR
-  // Use ADS1115 for Tmotor - single read is sufficient (ADS1115 is 16-bit, more precise)
+#if IS_TMOTOR || IS_HOBBYWING
+  // Use ADS1115 for Tmotor and Hobbywing - single read is sufficient (ADS1115 is 16-bit, more precise)
   oversampledValue = ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
 #else
-  // Use built-in ADC for Hobbywing and XAG - multiple reads needed for noise reduction
+  // Use built-in ADC for XAG - multiple reads needed for noise reduction
   for (int i = 0; i < oversample; i++) {
     oversampledValue += analogRead(THROTTLE_PIN);
   }

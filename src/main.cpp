@@ -39,28 +39,26 @@ void setup()
   Serial.begin(115200);
   webServer.begin();
 
-#if IS_TMOTOR
-  // Initialize ADS1115 for Tmotor
+#if IS_TMOTOR || IS_HOBBYWING
+  // Initialize ADS1115 for Tmotor and Hobbywing
   extern ADS1115 ads1115;
   ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-#else
-  // Initialize built-in ADC for Hobbywing and XAG
+#endif
+
+#if IS_XAG
+  // Initialize built-in ADC for XAG
   analogReadResolution(ADC_RESOLUTION);
   analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
-#if IS_XAG
   analogSetPinAttenuation(ESC_TEMPERATURE_PIN, ADC_ATTENUATION);
   analogSetPinAttenuation(BATTERY_VOLTAGE_PIN, ADC_ATTENUATION);
-#endif
 
   // Warm-up ADC: discard first readings
   for (int i = 0; i < 10; i++) {
     analogRead(THROTTLE_PIN);
     analogRead(MOTOR_TEMPERATURE_PIN);
-#if IS_XAG
     analogRead(ESC_TEMPERATURE_PIN);
     analogRead(BATTERY_VOLTAGE_PIN);
-#endif
     delay(10);
   }
 #endif
