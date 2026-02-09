@@ -79,7 +79,7 @@ void Throttle::handleCalibration(unsigned long now)
         // Set the max throttle value as the average
         throttlePinMax = calibrationSumMax / calibrationCountMax;
 
-        buzzer.beepSuccess();
+        buzzer.beepCalibrationStep();
 
         // Move to next step
         calibratingStep = 1;
@@ -117,13 +117,12 @@ void Throttle::handleCalibration(unsigned long now)
 
       // Check if we've held the throttle for the required time
       if (now - calibrationStartTime >= calibrationTime && calibrationCountMin > 0) {
-        buzzer.beepSuccess();
-
         // Set the min throttle value as the average
         throttlePinMin = calibrationSumMin / calibrationCountMin;
 
         // Calibration complete
         calibrated = true;
+        buzzer.beepCalibrationComplete();
         return;
       }
 
@@ -211,7 +210,7 @@ void Throttle::setArmed()
   }
 
   if (getThrottlePercentage() > 0) {
-    buzzer.beepWarning();
+    buzzer.beepArmingBlocked();
     armingTries++;
 
     if (armingTries > 2) {
@@ -223,7 +222,6 @@ void Throttle::setArmed()
   }
 
   throttleArmed = true;
-  buzzer.beepSuccess();
 #if USES_CAN_BUS && IS_HOBBYWING
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorRed, Hobbywing::ledBlink5Hz);
@@ -234,7 +232,7 @@ void Throttle::setArmed()
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
-  buzzer.beepError();
+  buzzer.beepDisarmed();
 #if USES_CAN_BUS && IS_HOBBYWING
   if (hobbywing.isReady()) {
     hobbywing.setLedColor(Hobbywing::ledColorGreen);

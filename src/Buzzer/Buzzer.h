@@ -4,6 +4,19 @@
 #include <Arduino.h>
 #include <driver/ledc.h>
 
+// Structure for a single note
+struct Note {
+  uint16_t frequency;  // Frequency in Hz
+  uint16_t duration;  // Duration in ms
+};
+
+// Structure for a melody (sequence of notes)
+struct Melody {
+  const Note* notes;
+  uint8_t noteCount;
+  uint16_t pauseBetweenNotes;  // Pause between notes in ms
+};
+
 class Buzzer {
   private:
     uint8_t pin;
@@ -19,19 +32,35 @@ class Buzzer {
     uint8_t currentRepetition;
     bool isOn;
 
-    void startBeep(uint16_t duration, uint8_t reps, uint16_t pause);
-    bool isPlaying() { return playing; };
+    // Melody/sequence support
+    bool playingMelody;
+    const Melody* currentMelody;
+    uint8_t currentNoteIndex;
+    uint32_t noteStartTime;
+    bool noteIsOn;
+    bool melodyRepeat;  // If true, melody repeats continuously
+
+    void startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency = 0);
+    void startMelody(const Melody* melody, bool repeat = false);
+    bool isPlaying() { return playing || playingMelody; };
     void setPwmOn();
     void setPwmOff();
+    void setFrequency(uint16_t frequency);
 
   public:
     Buzzer(uint8_t buzzerPin);
     void setup();
     void handle();
-    void beepSuccess();
-    void beepError();
-    void beepWarning();
-    void beepCustom(uint16_t duration, uint8_t repetitions);
+
+    // Contextual methods
+    void beepSystemStart();
+    void beepCalibrationStep();
+    void beepCalibrationComplete();
+    void beepDisarmed();
+    void beepArmingBlocked();
+    void beepButtonClick();
+    void beepArmedAlert();
+
     void stop();
 };
 

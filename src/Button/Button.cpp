@@ -43,7 +43,7 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
       break;
     case AceButton::kEventReleased:
       if (buttonWasClicked) {
-        buzzer.beepCustom(100, 0);
+        buzzer.beepButtonClick();
 
         releaseButtonTime = millis();
         buttonWasClicked = false;
