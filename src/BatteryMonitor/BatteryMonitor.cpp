@@ -165,6 +165,13 @@ uint8_t BatteryMonitor::getSoC() {
     #endif
 }
 
+uint8_t BatteryMonitor::getSoCFromVoltage() {
+    if (!telemetry || !telemetry->getData()) {
+        return 0;
+    }
+    return estimateSoCFromVoltageLiPo(telemetry->getData()->batteryVoltageMilliVolts);
+}
+
 uint16_t BatteryMonitor::getRemainingMah() {
     #if IS_XAG
     // XAG: estimate from voltage

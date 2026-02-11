@@ -67,7 +67,7 @@ void Xctod::init() {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE advertising started");
-    Serial.println("$XCTOD,battery_percent,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
+    Serial.println("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
 }
 
 void Xctod::write() {
@@ -94,21 +94,26 @@ void Xctod::write() {
 
 void Xctod::writeBatteryInfo(String &data) {
     if (!telemetry || !telemetry->getData()) {
-        data += ",,,"; // battery percentage, voltage, power_kw
+        data += ",,,,"; // battery_percent_cc, battery_percent_voltage, voltage, power_kw
         return;
     }
 
     TelemetryData* telemetryData = telemetry->getData();
 
-    // Get SoC from BatteryMonitor
-    uint8_t batteryPercentage = batteryMonitor.getSoC();
+    // Get SoC from BatteryMonitor (coulomb counting for Hobbywing/Tmotor, voltage for XAG)
+    uint8_t batteryPercentageCC = batteryMonitor.getSoC();
+
+    // Get SoC based on voltage only
+    uint8_t batteryPercentageVoltage = batteryMonitor.getSoCFromVoltage();
 
     // Format voltage
     uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
-    data += String(batteryPercentage);
+    data += String(batteryPercentageCC);
+    data += ",";
+    data += String(batteryPercentageVoltage);
     data += ",";
     data += String(volts);
     data += ".";

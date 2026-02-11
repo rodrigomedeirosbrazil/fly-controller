@@ -18,6 +18,7 @@ public:
 
     // Public SoC access methods
     uint8_t getSoC();                  // Returns 0-100%
+    uint8_t getSoCFromVoltage();       // Returns 0-100% based on voltage only
     uint16_t getRemainingMah();        // Returns mAh remaining
     uint16_t getConsumedMah();         // Returns mAh consumed
     uint16_t getCapacity();            // Returns battery capacity in mAh
