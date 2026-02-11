@@ -11,6 +11,7 @@ public:
     void init();
     void startLogging();
     void log(const String &data);
+    void setHeader(const String &header);
     ~Logger();
 
 private:
@@ -19,6 +20,7 @@ private:
     bool fileOpen;
     bool loggingEnabled;
     bool wasArmed;
+    String csvHeader;
 
     void createNewFile();
     void openLogFile();

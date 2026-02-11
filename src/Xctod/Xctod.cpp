@@ -67,7 +67,9 @@ void Xctod::init() {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE advertising started");
-    Serial.println("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
+
+    // Configure CSV header for log file
+    logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
 }
 
 void Xctod::write() {

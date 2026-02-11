@@ -8,6 +8,7 @@ Logger::Logger() {
     fileOpen = false;
     loggingEnabled = false;
     wasArmed = false;
+    csvHeader = "";
 }
 
 void Logger::init() {
@@ -107,6 +108,12 @@ void Logger::openLogFile() {
         return;
     }
     fileOpen = true;
+
+    if (logFile.size() == 0 && csvHeader.length() > 0) {
+        logFile.print(csvHeader);
+        logFile.print("\r\n");
+        logFile.flush();
+    }
 }
 
 void Logger::closeLogFile() {
@@ -124,6 +131,10 @@ void Logger::stopLogging() {
         // Prepare new file for next session
         createNewFile();
     }
+}
+
+void Logger::setHeader(const String &header) {
+    csvHeader = header;
 }
 
 void Logger::log(const String &data) {
