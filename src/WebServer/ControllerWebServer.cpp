@@ -38,11 +38,15 @@ const char* INDEX_HTML = R"rawliteral(
         .btn-sm { padding: 5px 10px; font-size: 12px; margin: 2px; text-decoration: none; display: inline-block; border-radius: 3px; color: white; border: none; cursor: pointer;}
         .btn-download { background-color: #28a745; }
         .btn-delete { background-color: #dc3545; }
+        .btn-config { background-color: #17a2b8; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border-radius: 4px; margin: 10px 0; font-size: 16px; }
+        .btn-config:hover { background-color: #138496; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>FlyController</h1>
+
+        <a href="/config" class="btn-config">⚙️ Configuration</a>
 
         <h2>Firmware Update</h2>
         <p>Select a .bin file to update the device.</p>
