@@ -428,14 +428,11 @@ void ControllerWebServer::startAP() {
         request->send(200, "text/html", INDEX_HTML);
     });
 
-    // Configuration page
-    server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", CONFIG_HTML);
-    });
-
-    // Get current configuration values (JSON)
+    // Get current configuration values (JSON) - register BEFORE /config to avoid conflicts
     server.on("/config/values", HTTP_GET, [](AsyncWebServerRequest *request){
         extern Settings settings;
+
+        Serial.println("[WebServer] /config/values requested");
 
         DynamicJsonDocument doc(512);
         doc["batteryCapacity"] = settings.getBatteryCapacityMah();
@@ -448,10 +445,12 @@ void ControllerWebServer::startAP() {
 
         String response;
         serializeJson(doc, response);
+        Serial.print("[WebServer] Sending JSON response: ");
+        Serial.println(response);
         request->send(200, "application/json", response);
     });
 
-    // Save configuration
+    // Save configuration - register BEFORE /config to avoid conflicts
     server.on("/config/save", HTTP_POST, [](AsyncWebServerRequest *request){}, nullptr,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
             static String body;
@@ -549,6 +548,11 @@ void ControllerWebServer::startAP() {
             }
         });
 
+    // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
+    server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", CONFIG_HTML);
+    });
+
     // Serve static files from LittleFS under /logs
     server.serveStatic("/logs", LittleFS, "/");
 
@@ -633,9 +637,17 @@ void ControllerWebServer::startAP() {
         }
     );
 
-    // Set up captive portal redirection for any request
+    // Set up captive portal redirection for any request (BEFORE server.begin())
     // ElegantOTA will handle its own routes, so we just need to redirect GET requests
     server.onNotFound([](AsyncWebServerRequest *request) {
+        // Don't redirect API endpoints or config page
+        String url = request->url();
+        if (url.startsWith("/config")) {
+            // Let the specific /config routes handle it, or return 404 if not found
+            request->send(404);
+            return;
+        }
+
         if (request->method() == HTTP_GET) {
             request->redirect("http://" + apIP.toString());
         } else {
