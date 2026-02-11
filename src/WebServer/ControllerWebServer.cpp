@@ -1,8 +1,10 @@
 #include "ControllerWebServer.h"
 #include <ESPmDNS.h>
 #include "../config.h"
+#include "../Settings/Settings.h"
 #include <Update.h>
 #include <LittleFS.h>
+#include <ArduinoJson.h>
 
 const char* SOFT_AP_SSID = "FlyController";
 
@@ -162,6 +164,245 @@ const char* INDEX_HTML = R"rawliteral(
 </html>
 )rawliteral";
 
+const char* CONFIG_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Configuration</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
+        h1 { color: #333; text-align: center; }
+        h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; }
+        input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        select { cursor: pointer; }
+        .info-text { color: #888; font-size: 12px; margin-top: 5px; }
+        .total-voltage { background-color: #e7f3ff; padding: 8px; border-radius: 4px; margin-top: 5px; font-size: 12px; color: #0066cc; }
+        button { background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 20px; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .message { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FlyController Configuration</h1>
+
+        <form id="configForm">
+            <h2>Battery Settings</h2>
+
+            <div class="form-group">
+                <label for="batteryCapacity">Battery Capacity (Ah):</label>
+                <select id="batteryCapacity" name="batteryCapacity">
+                    <option value="18">18 Ah</option>
+                    <option value="35">35 Ah</option>
+                    <option value="65">65 Ah</option>
+                    <option value="custom">Custom (enter value)</option>
+                </select>
+                <input type="number" id="batteryCapacityCustom" name="batteryCapacityCustom" min="1" max="200" step="0.1" placeholder="Enter capacity in Ah" style="display: none; margin-top: 10px;">
+                <div class="info-text">Select from preset values or choose custom to enter your own capacity.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="minVoltagePerCell">Minimum Voltage per Cell (V):</label>
+                <input type="number" id="minVoltagePerCell" name="minVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
+                <div class="info-text">Minimum safe voltage per cell (typically 3.0V - 3.15V for LiPo).</div>
+                <div class="total-voltage" id="minVoltageTotal">Total: <span id="minVoltageTotalValue">0.00</span> V (14 cells)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="maxVoltagePerCell">Maximum Voltage per Cell (V):</label>
+                <input type="number" id="maxVoltagePerCell" name="maxVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
+                <div class="info-text">Maximum safe voltage per cell (typically 4.1V - 4.2V for LiPo).</div>
+                <div class="total-voltage" id="maxVoltageTotal">Total: <span id="maxVoltageTotalValue">0.00</span> V (14 cells)</div>
+            </div>
+
+            <h2>Motor Temperature Settings</h2>
+
+            <div class="form-group">
+                <label for="motorMaxTemp">Maximum Motor Temperature (°C):</label>
+                <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
+                <div class="info-text">Motor will be completely disabled at this temperature.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="motorTempReductionStart">Motor Temperature Reduction Start (°C):</label>
+                <input type="number" id="motorTempReductionStart" name="motorTempReductionStart" min="0" max="150" step="1" required>
+                <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+            </div>
+
+            <h2>ESC Temperature Settings</h2>
+
+            <div class="form-group">
+                <label for="escMaxTemp">Maximum ESC Temperature (°C):</label>
+                <input type="number" id="escMaxTemp" name="escMaxTemp" min="0" max="150" step="1" required>
+                <div class="info-text">ESC will be completely disabled at this temperature.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="escTempReductionStart">ESC Temperature Reduction Start (°C):</label>
+                <input type="number" id="escTempReductionStart" name="escTempReductionStart" min="0" max="150" step="1" required>
+                <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+            </div>
+
+            <button type="submit" id="saveButton">Save Configuration</button>
+            <div class="message" id="message"></div>
+        </form>
+
+        <a href="/" class="back-link">← Back to Main Page</a>
+    </div>
+
+    <script>
+        const CELL_COUNT = 14; // BATTERY_CELL_COUNT
+
+        // Load current values
+        function loadCurrentValues() {
+            fetch('/config/values')
+                .then(response => response.json())
+                .then(data => {
+                    // Battery capacity
+                    const capacityAh = data.batteryCapacity / 1000;
+                    if (capacityAh == 18 || capacityAh == 35 || capacityAh == 65) {
+                        document.getElementById('batteryCapacity').value = capacityAh;
+                        document.getElementById('batteryCapacityCustom').style.display = 'none';
+                    } else {
+                        document.getElementById('batteryCapacity').value = 'custom';
+                        document.getElementById('batteryCapacityCustom').value = capacityAh;
+                        document.getElementById('batteryCapacityCustom').style.display = 'block';
+                    }
+
+                    // Battery voltages (convert from millivolts to volts per cell)
+                    const minVoltagePerCell = (data.batteryMinVoltage / 1000) / CELL_COUNT;
+                    const maxVoltagePerCell = (data.batteryMaxVoltage / 1000) / CELL_COUNT;
+                    document.getElementById('minVoltagePerCell').value = minVoltagePerCell.toFixed(2);
+                    document.getElementById('maxVoltagePerCell').value = maxVoltagePerCell.toFixed(2);
+                    updateVoltageTotals();
+
+                    // Motor temperatures (convert from millicelsius to celsius)
+                    document.getElementById('motorMaxTemp').value = data.motorMaxTemp / 1000;
+                    document.getElementById('motorTempReductionStart').value = data.motorTempReductionStart / 1000;
+
+                    // ESC temperatures (convert from millicelsius to celsius)
+                    document.getElementById('escMaxTemp').value = data.escMaxTemp / 1000;
+                    document.getElementById('escTempReductionStart').value = data.escTempReductionStart / 1000;
+                })
+                .catch(error => {
+                    console.error('Error loading values:', error);
+                    showMessage('Error loading current configuration', 'error');
+                });
+        }
+
+        // Update voltage totals when per-cell values change
+        function updateVoltageTotals() {
+            const minVoltagePerCell = parseFloat(document.getElementById('minVoltagePerCell').value) || 0;
+            const maxVoltagePerCell = parseFloat(document.getElementById('maxVoltagePerCell').value) || 0;
+
+            const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
+            const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
+
+            document.getElementById('minVoltageTotalValue').textContent = minVoltageTotal.toFixed(2);
+            document.getElementById('maxVoltageTotalValue').textContent = maxVoltageTotal.toFixed(2);
+        }
+
+        // Handle battery capacity select change
+        document.getElementById('batteryCapacity').addEventListener('change', function() {
+            if (this.value === 'custom') {
+                document.getElementById('batteryCapacityCustom').style.display = 'block';
+                document.getElementById('batteryCapacityCustom').focus();
+            } else {
+                document.getElementById('batteryCapacityCustom').style.display = 'none';
+            }
+        });
+
+        // Update voltage totals on input
+        document.getElementById('minVoltagePerCell').addEventListener('input', updateVoltageTotals);
+        document.getElementById('maxVoltagePerCell').addEventListener('input', updateVoltageTotals);
+
+        // Handle form submission
+        document.getElementById('configForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const saveButton = document.getElementById('saveButton');
+            const messageDiv = document.getElementById('message');
+            saveButton.disabled = true;
+            messageDiv.style.display = 'none';
+
+            // Get battery capacity
+            let capacityAh;
+            if (document.getElementById('batteryCapacity').value === 'custom') {
+                capacityAh = parseFloat(document.getElementById('batteryCapacityCustom').value);
+            } else {
+                capacityAh = parseFloat(document.getElementById('batteryCapacity').value);
+            }
+
+            // Validate
+            if (!capacityAh || capacityAh < 1 || capacityAh > 200) {
+                showMessage('Battery capacity must be between 1 and 200 Ah', 'error');
+                saveButton.disabled = false;
+                return;
+            }
+
+            // Prepare data
+            const minVoltagePerCell = parseFloat(document.getElementById('minVoltagePerCell').value);
+            const maxVoltagePerCell = parseFloat(document.getElementById('maxVoltagePerCell').value);
+            const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
+            const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
+
+            const data = {
+                batteryCapacity: Math.round(capacityAh * 1000), // Convert to mAh
+                batteryMinVoltage: Math.round(minVoltageTotal * 1000), // Convert to millivolts
+                batteryMaxVoltage: Math.round(maxVoltageTotal * 1000), // Convert to millivolts
+                motorMaxTemp: Math.round(parseFloat(document.getElementById('motorMaxTemp').value) * 1000), // Convert to millicelsius
+                motorTempReductionStart: Math.round(parseFloat(document.getElementById('motorTempReductionStart').value) * 1000),
+                escMaxTemp: Math.round(parseFloat(document.getElementById('escMaxTemp').value) * 1000),
+                escTempReductionStart: Math.round(parseFloat(document.getElementById('escTempReductionStart').value) * 1000)
+            };
+
+            // Send to server
+            fetch('/config/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.text())
+            .then(text => {
+                if (text.includes('Success') || response.ok) {
+                    showMessage('Configuration saved successfully!', 'success');
+                } else {
+                    showMessage('Error saving configuration: ' + text, 'error');
+                }
+                saveButton.disabled = false;
+            })
+            .catch(error => {
+                showMessage('Error saving configuration: ' + error, 'error');
+                saveButton.disabled = false;
+            });
+        });
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = 'message ' + type;
+            messageDiv.style.display = 'block';
+        }
+
+        // Load values on page load
+        loadCurrentValues();
+    </script>
+</body>
+</html>
+)rawliteral";
+
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     isActive = true;
 }
@@ -186,6 +427,127 @@ void ControllerWebServer::startAP() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", INDEX_HTML);
     });
+
+    // Configuration page
+    server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", CONFIG_HTML);
+    });
+
+    // Get current configuration values (JSON)
+    server.on("/config/values", HTTP_GET, [](AsyncWebServerRequest *request){
+        extern Settings settings;
+
+        DynamicJsonDocument doc(512);
+        doc["batteryCapacity"] = settings.getBatteryCapacityMah();
+        doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
+        doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
+        doc["motorMaxTemp"] = settings.getMotorMaxTemp();
+        doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
+        doc["escMaxTemp"] = settings.getEscMaxTemp();
+        doc["escTempReductionStart"] = settings.getEscTempReductionStart();
+
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
+    // Save configuration
+    server.on("/config/save", HTTP_POST, [](AsyncWebServerRequest *request){}, nullptr,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            static String body;
+            if (index == 0) {
+                body = "";
+            }
+            body += String((char*)data);
+
+            if (index + len == total) {
+                extern Settings settings;
+
+                DynamicJsonDocument doc(512);
+                DeserializationError error = deserializeJson(doc, body);
+
+                if (error) {
+                    request->send(400, "text/plain", "Invalid JSON: " + String(error.c_str()));
+                    return;
+                }
+
+                // Validate and set values
+                if (doc.containsKey("batteryCapacity")) {
+                    uint16_t capacity = doc["batteryCapacity"];
+                    if (capacity >= 1000 && capacity <= 200000) {
+                        settings.setBatteryCapacityMah(capacity);
+                    } else {
+                        request->send(400, "text/plain", "Battery capacity out of range (1000-200000 mAh)");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("batteryMinVoltage")) {
+                    uint16_t minV = doc["batteryMinVoltage"];
+                    if (minV >= 2500 && minV <= 63000) { // 2.5V to 63V (4.5V * 14 cells)
+                        settings.setBatteryMinVoltage(minV);
+                    } else {
+                        request->send(400, "text/plain", "Battery min voltage out of range");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("batteryMaxVoltage")) {
+                    uint16_t maxV = doc["batteryMaxVoltage"];
+                    if (maxV >= 2500 && maxV <= 63000) {
+                        settings.setBatteryMaxVoltage(maxV);
+                    } else {
+                        request->send(400, "text/plain", "Battery max voltage out of range");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("motorMaxTemp")) {
+                    int32_t temp = doc["motorMaxTemp"];
+                    if (temp >= 0 && temp <= 150000) {
+                        settings.setMotorMaxTemp(temp);
+                    } else {
+                        request->send(400, "text/plain", "Motor max temp out of range (0-150000 millicelsius)");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("motorTempReductionStart")) {
+                    int32_t temp = doc["motorTempReductionStart"];
+                    if (temp >= 0 && temp <= 150000) {
+                        settings.setMotorTempReductionStart(temp);
+                    } else {
+                        request->send(400, "text/plain", "Motor temp reduction start out of range");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("escMaxTemp")) {
+                    int32_t temp = doc["escMaxTemp"];
+                    if (temp >= 0 && temp <= 150000) {
+                        settings.setEscMaxTemp(temp);
+                    } else {
+                        request->send(400, "text/plain", "ESC max temp out of range");
+                        return;
+                    }
+                }
+
+                if (doc.containsKey("escTempReductionStart")) {
+                    int32_t temp = doc["escTempReductionStart"];
+                    if (temp >= 0 && temp <= 150000) {
+                        settings.setEscTempReductionStart(temp);
+                    } else {
+                        request->send(400, "text/plain", "ESC temp reduction start out of range");
+                        return;
+                    }
+                }
+
+                // Save to Preferences
+                settings.save();
+
+                request->send(200, "text/plain", "Success: Configuration saved");
+            }
+        });
 
     // Serve static files from LittleFS under /logs
     server.serveStatic("/logs", LittleFS, "/");

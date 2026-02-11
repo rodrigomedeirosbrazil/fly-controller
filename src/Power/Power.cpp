@@ -7,6 +7,7 @@
 
 extern Throttle throttle;
 extern Temperature motorTemp;
+extern Settings settings;
 // telemetry is declared in config.cpp after TelemetryProvider is fully defined
 extern TelemetryProvider* telemetry;
 
@@ -125,11 +126,11 @@ unsigned int Power::calcBatteryLimit() {
         return 0;
     }
 
-    // Compare millivolts directly with constants in millivolts
+    // Compare millivolts directly with settings value in millivolts
     uint16_t batteryMilliVolts = data->batteryVoltageMilliVolts;
     const unsigned int STEP_DECREASE = 5;
 
-    if (batteryMilliVolts > BATTERY_MIN_VOLTAGE) {
+    if (batteryMilliVolts > settings.getBatteryMinVoltage()) {
         return batteryPowerFloor;
     }
 
@@ -156,20 +157,23 @@ unsigned int Power::calcMotorTempLimit() {
         return 100; // Invalid sensor data
     }
 
-    if (motorTempMilliCelsius < MOTOR_TEMP_REDUCTION_START) {
+    int32_t motorTempReductionStart = settings.getMotorTempReductionStart();
+    int32_t motorMaxTemp = settings.getMotorMaxTemp();
+
+    if (motorTempMilliCelsius < motorTempReductionStart) {
         return 100;
     }
 
     // Check if temperature range is valid (min != max)
-    if (MOTOR_TEMP_REDUCTION_START == MOTOR_MAX_TEMP) {
+    if (motorTempReductionStart == motorMaxTemp) {
         return 0; // If min == max, return 0 (maximum reduction)
     }
 
     return constrain(
         map(
             motorTempMilliCelsius,
-            MOTOR_TEMP_REDUCTION_START,
-            MOTOR_MAX_TEMP,
+            motorTempReductionStart,
+            motorMaxTemp,
             100,
             0
         ),
@@ -202,20 +206,23 @@ unsigned int Power::calcEscTempLimit() {
         return 100; // Invalid sensor data
     }
 
-    if (escTempMilliCelsius < ESC_TEMP_REDUCTION_START) {
+    int32_t escTempReductionStart = settings.getEscTempReductionStart();
+    int32_t escMaxTemp = settings.getEscMaxTemp();
+
+    if (escTempMilliCelsius < escTempReductionStart) {
         return 100;
     }
 
     // Check if temperature range is valid (min != max)
-    if (ESC_TEMP_REDUCTION_START == ESC_MAX_TEMP) {
+    if (escTempReductionStart == escMaxTemp) {
         return 0; // If min == max, return 0 (maximum reduction)
     }
 
     return constrain(
         map(
             escTempMilliCelsius,
-            ESC_TEMP_REDUCTION_START,
-            ESC_MAX_TEMP,
+            escTempReductionStart,
+            escMaxTemp,
             100,
             0
         ),

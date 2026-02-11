@@ -4,22 +4,19 @@
 #include "../config.h"
 
 extern TelemetryProvider* telemetry;
+extern Settings settings;
 
 BatteryMonitor::BatteryMonitor() {
-    // Set capacity based on controller type
-    #if IS_HOBBYWING
-    batteryCapacityMilliAh = 65000;  // 65.0 Ah for Hobbywing
-    remainingMilliAh = 65000;
-    #else
-    batteryCapacityMilliAh = 18000;  // 18.0 Ah for Tmotor and XAG
-    remainingMilliAh = 18000;
-    #endif
-
+    // Capacity will be set from Settings in init()
+    batteryCapacityMilliAh = 0;
+    remainingMilliAh = 0;
     lastCoulombTs = 0;
 }
 
 void BatteryMonitor::init() {
-    // Initialize if needed (currently nothing required)
+    // Load capacity from Settings
+    batteryCapacityMilliAh = settings.getBatteryCapacityMah();
+    remainingMilliAh = batteryCapacityMilliAh;
 }
 
 void BatteryMonitor::update() {

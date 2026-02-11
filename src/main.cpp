@@ -37,6 +37,11 @@ Logger logger;
 void setup()
 {
   Serial.begin(115200);
+
+  // Initialize Settings first (loads from Preferences)
+  extern Settings settings;
+  settings.init();
+
   webServer.begin();
 
 #if IS_TMOTOR || IS_HOBBYWING
@@ -66,6 +71,9 @@ void setup()
   xctod.init();
   logger.init();
   buzzer.setup();
+
+  // Initialize battery monitor (uses settings for capacity)
+  batteryMonitor.init();
 
   // Initialize telemetry provider
   if (telemetry && telemetry->init) {

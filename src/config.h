@@ -18,6 +18,7 @@
 #endif
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
+#include "Settings/Settings.h"
 #if IS_TMOTOR || IS_HOBBYWING
 #include "ADS1115/ADS1115.h"
 #endif
@@ -45,6 +46,7 @@ extern Temperature escTemp;
 extern Power power;
 extern BatteryMonitor batteryMonitor;
 extern Xctod xctod;
+extern Settings settings;
 #if IS_TMOTOR || IS_HOBBYWING
 extern ADS1115 ads1115;
 #endif
@@ -75,9 +77,8 @@ extern ADS1115 ads1115;
 #endif
 
 // ========== BATTERY PARAMETERS ==========
-#define BATTERY_MIN_VOLTAGE 44100 // 44100 millivolts = 44.100 V - ~3.15 V per cell
-#define BATTERY_MAX_VOLTAGE 58500 // 58500 millivolts = 58.500 V - 4.15 V per cell
-#define BATTERY_CELL_COUNT 14  // 14S LiPo battery pack
+#define BATTERY_CELL_COUNT 14  // 14S LiPo battery pack (fixed, not configurable)
+// BATTERY_MIN_VOLTAGE and BATTERY_MAX_VOLTAGE are now managed by Settings class
 #if IS_XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
@@ -87,8 +88,7 @@ extern ADS1115 ads1115;
 #endif
 
 // ========== MOTOR PARAMETERS ==========
-#define MOTOR_MAX_TEMP 100000 // 60000 millicelsius = 60.000°C
-#define MOTOR_TEMP_REDUCTION_START 80000 // 50000 millicelsius = 50.000°C - Start reducing power at this temperature
+// MOTOR_MAX_TEMP and MOTOR_TEMP_REDUCTION_START are now managed by Settings class
 #define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
 #define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
 
@@ -104,13 +104,7 @@ extern ADS1115 ads1115;
 #define ESC_MAX_PWM 1950
 #endif
 
-#if IS_XAG
-#define ESC_MAX_TEMP 80000 // 80000 millicelsius = 80.000°C
-#define ESC_TEMP_REDUCTION_START 70000 // 70000 millicelsius = 70.000°C - Start reducing power at this temperature
-#else
-#define ESC_MAX_TEMP 110000 // 110000 millicelsius = 110.000°C
-#define ESC_TEMP_REDUCTION_START 80000 // 80000 millicelsius = 80.000°C - Start reducing power at this temperature
-#endif
+// ESC_MAX_TEMP and ESC_TEMP_REDUCTION_START are now managed by Settings class
 
 #define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
