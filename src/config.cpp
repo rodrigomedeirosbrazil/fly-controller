@@ -3,6 +3,7 @@
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
+#include "Settings/Settings.h"
 
 // Select telemetry provider based on build configuration
 #if IS_XAG
@@ -37,6 +38,7 @@ Temperature escTemp(ESC_TEMPERATURE_PIN);
 Power power;
 BatteryMonitor batteryMonitor;
 Xctod xctod;
+Settings settings;
 #if IS_TMOTOR || IS_HOBBYWING
 ADS1115 ads1115;
 #endif
