@@ -120,8 +120,6 @@ void Xctod::writeBatteryInfo(String &data) {
     data += String(volts);
     data += ".";
     if (decimals < 10) {
-        data += "00";
-    } else if (decimals < 100) {
         data += "0";
     }
     data += String(decimals);
