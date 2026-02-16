@@ -33,6 +33,10 @@ public:
     int32_t getEscTempReductionStart() const;
     void setEscTempReductionStart(int32_t temp);
 
+    // Power control
+    bool getPowerControlEnabled() const;
+    void setPowerControlEnabled(bool enabled);
+
 private:
     Preferences preferences;
 
@@ -44,6 +48,7 @@ private:
     int32_t getDefaultMotorTempReductionStart() const;
     int32_t getDefaultEscMaxTemp() const;
     int32_t getDefaultEscTempReductionStart() const;
+    bool getDefaultPowerControlEnabled() const;
 
     // Current values
     uint16_t batteryCapacityMah;
@@ -53,6 +58,7 @@ private:
     int32_t motorTempReductionStart;
     int32_t escMaxTemp;
     int32_t escTempReductionStart;
+    bool powerControlEnabled;
 };
 
 #endif // SETTINGS_H

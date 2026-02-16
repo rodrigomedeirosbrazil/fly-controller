@@ -103,6 +103,11 @@ unsigned int Power::getPower() {
 }
 
 unsigned int Power::calcPower() {
+    // Check if power control is enabled
+    if (!settings.getPowerControlEnabled()) {
+        return 100; // No limitations when power control is disabled
+    }
+
     unsigned int batteryLimit = calcBatteryLimit();
     unsigned int motorTempLimit = calcMotorTempLimit();
     unsigned int escTempLimit = calcEscTempLimit();

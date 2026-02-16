@@ -9,6 +9,7 @@ Settings::Settings() {
     motorTempReductionStart = 0;
     escMaxTemp = 0;
     escTempReductionStart = 0;
+    powerControlEnabled = true;
 }
 
 void Settings::init() {
@@ -31,6 +32,9 @@ void Settings::load() {
     // Load ESC temperatures (defaults based on controller type)
     escMaxTemp = preferences.getInt("escMaxT", getDefaultEscMaxTemp());
     escTempReductionStart = preferences.getInt("escRedT", getDefaultEscTempReductionStart());
+
+    // Load power control enabled (default: true)
+    powerControlEnabled = preferences.getBool("pwrCtrl", getDefaultPowerControlEnabled());
 }
 
 void Settings::save() {
@@ -41,6 +45,7 @@ void Settings::save() {
     preferences.putInt("motRedT", motorTempReductionStart);
     preferences.putInt("escMaxT", escMaxTemp);
     preferences.putInt("escRedT", escTempReductionStart);
+    preferences.putBool("pwrCtrl", powerControlEnabled);
 }
 
 uint16_t Settings::getBatteryCapacityMah() const {
@@ -99,6 +104,14 @@ void Settings::setEscTempReductionStart(int32_t temp) {
     escTempReductionStart = temp;
 }
 
+bool Settings::getPowerControlEnabled() const {
+    return powerControlEnabled;
+}
+
+void Settings::setPowerControlEnabled(bool enabled) {
+    powerControlEnabled = enabled;
+}
+
 uint16_t Settings::getDefaultBatteryCapacity() const {
     #if IS_HOBBYWING
     return 65000;  // 65.0 Ah for Hobbywing
@@ -137,5 +150,9 @@ int32_t Settings::getDefaultEscTempReductionStart() const {
     #else
     return 80000;  // 80.000°C for Hobbywing/Tmotor
     #endif
+}
+
+bool Settings::getDefaultPowerControlEnabled() const {
+    return true;  // Power control enabled by default
 }
 

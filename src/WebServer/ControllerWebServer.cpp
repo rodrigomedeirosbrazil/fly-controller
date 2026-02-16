@@ -257,6 +257,16 @@ const char* CONFIG_HTML = R"rawliteral(
                 <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
             </div>
 
+            <h2>Power Control Settings</h2>
+
+            <div class="form-group">
+                <label for="powerControlEnabled" style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="powerControlEnabled" name="powerControlEnabled" style="width: auto; margin-right: 10px; cursor: pointer;">
+                    <span>Enable Power Control</span>
+                </label>
+                <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
+            </div>
+
             <button type="submit" id="saveButton">Save Configuration</button>
             <div class="message" id="message"></div>
         </form>
@@ -297,6 +307,9 @@ const char* CONFIG_HTML = R"rawliteral(
                     // ESC temperatures (convert from millicelsius to celsius)
                     document.getElementById('escMaxTemp').value = data.escMaxTemp / 1000;
                     document.getElementById('escTempReductionStart').value = data.escTempReductionStart / 1000;
+
+                    // Power control enabled
+                    document.getElementById('powerControlEnabled').checked = data.powerControlEnabled || false;
                 })
                 .catch(error => {
                     console.error('Error loading values:', error);
@@ -367,7 +380,8 @@ const char* CONFIG_HTML = R"rawliteral(
                 motorMaxTemp: Math.round(parseFloat(document.getElementById('motorMaxTemp').value) * 1000), // Convert to millicelsius
                 motorTempReductionStart: Math.round(parseFloat(document.getElementById('motorTempReductionStart').value) * 1000),
                 escMaxTemp: Math.round(parseFloat(document.getElementById('escMaxTemp').value) * 1000),
-                escTempReductionStart: Math.round(parseFloat(document.getElementById('escTempReductionStart').value) * 1000)
+                escTempReductionStart: Math.round(parseFloat(document.getElementById('escTempReductionStart').value) * 1000),
+                powerControlEnabled: document.getElementById('powerControlEnabled').checked
             };
 
             // Send to server
@@ -446,6 +460,7 @@ void ControllerWebServer::startAP() {
         doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
         doc["escMaxTemp"] = settings.getEscMaxTemp();
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
+        doc["powerControlEnabled"] = settings.getPowerControlEnabled();
 
         String response;
         serializeJson(doc, response);
@@ -543,6 +558,11 @@ void ControllerWebServer::startAP() {
                         request->send(400, "text/plain", "ESC temp reduction start out of range");
                         return;
                     }
+                }
+
+                if (doc.containsKey("powerControlEnabled")) {
+                    bool enabled = doc["powerControlEnabled"];
+                    settings.setPowerControlEnabled(enabled);
                 }
 
                 // Save to Preferences
