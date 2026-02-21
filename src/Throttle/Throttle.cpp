@@ -3,7 +3,7 @@
 
 #include "../config.h"
 
-Throttle::Throttle() {
+Throttle::Throttle(ReadFn readFn) : readFn(readFn) {
   memset(
     &pinValues,
     0,
@@ -145,20 +145,7 @@ void Throttle::readThrottlePin()
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  // Oversampling: take multiple readings and average them
-  // This reduces random noise from the ADC
-  // ADS1115 is more precise, so we use less oversampling for it
-  int oversampledValue = 0;
-#if IS_TMOTOR || IS_HOBBYWING
-  // Use ADS1115 for Tmotor and Hobbywing - single read is sufficient (ADS1115 is 16-bit, more precise)
-  oversampledValue = ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
-#else
-  // Use built-in ADC for XAG - multiple reads needed for noise reduction
-  for (int i = 0; i < oversample; i++) {
-    oversampledValue += analogRead(THROTTLE_PIN);
-  }
-  oversampledValue = oversampledValue / oversample;
-#endif
+  int oversampledValue = readFn();
   pinValues[samples - 1] = oversampledValue;
 
   // Calculate moving average
@@ -223,8 +210,9 @@ void Throttle::setArmed()
 
   throttleArmed = true;
 #if USES_CAN_BUS && IS_HOBBYWING
-  if (hobbywing.isReady()) {
-    hobbywing.setLedColor(Hobbywing::ledColorRed, Hobbywing::ledBlink5Hz);
+  extern HobbywingCan hobbywingCan;
+  if (hobbywingCan.isReady()) {
+    hobbywingCan.setLedColor(HobbywingCan::ledColorRed, HobbywingCan::ledBlink5Hz);
   }
 #endif
 }
@@ -234,8 +222,9 @@ void Throttle::setDisarmed()
   throttleArmed = false;
   buzzer.beepDisarmed();
 #if USES_CAN_BUS && IS_HOBBYWING
-  if (hobbywing.isReady()) {
-    hobbywing.setLedColor(Hobbywing::ledColorGreen);
+  extern HobbywingCan hobbywingCan;
+  if (hobbywingCan.isReady()) {
+    hobbywingCan.setLedColor(HobbywingCan::ledColorGreen);
   }
 #endif
 }

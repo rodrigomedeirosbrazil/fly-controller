@@ -17,19 +17,15 @@
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
 #include "WebServer/ControllerWebServer.h"
-#include "Telemetry/TelemetryProvider.h"
 #if USES_CAN_BUS && IS_HOBBYWING
-#include "Hobbywing/Hobbywing.h"
+#include "Hobbywing/HobbywingCan.h"
 #endif
 #if USES_CAN_BUS && IS_TMOTOR
-#include "Tmotor/Tmotor.h"
+#include "Tmotor/TmotorCan.h"
 #endif
 
 using namespace ace_button;
 #include "Button/Button.h"
-
-// External declarations
-extern TelemetryProvider* telemetry;
 
 ControllerWebServer webServer;
 Logger logger;
@@ -75,10 +71,8 @@ void setup()
   // Initialize battery monitor (uses settings for capacity)
   batteryMonitor.init();
 
-  // Initialize telemetry provider
-  if (telemetry && telemetry->init) {
-    telemetry->init();
-  }
+  // Initialize telemetry
+  telemetry.init();
 
 #if USES_CAN_BUS
   // Initialize TWAI (CAN) driver with SN65HVD230
@@ -119,10 +113,10 @@ void setup()
 
   // Hobbywing-specific initialization
   #if IS_HOBBYWING
-  extern Hobbywing hobbywing;
-  hobbywing.requestEscId();
-  hobbywing.setThrottleSource(Hobbywing::throttleSourcePWM);
-  hobbywing.setLedColor(Hobbywing::ledColorGreen);
+  extern HobbywingCan hobbywingCan;
+  hobbywingCan.requestEscId();
+  hobbywingCan.setThrottleSource(HobbywingCan::throttleSourcePWM);
+  hobbywingCan.setLedColor(HobbywingCan::ledColorGreen);
   #endif
 #endif
 
@@ -144,26 +138,16 @@ void loop()
 #if IS_XAG
   extern Temperature escTemp;
   escTemp.handle();
+  batterySensor.handle();
 #endif
   buzzer.handle();
 
   // Update telemetry data
-  if (telemetry && telemetry->update) {
-    telemetry->update();
-  }
+  telemetry.update();
 
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
   batteryMonitor.update();
-
-  // Update motor temperature in telemetry (read from sensor)
-  if (telemetry && telemetry->getData) {
-    TelemetryData* data = telemetry->getData();
-    if (data) {
-      float motorTempCelsius = motorTemp.getTemperature();
-      data->motorTemperatureMilliCelsius = (int32_t)(motorTempCelsius * 1000.0f);
-    }
-  }
 
   handleEsc();
   handleArmedBeep();
@@ -192,21 +176,30 @@ void handleEsc()
 void checkCanbus()
 {
 #if USES_CAN_BUS
-    extern twai_message_t canMsg;
     extern Canbus canbus;
+    twai_message_t msg;
 
-    // Check if there are messages in the TWAI receive queue
-    if (twai_receive(&canMsg, pdMS_TO_TICKS(0)) == ESP_OK) {
-        canbus.parseCanMsg(&canMsg);
+    // Process all received CAN frames
+    while (canbus.receive(&msg)) {
+#if IS_HOBBYWING
+        extern HobbywingCan hobbywingCan;
+        hobbywingCan.parseEscMessage(&msg);
+#elif IS_TMOTOR
+        extern TmotorCan tmotorCan;
+        tmotorCan.parseEscMessage(&msg);
+#endif
     }
 
-    // Handle periodic CAN commands (400 Hz throttle)
-    canbus.handle();
+    // Periodic ESC commands (400 Hz throttle for Tmotor, etc.)
+#if IS_HOBBYWING
+    extern HobbywingCan hobbywingCan;
+    hobbywingCan.handle();
+#elif IS_TMOTOR
+    extern TmotorCan tmotorCan;
+    tmotorCan.handle();
+#endif
 
-    // Send NodeStatus to announce presence on CAN bus periodically
-    if (telemetry && telemetry->sendNodeStatus) {
-        telemetry->sendNodeStatus();
-    }
+    canbus.sendNodeStatus();
 #endif
 }
 

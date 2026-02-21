@@ -2,6 +2,7 @@
 #define POWER_H
 
 #include <Arduino.h>
+#include "../config_controller.h"
 
 class Throttle;
 class Temperature;

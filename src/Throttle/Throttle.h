@@ -6,7 +6,8 @@
 
 class Throttle {
     public:
-        Throttle();
+        typedef int (*ReadFn)();
+        Throttle(ReadFn readFn);
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
@@ -46,6 +47,8 @@ class Throttle {
 
         int throttlePinMin;
         int throttlePinMax;
+
+        ReadFn readFn;
 
         void readThrottlePin();
         void resetCalibration();

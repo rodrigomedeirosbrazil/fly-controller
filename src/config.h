@@ -10,9 +10,11 @@
 #if USES_CAN_BUS
 #include "Canbus/Canbus.h"
 #if IS_TMOTOR
-#include "Tmotor/Tmotor.h"
+#include "Tmotor/TmotorCan.h"
+#include "Tmotor/TmotorTelemetry.h"
 #else
-#include "Hobbywing/Hobbywing.h"
+#include "Hobbywing/HobbywingCan.h"
+#include "Hobbywing/HobbywingTelemetry.h"
 #endif
 #include <driver/twai.h>
 #endif
@@ -21,6 +23,21 @@
 #include "Settings/Settings.h"
 #if IS_TMOTOR || IS_HOBBYWING
 #include "ADS1115/ADS1115.h"
+#endif
+#if IS_XAG
+#include "Sensors/BatteryVoltageSensor.h"
+#include "Xag/XagTelemetry.h"
+#endif
+
+// Debug logging - compiles to zero in production
+#ifdef DEBUG
+    #define DEBUG_PRINT(x)       Serial.print(x)
+    #define DEBUG_PRINTLN(x)     Serial.println(x)
+    #define DEBUG_PRINT_HEX(x,b) Serial.print(x, b)
+#else
+    #define DEBUG_PRINT(x)
+    #define DEBUG_PRINTLN(x)
+    #define DEBUG_PRINT_HEX(x,b)
 #endif
 
 class Power;
@@ -34,14 +51,18 @@ extern Temperature motorTemp;
 #if USES_CAN_BUS
 extern Canbus canbus;
 #if IS_TMOTOR
-extern Tmotor tmotor;
+extern TmotorCan tmotorCan;
+extern TmotorTelemetry tmotorTelemetry;
 #else
-extern Hobbywing hobbywing;
+extern HobbywingCan hobbywingCan;
+extern HobbywingTelemetry hobbywingTelemetry;
 #endif
 extern twai_message_t canMsg;
 #endif
 #if IS_XAG
 extern Temperature escTemp;
+extern BatteryVoltageSensor batterySensor;
+extern XagTelemetry xagTelemetry;
 #endif
 extern Power power;
 extern BatteryMonitor batteryMonitor;
@@ -50,7 +71,7 @@ extern Settings settings;
 #if IS_TMOTOR || IS_HOBBYWING
 extern ADS1115 ads1115;
 #endif
-// TelemetryProvider* is declared in config.cpp after including TelemetryProvider.h
+#include "Telemetry/Telemetry.h"
 
 // ========== ANALOG INPUTS (ADC1 - WiFi compatible) ==========
 #define THROTTLE_PIN          0  // GPIO0 (ADC1-0) - Hall Sensor

@@ -4,82 +4,35 @@
 #include "../config_controller.h"
 #if USES_CAN_BUS
 #include <driver/twai.h>
-#include "../Telemetry/TelemetryProvider.h"
-#include "../config.h"
-#if IS_TMOTOR
-#include "../Tmotor/Tmotor.h"
-extern Tmotor tmotor;
-#else
-#include "../Hobbywing/Hobbywing.h"
-extern Hobbywing hobbywing;
-#endif
-// telemetry is declared in config.cpp after TelemetryProvider is fully defined
-extern TelemetryProvider* telemetry;
-#endif
+#include <string.h>
 
+bool Canbus::receive(twai_message_t *outMsg) {
+    twai_message_t msg;
+    if (twai_receive(&msg, pdMS_TO_TICKS(0)) != ESP_OK) {
+        return false;
+    }
 
-
-#if USES_CAN_BUS
-void Canbus::parseCanMsg(twai_message_t *canMsg) {
     // Handle service frames (e.g., GetNodeInfo requests)
-    if (CanUtils::isServiceFrame(canMsg->identifier)) {
-        uint16_t serviceTypeId = CanUtils::getServiceTypeIdFromCanId(canMsg->identifier);
-        uint8_t destNodeId = CanUtils::getDestNodeIdFromCanId(canMsg->identifier);
+    if (CanUtils::isServiceFrame(msg.identifier)) {
+        uint16_t serviceTypeId = CanUtils::getServiceTypeIdFromCanId(msg.identifier);
+        uint8_t destNodeId = CanUtils::getDestNodeIdFromCanId(msg.identifier);
 
-        // Check if this service request is directed to us
-        if (destNodeId == nodeId) {
-            // Handle GetNodeInfo requests (Service ID 1)
-            if (serviceTypeId == 1 && CanUtils::isRequestFrame(canMsg->identifier)) {
-                handleGetNodeInfoRequest(canMsg);
-                return;
-            }
+        if (destNodeId == nodeId && serviceTypeId == 1 && CanUtils::isRequestFrame(msg.identifier)) {
+            handleGetNodeInfoRequest(&msg);
         }
-
-        // Ignore other service frames
-        return;
+        return false;  // Frame consumed
     }
 
-    // Try to route through telemetry provider first
-    if (telemetry && telemetry->handleCanMessage) {
-        uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
-
-        // Check if this is a message for our ESC
-        bool isEscMessage = false;
-        #if IS_TMOTOR
-        isEscMessage = isTmotorEscMessage(dataTypeId);
-        #else
-        isEscMessage = isHobbywingEscMessage(dataTypeId);
-        #endif
-
-        if (isEscMessage) {
-            telemetry->handleCanMessage(canMsg);
-            return;
-        }
-    }
-
-    // Extract dataTypeId once for all checks
-    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
-
-    // Handle NodeStatus from ESC (not our own) - generic DroneCAN protocol
+    // Handle NodeStatus - generic DroneCAN protocol
+    uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(msg.identifier);
     if (dataTypeId == nodeStatusDataTypeId) {
-        handleNodeStatus(canMsg);
-        return;
+        handleNodeStatus(&msg);
+        return false;  // Frame consumed
     }
 
-    // Fallback: route directly to classes (for backward compatibility)
-    #if IS_TMOTOR
-    if (dataTypeId != 0 && isTmotorEscMessage(dataTypeId)) {
-        tmotor.parseEscMessage(canMsg);
-        return;
-    }
-    #else
-    if (dataTypeId != 0 && isHobbywingEscMessage(dataTypeId)) {
-        hobbywing.parseEscMessage(canMsg);
-        return;
-    }
-    #endif
-
-    printCanMsg(canMsg);
+    // Pass frame to caller for ESC processing
+    memcpy(outMsg, &msg, sizeof(twai_message_t));
+    return true;
 }
 
 void Canbus::printCanMsg(twai_message_t *canMsg) {
@@ -107,34 +60,6 @@ void Canbus::printCanMsg(twai_message_t *canMsg) {
     Serial.println();
 }
 #endif
-
-bool Canbus::isHobbywingEscMessage(uint16_t dataTypeId) {
-    return (dataTypeId == 0x4E52 ||  // statusMsg1
-            dataTypeId == 0x4E53 ||  // statusMsg2
-            dataTypeId == 0x4E54 ||  // statusMsg3
-            dataTypeId == 0x4E56);   // getEscIdRequestDataTypeId
-}
-
-bool Canbus::isTmotorEscMessage(uint16_t dataTypeId) {
-    return (dataTypeId == 1030 ||  // RawCommand
-            dataTypeId == 1033 ||  // ParamCfg
-            dataTypeId == 1034 ||  // ESC_STATUS
-            dataTypeId == 1039 ||  // PUSHCAN
-            dataTypeId == 1154 ||  // Status 5 (motor temperature)
-            dataTypeId == 1332);   // ParamGet
-}
-
-void Canbus::handle() {
-    // Route to the appropriate motor handler based on ESC type
-    #if USES_CAN_BUS && IS_TMOTOR
-    extern Tmotor tmotor;
-    tmotor.handle();
-    #endif
-    #if USES_CAN_BUS && IS_HOBBYWING
-    extern Hobbywing hobbywing;
-    hobbywing.handle();
-    #endif
-}
 
 void Canbus::sendNodeStatus() {
     if (millis() - lastNodeStatusSent < 1000) {
