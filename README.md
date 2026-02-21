@@ -68,7 +68,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Automatic calibration completes in 3 seconds.
 - Cruise mode activated with 30%+ throttle.
 
-### 2. **Hobbywing** - DroneCAN Interface
+### 2. **HobbywingCan** - DroneCAN Interface
 ```cpp
 // DroneCAN protocol for Hobbywing ESCs
 - Complete telemetry (RPM, voltage, current, temperature)
@@ -84,6 +84,8 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - LED control (red, green, blue)
 - Direction and throttle commands
 
+*T-Motor uses TmotorCan (UAVCAN); XAG uses XagTelemetry with analog sensors.*
+
 ### 3. **Power** - Power Management
 ```cpp
 // Intelligent available power calculation
@@ -98,22 +100,23 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Minimum voltage limitation (42.0V)
 - Thermal protection (60°C motor, 110°C ESC)
 - Progressive power reduction based on motor and ESC temperature
-- Throttle ramp limiting: 8 μs/tick acceleration, 16 μs/tick deceleration (prevents jerky movements)
+- Throttle ramp limiting: 4 μs/tick acceleration, 8 μs/tick deceleration (prevents jerky movements)
 
 ### 4. **Temperature** - Thermal Monitoring
 ```cpp
-// NTC sensor with temperature compensation
+// Agnostic NTC sensor (ReadFn + adcVoltageRef)
 - Beta = 3950K for 10K NTC
 - Filtering with 10 samples
-- Ambient temperature compensation
+- ADC source: ADS1115 (Hobbywing/Tmotor) or ESP32 built-in (XAG)
 ```
 
 ### 5. **Canbus** - Communication Management
 ```cpp
-// Universal parser for CAN messages using the ESP32 TWAI controller
-- Automatic device detection
-- Routing to specific components
-- Debug and message logging
+// CAN message handling using ESP32 TWAI controller
+- receive() non-blocking API - returns raw ESC frames
+- main.cpp routes frames to HobbywingCan/TmotorCan
+- NodeStatus and GetNodeInfo handled internally
+- sendNodeStatus() for periodic announcements
 ```
 
 ### 6. **Buzzer** - Audio Interface
@@ -154,7 +157,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **Telemetry**: RPM, voltage, current, temperature, LED control
 
 #### UAVCAN (T-Motor ESC)
-- **Speed**: 500 kbps
+- **Speed**: 1 Mbps
 - **Protocol**: UAVCAN v0
 - **Messages**: Status, control, configuration
 - **Format**: CAN 2.0B with UAVCAN payload
@@ -303,7 +306,7 @@ The project supports three controller types, each with its own build environment
 ```
 
 **Features:**
-- Full CAN bus support (500 kbps)
+- Full CAN bus support (1 Mbps)
 - UAVCAN protocol communication
 - Complete telemetry (RPM, voltage, current, temperature)
 - ESC configuration and control
@@ -326,7 +329,7 @@ The project supports three controller types, each with its own build environment
 - Battery voltage monitoring via voltage divider
 - Throttle ramp limiting for smooth acceleration/deceleration
 
-**Note:** The XAG mode includes smooth throttle ramp limiting (8 μs/tick acceleration, 16 μs/tick deceleration) to prevent jerky motor movements.
+**Note:** The XAG mode includes smooth throttle ramp limiting (4 μs/tick acceleration, 8 μs/tick deceleration) to prevent jerky motor movements.
 
 ### 5. Pin Configuration
 ```cpp
@@ -356,8 +359,8 @@ The project supports three controller types, each with its own build environment
 ```
 
 **Behavior:**
-- Acceleration: Limited to 8 μs per tick (smooth ramp-up)
-- Deceleration: Limited to 16 μs per tick (2x faster, responsive braking)
+- Acceleration: Limited to 4 μs per tick (smooth ramp-up)
+- Deceleration: Limited to 8 μs per tick (2x faster, responsive braking)
 - Applied to all controller types for smooth motor control
 
 ### 7. Calibration
@@ -396,12 +399,19 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 ```
 src/
 ├── main.cpp              # Main loop
-├── config.h              # Configurations
-├── Throttle/             # Throttle control
-├── Hobbywing/            # DroneCAN interface
+├── config.h, config.cpp  # Configuration and object instances
+├── config_controller.h   # Build type (IS_HOBBYWING, IS_TMOTOR, IS_XAG)
+├── Throttle/             # Throttle control (ReadFn)
+├── Temperature/          # Thermal sensor (ReadFn)
 ├── Power/                # Power management
-├── Temperature/          # Thermal sensor
-├── Canbus/               # CAN communication
+├── Canbus/               # CAN receive() API
+├── Hobbywing/            # HobbywingCan, HobbywingTelemetry
+├── Tmotor/               # TmotorCan, TmotorTelemetry
+├── Xag/                  # XagTelemetry (PWM-only)
+├── Sensors/              # BatteryVoltageSensor (XAG)
+├── Telemetry/            # Telemetry facade, TelemetryFormatter
+├── BatteryMonitor/       # Coulomb counting, SoC
+├── Settings/             # Persistent configuration
 ├── Button/               # User interface
 ├── Buzzer/               # Sonorous alerts
 └── Xctod/                # BLE telemetry
