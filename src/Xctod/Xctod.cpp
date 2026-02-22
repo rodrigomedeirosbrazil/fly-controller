@@ -1,11 +1,9 @@
 #include "Xctod.h"
-#include "../Telemetry/TelemetryProvider.h"
-#include "../Telemetry/TelemetryData.h"
+#include "../config.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
-#include "../config.h"
 #include "../Logger/Logger.h"
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -14,7 +12,6 @@
 extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
-extern TelemetryProvider* telemetry;
 extern BatteryMonitor batteryMonitor;
 extern Logger logger;
 
@@ -95,12 +92,10 @@ void Xctod::write() {
 }
 
 void Xctod::writeBatteryInfo(String &data) {
-    if (!telemetry || !telemetry->getData()) {
+    if (!telemetry.hasData()) {
         data += ",,,,"; // battery_percent_cc, battery_percent_voltage, voltage, power_kw
         return;
     }
-
-    TelemetryData* telemetryData = telemetry->getData();
 
     // Get SoC from BatteryMonitor (coulomb counting for Hobbywing/Tmotor, voltage for XAG)
     uint8_t batteryPercentageCC = batteryMonitor.getSoC();
@@ -109,7 +104,7 @@ void Xctod::writeBatteryInfo(String &data) {
     uint8_t batteryPercentageVoltage = batteryMonitor.getSoCFromVoltage();
 
     // Format voltage
-    uint16_t millivolts = telemetryData->batteryVoltageMilliVolts;
+    uint16_t millivolts = telemetry.getBatteryVoltageMilliVolts();
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
@@ -129,13 +124,13 @@ void Xctod::writeBatteryInfo(String &data) {
     // XAG: power not calculable (no current data)
     data += ",";
     #else
-    if (!telemetryData->hasTelemetry) {
+    if (!telemetry.hasData()) {
         data += ","; // power_kw
         return;
     }
 
     // Calculate power in milliwatts: P(mW) = V(mV) * I(mA) / 1000
-    uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetryData->batteryCurrentMilliAmps) / 1000;
+    uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
     uint32_t powerKwInt = powerMilliWatts / 1000000;
     uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
 
@@ -160,57 +155,40 @@ void Xctod::writeThrottleInfo(String &data) {
 }
 
 void Xctod::writeMotorInfo(String &data) {
-    #if IS_TMOTOR
-    // Tmotor: use motor temperature from telemetry (received via CAN)
-    if (!telemetry || !telemetry->getData()) {
+    // Motor temperature: all controllers use telemetry (Hobbywing/Tmotor from CAN+sensor, XAG from sensor)
+    if (!telemetry.hasData()) {
         data += ","; // motor temperature not available
     } else {
-        TelemetryData* telemetryData = telemetry->getData();
-        // Format directly from millicelsius using integer division
-        int32_t tempCelsius = telemetryData->motorTemperatureMilliCelsius / 1000;
+        int32_t tempCelsius = telemetry.getMotorTempMilliCelsius() / 1000;
         data += String(tempCelsius);
     }
     data += ",";
-    #else
-    // Other controllers: motor temperature is read from sensor (ADC)
-    data += String(motorTemp.getTemperature(), 0);
-    data += ",";
-    #endif
-
-    if (!telemetry || !telemetry->getData()) {
-        data += ",,"; // rpm, current
-        return;
-    }
-
-    TelemetryData* telemetryData = telemetry->getData();
 
     #if IS_XAG
     // XAG mode: no RPM or current data available
     data += ",,"; // rpm, current
     #else
-    if (!telemetryData->hasTelemetry) {
+    if (!telemetry.hasData()) {
         data += ",,"; // rpm, current
         return;
     }
 
-    data += String(telemetryData->rpm);
+    data += String(telemetry.getRpm());
     data += ",";
     // Convert current from milliamperes to amperes (integer): I(A) = I(mA) / 1000
-    data += String(telemetryData->batteryCurrentMilliAmps / 1000);
+    data += String(telemetry.getBatteryCurrentMilliAmps() / 1000);
     data += ",";
     #endif
 }
 
 void Xctod::writeEscInfo(String &data) {
-    if (!telemetry || !telemetry->getData()) {
+    if (!telemetry.hasData()) {
         data += ",";
         return;
     }
 
-    TelemetryData* telemetryData = telemetry->getData();
-
     // Format directly from millicelsius using integer division
-    int32_t escTempCelsius = telemetryData->escTemperatureMilliCelsius / 1000;
+    int32_t escTempCelsius = telemetry.getEscTempMilliCelsius() / 1000;
     data += String(escTempCelsius);
     data += ",";
 }

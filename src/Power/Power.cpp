@@ -1,5 +1,3 @@
-#include "../Telemetry/TelemetryProvider.h"
-#include "../Telemetry/TelemetryData.h"
 #include "Power.h"
 #include "../config.h"
 #include "../Throttle/Throttle.h"
@@ -8,8 +6,6 @@
 extern Throttle throttle;
 extern Temperature motorTemp;
 extern Settings settings;
-// telemetry is declared in config.cpp after TelemetryProvider is fully defined
-extern TelemetryProvider* telemetry;
 
 Power::Power() {
     lastPowerCalculationTime = 0;
@@ -116,23 +112,17 @@ unsigned int Power::calcPower() {
 }
 
 unsigned int Power::calcBatteryLimit() {
-    if (!telemetry || !telemetry->getData()) {
-        return 0;
-    }
-
-    TelemetryData* data = telemetry->getData();
-
     // XAG mode: battery voltage reading is not reliable, do not limit power
     // The voltage is available for telemetry but should not be used to control power output
     #if IS_XAG
     return 100;
     #else
-    if (!data->hasTelemetry) {
+    if (!telemetry.hasData()) {
         return 0;
     }
 
     // Compare millivolts directly with settings value in millivolts
-    uint16_t batteryMilliVolts = data->batteryVoltageMilliVolts;
+    uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
 
     if (batteryMilliVolts > settings.getBatteryMinVoltage()) {
@@ -188,22 +178,15 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!telemetry || !telemetry->getData()) {
-        return 100; // Allow other limits to control
-    }
-
-    TelemetryData* data = telemetry->getData();
-
     #if IS_XAG
     // XAG mode: use ESC temperature from telemetry (read from NTC sensor)
-    int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
+    int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     #else
     // CAN controllers: use ESC temperature from telemetry
-    if (!data->hasTelemetry) {
+    if (!telemetry.hasData()) {
         return 100; // Telemetry not available, allow other limits to control
     }
-
-    int32_t escTempMilliCelsius = data->escTemperatureMilliCelsius;
+    int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     #endif
 
     // Validate temperature reading (compare in millicelsius)

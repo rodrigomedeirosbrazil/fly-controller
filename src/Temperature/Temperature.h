@@ -1,12 +1,11 @@
 #ifndef Temperature_h
 #define Temperature_h
 
-#include "../config.h"
-
 class Temperature
 {
     public:
-        Temperature(uint8_t pin);
+        typedef int (*ReadFn)();
+        Temperature(ReadFn readFn, float adcVoltageRef);
         void handle();
         double getTemperature() { return temperature; }
 
@@ -16,9 +15,9 @@ class Temperature
         const double t0 = 298.15;   // 25°C in Kelvin
         const double R = 10000.0;
         const static int samples = 10;
-        const static int oversample = 4; // Number of readings to average per sample
 
-        uint8_t pin;
+        ReadFn readFn;
+        float adcVoltageRef;
         int pinValues[samples];
         double temperature;
         unsigned long lastPinRead;

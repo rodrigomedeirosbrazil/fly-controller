@@ -3,9 +3,6 @@
 
 #include <Arduino.h>
 
-class TelemetryProvider;
-struct TelemetryData;
-
 class BatteryMonitor {
 public:
     BatteryMonitor();

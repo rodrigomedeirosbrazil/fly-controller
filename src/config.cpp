@@ -1,38 +1,67 @@
 #include "config.h"
-#include "Telemetry/TelemetryProvider.h"
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
 #include "Settings/Settings.h"
 
-// Select telemetry provider based on build configuration
-#if IS_XAG
-    #include "Telemetry/XagProvider.h"
-    static TelemetryProvider telemetryProvider = createXagProvider();
-#elif IS_TMOTOR
-    #include "Telemetry/TmotorProvider.h"
-    static TelemetryProvider telemetryProvider = createTmotorProvider();
-#else
-    #include "Telemetry/HobbywingProvider.h"
-    static TelemetryProvider telemetryProvider = createHobbywingProvider();
-#endif
-
 Buzzer buzzer(BUZZER_PIN);
 Servo esc;
-Throttle throttle;
+#if IS_XAG
+Throttle throttle(
+    []() {
+        int s = 0;
+        for (int i = 0; i < 4; i++) {
+            s += analogRead(THROTTLE_PIN);
+        }
+        return s / 4;
+    }
+);
+#else
+Throttle throttle([]() { return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL); });
+#endif
 #if USES_CAN_BUS
 Canbus canbus;
 #if IS_TMOTOR
-Tmotor tmotor;
+TmotorCan tmotorCan;
+TmotorTelemetry tmotorTelemetry;
 #else
-Hobbywing hobbywing;
+HobbywingCan hobbywingCan;
+HobbywingTelemetry hobbywingTelemetry;
 #endif
 twai_message_t canMsg;
 #endif
 Button button(BUTTON_PIN);
-Temperature motorTemp(MOTOR_TEMPERATURE_PIN);
 #if IS_XAG
-Temperature escTemp(ESC_TEMPERATURE_PIN);
+BatteryVoltageSensor batterySensor(
+    []() { return (int)analogRead(BATTERY_VOLTAGE_PIN); },
+    BATTERY_DIVIDER_RATIO
+);
+Temperature motorTemp(
+    []() {
+        int s = 0;
+        for (int i = 0; i < 4; i++) {
+            s += analogRead(MOTOR_TEMPERATURE_PIN);
+        }
+        return s / 4;
+    },
+    3.3f  // ESP32 ADC reference
+);
+XagTelemetry xagTelemetry;
+Temperature escTemp(
+    []() {
+        int s = 0;
+        for (int i = 0; i < 4; i++) {
+            s += analogRead(ESC_TEMPERATURE_PIN);
+        }
+        return s / 4;
+    },
+    3.3f  // ESP32 ADC reference
+);
+#else
+Temperature motorTemp(
+    []() { return ads1115.readChannel(ADS1115_TEMP_CHANNEL); },
+    4.096f  // ADS1115 reference (GAIN_ONE)
+);
 #endif
 
 Power power;
@@ -42,6 +71,3 @@ Settings settings;
 #if IS_TMOTOR || IS_HOBBYWING
 ADS1115 ads1115;
 #endif
-
-// Define telemetry pointer (declared above after includes)
-TelemetryProvider* telemetry = &telemetryProvider;

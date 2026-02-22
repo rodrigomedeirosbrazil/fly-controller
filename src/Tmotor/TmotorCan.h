@@ -31,10 +31,10 @@
  * - RawCommand (1030): Throttle control
  * - ParamCfg (1033): Deprecated - use Enable Reporting (1000) instead
  */
-class Tmotor
+class TmotorCan
 {
 public:
-    Tmotor();
+    TmotorCan();
 
     // Main parsing method for ESC messages
     void parseEscMessage(twai_message_t *canMsg);

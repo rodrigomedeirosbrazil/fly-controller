@@ -3,21 +3,15 @@
 
 #include <driver/twai.h>
 
-// Forward declaration
-#if USES_CAN_BUS
-#if IS_TMOTOR
-class Tmotor;
-#else
-class Hobbywing;
-#endif
-#endif
-
 class Canbus
 {
     public:
-        void parseCanMsg(twai_message_t *canMsg);
+        /**
+         * Non-blocking receive. Returns true if a frame was received for caller to process (ESC data).
+         * Returns false if no frame, or frame was consumed internally (NodeStatus, GetNodeInfo).
+         */
+        bool receive(twai_message_t *outMsg);
         void printCanMsg(twai_message_t *canMsg);
-        void handle();
         uint8_t getNodeId() const { return nodeId; }
         uint8_t getEscNodeId() const { return escNodeId; }
         void sendNodeStatus();
@@ -34,10 +28,6 @@ class Canbus
         // NodeStatus sending control
         unsigned long lastNodeStatusSent = 0;
         uint8_t transferId = 0;
-
-        // Device type detection
-        bool isHobbywingEscMessage(uint16_t dataTypeId);
-        bool isTmotorEscMessage(uint16_t dataTypeId);
 
         // NodeStatus handling (generic DroneCAN protocol)
         void handleNodeStatus(twai_message_t *canMsg);

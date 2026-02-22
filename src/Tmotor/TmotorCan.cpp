@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "../config.h"
-#include "Tmotor.h"
+#include "TmotorCan.h"
 #include "../Canbus/CanUtils.h"
 #include "../Throttle/Throttle.h"
 
@@ -38,7 +38,7 @@ static uint16_t crcAdd(uint16_t crc_val, const uint8_t* bytes, size_t len) {
     return crc_val;
 }
 
-Tmotor::Tmotor() {
+TmotorCan::TmotorCan() {
     lastReadEscStatus = 0;
     lastReadPushCan = 0;
     lastPushSci = 0;
@@ -66,7 +66,7 @@ Tmotor::Tmotor() {
     pushCanLastToggle = false;
 }
 
-void Tmotor::parseEscMessage(twai_message_t *canMsg) {
+void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
     uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
@@ -78,30 +78,30 @@ void Tmotor::parseEscMessage(twai_message_t *canMsg) {
     }
 
     if (dataTypeId == escStatus5DataTypeId) {  // 1154
-        Serial.println("[Tmotor] -> Processing ESC_STATUS 5");
+        DEBUG_PRINTLN("[Tmotor] -> Processing ESC_STATUS 5");
         handleEscStatus5(canMsg);
         return;
     }
 
     if (dataTypeId == pushCanDataTypeId) {
-        Serial.print("[PUSHCAN] Frame received - DLC=");
-        Serial.print(canMsg->data_length_code);
-        Serial.print(" Data=[");
+        DEBUG_PRINT("[PUSHCAN] Frame received - DLC=");
+        DEBUG_PRINT(canMsg->data_length_code);
+        DEBUG_PRINT(" Data=[");
         for (uint8_t i = 0; i < canMsg->data_length_code && i < 8; i++) {
-            if (i > 0) Serial.print(" ");
-            if (canMsg->data[i] < 0x10) Serial.print("0");
-            Serial.print(canMsg->data[i], HEX);
+            if (i > 0) DEBUG_PRINT(" ");
+            if (canMsg->data[i] < 0x10) DEBUG_PRINT("0");
+            DEBUG_PRINT_HEX(canMsg->data[i], HEX);
         }
-        Serial.println("]");
+        DEBUG_PRINTLN("]");
         handlePushCan(canMsg);
-        Serial.print("[PUSHCAN] T_Motor=");
-        Serial.print(motorTemperature);
-        Serial.println("°C");
+        DEBUG_PRINT("[PUSHCAN] T_Motor=");
+        DEBUG_PRINT(motorTemperature);
+        DEBUG_PRINTLN("°C");
         return;
     }
 }
 
-void Tmotor::handle() {
+void TmotorCan::handle() {
     // Check if ESC is detected and Enable Reporting not sent yet
     extern Canbus canbus;
     if (canbus.getEscNodeId() == 0) {
@@ -119,19 +119,19 @@ void Tmotor::handle() {
     lastThrottleSend = millis();
 }
 
-bool Tmotor::hasTelemetry() {
+bool TmotorCan::hasTelemetry() {
     // Consider telemetry available if we've received ESC_STATUS within the last second
     return lastReadEscStatus != 0
         && millis() - lastReadEscStatus < 1000;
 }
 
-bool Tmotor::isReady() {
+bool TmotorCan::isReady() {
     // ESC is ready if it has been detected via NodeStatus
     extern Canbus canbus;
     return canbus.getEscNodeId() != 0;
 }
 
-void Tmotor::handleEscStatus(twai_message_t *canMsg) {
+void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
     uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
     uint8_t frameTransferId = CanUtils::getTransferId(tailByte);
     bool isSOF = CanUtils::isStartOfFrame(tailByte);
@@ -188,13 +188,13 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
         }
 
         // Debug: Print accumulated buffer
-        // Serial.print("[ESC] Buffer: [");
+        // DEBUG_PRINT("[ESC] Buffer: [");
         // for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
-        //     if (i > 0) Serial.print(" ");
-        //     if (escStatusBuffer[i] < 0x10) Serial.print("0");
-        //     Serial.print(escStatusBuffer[i], HEX);
+        //     if (i > 0) DEBUG_PRINT(" ");
+        //     if (escStatusBuffer[i] < 0x10) DEBUG_PRINT("0");
+        //     DEBUG_PRINT(escStatusBuffer[i], HEX);
         // }
-        // Serial.println("]");
+        // DEBUG_PRINTLN("]");
 
         // Extract error_count (uint32, little-endian, bytes 0-3)
         errorCount = (uint32_t)escStatusBuffer[0] |
@@ -248,7 +248,7 @@ void Tmotor::handleEscStatus(twai_message_t *canMsg) {
     }
 }
 
-void Tmotor::handlePushCan(twai_message_t *canMsg) {
+void TmotorCan::handlePushCan(twai_message_t *canMsg) {
     uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
     uint8_t frameTransferId = CanUtils::getTransferId(tailByte);
     bool isSOF = CanUtils::isStartOfFrame(tailByte);
@@ -329,11 +329,11 @@ void Tmotor::handlePushCan(twai_message_t *canMsg) {
         lastReadPushCan = millis();
         pushCanBufferLen = 0;  // Reset for next transfer
     } else {
-        Serial.println();  // New line for intermediate frames
+        DEBUG_PRINTLN();  // New line for intermediate frames
     }
 }
 
-void Tmotor::handleEscStatus5(twai_message_t *canMsg) {
+void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     // Status 5: Single-frame (7 bytes + tail)
     // Bytes 0-1: idc (int16_t) - Estimated busbar current
     // Bytes 2-3: cap_temp (int16_t) - Capacitor temperature in 0.1°C
@@ -345,13 +345,13 @@ void Tmotor::handleEscStatus5(twai_message_t *canMsg) {
 
     // Validar single-frame
     if (!CanUtils::isStartOfFrame(tailByte) || !CanUtils::isEndOfFrame(tailByte)) {
-        Serial.println("[Tmotor] ERROR: Status 5 isn't single-frame");
+        DEBUG_PRINTLN("[Tmotor] ERROR: Status 5 isn't single-frame");
         return;
     }
 
     // Minimum size check: 7 bytes data + 1 tail = 8 bytes
     if (canMsg->data_length_code < 8) {
-        Serial.println("[Tmotor] ERROR: Status 5 frame too short");
+        DEBUG_PRINTLN("[Tmotor] ERROR: Status 5 frame too short");
         return;
     }
 
@@ -379,33 +379,33 @@ void Tmotor::handleEscStatus5(twai_message_t *canMsg) {
         this->motorTemperature = (uint8_t)motor_temp_celsius;
     }
 
-    Serial.print("[Tmotor] Status 5: IDC=");
+    DEBUG_PRINT("[Tmotor] Status 5: IDC=");
     // Format current with 1 decimal: idc is in 0.1A units
-    Serial.print(idc / 10);
-    Serial.print(".");
-    Serial.print(abs(idc % 10));
-    Serial.print("A, Cap=");
-    Serial.print(cap_temp_celsius);
-    Serial.print("°C, Motor=");
-    Serial.print(motor_temp_celsius);
-    Serial.println("°C");
+    DEBUG_PRINT(idc / 10);
+    DEBUG_PRINT(".");
+    DEBUG_PRINT(abs(idc % 10));
+    DEBUG_PRINT("A, Cap=");
+    DEBUG_PRINT(cap_temp_celsius);
+    DEBUG_PRINT("°C, Motor=");
+    DEBUG_PRINT(motor_temp_celsius);
+    DEBUG_PRINTLN("°C");
 
     lastReadPushCan = millis();
 }
 
 
-void Tmotor::requestParam(uint16_t paramIndex) {
+void TmotorCan::requestParam(uint16_t paramIndex) {
     // Send ParamGet service request to read ESC parameter
     // Service ID for ParamGet is typically 10 (uavcan.protocol.param.GetSet)
     twai_message_t localCanMsg;
 
     // For now, this is a placeholder - ParamGet structure needs to be defined
     // based on the actual DroneCAN specification
-    Serial.print("[Tmotor] ParamGet request not yet implemented for param index ");
-    Serial.println(paramIndex);
+    DEBUG_PRINT("[Tmotor] ParamGet request not yet implemented for param index ");
+    DEBUG_PRINTLN(paramIndex);
 }
 
-void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePermanent) {
+void TmotorCan::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePermanent) {
 
     // ParamCfg structure: 27 bytes total
     uint8_t payload[27];
@@ -556,10 +556,10 @@ void Tmotor::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool savePer
 
     // Increment TransferID only AFTER all frames sent
     transferId = (transferId + 1) & 0x1F;
-    Serial.println();
+    DEBUG_PRINTLN();
 }
 
-void Tmotor::sendEnableReporting(bool enable) {
+void TmotorCan::sendEnableReporting(bool enable) {
     // Payload: Header (6 bytes) + Data (4 bytes) = 10 bytes
     uint8_t payload[10];
 
@@ -618,7 +618,7 @@ void Tmotor::sendEnableReporting(bool enable) {
 
     esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 1 TX failed");
+        DEBUG_PRINTLN("[ERROR] Frame 1 TX failed");
         return;
     }
     delay(2);
@@ -636,7 +636,7 @@ void Tmotor::sendEnableReporting(bool enable) {
 
     tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
     if (tx_result != ESP_OK) {
-        Serial.println("[ERROR] Frame 2 TX failed");
+        DEBUG_PRINTLN("[ERROR] Frame 2 TX failed");
         return;
     }
 
@@ -645,7 +645,7 @@ void Tmotor::sendEnableReporting(bool enable) {
 
 // Float16 conversion functions (based on PDF section 5.2)
 
-float Tmotor::convertFloat16ToFloat(uint16_t value) {
+float TmotorCan::convertFloat16ToFloat(uint16_t value) {
     const union {
         uint32_t u;
         float f;
@@ -668,7 +668,7 @@ float Tmotor::convertFloat16ToFloat(uint16_t value) {
     return out.f;
 }
 
-uint16_t Tmotor::convertFloatToFloat16(float value) {
+uint16_t TmotorCan::convertFloatToFloat16(float value) {
     union {
         uint32_t u;
         float f;
@@ -709,7 +709,7 @@ uint16_t Tmotor::convertFloatToFloat16(float value) {
     return out;
 }
 
-void Tmotor::setRawThrottle(int16_t throttle) {
+void TmotorCan::setRawThrottle(int16_t throttle) {
     // RawCommand (1030) - Throttle control
     // Range: 0 to 8191 (0 = no throttle, 8191 = max throttle)
 
