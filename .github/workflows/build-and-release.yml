@@ -1,0 +1,82 @@
+# Build firmware for all controller types and publish as GitHub Release on every push to main.
+# Option B: one new release per push, tag nightly-<short_sha>.
+
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pip and PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build Hobbywing
+        run: pio run -e lolin_c3_mini_hobbywing
+
+      - name: Build T-Motor
+        run: pio run -e lolin_c3_mini_tmotor
+
+      - name: Build XAG
+        run: pio run -e lolin_c3_mini_xag
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release
+          cp .pio/build/lolin_c3_mini_hobbywing/firmware.bin release/firmware-hobbywing.bin
+          cp .pio/build/lolin_c3_mini_tmotor/firmware.bin release/firmware-tmotor.bin
+          cp .pio/build/lolin_c3_mini_xag/firmware.bin release/firmware-xag.bin
+
+      - name: Generate release tag and body
+        id: release
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "tag=nightly-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          {
+            echo "body<<RELEASE_BODY"
+            echo "## Nightly build"
+            echo ""
+            echo "**Commit:** \`${GITHUB_SHA}\`"
+            echo "**Branch:** ${GITHUB_REF_NAME}"
+            echo ""
+            echo "### Firmware images"
+            echo "- \`firmware-hobbywing.bin\` — Hobbywing (DroneCAN)"
+            echo "- \`firmware-tmotor.bin\` — T-Motor (UAVCAN)"
+            echo "- \`firmware-xag.bin\` — XAG (PWM/analog)"
+            echo "RELEASE_BODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Nightly ${{ steps.release.outputs.tag }}
+          body: ${{ steps.release.outputs.body }}
+          files: |
+            release/firmware-hobbywing.bin
+            release/firmware-tmotor.bin
+            release/firmware-xag.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
