@@ -1,112 +1,89 @@
 #include "Telemetry.h"
+#include "TelemetryBackend.h"
 #include "../config_controller.h"
 #include "../config.h"
 
-void Telemetry::init() {
+static const TelemetryBackend* s_backend_ptr = nullptr;
+
 #if IS_HOBBYWING
-    // Hobbywing init done in main.cpp (ESC setup)
-    (void)0;
+static void wrapUpdate() { hobbywingTelemetry.update(); }
+static bool wrapHasData() { return hobbywingTelemetry.hasData(); }
+static uint16_t wrapGetBatteryVoltageMilliVolts() { return hobbywingTelemetry.getBatteryVoltageMilliVolts(); }
+static uint32_t wrapGetBatteryCurrentMilliAmps() { return hobbywingTelemetry.getBatteryCurrentMilliAmps(); }
+static uint16_t wrapGetRpm() { return hobbywingTelemetry.getRpm(); }
+static int32_t wrapGetMotorTempMilliCelsius() { return hobbywingTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetEscTempMilliCelsius() { return hobbywingTelemetry.getEscTempMilliCelsius(); }
+static unsigned long wrapGetLastUpdate() { return hobbywingTelemetry.getLastUpdate(); }
+static const TelemetryBackend s_backend = {
+    wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+};
 #elif IS_TMOTOR
-    // Tmotor init done in main.cpp
-    (void)0;
+static void wrapUpdate() { tmotorTelemetry.update(); }
+static bool wrapHasData() { return tmotorTelemetry.hasData(); }
+static uint16_t wrapGetBatteryVoltageMilliVolts() { return tmotorTelemetry.getBatteryVoltageMilliVolts(); }
+static uint32_t wrapGetBatteryCurrentMilliAmps() { return tmotorTelemetry.getBatteryCurrentMilliAmps(); }
+static uint16_t wrapGetRpm() { return tmotorTelemetry.getRpm(); }
+static int32_t wrapGetMotorTempMilliCelsius() { return tmotorTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetEscTempMilliCelsius() { return tmotorTelemetry.getEscTempMilliCelsius(); }
+static unsigned long wrapGetLastUpdate() { return tmotorTelemetry.getLastUpdate(); }
+static const TelemetryBackend s_backend = {
+    wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+};
 #elif IS_XAG
-    // XAG: sensors ready after main.cpp ADC setup
-    (void)0;
+static void wrapUpdate() { xagTelemetry.update(); }
+static bool wrapHasData() { return xagTelemetry.hasData(); }
+static uint16_t wrapGetBatteryVoltageMilliVolts() { return xagTelemetry.getBatteryVoltageMilliVolts(); }
+static uint32_t wrapGetBatteryCurrentMilliAmps() { return xagTelemetry.getBatteryCurrentMilliAmps(); }
+static uint16_t wrapGetRpm() { return xagTelemetry.getRpm(); }
+static int32_t wrapGetMotorTempMilliCelsius() { return xagTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetEscTempMilliCelsius() { return xagTelemetry.getEscTempMilliCelsius(); }
+static unsigned long wrapGetLastUpdate() { return xagTelemetry.getLastUpdate(); }
+static const TelemetryBackend s_backend = {
+    wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+};
+#endif
+
+void Telemetry::init() {
+#if IS_HOBBYWING || IS_TMOTOR || IS_XAG
+    s_backend_ptr = &s_backend;
 #endif
 }
 
 void Telemetry::update() {
-#if IS_HOBBYWING
-    hobbywingTelemetry.update();
-#elif IS_TMOTOR
-    tmotorTelemetry.update();
-#elif IS_XAG
-    xagTelemetry.update();
-#endif
+    if (s_backend_ptr && s_backend_ptr->update) {
+        s_backend_ptr->update();
+    }
 }
 
 bool Telemetry::hasData() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.hasData();
-#elif IS_TMOTOR
-    return tmotorTelemetry.hasData();
-#elif IS_XAG
-    return xagTelemetry.hasData();
-#else
-    return false;
-#endif
+    return s_backend_ptr && s_backend_ptr->hasData && s_backend_ptr->hasData();
 }
 
 uint16_t Telemetry::getBatteryVoltageMilliVolts() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getBatteryVoltageMilliVolts();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getBatteryVoltageMilliVolts();
-#elif IS_XAG
-    return xagTelemetry.getBatteryVoltageMilliVolts();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getBatteryVoltageMilliVolts ? s_backend_ptr->getBatteryVoltageMilliVolts() : 0;
 }
 
 uint32_t Telemetry::getBatteryCurrentMilliAmps() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getBatteryCurrentMilliAmps();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getBatteryCurrentMilliAmps();
-#elif IS_XAG
-    return xagTelemetry.getBatteryCurrentMilliAmps();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getBatteryCurrentMilliAmps ? s_backend_ptr->getBatteryCurrentMilliAmps() : 0;
 }
 
 uint16_t Telemetry::getRpm() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getRpm();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getRpm();
-#elif IS_XAG
-    return xagTelemetry.getRpm();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getRpm ? s_backend_ptr->getRpm() : 0;
 }
 
 int32_t Telemetry::getMotorTempMilliCelsius() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getMotorTempMilliCelsius();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getMotorTempMilliCelsius();
-#elif IS_XAG
-    return xagTelemetry.getMotorTempMilliCelsius();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getMotorTempMilliCelsius ? s_backend_ptr->getMotorTempMilliCelsius() : 0;
 }
 
 int32_t Telemetry::getEscTempMilliCelsius() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getEscTempMilliCelsius();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getEscTempMilliCelsius();
-#elif IS_XAG
-    return xagTelemetry.getEscTempMilliCelsius();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getEscTempMilliCelsius ? s_backend_ptr->getEscTempMilliCelsius() : 0;
 }
 
 unsigned long Telemetry::getLastUpdate() const {
-#if IS_HOBBYWING
-    return hobbywingTelemetry.getLastUpdate();
-#elif IS_TMOTOR
-    return tmotorTelemetry.getLastUpdate();
-#elif IS_XAG
-    return xagTelemetry.getLastUpdate();
-#else
-    return 0;
-#endif
+    return s_backend_ptr && s_backend_ptr->getLastUpdate ? s_backend_ptr->getLastUpdate() : 0;
 }
 
 Telemetry telemetry;

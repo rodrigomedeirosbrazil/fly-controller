@@ -40,29 +40,9 @@ void setup()
 
   webServer.begin();
 
-#if IS_TMOTOR || IS_HOBBYWING
-  // Initialize ADS1115 for Tmotor and Hobbywing
+  // Initialize ADS1115 for all builds (throttle, motor temp; XAG also uses Ch2/Ch3 for ESC temp and battery)
   extern ADS1115 ads1115;
   ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
-#endif
-
-#if IS_XAG
-  // Initialize built-in ADC for XAG
-  analogReadResolution(ADC_RESOLUTION);
-  analogSetPinAttenuation(THROTTLE_PIN, ADC_ATTENUATION);
-  analogSetPinAttenuation(MOTOR_TEMPERATURE_PIN, ADC_ATTENUATION);
-  analogSetPinAttenuation(ESC_TEMPERATURE_PIN, ADC_ATTENUATION);
-  analogSetPinAttenuation(BATTERY_VOLTAGE_PIN, ADC_ATTENUATION);
-
-  // Warm-up ADC: discard first readings
-  for (int i = 0; i < 10; i++) {
-    analogRead(THROTTLE_PIN);
-    analogRead(MOTOR_TEMPERATURE_PIN);
-    analogRead(ESC_TEMPERATURE_PIN);
-    analogRead(BATTERY_VOLTAGE_PIN);
-    delay(10);
-  }
-#endif
 
   xctod.init();
   logger.init();
