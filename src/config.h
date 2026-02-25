@@ -95,9 +95,9 @@ extern ADS1115 ads1115;
 #if IS_XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
-// Calibrated: actual ratio = 21.33 * (53.08V / 54.2V) = 20.90
+// Calibrated: 20.90 * (51.45V / 46.493V) = 23.13 (corrected under-reading)
 // Low current (~26 µA), minimal noise, safe for high voltage
-#define BATTERY_DIVIDER_RATIO 20.90  // Calibrated (R1 + R2) / R2
+#define BATTERY_DIVIDER_RATIO 23.13  // Calibrated (R1 + R2) / R2
 #endif
 
 // ========== MOTOR PARAMETERS ==========
