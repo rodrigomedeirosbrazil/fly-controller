@@ -123,8 +123,13 @@ extern ADS1115 ads1115;
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== THROTTLE RAMP LIMITING ==========
-#define THROTTLE_RAMP_UP_US_PER_MS   1.5f
-#define THROTTLE_RAMP_DOWN_US_PER_MS 5.0f
+#define THROTTLE_RAMP_UP_US_PER_MS     2.0f
+#define THROTTLE_RAMP_DOWN_US_PER_MS   6.0f
+#define THROTTLE_DEADBAND_US           20
+#define THROTTLE_RAMP_STARTING_US_PER_MS  0.3f
+#define THROTTLE_STARTING_CAP_US          100
+#define MOTOR_CONFIRM_TIME_MS             1200
+#define MOTOR_STOP_TIME_MS                800
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)

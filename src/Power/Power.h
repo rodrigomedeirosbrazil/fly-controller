@@ -15,12 +15,23 @@ public:
     void resetRampLimiting();
 
 private:
+    enum class StartState {
+        IDLE,
+        STARTING,
+        RUNNING,
+    };
+
     long lastPowerCalculationTime;
     unsigned int power;
     unsigned int batteryPowerFloor;
 
     float outputPwm;
     unsigned long lastTickMs;
+
+    StartState startState;
+    unsigned long startingBeganAt;
+    unsigned long idleBeganAt;
+    float startingPwmCap;
 
     unsigned int calcPower();
     unsigned int calcBatteryLimit();
