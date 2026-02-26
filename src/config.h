@@ -123,14 +123,8 @@ extern ADS1115 ads1115;
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== THROTTLE RAMP LIMITING ==========
-#define THROTTLE_RAMP_RATE 4 // Maximum throttle acceleration in microseconds per tick
-#define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
-
-// ========== SMOOTH START (used when BoardConfig::useSmoothStart) ==========
-#define SMOOTH_START_MOTOR_STOPPED_TIME 1000  // ms - Time at ESC_MIN_PWM to consider motor stopped
-#define SMOOTH_START_PRE_START_DURATION 2000 // ms - Duration of pre-start phase (5% PWM)
-#define SMOOTH_START_DURATION 2000           // ms - Duration of smooth start ramp
-#define SMOOTH_START_PRE_START_PERCENT 5     // % - PWM percentage during pre-start phase
+#define THROTTLE_RAMP_UP_US_PER_MS   1.5f
+#define THROTTLE_RAMP_DOWN_US_PER_MS 5.0f
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
