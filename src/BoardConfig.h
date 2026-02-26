@@ -10,11 +10,11 @@
  */
 struct BoardConfig {
     bool hasCurrentSensor;         // false=XAG, true=Hobbywing/Tmotor (Coulomb counting)
-    bool useSmoothStart;           // true=XAG only
-    bool useBatteryLimit;          // true=use battery voltage to limit power
-    uint16_t defaultBatteryCapacity;  // mAh
-    int32_t defaultEscMaxTemp;         // millicelsius
-    int32_t defaultEscTempReductionStart;  // millicelsius
+    bool useSmoothStart;           // true=XAG
+    bool useBatteryLimit;
+    uint16_t defaultBatteryCapacity;
+    int32_t defaultEscMaxTemp;
+    int32_t defaultEscTempReductionStart;
 };
 
 const BoardConfig& getBoardConfig();

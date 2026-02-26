@@ -143,6 +143,11 @@ Calculates available power based on battery voltage, motor temperature, and ESC 
 3. **ESC Temperature:** Linear reduction from 80°C to 110°C.
 4. **Battery Power Floor:** Progressive ramp-up to protect the battery from sudden loads.
 
+**Throttle Ramp Limiting (useSmoothStart, XAG build):**
+- **Ramp rates:** `THROTTLE_RAMP_UP_US_PER_MS` (acceleration), `THROTTLE_RAMP_DOWN_US_PER_MS` (deceleration).
+- **XAG motor behavior:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period (`XAG_MOTOR_REACTION_DELAY_MS`), the firmware sends a fixed 5% PWM (`XAG_WAKEUP_PWM_PERCENT`) regardless of throttle position. After 1.5 s, the ramp runs from 5% to the current throttle target.
+- **State flow:** IDLE (ESC_MIN_PWM) → STARTING (5% fixed for 1.5 s) → RUNNING (ramp from 5% to target).
+
 ### 6. **Temperature/** - Thermal Monitoring
 Reads an NTC thermistor for motor temperature monitoring. Agnostic: uses `ReadFn` + `adcVoltageRef`.
 

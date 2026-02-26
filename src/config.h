@@ -123,14 +123,15 @@ extern ADS1115 ads1115;
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== THROTTLE RAMP LIMITING ==========
-#define THROTTLE_RAMP_RATE 4 // Maximum throttle acceleration in microseconds per tick
-#define THROTTLE_DECEL_MULTIPLIER 2.0 // Deceleration multiplier (deceleration is 2x faster than acceleration)
+#define THROTTLE_RAMP_UP_US_PER_MS     1.0f
+#define THROTTLE_RAMP_DOWN_US_PER_MS   4.0f
+#define THROTTLE_DEADBAND_US           20
+#define MOTOR_STOP_TIME_MS             800
 
-// ========== SMOOTH START (used when BoardConfig::useSmoothStart) ==========
-#define SMOOTH_START_MOTOR_STOPPED_TIME 1000  // ms - Time at ESC_MIN_PWM to consider motor stopped
-#define SMOOTH_START_PRE_START_DURATION 2000 // ms - Duration of pre-start phase (5% PWM)
-#define SMOOTH_START_DURATION 2000           // ms - Duration of smooth start ramp
-#define SMOOTH_START_PRE_START_PERCENT 5     // % - PWM percentage during pre-start phase
+// XAG motor (useSmoothStart): 1.5s reaction delay when stopped. Send 5% PWM (wake-up) during that time; after 1.5s, ramp from 5% to target.
+// Only used when useSmoothStart is true (XAG build).
+#define XAG_MOTOR_REACTION_DELAY_MS    1500
+#define XAG_WAKEUP_PWM_PERCENT        5
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)

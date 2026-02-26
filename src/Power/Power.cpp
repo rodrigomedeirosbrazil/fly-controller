@@ -10,103 +10,141 @@ extern Settings settings;
 
 Power::Power() {
     lastPowerCalculationTime = 0;
-    pwm = ESC_MIN_PWM;
     power = 100;
     batteryPowerFloor = 100;
-    resetRampLimiting();
-    if (getBoardConfig().useSmoothStart) {
-        smoothStartActive = false;
-        motorStoppedTime = 0;
-        smoothStartBeginTime = 0;
-        smoothStartInitialPwm = ESC_MIN_PWM;
-        preStartActive = false;
-        preStartBeginTime = 0;
-        preStartPwm = ESC_MIN_PWM + (SMOOTH_START_PRE_START_PERCENT * (ESC_MAX_PWM - ESC_MIN_PWM)) / 100;
-    }
+    outputPwm = (float)ESC_MIN_PWM;
+    lastTickMs = 0;
+    startState = StartState::IDLE;
+    startingBeganAt = 0;
+    idleBeganAt = 0;
+    startingPwmCap = (float)ESC_MIN_PWM;
 }
 
 unsigned int Power::getPwm() {
     if (!throttle.isCalibrated()) {
         resetRampLimiting();
-        return ESC_MIN_PWM;
+        return (unsigned int)outputPwm;
     }
 
-    unsigned int throttleRaw = throttle.getThrottleRaw();
-    unsigned int powerLimit = getPower(); // 0-100
+    unsigned long now = millis();
 
+    if (lastTickMs == 0) lastTickMs = now;
+
+    unsigned long dt = now - lastTickMs;
+    if (dt > 50) dt = 50;
+    lastTickMs = now;
+
+    unsigned int powerLimit  = getPower();
     unsigned int throttleMin = throttle.getThrottlePinMin();
     unsigned int throttleMax = throttle.getThrottlePinMax();
+    unsigned int throttleRaw = throttle.getThrottleRaw();
 
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
-    unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
+    unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
-    int targetPwm = map(
-        effectiveRaw,
-        throttleMin,
-        throttleMax,
-        ESC_MIN_PWM,
-        ESC_MAX_PWM
+    float targetPwm = (float)map(
+        (long)clampedRaw,
+        (long)throttleMin, (long)throttleMax,
+        (long)ESC_MIN_PWM,  (long)ESC_MAX_PWM
     );
+    targetPwm = constrain(targetPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
+
+    bool throttleActive = (targetPwm > (float)(ESC_MIN_PWM + THROTTLE_DEADBAND_US));
 
     if (getBoardConfig().useSmoothStart) {
-        if (preStartActive) {
-            if (targetPwm <= ESC_MIN_PWM) {
-                preStartActive = false;
-                prevPwm = ESC_MIN_PWM;
+
+        switch (startState) {
+
+        case StartState::IDLE:
+            if (throttleActive) {
+                startState = StartState::STARTING;
+                startingBeganAt = now;
+            }
+            outputPwm = (float)ESC_MIN_PWM;
+            return ESC_MIN_PWM;
+
+        case StartState::STARTING: {
+            if (!throttleActive) {
+                startState = StartState::IDLE;
+                outputPwm = (float)ESC_MIN_PWM;
                 return ESC_MIN_PWM;
             }
-            return applyPreStart();
-        }
-        if (smoothStartActive) {
-            if (targetPwm <= ESC_MIN_PWM) {
-                smoothStartActive = false;
-                prevPwm = ESC_MIN_PWM;
-                return ESC_MIN_PWM;
+            float wakeupPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * (float)XAG_WAKEUP_PWM_PERCENT / 100.0f;
+            if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
+                startState = StartState::RUNNING;
+                outputPwm = wakeupPwm;
+                // Fall through to RUNNING
+            } else {
+                outputPwm = wakeupPwm;
+                return (unsigned int)outputPwm;
             }
-            return applySmoothStart(targetPwm);
         }
-        if (detectMotorStopped() && targetPwm > ESC_MIN_PWM) {
-            preStartActive = true;
-            preStartBeginTime = millis();
-            return applyPreStart();
+        case StartState::RUNNING:
+            if (!throttleActive) {
+                if (idleBeganAt == 0) idleBeganAt = now;
+
+                if (now - idleBeganAt >= MOTOR_STOP_TIME_MS) {
+                    startState = StartState::IDLE;
+                    idleBeganAt = 0;
+                    outputPwm = (float)ESC_MIN_PWM;
+                    return ESC_MIN_PWM;
+                }
+            } else {
+                idleBeganAt = 0;
+            }
+
+            {
+                float delta  = targetPwm - outputPwm;
+                float maxUp   = THROTTLE_RAMP_UP_US_PER_MS   * (float)dt;
+                float maxDown = THROTTLE_RAMP_DOWN_US_PER_MS  * (float)dt;
+                if (delta > 0.0f)      outputPwm += min(delta,  maxUp);
+                else if (delta < 0.0f) outputPwm += max(delta, -maxDown);
+            }
+            outputPwm = constrain(outputPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
+            return (unsigned int)outputPwm;
         }
     }
 
-    // Apply ramp limiting
-    return applyRampLimiting(targetPwm);
+    {
+        float delta  = targetPwm - outputPwm;
+        float maxUp   = THROTTLE_RAMP_UP_US_PER_MS   * (float)dt;
+        float maxDown = THROTTLE_RAMP_DOWN_US_PER_MS  * (float)dt;
+        if (delta > 0.0f)      outputPwm += min(delta,  maxUp);
+        else if (delta < 0.0f) outputPwm += max(delta, -maxDown);
+    }
+    outputPwm = constrain(outputPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
+    return (unsigned int)outputPwm;
+}
+
+void Power::resetRampLimiting() {
+    outputPwm  = (float)ESC_MIN_PWM;
+    lastTickMs = 0;
+    startState = StartState::IDLE;
+    startingBeganAt = 0;
+    idleBeganAt = 0;
+    startingPwmCap = (float)ESC_MIN_PWM;
 }
 
 unsigned int Power::getPower() {
-    if (millis() - lastPowerCalculationTime < 1000) {
+    if (millis() - lastPowerCalculationTime < 500) {
         return power;
     }
-
     lastPowerCalculationTime = millis();
     power = calcPower();
-
     return power;
 }
 
 unsigned int Power::calcPower() {
-    // Check if power control is enabled
-    if (!settings.getPowerControlEnabled()) {
-        return 100; // No limitations when power control is disabled
-    }
-
-    unsigned int batteryLimit = calcBatteryLimit();
+    if (!settings.getPowerControlEnabled()) return 100;
+    unsigned int batteryLimit   = calcBatteryLimit();
     unsigned int motorTempLimit = calcMotorTempLimit();
-    unsigned int escTempLimit = calcEscTempLimit();
-
+    unsigned int escTempLimit   = calcEscTempLimit();
     return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
 unsigned int Power::calcBatteryLimit() {
-    if (!getBoardConfig().useBatteryLimit) {
-        return 100;
-    }
-    if (!telemetry.hasData()) {
-        return 0;
-    }
+    if (!getBoardConfig().useBatteryLimit) return 100;
+    if (!telemetry.hasData()) return 0;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -114,183 +152,47 @@ unsigned int Power::calcBatteryLimit() {
     if (batteryMilliVolts > settings.getBatteryMinVoltage()) {
         return batteryPowerFloor;
     }
-
     if (batteryPowerFloor < STEP_DECREASE) {
         batteryPowerFloor = 0;
-        return batteryPowerFloor;
+        return 0;
     }
-
-    batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
+    batteryPowerFloor -= STEP_DECREASE;
     return batteryPowerFloor;
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    int32_t motorTempMilliCelsius;
+    int32_t motorTempMilliCelsius = (int32_t)(motorTemp.getTemperature() * 1000.0);
 
-    // Use motor temperature from sensor (ADC)
-    double readedMotorTemp = motorTemp.getTemperature();
-    motorTempMilliCelsius = (int32_t)(readedMotorTemp * 1000.0);
-
-    // Validate temperature reading (compare in millicelsius)
-    if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID) {
-        return 100; // Invalid sensor data
-    }
-
-    int32_t motorTempReductionStart = settings.getMotorTempReductionStart();
-    int32_t motorMaxTemp = settings.getMotorMaxTemp();
-
-    if (motorTempMilliCelsius < motorTempReductionStart) {
+    if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID)
         return 100;
-    }
 
-    // Check if temperature range is valid (min != max)
-    if (motorTempReductionStart == motorMaxTemp) {
-        return 0; // If min == max, return 0 (maximum reduction)
-    }
+    int32_t reductionStart = settings.getMotorTempReductionStart();
+    int32_t maxTemp        = settings.getMotorMaxTemp();
 
-    return constrain(
-        map(
-            motorTempMilliCelsius,
-            motorTempReductionStart,
-            motorMaxTemp,
-            100,
-            0
-        ),
-        0,
-        100
-    );
+    if (motorTempMilliCelsius < reductionStart) return 100;
+    if (reductionStart == maxTemp) return 0;
+
+    return constrain(map(motorTempMilliCelsius, reductionStart, maxTemp, 100, 0), 0, 100);
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!telemetry.hasData()) {
-        return 100;
-    }
+    if (!telemetry.hasData()) return 100;
+
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
 
-    // Validate temperature reading (compare in millicelsius)
-    if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID) {
-        return 100; // Invalid sensor data
-    }
-
-    int32_t escTempReductionStart = settings.getEscTempReductionStart();
-    int32_t escMaxTemp = settings.getEscMaxTemp();
-
-    if (escTempMilliCelsius < escTempReductionStart) {
+    if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID)
         return 100;
-    }
 
-    // Check if temperature range is valid (min != max)
-    if (escTempReductionStart == escMaxTemp) {
-        return 0; // If min == max, return 0 (maximum reduction)
-    }
+    int32_t reductionStart = settings.getEscTempReductionStart();
+    int32_t maxTemp        = settings.getEscMaxTemp();
 
-    return constrain(
-        map(
-            escTempMilliCelsius,
-            escTempReductionStart,
-            escMaxTemp,
-            100,
-            0
-        ),
-        0,
-        100
-    );
+    if (escTempMilliCelsius < reductionStart) return 100;
+    if (reductionStart == maxTemp) return 0;
+
+    return constrain(map(escTempMilliCelsius, reductionStart, maxTemp, 100, 0), 0, 100);
 }
 
 void Power::resetBatteryPowerFloor() {
     batteryPowerFloor = 100;
     resetRampLimiting();
-}
-
-void Power::resetRampLimiting() {
-    prevPwm = ESC_MIN_PWM;
-    if (getBoardConfig().useSmoothStart) {
-        smoothStartActive = false;
-        motorStoppedTime = 0;
-        smoothStartBeginTime = 0;
-        smoothStartInitialPwm = ESC_MIN_PWM;
-        preStartActive = false;
-        preStartBeginTime = 0;
-    }
-}
-
-unsigned int Power::applyRampLimiting(int targetPwm) {
-    int delta = targetPwm - prevPwm;
-    int maxDelta = (delta > 0)
-        ? THROTTLE_RAMP_RATE
-        : (int)(THROTTLE_RAMP_RATE * THROTTLE_DECEL_MULTIPLIER);
-
-    int limitedPwm = prevPwm + constrain(delta, -maxDelta, maxDelta);
-    // Ensure the result is within valid PWM range
-    limitedPwm = constrain(limitedPwm, ESC_MIN_PWM, ESC_MAX_PWM);
-    prevPwm = limitedPwm;
-
-    return (unsigned int)limitedPwm;
-}
-
-bool Power::detectMotorStopped() {
-    unsigned long now = millis();
-
-    // Check if current PWM is at minimum
-    if (prevPwm == ESC_MIN_PWM) {
-        // If timer not started, start it
-        if (motorStoppedTime == 0) {
-            motorStoppedTime = now;
-        }
-
-        // Check if motor has been stopped for required time
-        if (now - motorStoppedTime >= SMOOTH_START_MOTOR_STOPPED_TIME) {
-            return true;
-        }
-    } else {
-        // Motor is not at minimum, reset timer
-        motorStoppedTime = 0;
-    }
-
-    return false;
-}
-
-unsigned int Power::applyPreStart() {
-    unsigned long now = millis();
-
-    // Check if pre-start duration has elapsed
-    if (now - preStartBeginTime >= SMOOTH_START_PRE_START_DURATION) {
-        // Pre-start complete, transition to smooth start
-        preStartActive = false;
-        smoothStartActive = true;
-        smoothStartBeginTime = now;
-        smoothStartInitialPwm = preStartPwm;
-    }
-
-    // Update prevPwm to preStartPwm
-    prevPwm = preStartPwm;
-
-    // Return fixed 5% PWM value
-    return (unsigned int)preStartPwm;
-}
-
-unsigned int Power::applySmoothStart(int targetPwm) {
-    unsigned long now = millis();
-
-    // Calculate progress in permille (0 to 1000) using integer arithmetic
-    unsigned long elapsed = now - smoothStartBeginTime;
-    uint16_t progressPermille = (elapsed * 1000) / SMOOTH_START_DURATION;
-
-    // Clamp progress to 1000 (100%)
-    if (progressPermille >= 1000) {
-        progressPermille = 1000;
-        smoothStartActive = false; // Smooth start complete
-    }
-
-    // Linear interpolation from smoothStartInitialPwm (preStartPwm) to targetPwm
-    // Using integer arithmetic: smoothPwm = initial + ((target - initial) * progressPermille) / 1000
-    int smoothPwm = smoothStartInitialPwm + ((targetPwm - smoothStartInitialPwm) * progressPermille) / 1000;
-
-    // Ensure the result is within valid PWM range
-    smoothPwm = constrain(smoothPwm, ESC_MIN_PWM, ESC_MAX_PWM);
-
-    // Update prevPwm for ramp limiting after smooth start
-    prevPwm = smoothPwm;
-
-    return (unsigned int)smoothPwm;
 }
