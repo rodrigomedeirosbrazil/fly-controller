@@ -329,7 +329,7 @@ The project supports three controller types, each with its own build environment
 - Battery voltage monitoring via voltage divider
 - Throttle ramp limiting for smooth acceleration/deceleration
 
-**Note:** The XAG mode includes smooth throttle ramp limiting (4 μs/tick acceleration, 8 μs/tick deceleration) to prevent jerky motor movements.
+**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period, the firmware sends 5% PWM; after 1.5 s, the ramp runs from 5% to the throttle target. Ramp rates: `THROTTLE_RAMP_UP_US_PER_MS` (2 μs/ms), `THROTTLE_RAMP_DOWN_US_PER_MS` (6 μs/ms).
 
 ### 5. Pin Configuration
 ```cpp
@@ -354,14 +354,17 @@ The project supports three controller types, each with its own build environment
 ### 6. Throttle Ramp Limiting Configuration
 ```cpp
 // src/config.h - Throttle ramp limiting parameters
-#define THROTTLE_RAMP_RATE 8        // Maximum acceleration in μs/tick
-#define THROTTLE_DECEL_MULTIPLIER 2.0  // Deceleration multiplier (2x faster)
+#define THROTTLE_RAMP_UP_US_PER_MS   2.0f   // Acceleration rate (μs/ms)
+#define THROTTLE_RAMP_DOWN_US_PER_MS 6.0f   // Deceleration rate (μs/ms)
+// XAG (useSmoothStart): 1.5s wake-up at 5% PWM before ramp
+#define XAG_MOTOR_REACTION_DELAY_MS  1500
+#define XAG_WAKEUP_PWM_PERCENT      5
 ```
 
 **Behavior:**
-- Acceleration: Limited to 4 μs per tick (smooth ramp-up)
-- Deceleration: Limited to 8 μs per tick (2x faster, responsive braking)
-- Applied to all controller types for smooth motor control
+- Acceleration: Limited to 2 μs/ms (smooth ramp-up)
+- Deceleration: Limited to 6 μs/ms (responsive braking)
+- XAG: 1.5 s at 5% PWM when starting from stopped; then ramp from 5% to target
 
 ### 7. Calibration
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
@@ -391,7 +394,7 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 - No CAN bus required
 - Temperature sensors must be connected (motor and ESC)
 - Battery voltage divider must be connected
-- Throttle ramp limiting provides smooth motor control
+- Motor has ~1.5 s reaction delay when stopped; firmware sends 5% PWM during wake-up, then ramps to target
 
 ## 🛠️ Development
 

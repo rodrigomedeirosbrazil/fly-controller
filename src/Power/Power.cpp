@@ -59,29 +59,26 @@ unsigned int Power::getPwm() {
             if (throttleActive) {
                 startState = StartState::STARTING;
                 startingBeganAt = now;
-                startingPwmCap = (float)ESC_MIN_PWM + THROTTLE_STARTING_CAP_US;
             }
-            // Fica no mínimo enquanto IDLE
             outputPwm = (float)ESC_MIN_PWM;
             return ESC_MIN_PWM;
 
-        case StartState::STARTING:
+        case StartState::STARTING: {
             if (!throttleActive) {
                 startState = StartState::IDLE;
                 outputPwm = (float)ESC_MIN_PWM;
                 return ESC_MIN_PWM;
             }
-
-            if (now - startingBeganAt >= MOTOR_CONFIRM_TIME_MS) {
+            float wakeupPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * (float)XAG_WAKEUP_PWM_PERCENT / 100.0f;
+            if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
                 startState = StartState::RUNNING;
+                outputPwm = wakeupPwm;
+                // Fall through to RUNNING
             } else {
-                float maxUp = THROTTLE_RAMP_STARTING_US_PER_MS * (float)dt;
-                float effective = min(targetPwm, startingPwmCap);
-                float delta = effective - outputPwm;
-                if (delta > 0.0f) outputPwm += min(delta, maxUp);
-                outputPwm = constrain(outputPwm, (float)ESC_MIN_PWM, startingPwmCap);
+                outputPwm = wakeupPwm;
                 return (unsigned int)outputPwm;
             }
+        }
         case StartState::RUNNING:
             if (!throttleActive) {
                 if (idleBeganAt == 0) idleBeganAt = now;

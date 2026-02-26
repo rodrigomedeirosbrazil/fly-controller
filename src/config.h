@@ -126,10 +126,12 @@ extern ADS1115 ads1115;
 #define THROTTLE_RAMP_UP_US_PER_MS     2.0f
 #define THROTTLE_RAMP_DOWN_US_PER_MS   6.0f
 #define THROTTLE_DEADBAND_US           20
-#define THROTTLE_RAMP_STARTING_US_PER_MS  0.3f
-#define THROTTLE_STARTING_CAP_US          100
-#define MOTOR_CONFIRM_TIME_MS             1200
-#define MOTOR_STOP_TIME_MS                800
+#define MOTOR_STOP_TIME_MS             800
+
+// XAG motor (useSmoothStart): 1.5s reaction delay when stopped. Send 5% PWM (wake-up) during that time; after 1.5s, ramp from 5% to target.
+// Only used when useSmoothStart is true (XAG build).
+#define XAG_MOTOR_REACTION_DELAY_MS    1500
+#define XAG_WAKEUP_PWM_PERCENT        5
 
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
