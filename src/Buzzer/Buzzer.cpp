@@ -242,8 +242,8 @@ void Buzzer::beepSystemStart() {
 }
 
 void Buzzer::beepCalibrationStep() {
-  // Musical note instead of beep - ascending tone for progress
-  startBeep(120, 1, 0, NOTE_D4);  // D4 note, 120ms
+  // 3 short beeps - more noticeable in noisy environments, works on active/passive buzzers
+  startBeep(100, 3, 80, NOTE_D4);  // 100ms each, 80ms pause, 3 repetitions
 }
 
 void Buzzer::beepCalibrationComplete() {

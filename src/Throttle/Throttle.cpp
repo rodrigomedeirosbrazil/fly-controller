@@ -192,7 +192,8 @@ void Throttle::setArmed()
   }
 
   // Don't allow arming if not calibrated
-  if (! calibrated) {
+  if (!calibrated) {
+    buzzer.beepArmingBlocked();  // Warning: must calibrate throttle first
     return;
   }
 
