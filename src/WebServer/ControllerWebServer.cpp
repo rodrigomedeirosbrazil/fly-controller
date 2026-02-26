@@ -207,7 +207,7 @@ const char* CONFIG_HTML = R"rawliteral(
                 <label for="batteryCapacity">Battery Capacity (Ah):</label>
                 <select id="batteryCapacity" name="batteryCapacity">
                     <option value="18">18 Ah</option>
-                    <option value="35">35 Ah</option>
+                    <option value="34">34 Ah</option>
                     <option value="65">65 Ah</option>
                     <option value="custom">Custom (enter value)</option>
                 </select>

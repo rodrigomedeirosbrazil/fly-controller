@@ -1,5 +1,6 @@
 #include "Settings.h"
 #include "../config.h"
+#include "../BoardConfig.h"
 
 Settings::Settings() {
     batteryCapacityMah = 0;
@@ -113,11 +114,7 @@ void Settings::setPowerControlEnabled(bool enabled) {
 }
 
 uint16_t Settings::getDefaultBatteryCapacity() const {
-    #if IS_HOBBYWING
-    return 65000;  // 65.0 Ah for Hobbywing
-    #else
-    return 18000;  // 18.0 Ah for Tmotor and XAG
-    #endif
+    return getBoardConfig().defaultBatteryCapacity;
 }
 
 uint16_t Settings::getDefaultBatteryMinVoltage() const {
@@ -137,19 +134,11 @@ int32_t Settings::getDefaultMotorTempReductionStart() const {
 }
 
 int32_t Settings::getDefaultEscMaxTemp() const {
-    #if IS_XAG
-    return 80000;  // 80.000°C for XAG
-    #else
-    return 110000;  // 110.000°C for Hobbywing/Tmotor
-    #endif
+    return getBoardConfig().defaultEscMaxTemp;
 }
 
 int32_t Settings::getDefaultEscTempReductionStart() const {
-    #if IS_XAG
-    return 70000;  // 70.000°C for XAG
-    #else
-    return 80000;  // 80.000°C for Hobbywing/Tmotor
-    #endif
+    return getBoardConfig().defaultEscTempReductionStart;
 }
 
 bool Settings::getDefaultPowerControlEnabled() const {

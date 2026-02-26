@@ -1,5 +1,6 @@
 #include "Power.h"
 #include "../config.h"
+#include "../BoardConfig.h"
 #include "../Throttle/Throttle.h"
 #include "../Temperature/Temperature.h"
 
@@ -13,16 +14,15 @@ Power::Power() {
     power = 100;
     batteryPowerFloor = 100;
     resetRampLimiting();
-    #if IS_XAG
-    smoothStartActive = false;
-    motorStoppedTime = 0;
-    smoothStartBeginTime = 0;
-    smoothStartInitialPwm = ESC_MIN_PWM;
-    preStartActive = false;
-    preStartBeginTime = 0;
-    // Calculate pre-start PWM: 5% of range
-    preStartPwm = ESC_MIN_PWM + (SMOOTH_START_PRE_START_PERCENT * (ESC_MAX_PWM - ESC_MIN_PWM)) / 100;
-    #endif
+    if (getBoardConfig().useSmoothStart) {
+        smoothStartActive = false;
+        motorStoppedTime = 0;
+        smoothStartBeginTime = 0;
+        smoothStartInitialPwm = ESC_MIN_PWM;
+        preStartActive = false;
+        preStartBeginTime = 0;
+        preStartPwm = ESC_MIN_PWM + (SMOOTH_START_PRE_START_PERCENT * (ESC_MAX_PWM - ESC_MIN_PWM)) / 100;
+    }
 }
 
 unsigned int Power::getPwm() {
@@ -48,42 +48,31 @@ unsigned int Power::getPwm() {
         ESC_MAX_PWM
     );
 
-    #if IS_XAG
-    // If pre-start is active, apply pre-start phase
-    if (preStartActive) {
-        // If target PWM goes back to minimum, cancel pre-start
-        if (targetPwm <= ESC_MIN_PWM) {
-            preStartActive = false;
-            prevPwm = ESC_MIN_PWM;
-            return ESC_MIN_PWM;
+    if (getBoardConfig().useSmoothStart) {
+        if (preStartActive) {
+            if (targetPwm <= ESC_MIN_PWM) {
+                preStartActive = false;
+                prevPwm = ESC_MIN_PWM;
+                return ESC_MIN_PWM;
+            }
+            return applyPreStart();
         }
-        // applyPreStart() will handle transition to smooth start when duration completes
-        return applyPreStart();
-    }
-
-    // If smooth start is active, check if we should continue
-    if (smoothStartActive) {
-        // If target PWM goes back to minimum, cancel smooth start
-        if (targetPwm <= ESC_MIN_PWM) {
-            smoothStartActive = false;
-            prevPwm = ESC_MIN_PWM;
-            return ESC_MIN_PWM;
+        if (smoothStartActive) {
+            if (targetPwm <= ESC_MIN_PWM) {
+                smoothStartActive = false;
+                prevPwm = ESC_MIN_PWM;
+                return ESC_MIN_PWM;
+            }
+            return applySmoothStart(targetPwm);
         }
-        return applySmoothStart(targetPwm);
+        if (detectMotorStopped() && targetPwm > ESC_MIN_PWM) {
+            preStartActive = true;
+            preStartBeginTime = millis();
+            return applyPreStart();
+        }
     }
 
-    // Check if motor is stopped
-    bool motorStopped = detectMotorStopped();
-
-    // If motor is stopped and target PWM is above minimum, activate pre-start
-    if (motorStopped && targetPwm > ESC_MIN_PWM) {
-        preStartActive = true;
-        preStartBeginTime = millis();
-        return applyPreStart();
-    }
-    #endif
-
-    // Apply ramp limiting to smooth acceleration/deceleration
+    // Apply ramp limiting
     return applyRampLimiting(targetPwm);
 }
 
@@ -112,16 +101,13 @@ unsigned int Power::calcPower() {
 }
 
 unsigned int Power::calcBatteryLimit() {
-    // XAG mode: battery voltage reading is not reliable, do not limit power
-    // The voltage is available for telemetry but should not be used to control power output
-    #if IS_XAG
-    return 100;
-    #else
+    if (!getBoardConfig().useBatteryLimit) {
+        return 100;
+    }
     if (!telemetry.hasData()) {
         return 0;
     }
 
-    // Compare millivolts directly with settings value in millivolts
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
 
@@ -135,9 +121,7 @@ unsigned int Power::calcBatteryLimit() {
     }
 
     batteryPowerFloor = batteryPowerFloor - STEP_DECREASE;
-
     return batteryPowerFloor;
-    #endif
 }
 
 unsigned int Power::calcMotorTempLimit() {
@@ -178,16 +162,10 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    #if IS_XAG
-    // XAG mode: use ESC temperature from telemetry (read from NTC sensor)
-    int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
-    #else
-    // CAN controllers: use ESC temperature from telemetry
     if (!telemetry.hasData()) {
-        return 100; // Telemetry not available, allow other limits to control
+        return 100;
     }
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
-    #endif
 
     // Validate temperature reading (compare in millicelsius)
     if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID) {
@@ -226,14 +204,14 @@ void Power::resetBatteryPowerFloor() {
 
 void Power::resetRampLimiting() {
     prevPwm = ESC_MIN_PWM;
-    #if IS_XAG
-    smoothStartActive = false;
-    motorStoppedTime = 0;
-    smoothStartBeginTime = 0;
-    smoothStartInitialPwm = ESC_MIN_PWM;
-    preStartActive = false;
-    preStartBeginTime = 0;
-    #endif
+    if (getBoardConfig().useSmoothStart) {
+        smoothStartActive = false;
+        motorStoppedTime = 0;
+        smoothStartBeginTime = 0;
+        smoothStartInitialPwm = ESC_MIN_PWM;
+        preStartActive = false;
+        preStartBeginTime = 0;
+    }
 }
 
 unsigned int Power::applyRampLimiting(int targetPwm) {
@@ -250,7 +228,6 @@ unsigned int Power::applyRampLimiting(int targetPwm) {
     return (unsigned int)limitedPwm;
 }
 
-#if IS_XAG
 bool Power::detectMotorStopped() {
     unsigned long now = millis();
 
@@ -317,4 +294,3 @@ unsigned int Power::applySmoothStart(int targetPwm) {
 
     return (unsigned int)smoothPwm;
 }
-#endif

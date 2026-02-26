@@ -1,8 +1,8 @@
 #include "BatteryVoltageSensor.h"
 #include "../config.h"
 
-BatteryVoltageSensor::BatteryVoltageSensor(ReadFn readFn, float dividerRatio)
-    : readFn(readFn), dividerRatio(dividerRatio), voltageMilliVolts(0), lastRead(0) {
+BatteryVoltageSensor::BatteryVoltageSensor(ReadFn readFn, float dividerRatio, float adcVoltageRef)
+    : readFn(readFn), dividerRatio(dividerRatio), adcVoltageRef(adcVoltageRef), voltageMilliVolts(0), lastRead(0) {
 }
 
 void BatteryVoltageSensor::handle() {
@@ -21,9 +21,9 @@ void BatteryVoltageSensor::readVoltage() {
     }
     int adcValue = oversampledValue / oversampleCount;
 
-    // Convert ADC reading to voltage at GPIO pin
-    // ESP32-C3: 12-bit ADC (0-4095) with 3.3V reference
-    double voltageAtPin = (ADC_VREF * (double)adcValue) / ADC_MAX_VALUE;
+    // Convert ADC reading to voltage at sensor pin
+    // adcVoltageRef: 3.3V for ESP32 ADC, 4.096V for ADS1115 GAIN_ONE
+    double voltageAtPin = (adcVoltageRef * (double)adcValue) / ADC_MAX_VALUE;
 
     // Calculate actual battery voltage using divider ratio
     // V_battery = V_pin * BATTERY_DIVIDER_RATIO

@@ -6,7 +6,7 @@
 class BatteryVoltageSensor {
 public:
     typedef int (*ReadFn)();
-    BatteryVoltageSensor(ReadFn readFn, float dividerRatio);
+    BatteryVoltageSensor(ReadFn readFn, float dividerRatio, float adcVoltageRef);
     void handle();
     uint16_t getVoltageMilliVolts() const { return voltageMilliVolts; }
 
@@ -15,6 +15,7 @@ private:
 
     ReadFn readFn;
     float dividerRatio;
+    float adcVoltageRef;
     uint16_t voltageMilliVolts;
     unsigned long lastRead;
 

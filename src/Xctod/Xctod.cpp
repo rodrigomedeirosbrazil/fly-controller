@@ -1,5 +1,6 @@
 #include "Xctod.h"
 #include "../config.h"
+#include "../BoardConfig.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
@@ -120,25 +121,15 @@ void Xctod::writeBatteryInfo(String &data) {
     data += String(decimals);
     data += ",";
 
-    #if IS_XAG
-    // XAG: power not calculable (no current data)
-    data += ",";
-    #else
-    if (!telemetry.hasData()) {
-        data += ","; // power_kw
-        return;
+    if (getBoardConfig().hasCurrentSensor && telemetry.hasData()) {
+        uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
+        uint32_t powerKwInt = powerMilliWatts / 1000000;
+        uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
+        data += String(powerKwInt);
+        data += ".";
+        data += String(powerKwDecimal);
     }
-
-    // Calculate power in milliwatts: P(mW) = V(mV) * I(mA) / 1000
-    uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
-    uint32_t powerKwInt = powerMilliWatts / 1000000;
-    uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
-
-    data += String(powerKwInt);
-    data += ".";
-    data += String(powerKwDecimal);
     data += ",";
-    #endif
 }
 
 void Xctod::writeThrottleInfo(String &data) {
@@ -164,21 +155,14 @@ void Xctod::writeMotorInfo(String &data) {
     }
     data += ",";
 
-    #if IS_XAG
-    // XAG mode: no RPM or current data available
-    data += ",,"; // rpm, current
-    #else
-    if (!telemetry.hasData()) {
-        data += ",,"; // rpm, current
-        return;
+    if (getBoardConfig().hasCurrentSensor && telemetry.hasData()) {
+        data += String(telemetry.getRpm());
+        data += ",";
+        data += String(telemetry.getBatteryCurrentMilliAmps() / 1000);
+    } else {
+        data += ",";
     }
-
-    data += String(telemetry.getRpm());
     data += ",";
-    // Convert current from milliamperes to amperes (integer): I(A) = I(mA) / 1000
-    data += String(telemetry.getBatteryCurrentMilliAmps() / 1000);
-    data += ",";
-    #endif
 }
 
 void Xctod::writeEscInfo(String &data) {

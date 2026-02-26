@@ -1,5 +1,6 @@
 #include "BatteryMonitor.h"
 #include "../config.h"
+#include "../BoardConfig.h"
 
 extern Settings settings;
 
@@ -21,10 +22,9 @@ void BatteryMonitor::update() {
 }
 
 void BatteryMonitor::updateCoulombCount() {
-    #if IS_XAG
-    // XAG mode: no current data available, skip Coulomb counting
-    return;
-    #else
+    if (!getBoardConfig().hasCurrentSensor) {
+        return;
+    }
     if (!telemetry.hasData()) {
         return;
     }
@@ -64,7 +64,6 @@ void BatteryMonitor::updateCoulombCount() {
     }
 
     lastCoulombTs = currentTs;
-    #endif
 }
 
 uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) {
@@ -108,46 +107,39 @@ uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) {
 }
 
 void BatteryMonitor::recalibrateFromVoltage() {
-    #if IS_XAG
-    // XAG: use LiPo curve
-    uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
-    uint8_t voltagePercentage = estimateSoCFromVoltageLiPo(batteryMilliVolts);
-    remainingMilliAh = ((uint32_t)voltagePercentage * batteryCapacityMilliAh) / 100;
-    #else
     if (!telemetry.hasData()) {
         return;
     }
 
-    // Hobbywing/Tmotor: use LiPo curve for recalibration
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     uint8_t voltagePercentage = estimateSoCFromVoltageLiPo(batteryMilliVolts);
-
-    // Smooth recalibration: 90% Coulomb counting + 10% voltage-based
     uint32_t voltageBasedRemaining = ((uint32_t)voltagePercentage * batteryCapacityMilliAh) / 100;
-    remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
 
-    // Constrain to valid range
+    if (getBoardConfig().hasCurrentSensor) {
+        // Hobbywing/Tmotor: smooth recalibration 90% Coulomb + 10% voltage-based
+        remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
+    } else {
+        // XAG: voltage-only
+        remainingMilliAh = voltageBasedRemaining;
+    }
+
     if (remainingMilliAh > batteryCapacityMilliAh) {
         remainingMilliAh = batteryCapacityMilliAh;
     }
-    #endif
 }
 
 uint8_t BatteryMonitor::getSoC() {
-    #if IS_XAG
-    // XAG: use LiPo curve (no current data)
+    if (getBoardConfig().hasCurrentSensor) {
+        if (batteryCapacityMilliAh == 0) {
+            return 0;
+        }
+        uint32_t soc = (remainingMilliAh * 100) / batteryCapacityMilliAh;
+        return constrain((uint8_t)soc, 0, 100);
+    }
     if (!telemetry.hasData()) {
         return 0;
     }
     return estimateSoCFromVoltageLiPo(telemetry.getBatteryVoltageMilliVolts());
-    #else
-    // Hobbywing/Tmotor: use Coulomb counting
-    if (batteryCapacityMilliAh == 0) {
-        return 0;
-    }
-    uint32_t soc = (remainingMilliAh * 100) / batteryCapacityMilliAh;
-    return constrain((uint8_t)soc, 0, 100);
-    #endif
 }
 
 uint8_t BatteryMonitor::getSoCFromVoltage() {
@@ -158,13 +150,11 @@ uint8_t BatteryMonitor::getSoCFromVoltage() {
 }
 
 uint16_t BatteryMonitor::getRemainingMah() {
-    #if IS_XAG
-    // XAG: estimate from voltage
+    if (getBoardConfig().hasCurrentSensor) {
+        return (uint16_t)remainingMilliAh;
+    }
     uint8_t soc = getSoC();
     return (uint16_t)((batteryCapacityMilliAh * soc) / 100);
-    #else
-    return (uint16_t)remainingMilliAh;
-    #endif
 }
 
 uint16_t BatteryMonitor::getConsumedMah() {
