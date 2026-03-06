@@ -20,9 +20,10 @@
 #define JBD_CMD_WRITE        0x5A
 #define JBD_REG_LOGIN        0x00
 #define JBD_REG_BASIC_INFO   0x03
+#define JBD_REG_CELL_VOLTAGES 0x04
 
 #define JBD_MAX_NTC          8
-// Buffer grande o suficiente para 2 frames completos (resposta basic info ~34 bytes + overhead)
+#define JBD_MAX_CELLS        32
 #define JBD_RX_BUFFER_SIZE   256
 
 class BLEClient;
@@ -36,6 +37,7 @@ public:
 
     bool isConnected() const { return connected_; }
     bool hasData()     const { return hasData_; }
+    bool hasCellData() const { return hasCellData_; }
 
     uint32_t getPackVoltageMilliVolts() const { return packVoltageMilliVolts_; }
     int32_t  getPackCurrentMilliAmps()  const { return packCurrentMilliAmps_; }
@@ -49,6 +51,12 @@ public:
     uint8_t  getChgFetEnabled()         const { return chgFetEnabled_; }
     uint8_t  getDsgFetEnabled()         const { return dsgFetEnabled_; }
     uint16_t getCurrentErrors()         const { return currentErrors_; }
+
+    // Tensões individuais das células (mV)
+    uint16_t getCellVoltageMilliVolts(uint8_t index) const;
+    uint16_t getCellMinMilliVolts()  const;
+    uint16_t getCellMaxMilliVolts()  const;
+    uint16_t getCellDeltaMilliVolts() const; // diferença max-min (indicador de balance)
 
 private:
     enum State {
@@ -73,7 +81,7 @@ private:
     uint8_t rxBuffer_[JBD_RX_BUFFER_SIZE];
     size_t  rxLen_;
 
-    // Dados decodificados
+    // Dados decodificados — registro 0x03
     uint32_t packVoltageMilliVolts_;
     int32_t  packCurrentMilliAmps_;
     uint8_t  socPercent_;
@@ -87,15 +95,25 @@ private:
     uint8_t  dsgFetEnabled_;
     uint16_t currentErrors_;
 
+    // Dados decodificados — registro 0x04
+    bool     hasCellData_;
+    uint16_t cellVoltagesMv_[JBD_MAX_CELLS];
+
+    // Controle de requisição alternada 0x03 / 0x04
+    bool     requestCells_; // alterna entre pedir 0x03 e 0x04
+
     // Internos
     void buildReadFrame(uint8_t reg, uint8_t* out, size_t* outLen);
     void buildWriteFrame(uint8_t reg, const uint8_t* data, uint8_t dataLen, uint8_t* out, size_t* outLen);
     void sendLoginRequest();
     void sendBasicInfoRequest();
+    void sendCellVoltageRequest();
     void processRxBuffer();
     void parseBasicInfo(const uint8_t* data, size_t dataLen);
+    void parseCellVoltages(const uint8_t* data, size_t dataLen);
     void printFrameHex(const uint8_t* data, size_t len);
     void printBasicInfo();
+    void printCellVoltages();
     void resetConnection();
 
 public:

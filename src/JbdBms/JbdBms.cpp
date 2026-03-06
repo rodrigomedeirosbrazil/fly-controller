@@ -26,9 +26,11 @@ JbdBms::JbdBms()
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
       cellCount_(0), ntcCount_(0), cycleCount_(0),
       designCapacityMahl_(0), balanceCapacityMahl_(0),
-      chgFetEnabled_(0), dsgFetEnabled_(0), currentErrors_(0)
+      chgFetEnabled_(0), dsgFetEnabled_(0), currentErrors_(0),
+      hasCellData_(false), requestCells_(false)
 {
     memset(ntcTempsCelsius_, 0, sizeof(ntcTempsCelsius_));
+    memset(cellVoltagesMv_,  0, sizeof(cellVoltagesMv_));
     memset(rxBuffer_, 0, sizeof(rxBuffer_));
 }
 
@@ -142,10 +144,15 @@ void JbdBms::update() {
             // Processa frames acumulados no buffer de RX
             processRxBuffer();
 
-            // Envia requisição periódica
+            // Envia requisições alternadas: 0x03 (basic) e 0x04 (células)
             if (millis() - lastRequestMillis_ >= REQUEST_INTERVAL_MS) {
                 lastRequestMillis_ = millis();
-                sendBasicInfoRequest();
+                if (requestCells_) {
+                    sendCellVoltageRequest();
+                } else {
+                    sendBasicInfoRequest();
+                }
+                requestCells_ = !requestCells_;
             }
             break;
     }
@@ -243,6 +250,9 @@ void JbdBms::processRxBuffer() {
             if (reg == JBD_REG_BASIC_INFO) {
                 parseBasicInfo(dataPayload, dataLen);
                 printBasicInfo();
+            } else if (reg == JBD_REG_CELL_VOLTAGES) {
+                parseCellVoltages(dataPayload, dataLen);
+                printCellVoltages();
             }
         } else {
             DEBUG_PRINT("[JBD] BMS erro: reg=0x");
@@ -329,7 +339,19 @@ void JbdBms::sendBasicInfoRequest() {
 }
 
 // ---------------------------------------------------------------------------
-// parseBasicInfo — decodifica registro 0x03 (Basic Info)
+// sendCellVoltageRequest
+// ---------------------------------------------------------------------------
+void JbdBms::sendCellVoltageRequest() {
+    if (!pCharTx_) return;
+    uint8_t frame[8];
+    size_t  frameLen;
+    buildReadFrame(JBD_REG_CELL_VOLTAGES, frame, &frameLen);
+    DEBUG_PRINT("[JBD] TX cells: ");
+    printFrameHex(frame, frameLen);
+    pCharTx_->writeValue(frame, frameLen, false);
+}
+
+// decodifica registro 0x03 (Basic Info)
 //
 // Protocolo JBD padrão, offset dentro do campo DATA:
 //   0-1   Tensão total          (unidade: 10mV)
@@ -378,7 +400,90 @@ void JbdBms::parseBasicInfo(const uint8_t* d, size_t dataLen) {
 }
 
 // ---------------------------------------------------------------------------
-// printFrameHex
+// parseCellVoltages — decodifica registro 0x04
+//
+// DATA: 2 bytes por célula, big-endian, valor direto em mV
+//   d[0-1] = célula 1 (mV)
+//   d[2-3] = célula 2 (mV)
+//   ...
+// ---------------------------------------------------------------------------
+void JbdBms::parseCellVoltages(const uint8_t* d, size_t dataLen) {
+    uint8_t count = dataLen / 2;
+    if (count > JBD_MAX_CELLS) count = JBD_MAX_CELLS;
+    // Atualiza cellCount_ se ainda não veio do 0x03
+    if (cellCount_ == 0) cellCount_ = count;
+    for (uint8_t i = 0; i < count; i++) {
+        cellVoltagesMv_[i] = (uint16_t)d[i * 2] << 8 | d[i * 2 + 1];
+    }
+    hasCellData_ = true;
+}
+
+// ---------------------------------------------------------------------------
+// printCellVoltages
+// ---------------------------------------------------------------------------
+void JbdBms::printCellVoltages() {
+    uint8_t count = cellCount_ > 0 ? cellCount_ : 0;
+    DEBUG_PRINTLN("[JBD] ===== Cell Voltages =====");
+    uint16_t vmin = 0xFFFF, vmax = 0;
+    for (uint8_t i = 0; i < count && i < JBD_MAX_CELLS; i++) {
+        uint16_t v = cellVoltagesMv_[i];
+        DEBUG_PRINT("[JBD] C");
+        if (i + 1 < 10) DEBUG_PRINT("0");
+        DEBUG_PRINT(i + 1);
+        DEBUG_PRINT(": ");
+        DEBUG_PRINT(v / 1000);
+        DEBUG_PRINT(".");
+        // 3 casas decimais
+        uint16_t frac = v % 1000;
+        if (frac < 100) DEBUG_PRINT("0");
+        if (frac < 10)  DEBUG_PRINT("0");
+        DEBUG_PRINT(frac);
+        DEBUG_PRINTLN(" V");
+        if (v < vmin) vmin = v;
+        if (v > vmax) vmax = v;
+    }
+    if (count > 0) {
+        DEBUG_PRINT("[JBD] Min: ");
+        DEBUG_PRINT(vmin);
+        DEBUG_PRINT(" mV  Max: ");
+        DEBUG_PRINT(vmax);
+        DEBUG_PRINT(" mV  Delta: ");
+        DEBUG_PRINT(vmax - vmin);
+        DEBUG_PRINTLN(" mV");
+    }
+    DEBUG_PRINTLN("[JBD] ==========================");
+}
+
+// ---------------------------------------------------------------------------
+// getCellVoltageMilliVolts
+// ---------------------------------------------------------------------------
+uint16_t JbdBms::getCellVoltageMilliVolts(uint8_t index) const {
+    if (index >= JBD_MAX_CELLS || index >= cellCount_) return 0;
+    return cellVoltagesMv_[index];
+}
+
+uint16_t JbdBms::getCellMinMilliVolts() const {
+    if (!hasCellData_ || cellCount_ == 0) return 0;
+    uint16_t vmin = 0xFFFF;
+    for (uint8_t i = 0; i < cellCount_ && i < JBD_MAX_CELLS; i++)
+        if (cellVoltagesMv_[i] < vmin) vmin = cellVoltagesMv_[i];
+    return vmin;
+}
+
+uint16_t JbdBms::getCellMaxMilliVolts() const {
+    if (!hasCellData_ || cellCount_ == 0) return 0;
+    uint16_t vmax = 0;
+    for (uint8_t i = 0; i < cellCount_ && i < JBD_MAX_CELLS; i++)
+        if (cellVoltagesMv_[i] > vmax) vmax = cellVoltagesMv_[i];
+    return vmax;
+}
+
+uint16_t JbdBms::getCellDeltaMilliVolts() const {
+    if (!hasCellData_ || cellCount_ == 0) return 0;
+    return getCellMaxMilliVolts() - getCellMinMilliVolts();
+}
+
+
 // ---------------------------------------------------------------------------
 void JbdBms::printFrameHex(const uint8_t* data, size_t len) {
     DEBUG_PRINT("[JBD] ");
