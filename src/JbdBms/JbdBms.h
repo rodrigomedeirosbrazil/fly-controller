@@ -5,22 +5,27 @@
 
 // JBD BMS uses fixed BLE address (no scan). Define JBD_BMS_BLE_ADDRESS in config.h.
 
-// JBD GATT: Service 0xFF00, RX (Module->Phone) 0xFF01, TX (Phone->Module) 0xFF02
+// JBD GATT: Service 0xFF00
+// FF01 = Module->Phone: Notify, Read  → pCharRx_ (registrar notify aqui)
+// FF02 = Phone->Module: Write w/o Rsp → pCharTx_ (escrever comandos aqui)
 #define JBD_SERVICE_UUID     "0000ff00-0000-1000-8000-00805f9b34fb"
-#define JBD_CHAR_UUID_RX     "0000ff01-0000-1000-8000-00805f9b34fb"
-#define JBD_CHAR_UUID_TX     "0000ff02-0000-1000-8000-00805f9b34fb"
+#define JBD_CHAR_UUID_RX     "0000ff01-0000-1000-8000-00805f9b34fb"  // notify
+#define JBD_CHAR_UUID_TX     "0000ff02-0000-1000-8000-00805f9b34fb"  // write
 
-// Frame: 0xDD payload checksum(2) 0x77; read cmd = 0xA5, reg 0x03 = Basic Info
+// Frame: DD | REG | STATUS | LEN | DATA... | CHK_H | CHK_L | 77
+// Read request: DD | A5 | REG | 00 | CHK_H | CHK_L | 77
 #define JBD_FRAME_START      0xDD
 #define JBD_FRAME_END        0x77
 #define JBD_CMD_READ         0xA5
+#define JBD_CMD_WRITE        0x5A
+#define JBD_REG_LOGIN        0x00
 #define JBD_REG_BASIC_INFO   0x03
 
 #define JBD_MAX_NTC          8
+// Buffer grande o suficiente para 2 frames completos (resposta basic info ~34 bytes + overhead)
 #define JBD_RX_BUFFER_SIZE   256
 
 class BLEClient;
-class BLECharacteristic;
 class BLERemoteCharacteristic;
 
 class JbdBms {
@@ -30,20 +35,20 @@ public:
     void update();
 
     bool isConnected() const { return connected_; }
-    bool hasData() const { return hasData_; }
+    bool hasData()     const { return hasData_; }
 
     uint32_t getPackVoltageMilliVolts() const { return packVoltageMilliVolts_; }
-    int32_t  getPackCurrentMilliAmps() const  { return packCurrentMilliAmps_; }
-    uint8_t  getSoCPercent() const            { return socPercent_; }
-    uint8_t  getCellCount() const             { return cellCount_; }
-    uint8_t  getNtcCount() const              { return ntcCount_; }
+    int32_t  getPackCurrentMilliAmps()  const { return packCurrentMilliAmps_; }
+    uint8_t  getSoCPercent()            const { return socPercent_; }
+    uint8_t  getCellCount()             const { return cellCount_; }
+    uint8_t  getNtcCount()              const { return ntcCount_; }
     int16_t  getNtcTempCelsius(uint8_t index) const;
-    uint16_t getCycleCount() const            { return cycleCount_; }
-    uint16_t getDesignCapacityMahl() const   { return designCapacityMahl_; }
-    uint16_t getBalanceCapacityMahl() const  { return balanceCapacityMahl_; }
-    uint8_t  getChgFetEnabled() const        { return chgFetEnabled_; }
-    uint8_t  getDsgFetEnabled() const       { return dsgFetEnabled_; }
-    uint16_t getCurrentErrors() const        { return currentErrors_; }
+    uint16_t getCycleCount()            const { return cycleCount_; }
+    uint32_t getDesignCapacityMahl()    const { return designCapacityMahl_; }
+    uint32_t getBalanceCapacityMahl()   const { return balanceCapacityMahl_; }
+    uint8_t  getChgFetEnabled()         const { return chgFetEnabled_; }
+    uint8_t  getDsgFetEnabled()         const { return dsgFetEnabled_; }
+    uint16_t getCurrentErrors()         const { return currentErrors_; }
 
 private:
     enum State {
@@ -53,21 +58,22 @@ private:
         Subscribed
     };
 
-    BLEClient* pClient_;
-    BLERemoteCharacteristic* pCharRx_;
-    BLERemoteCharacteristic* pCharTx_;
-    State state_;
-    bool connected_;
-    bool hasData_;
+    BLEClient*               pClient_;
+    BLERemoteCharacteristic* pCharRx_;  // FF01 — BMS→ESP (notify)
+    BLERemoteCharacteristic* pCharTx_;  // FF02 — ESP→BMS (write)
+    State        state_;
+    bool         connected_;
+    bool         hasData_;
     unsigned long lastConnectAttempt_;
     unsigned long lastRequestMillis_;
-    static const unsigned long CONNECT_RETRY_MS = 5000;
-    static const unsigned long REQUEST_INTERVAL_MS = 1500;
-    static const unsigned long CONNECT_TIMEOUT_MS = 10000;
+
+    static const unsigned long CONNECT_RETRY_MS   = 5000;
+    static const unsigned long REQUEST_INTERVAL_MS = 2000;
 
     uint8_t rxBuffer_[JBD_RX_BUFFER_SIZE];
-    size_t rxLen_;
+    size_t  rxLen_;
 
+    // Dados decodificados
     uint32_t packVoltageMilliVolts_;
     int32_t  packCurrentMilliAmps_;
     uint8_t  socPercent_;
@@ -75,21 +81,26 @@ private:
     uint8_t  ntcCount_;
     int16_t  ntcTempsCelsius_[JBD_MAX_NTC];
     uint16_t cycleCount_;
-    uint16_t designCapacityMahl_;
-    uint16_t balanceCapacityMahl_;
+    uint32_t designCapacityMahl_;
+    uint32_t balanceCapacityMahl_;
     uint8_t  chgFetEnabled_;
     uint8_t  dsgFetEnabled_;
     uint16_t currentErrors_;
 
-    void buildReadFrame(uint8_t reg, uint8_t len, uint8_t* out, size_t* outLen);
+    // Internos
+    void buildReadFrame(uint8_t reg, uint8_t* out, size_t* outLen);
+    void buildWriteFrame(uint8_t reg, const uint8_t* data, uint8_t dataLen, uint8_t* out, size_t* outLen);
+    void sendLoginRequest();
     void sendBasicInfoRequest();
     void processRxBuffer();
-    void parseBasicInfo(const uint8_t* payload, size_t payloadLen);
+    void parseBasicInfo(const uint8_t* data, size_t dataLen);
     void printFrameHex(const uint8_t* data, size_t len);
     void printBasicInfo();
-    void onNotify(uint8_t* data, size_t len);
+    void resetConnection();
 
-    friend void onNotifyCallback(BLERemoteCharacteristic*, uint8_t*, size_t, bool);
+public:
+    // Chamado pelo callback global de notify — não chamar diretamente
+    void onNotify(uint8_t* data, size_t len);
 };
 
 #endif // JBD_BMS_H
