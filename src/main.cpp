@@ -16,6 +16,7 @@
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
+#include "JbdBms/JbdBms.h"
 #include "WebServer/ControllerWebServer.h"
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/HobbywingCan.h"
@@ -45,6 +46,7 @@ void setup()
   ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
   xctod.init();
+  jbdBms.init();
   logger.init();
   buzzer.setup();
 
@@ -109,6 +111,7 @@ void setup()
 void loop()
 {
   button.check();
+  jbdBms.update();
   xctod.write();
 #if USES_CAN_BUS
   checkCanbus();

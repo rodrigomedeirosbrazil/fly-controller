@@ -40,6 +40,10 @@
 
 class Power;
 class Xctod;
+class JbdBms;
+
+// JBD BMS BLE: set your BMS address (6-byte format from BLE scanner)
+#define JBD_BMS_BLE_ADDRESS "A5:C2:39:2B:FC:4E"
 
 extern Buzzer buzzer;
 extern Servo esc;
@@ -65,6 +69,7 @@ extern XagTelemetry xagTelemetry;
 extern Power power;
 extern BatteryMonitor batteryMonitor;
 extern Xctod xctod;
+extern JbdBms jbdBms;
 extern Settings settings;
 extern ADS1115 ads1115;
 #include "Telemetry/Telemetry.h"

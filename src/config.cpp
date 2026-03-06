@@ -2,6 +2,7 @@
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Xctod/Xctod.h"
+#include "JbdBms/JbdBms.h"
 #include "Settings/Settings.h"
 
 Buzzer buzzer(BUZZER_PIN);
@@ -44,5 +45,6 @@ Temperature motorTemp(
 Power power;
 BatteryMonitor batteryMonitor;
 Xctod xctod;
+JbdBms jbdBms;
 Settings settings;
 ADS1115 ads1115;
