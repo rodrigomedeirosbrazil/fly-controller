@@ -179,10 +179,10 @@ Commit message suggestion: `feat(web): add live telemetry page`
 ### Phase 3 - Split current mixed home
 Commit message suggestion: `refactor(web): split firmware and logs pages`
 
-- [ ] Extract current firmware section into `FIRMWARE_HTML` and route `/firmware`.
-- [ ] Extract current logs manager section into `LOGS_HTML` and route `/logs-page`.
-- [ ] Keep existing firmware/log APIs unchanged.
-- [ ] Add consistent top navigation between pages.
+- [x] Extract current firmware section into `FIRMWARE_HTML` and route `/firmware`.
+- [x] Extract current logs manager section into `LOGS_HTML` and route `/logs-page`.
+- [x] Keep existing firmware/log APIs unchanged.
+- [x] Add consistent top navigation between pages.
 
 ### Phase 4 - New dashboard
 Commit message suggestion: `feat(web): add dashboard home page`

@@ -525,6 +525,155 @@ const char* TELEMETRY_HTML = R"rawliteral(
 </html>
 )rawliteral";
 
+const char* FIRMWARE_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Firmware</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 760px; margin: 0 auto; padding: 20px; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .nav-btn { text-decoration: none; background: #4b5563; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+        input[type="file"] { width: 100%; box-sizing: border-box; margin: 8px 0 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; }
+        button { width: 100%; background: #0b74de; color: white; border: 0; border-radius: 6px; padding: 12px; cursor: pointer; font-size: 16px; }
+        .message { margin-top: 12px; padding: 10px; border-radius: 6px; }
+        .ok { background: #dcfce7; color: #166534; }
+        .err { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Firmware Update</h1>
+            <p>Select a <code>.bin</code> file to update the device.</p>
+            <form id="fwForm">
+                <input type="file" name="update" accept=".bin">
+                <button type="submit">Update Firmware</button>
+            </form>
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fwForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const responseDiv = document.getElementById('response');
+            responseDiv.className = 'message';
+            responseDiv.textContent = 'Updating...';
+
+            fetch('/update', { method: 'POST', body: formData })
+                .then((r) => r.text())
+                .then((text) => {
+                    responseDiv.textContent = text;
+                    responseDiv.classList.add(text.includes('progress') ? 'ok' : (text.includes('Success') ? 'ok' : 'err'));
+                })
+                .catch((err) => {
+                    responseDiv.textContent = `Error: ${err}`;
+                    responseDiv.classList.add('err');
+                });
+        });
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char* LOGS_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Logs</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .nav-btn { text-decoration: none; background: #4b5563; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
+        th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+        .btn { border: 0; border-radius: 6px; padding: 6px 10px; color: white; text-decoration: none; cursor: pointer; }
+        .dl { background: #16a34a; }
+        .del { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Data Logs</h1>
+            <table id="fileTable">
+                <thead><tr><th>File</th><th>Size</th><th>Action</th></tr></thead>
+                <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function loadFiles() {
+            fetch('/list')
+                .then((r) => r.json())
+                .then((files) => {
+                    const tbody = document.querySelector('#fileTable tbody');
+                    tbody.innerHTML = '';
+                    if (files.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3">No logs found.</td></tr>';
+                        return;
+                    }
+                    files.sort((a, b) => b.name.localeCompare(a.name));
+                    files.forEach((f) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${f.name.replace('/', '')}</td>
+                            <td>${formatBytes(f.size)}</td>
+                            <td>
+                                <a class="btn dl" href="/logs${f.name}" download>Download</a>
+                                <button class="btn del" onclick="deleteFile('${f.name}')">Delete</button>
+                            </td>`;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(() => {
+                    document.querySelector('#fileTable tbody').innerHTML = '<tr><td colspan="3">Error loading files.</td></tr>';
+                });
+        }
+
+        function deleteFile(filename) {
+            if (!confirm(`Delete ${filename}?`)) return;
+            fetch('/delete?file=' + filename).then((r) => r.ok ? loadFiles() : alert('Delete failed'));
+        }
+
+        loadFiles();
+    </script>
+</body>
+</html>
+)rawliteral";
+
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     isActive = true;
 }
@@ -720,6 +869,14 @@ void ControllerWebServer::startAP() {
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", TELEMETRY_HTML);
+    });
+
+    server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", FIRMWARE_HTML);
+    });
+
+    server.on("/logs-page", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", LOGS_HTML);
     });
 
     // Serve static files from LittleFS under /logs
