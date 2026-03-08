@@ -1,11 +1,16 @@
-# Build firmware for all controller types and publish as GitHub Release on every push to main.
-# Option B: one new release per push, tag nightly-<short_sha>.
+# Build firmware for all controller types and publish as GitHub Release when a new tag is pushed or on manual run.
 
 name: Build and Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - '*'   # e.g. v1.0.0, release-1.2.3
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0). Used as release name and tag when run manually.'
+        required: true
 
 permissions:
   contents: write
@@ -49,17 +54,19 @@ jobs:
           cp .pio/build/lolin_c3_mini_tmotor/firmware.bin release/firmware-tmotor.bin
           cp .pio/build/lolin_c3_mini_xag/firmware.bin release/firmware-xag.bin
 
-      - name: Generate release tag and body
+      - name: Set release tag and body
         id: release
         run: |
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          echo "tag=nightly-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RELEASE_TAG="${{ github.event.inputs.tag }}"
+          else
+            RELEASE_TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           {
             echo "body<<RELEASE_BODY"
-            echo "## Nightly build"
-            echo ""
             echo "**Commit:** \`${GITHUB_SHA}\`"
-            echo "**Branch:** ${GITHUB_REF_NAME}"
+            echo "**Ref:** ${GITHUB_REF_NAME}"
             echo ""
             echo "### Firmware images"
             echo "- \`firmware-hobbywing.bin\` — Hobbywing (DroneCAN)"
@@ -72,7 +79,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release.outputs.tag }}
-          name: Nightly ${{ steps.release.outputs.tag }}
+          name: ${{ steps.release.outputs.tag }}
           body: ${{ steps.release.outputs.body }}
           files: |
             release/firmware-hobbywing.bin
