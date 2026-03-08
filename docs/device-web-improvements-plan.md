@@ -169,12 +169,12 @@ Commit message suggestion: `feat(web): add telemetry api endpoint`
 ### Phase 2 - New telemetry page
 Commit message suggestion: `feat(web): add live telemetry page`
 
-- [ ] Add `TELEMETRY_HTML` page constant.
-- [ ] Add route `GET /telemetry`.
-- [ ] Create frontend polling (`fetch('/api/telemetry')` every 1000 ms).
-- [ ] Format data for display (volts, celsius, kW).
-- [ ] Implement UI states (`LIVE`, `STALE`, `NO DATA`).
-- [ ] Keep rendering lightweight (update only changed values).
+- [x] Add `TELEMETRY_HTML` page constant.
+- [x] Add route `GET /telemetry`.
+- [x] Create frontend polling (`fetch('/api/telemetry')` every 1000 ms).
+- [x] Format data for display (volts, celsius, kW).
+- [x] Implement UI states (`LIVE`, `STALE`, `NO DATA`).
+- [x] Keep rendering lightweight (update only changed values).
 
 ### Phase 3 - Split current mixed home
 Commit message suggestion: `refactor(web): split firmware and logs pages`

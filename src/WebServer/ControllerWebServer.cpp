@@ -422,6 +422,109 @@ const char* CONFIG_HTML = R"rawliteral(
 </html>
 )rawliteral";
 
+const char* TELEMETRY_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Telemetry</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+        .nav-btn.secondary { background: #4b5563; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+        h1 { margin: 0 0 8px 0; font-size: 24px; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
+        .live { background: #dcfce7; color: #166534; }
+        .stale { background: #fef9c3; color: #854d0e; }
+        .nodata { background: #fee2e2; color: #991b1b; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+        .metric { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+        .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .value { font-size: 22px; font-weight: bold; margin-top: 6px; }
+        .sub { color: #6b7280; font-size: 13px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn secondary" href="/">Dashboard</a>
+            <a class="nav-btn secondary" href="/">Firmware</a>
+            <a class="nav-btn secondary" href="/">Logs</a>
+            <a class="nav-btn secondary" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Live Telemetry</h1>
+            <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
+        </div>
+
+        <div class="grid">
+            <div class="metric"><div class="label">Battery Voltage</div><div class="value" id="batteryVoltage">--</div></div>
+            <div class="metric"><div class="label">Battery SoC (CC)</div><div class="value" id="socCc">--</div></div>
+            <div class="metric"><div class="label">Battery SoC (Voltage)</div><div class="value" id="socVoltage">--</div></div>
+            <div class="metric"><div class="label">Power</div><div class="value" id="powerKw">--</div><div class="sub" id="powerPercent">--</div></div>
+            <div class="metric"><div class="label">Throttle</div><div class="value" id="throttlePercent">--</div><div class="sub" id="throttleRaw">--</div></div>
+            <div class="metric"><div class="label">Motor</div><div class="value" id="motorTemp">--</div><div class="sub" id="rpm">--</div></div>
+            <div class="metric"><div class="label">ESC</div><div class="value" id="escTemp">--</div><div class="sub" id="escCurrent">--</div></div>
+            <div class="metric"><div class="label">System</div><div class="value" id="armed">--</div><div class="sub" id="freshness">--</div></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const fmtC = (mc) => `${(mc / 1000).toFixed(1)} C`;
+        const fmtV = (mv) => `${(mv / 1000).toFixed(2)} V`;
+        const fmtA = (ma) => `${(ma / 1000).toFixed(1)} A`;
+        const fmtKw = (kwx10) => `${(kwx10 / 10).toFixed(1)} kW`;
+
+        function setStatus(kind) {
+            const badge = $("statusBadge");
+            badge.className = `status ${kind}`;
+            badge.textContent = kind === "live" ? "LIVE" : (kind === "stale" ? "STALE" : "NO DATA");
+        }
+
+        function render(data) {
+            if (!data.hasTelemetry) {
+                setStatus("nodata");
+                $("freshness").textContent = "Waiting for telemetry";
+            } else {
+                const age = data.uptimeMs - data.lastTelemetryUpdateMs;
+                setStatus(age > 3000 ? "stale" : "live");
+                $("freshness").textContent = `Last update ${Math.max(0, age)} ms ago`;
+            }
+
+            $("batteryVoltage").textContent = fmtV(data.batteryVoltageMv || 0);
+            $("socCc").textContent = `${data.batteryPercentCc || 0} %`;
+            $("socVoltage").textContent = `${data.batteryPercentVoltage || 0} %`;
+            $("powerKw").textContent = fmtKw(data.powerKwX10 || 0);
+            $("powerPercent").textContent = `Limit: ${data.powerPercent || 0} %`;
+            $("throttlePercent").textContent = `${data.throttlePercent || 0} %`;
+            $("throttleRaw").textContent = `Raw: ${data.throttleRaw || 0}`;
+            $("motorTemp").textContent = fmtC(data.motorTempMc || 0);
+            $("rpm").textContent = data.rpm ? `${data.rpm} rpm` : "N/A";
+            $("escTemp").textContent = fmtC(data.escTempMc || 0);
+            $("escCurrent").textContent = data.escCurrentMa ? fmtA(data.escCurrentMa) : "N/A";
+            $("armed").textContent = data.armed ? "ARMED" : "DISARMED";
+        }
+
+        function loadTelemetry() {
+            fetch('/api/telemetry')
+                .then((r) => r.json())
+                .then(render)
+                .catch(() => setStatus("nodata"));
+        }
+
+        loadTelemetry();
+        setInterval(loadTelemetry, 1000);
+    </script>
+</body>
+</html>
+)rawliteral";
+
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     isActive = true;
 }
@@ -613,6 +716,10 @@ void ControllerWebServer::startAP() {
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", CONFIG_HTML);
+    });
+
+    server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", TELEMETRY_HTML);
     });
 
     // Serve static files from LittleFS under /logs
