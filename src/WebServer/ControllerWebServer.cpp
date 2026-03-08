@@ -194,8 +194,8 @@ const char* DASHBOARD_HTML = R"rawliteral(
         body { font-family: Arial, sans-serif; margin: 0; background: #eef2f6; color: #1f2937; }
         .page { max-width: 980px; margin: 0 auto; padding: 20px; }
         .title { margin-bottom: 14px; }
-        .topbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-        .btn { background: #0b74de; color: white; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { background: #0b74de; color: white; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
         .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
         .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .label { color: #6b7280; font-size: 12px; text-transform: uppercase; }
@@ -211,10 +211,10 @@ const char* DASHBOARD_HTML = R"rawliteral(
         </div>
 
         <div class="topbar">
-            <a class="btn" href="/telemetry">Telemetry</a>
-            <a class="btn" href="/firmware">Firmware</a>
-            <a class="btn" href="/logs-page">Logs</a>
-            <a class="btn" href="/config">Configuration</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
         </div>
 
         <div class="grid">
@@ -277,9 +277,12 @@ const char* CONFIG_HTML = R"rawliteral(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
-        h1 { color: #333; text-align: center; }
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        .container { background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); max-width: 760px; margin: auto; }
+        h1 { color: #1f2937; text-align: center; }
         h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; }
@@ -293,13 +296,19 @@ const char* CONFIG_HTML = R"rawliteral(
         .message { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .back-link { display: block; text-align: center; margin-top: 20px; color: #007bff; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>FlyController Configuration</h1>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+        </div>
+
+        <div class="container">
+            <h1>FlyController Configuration</h1>
 
         <form id="configForm">
             <h2>Battery Settings</h2>
@@ -370,9 +379,8 @@ const char* CONFIG_HTML = R"rawliteral(
 
             <button type="submit" id="saveButton">Save Configuration</button>
             <div class="message" id="message"></div>
-        </form>
-
-        <a href="/" class="back-link">← Back to Main Page</a>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -493,9 +501,9 @@ const char* CONFIG_HTML = R"rawliteral(
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.text())
-            .then(text => {
-                if (text.includes('Success') || response.ok) {
+            .then(response => response.text().then(text => ({ ok: response.ok, text })))
+            .then(({ ok, text }) => {
+                if (text.includes('Success') || ok) {
                     showMessage('Configuration saved successfully!', 'success');
                 } else {
                     showMessage('Error saving configuration: ' + text, 'error');
@@ -532,9 +540,8 @@ const char* TELEMETRY_HTML = R"rawliteral(
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
         .page { max-width: 980px; margin: 0 auto; padding: 20px; }
-        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
-        .nav-btn.secondary { background: #4b5563; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
         .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
         h1 { margin: 0 0 8px 0; font-size: 24px; }
         .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
@@ -551,10 +558,10 @@ const char* TELEMETRY_HTML = R"rawliteral(
 <body>
     <div class="page">
         <div class="topbar">
-            <a class="nav-btn secondary" href="/">Dashboard</a>
-            <a class="nav-btn secondary" href="/firmware">Firmware</a>
-            <a class="nav-btn secondary" href="/logs-page">Logs</a>
-            <a class="nav-btn secondary" href="/config">Configuration</a>
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
         </div>
 
         <div class="panel">
@@ -642,8 +649,8 @@ const char* FIRMWARE_HTML = R"rawliteral(
         body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
         .page { max-width: 760px; margin: 0 auto; padding: 20px; }
         .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-        .nav-btn { text-decoration: none; background: #4b5563; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
         input[type="file"] { width: 100%; box-sizing: border-box; margin: 8px 0 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; }
         button { width: 100%; background: #0b74de; color: white; border: 0; border-radius: 6px; padding: 12px; cursor: pointer; font-size: 16px; }
         .message { margin-top: 12px; padding: 10px; border-radius: 6px; }
@@ -706,8 +713,8 @@ const char* LOGS_HTML = R"rawliteral(
         body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
         .page { max-width: 900px; margin: 0 auto; padding: 20px; }
         .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .topbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-        .nav-btn { text-decoration: none; background: #4b5563; color: white; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; }
         th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
         th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
