@@ -187,11 +187,11 @@ Commit message suggestion: `refactor(web): split firmware and logs pages`
 ### Phase 4 - New dashboard
 Commit message suggestion: `feat(web): add dashboard home page`
 
-- [ ] Add `DASHBOARD_HTML` for `/`.
-- [ ] Include firmware info card (version, build date/time, controller type).
-- [ ] Add navigation links to all pages.
-- [ ] Show mini status summary via `/api/telemetry` (battery voltage, armed status, telemetry freshness).
-- [ ] Keep layout visually organized and readable on small screens.
+- [x] Add `DASHBOARD_HTML` for `/`.
+- [x] Include firmware info card (version, build date/time, controller type).
+- [x] Add navigation links to all pages.
+- [x] Show mini status summary via `/api/telemetry` (battery voltage, armed status, telemetry freshness).
+- [x] Keep layout visually organized and readable on small screens.
 
 ### Phase 5 - Consistency and cleanup
 Commit message suggestion: `style(web): unify ui and optimize frontend footprint`

@@ -12,6 +12,20 @@ const char* SOFT_AP_SSID = "FlyController";
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
+#ifndef APP_VERSION
+#define APP_VERSION "dev"
+#endif
+
+#if IS_HOBBYWING
+const char* CONTROLLER_LABEL = "Hobbywing";
+#elif IS_TMOTOR
+const char* CONTROLLER_LABEL = "Tmotor";
+#elif IS_XAG
+const char* CONTROLLER_LABEL = "XAG";
+#else
+const char* CONTROLLER_LABEL = "Unknown";
+#endif
+
 const char* INDEX_HTML = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -164,6 +178,92 @@ const char* INDEX_HTML = R"rawliteral(
 
         // Load files on start
         loadFiles();
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char* DASHBOARD_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .title { margin-bottom: 14px; }
+        .topbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+        .btn { background: #0b74de; color: white; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .label { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+        .value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+        .sub { color: #6b7280; margin-top: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="title">
+            <h1>FlyController Dashboard</h1>
+            <div class="sub">Quick access and basic device status</div>
+        </div>
+
+        <div class="topbar">
+            <a class="btn" href="/telemetry">Telemetry</a>
+            <a class="btn" href="/firmware">Firmware</a>
+            <a class="btn" href="/logs-page">Logs</a>
+            <a class="btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="label">Firmware Version</div>
+                <div class="value">%APP_VERSION%</div>
+                <div class="sub">Build: %BUILD_DATE% %BUILD_TIME%</div>
+            </div>
+            <div class="card">
+                <div class="label">Controller Type</div>
+                <div class="value">%CONTROLLER%</div>
+                <div class="sub">Uptime: <span id="uptime">--</span></div>
+            </div>
+            <div class="card">
+                <div class="label">Battery Voltage</div>
+                <div class="value" id="batteryVoltage">--</div>
+                <div class="sub">Telemetry freshness: <span id="freshness">--</span></div>
+            </div>
+            <div class="card">
+                <div class="label">System Status</div>
+                <div class="value" id="armed">--</div>
+                <div class="sub" id="telemetryState">--</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function load() {
+            fetch('/api/telemetry')
+                .then((r) => r.json())
+                .then((d) => {
+                    document.getElementById('batteryVoltage').textContent = `${(d.batteryVoltageMv / 1000).toFixed(2)} V`;
+                    document.getElementById('armed').textContent = d.armed ? 'ARMED' : 'DISARMED';
+                    document.getElementById('uptime').textContent = `${Math.floor((d.uptimeMs || 0) / 1000)} s`;
+                    if (!d.hasTelemetry) {
+                        document.getElementById('telemetryState').textContent = 'No telemetry data';
+                        document.getElementById('freshness').textContent = '--';
+                        return;
+                    }
+                    const age = Math.max(0, (d.uptimeMs || 0) - (d.lastTelemetryUpdateMs || 0));
+                    document.getElementById('telemetryState').textContent = age > 3000 ? 'STALE' : 'LIVE';
+                    document.getElementById('freshness').textContent = `${age} ms`;
+                })
+                .catch(() => {
+                    document.getElementById('telemetryState').textContent = 'Unavailable';
+                });
+        }
+        load();
+        setInterval(load, 1000);
     </script>
 </body>
 </html>
@@ -696,7 +796,12 @@ void ControllerWebServer::startAP() {
 
     // Handle root URL
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", INDEX_HTML);
+        String page = DASHBOARD_HTML;
+        page.replace("%APP_VERSION%", APP_VERSION);
+        page.replace("%BUILD_DATE%", __DATE__);
+        page.replace("%BUILD_TIME%", __TIME__);
+        page.replace("%CONTROLLER%", CONTROLLER_LABEL);
+        request->send(200, "text/html", page);
     });
 
     // Get current configuration values (JSON) - register BEFORE /config to avoid conflicts
