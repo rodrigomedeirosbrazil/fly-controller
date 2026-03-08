@@ -37,6 +37,10 @@ public:
     bool getPowerControlEnabled() const;
     void setPowerControlEnabled(bool enabled);
 
+    // Wi-Fi behavior
+    bool getWifiAutoDisableAfterCalibration() const;
+    void setWifiAutoDisableAfterCalibration(bool enabled);
+
 private:
     Preferences preferences;
 
@@ -49,6 +53,7 @@ private:
     int32_t getDefaultEscMaxTemp() const;
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
+    bool getDefaultWifiAutoDisableAfterCalibration() const;
 
     // Current values
     uint16_t batteryCapacityMah;
@@ -59,7 +64,7 @@ private:
     int32_t escMaxTemp;
     int32_t escTempReductionStart;
     bool powerControlEnabled;
+    bool wifiAutoDisableAfterCalibration;
 };
 
 #endif // SETTINGS_H
-

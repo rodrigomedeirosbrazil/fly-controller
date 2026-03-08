@@ -377,6 +377,16 @@ const char* CONFIG_HTML = R"rawliteral(
                 <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
             </div>
 
+            <h2>Wi-Fi Settings</h2>
+
+            <div class="form-group">
+                <label for="wifiAutoDisableAfterCalibration" style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="wifiAutoDisableAfterCalibration" name="wifiAutoDisableAfterCalibration" style="width: auto; margin-right: 10px; cursor: pointer;">
+                    <span>Disable Wi-Fi after throttle calibration</span>
+                </label>
+                <div class="info-text">When enabled, access point and web server are stopped automatically after throttle calibration completes.</div>
+            </div>
+
             <button type="submit" id="saveButton">Save Configuration</button>
             <div class="message" id="message"></div>
             </form>
@@ -419,6 +429,9 @@ const char* CONFIG_HTML = R"rawliteral(
 
                     // Power control enabled
                     document.getElementById('powerControlEnabled').checked = data.powerControlEnabled || false;
+
+                    // Wi-Fi auto-disable after calibration (default true if field not present)
+                    document.getElementById('wifiAutoDisableAfterCalibration').checked = data.wifiAutoDisableAfterCalibration !== false;
                 })
                 .catch(error => {
                     console.error('Error loading values:', error);
@@ -490,7 +503,8 @@ const char* CONFIG_HTML = R"rawliteral(
                 motorTempReductionStart: Math.round(parseFloat(document.getElementById('motorTempReductionStart').value) * 1000),
                 escMaxTemp: Math.round(parseFloat(document.getElementById('escMaxTemp').value) * 1000),
                 escTempReductionStart: Math.round(parseFloat(document.getElementById('escTempReductionStart').value) * 1000),
-                powerControlEnabled: document.getElementById('powerControlEnabled').checked
+                powerControlEnabled: document.getElementById('powerControlEnabled').checked,
+                wifiAutoDisableAfterCalibration: document.getElementById('wifiAutoDisableAfterCalibration').checked
             };
 
             // Send to server
@@ -832,6 +846,7 @@ void ControllerWebServer::startAP() {
         doc["escMaxTemp"] = settings.getEscMaxTemp();
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+        doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
 
         String response;
         serializeJson(doc, response);
@@ -934,6 +949,11 @@ void ControllerWebServer::startAP() {
                 if (doc.containsKey("powerControlEnabled")) {
                     bool enabled = doc["powerControlEnabled"];
                     settings.setPowerControlEnabled(enabled);
+                }
+
+                if (doc.containsKey("wifiAutoDisableAfterCalibration")) {
+                    bool enabled = doc["wifiAutoDisableAfterCalibration"];
+                    settings.setWifiAutoDisableAfterCalibration(enabled);
                 }
 
                 // Save to Preferences
@@ -1115,8 +1135,15 @@ void ControllerWebServer::stop() {
 }
 
 void ControllerWebServer::handleClient() {
-    // Only stop the web server if it's active AND the throttle is calibrated AND no update is in progress.
-    if (isActive && throttle.isCalibrated() && !Update.isRunning()) {
+    extern Settings settings;
+
+    // Only stop the web server if auto-disable is enabled AND throttle is calibrated AND no update is in progress.
+    if (
+        isActive
+        && settings.getWifiAutoDisableAfterCalibration()
+        && throttle.isCalibrated()
+        && !Update.isRunning()
+    ) {
         stop();
     }
 
