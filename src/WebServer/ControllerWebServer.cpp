@@ -2,6 +2,7 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../BoardConfig.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -10,6 +11,20 @@ const char* SOFT_AP_SSID = "FlyController";
 
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
+
+#ifndef APP_VERSION
+#define APP_VERSION "dev"
+#endif
+
+#if IS_HOBBYWING
+const char* CONTROLLER_LABEL = "Hobbywing";
+#elif IS_TMOTOR
+const char* CONTROLLER_LABEL = "Tmotor";
+#elif IS_XAG
+const char* CONTROLLER_LABEL = "XAG";
+#else
+const char* CONTROLLER_LABEL = "Unknown";
+#endif
 
 const char* INDEX_HTML = R"rawliteral(
 <!DOCTYPE html>
@@ -168,6 +183,92 @@ const char* INDEX_HTML = R"rawliteral(
 </html>
 )rawliteral";
 
+const char* DASHBOARD_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .title { margin-bottom: 14px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { background: #0b74de; color: white; text-decoration: none; border-radius: 8px; padding: 10px 14px; font-weight: 600; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .label { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+        .value { font-size: 20px; font-weight: bold; margin-top: 4px; }
+        .sub { color: #6b7280; margin-top: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="title">
+            <h1>FlyController Dashboard</h1>
+            <div class="sub">Quick access and basic device status</div>
+        </div>
+
+        <div class="topbar">
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="label">Firmware Version</div>
+                <div class="value">%APP_VERSION%</div>
+                <div class="sub">Build: %BUILD_DATE% %BUILD_TIME%</div>
+            </div>
+            <div class="card">
+                <div class="label">Controller Type</div>
+                <div class="value">%CONTROLLER%</div>
+                <div class="sub">Uptime: <span id="uptime">--</span></div>
+            </div>
+            <div class="card">
+                <div class="label">Battery Voltage</div>
+                <div class="value" id="batteryVoltage">--</div>
+                <div class="sub">Telemetry freshness: <span id="freshness">--</span></div>
+            </div>
+            <div class="card">
+                <div class="label">System Status</div>
+                <div class="value" id="armed">--</div>
+                <div class="sub" id="telemetryState">--</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function load() {
+            fetch('/api/telemetry')
+                .then((r) => r.json())
+                .then((d) => {
+                    document.getElementById('batteryVoltage').textContent = `${(d.batteryVoltageMv / 1000).toFixed(2)} V`;
+                    document.getElementById('armed').textContent = d.armed ? 'ARMED' : 'DISARMED';
+                    document.getElementById('uptime').textContent = `${Math.floor((d.uptimeMs || 0) / 1000)} s`;
+                    if (!d.hasTelemetry) {
+                        document.getElementById('telemetryState').textContent = 'No telemetry data';
+                        document.getElementById('freshness').textContent = '--';
+                        return;
+                    }
+                    const age = Math.max(0, (d.uptimeMs || 0) - (d.lastTelemetryUpdateMs || 0));
+                    document.getElementById('telemetryState').textContent = age > 3000 ? 'STALE' : 'LIVE';
+                    document.getElementById('freshness').textContent = `${age} ms`;
+                })
+                .catch(() => {
+                    document.getElementById('telemetryState').textContent = 'Unavailable';
+                });
+        }
+        load();
+        setInterval(load, 1000);
+    </script>
+</body>
+</html>
+)rawliteral";
+
 const char* CONFIG_HTML = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -176,9 +277,12 @@ const char* CONFIG_HTML = R"rawliteral(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
-        h1 { color: #333; text-align: center; }
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        .container { background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); max-width: 760px; margin: auto; }
+        h1 { color: #1f2937; text-align: center; }
         h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; }
@@ -192,13 +296,19 @@ const char* CONFIG_HTML = R"rawliteral(
         .message { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
         .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .back-link { display: block; text-align: center; margin-top: 20px; color: #007bff; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>FlyController Configuration</h1>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+        </div>
+
+        <div class="container">
+            <h1>FlyController Configuration</h1>
 
         <form id="configForm">
             <h2>Battery Settings</h2>
@@ -269,9 +379,8 @@ const char* CONFIG_HTML = R"rawliteral(
 
             <button type="submit" id="saveButton">Save Configuration</button>
             <div class="message" id="message"></div>
-        </form>
-
-        <a href="/" class="back-link">← Back to Main Page</a>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -392,9 +501,9 @@ const char* CONFIG_HTML = R"rawliteral(
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.text())
-            .then(text => {
-                if (text.includes('Success') || response.ok) {
+            .then(response => response.text().then(text => ({ ok: response.ok, text })))
+            .then(({ ok, text }) => {
+                if (text.includes('Success') || ok) {
                     showMessage('Configuration saved successfully!', 'success');
                 } else {
                     showMessage('Error saving configuration: ' + text, 'error');
@@ -416,6 +525,263 @@ const char* CONFIG_HTML = R"rawliteral(
 
         // Load values on page load
         loadCurrentValues();
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char* TELEMETRY_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Telemetry</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+        h1 { margin: 0 0 8px 0; font-size: 24px; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
+        .live { background: #dcfce7; color: #166534; }
+        .stale { background: #fef9c3; color: #854d0e; }
+        .nodata { background: #fee2e2; color: #991b1b; }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+        .metric { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+        .label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .value { font-size: 22px; font-weight: bold; margin-top: 6px; }
+        .sub { color: #6b7280; font-size: 13px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Live Telemetry</h1>
+            <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
+        </div>
+
+        <div class="grid">
+            <div class="metric"><div class="label">Battery Voltage</div><div class="value" id="batteryVoltage">--</div></div>
+            <div class="metric"><div class="label">Battery SoC (CC)</div><div class="value" id="socCc">--</div></div>
+            <div class="metric"><div class="label">Battery SoC (Voltage)</div><div class="value" id="socVoltage">--</div></div>
+            <div class="metric"><div class="label">Power</div><div class="value" id="powerKw">--</div><div class="sub" id="powerPercent">--</div></div>
+            <div class="metric"><div class="label">Throttle</div><div class="value" id="throttlePercent">--</div><div class="sub" id="throttleRaw">--</div></div>
+            <div class="metric"><div class="label">Motor</div><div class="value" id="motorTemp">--</div><div class="sub" id="rpm">--</div></div>
+            <div class="metric"><div class="label">ESC</div><div class="value" id="escTemp">--</div><div class="sub" id="escCurrent">--</div></div>
+            <div class="metric"><div class="label">System</div><div class="value" id="armed">--</div><div class="sub" id="freshness">--</div></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const setText = (id, value) => {
+            const el = $(id);
+            if (el.textContent !== value) {
+                el.textContent = value;
+            }
+        };
+        const fmtC = (mc) => `${(mc / 1000).toFixed(1)} C`;
+        const fmtV = (mv) => `${(mv / 1000).toFixed(2)} V`;
+        const fmtA = (ma) => `${(ma / 1000).toFixed(1)} A`;
+        const fmtKw = (kwx10) => `${(kwx10 / 10).toFixed(1)} kW`;
+
+        function setStatus(kind) {
+            const badge = $("statusBadge");
+            badge.className = `status ${kind}`;
+            badge.textContent = kind === "live" ? "LIVE" : (kind === "stale" ? "STALE" : "NO DATA");
+        }
+
+        function render(data) {
+            if (!data.hasTelemetry) {
+                setStatus("nodata");
+                setText("freshness", "Waiting for telemetry");
+            } else {
+                const age = data.uptimeMs - data.lastTelemetryUpdateMs;
+                setStatus(age > 3000 ? "stale" : "live");
+                setText("freshness", `Last update ${Math.max(0, age)} ms ago`);
+            }
+
+            setText("batteryVoltage", fmtV(data.batteryVoltageMv || 0));
+            setText("socCc", `${data.batteryPercentCc || 0} %`);
+            setText("socVoltage", `${data.batteryPercentVoltage || 0} %`);
+            setText("powerKw", fmtKw(data.powerKwX10 || 0));
+            setText("powerPercent", `Limit: ${data.powerPercent || 0} %`);
+            setText("throttlePercent", `${data.throttlePercent || 0} %`);
+            setText("throttleRaw", `Raw: ${data.throttleRaw || 0}`);
+            setText("motorTemp", fmtC(data.motorTempMc || 0));
+            setText("rpm", data.rpm ? `${data.rpm} rpm` : "N/A");
+            setText("escTemp", fmtC(data.escTempMc || 0));
+            setText("escCurrent", data.escCurrentMa ? fmtA(data.escCurrentMa) : "N/A");
+            setText("armed", data.armed ? "ARMED" : "DISARMED");
+        }
+
+        function loadTelemetry() {
+            fetch('/api/telemetry')
+                .then((r) => r.json())
+                .then(render)
+                .catch(() => setStatus("nodata"));
+        }
+
+        loadTelemetry();
+        setInterval(loadTelemetry, 1000);
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char* FIRMWARE_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Firmware</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 760px; margin: 0 auto; padding: 20px; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        input[type="file"] { width: 100%; box-sizing: border-box; margin: 8px 0 12px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; }
+        button { width: 100%; background: #0b74de; color: white; border: 0; border-radius: 6px; padding: 12px; cursor: pointer; font-size: 16px; }
+        .message { margin-top: 12px; padding: 10px; border-radius: 6px; }
+        .ok { background: #dcfce7; color: #166534; }
+        .err { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Firmware Update</h1>
+            <p>Select a <code>.bin</code> file to update the device.</p>
+            <form id="fwForm">
+                <input type="file" name="update" accept=".bin">
+                <button type="submit">Update Firmware</button>
+            </form>
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fwForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const responseDiv = document.getElementById('response');
+            responseDiv.className = 'message';
+            responseDiv.textContent = 'Updating...';
+
+            fetch('/update', { method: 'POST', body: formData })
+                .then((r) => r.text())
+                .then((text) => {
+                    responseDiv.textContent = text;
+                    responseDiv.classList.add(text.includes('progress') ? 'ok' : (text.includes('Success') ? 'ok' : 'err'));
+                })
+                .catch((err) => {
+                    responseDiv.textContent = `Error: ${err}`;
+                    responseDiv.classList.add('err');
+                });
+        });
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char* LOGS_HTML = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Logs</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background-color: #eef2f6; color: #1f2937; }
+        .page { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .panel { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .topbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 0 12px; background: #eef2f6; }
+        .nav-btn { text-decoration: none; background: #0b74de; color: white; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
+        th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+        .btn { border: 0; border-radius: 6px; padding: 6px 10px; color: white; text-decoration: none; cursor: pointer; }
+        .dl { background: #16a34a; }
+        .del { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/config">Configuration</a>
+        </div>
+
+        <div class="panel">
+            <h1>Data Logs</h1>
+            <table id="fileTable">
+                <thead><tr><th>File</th><th>Size</th><th>Action</th></tr></thead>
+                <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function loadFiles() {
+            fetch('/list')
+                .then((r) => r.json())
+                .then((files) => {
+                    const tbody = document.querySelector('#fileTable tbody');
+                    tbody.innerHTML = '';
+                    if (files.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3">No logs found.</td></tr>';
+                        return;
+                    }
+                    files.sort((a, b) => b.name.localeCompare(a.name));
+                    files.forEach((f) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${f.name.replace('/', '')}</td>
+                            <td>${formatBytes(f.size)}</td>
+                            <td>
+                                <a class="btn dl" href="/logs${f.name}" download>Download</a>
+                                <button class="btn del" onclick="deleteFile('${f.name}')">Delete</button>
+                            </td>`;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(() => {
+                    document.querySelector('#fileTable tbody').innerHTML = '<tr><td colspan="3">Error loading files.</td></tr>';
+                });
+        }
+
+        function deleteFile(filename) {
+            if (!confirm(`Delete ${filename}?`)) return;
+            fetch('/delete?file=' + filename).then((r) => r.ok ? loadFiles() : alert('Delete failed'));
+        }
+
+        loadFiles();
     </script>
 </body>
 </html>
@@ -443,7 +809,12 @@ void ControllerWebServer::startAP() {
 
     // Handle root URL
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", INDEX_HTML);
+        String page = DASHBOARD_HTML;
+        page.replace("%APP_VERSION%", APP_VERSION);
+        page.replace("%BUILD_DATE%", __DATE__);
+        page.replace("%BUILD_TIME%", __TIME__);
+        page.replace("%CONTROLLER%", CONTROLLER_LABEL);
+        request->send(200, "text/html", page);
     });
 
     // Get current configuration values (JSON) - register BEFORE /config to avoid conflicts
@@ -572,9 +943,58 @@ void ControllerWebServer::startAP() {
             }
         });
 
+    // Telemetry API
+    server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        DynamicJsonDocument doc(512);
+
+        const bool hasTelemetry = telemetry.hasData();
+        const bool hasCurrentSensor = getBoardConfig().hasCurrentSensor;
+        const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
+        const uint32_t batteryCurrentMa = telemetry.getBatteryCurrentMilliAmps();
+
+        // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
+        uint16_t powerKwX10 = 0;
+        if (hasTelemetry && hasCurrentSensor) {
+            const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
+            powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
+        }
+
+        doc["hasTelemetry"] = hasTelemetry;
+        doc["batteryPercentCc"] = batteryMonitor.getSoC();
+        doc["batteryPercentVoltage"] = batteryMonitor.getSoCFromVoltage();
+        doc["batteryVoltageMv"] = batteryVoltageMv;
+        doc["powerKwX10"] = powerKwX10;
+        doc["throttlePercent"] = throttle.getThrottlePercentage();
+        doc["throttleRaw"] = throttle.getThrottleRaw();
+        doc["powerPercent"] = power.getPower();
+        doc["motorTempMc"] = telemetry.getMotorTempMilliCelsius();
+        doc["rpm"] = hasCurrentSensor ? telemetry.getRpm() : 0;
+        doc["escCurrentMa"] = hasCurrentSensor ? batteryCurrentMa : 0;
+        doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
+        doc["armed"] = throttle.isArmed();
+        doc["uptimeMs"] = millis();
+        doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
+
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/html", CONFIG_HTML);
+    });
+
+    server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", TELEMETRY_HTML);
+    });
+
+    server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", FIRMWARE_HTML);
+    });
+
+    server.on("/logs-page", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", LOGS_HTML);
     });
 
     // Serve static files from LittleFS under /logs
