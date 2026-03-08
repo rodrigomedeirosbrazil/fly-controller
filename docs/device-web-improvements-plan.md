@@ -202,15 +202,15 @@ Commit message suggestion: `style(web): unify ui and optimize frontend footprint
 - [x] Keep only essential visual effects and avoid heavy UI libraries.
 
 ### Phase 6 - Validation checklist
-- [ ] Firmware upload still works end-to-end.
-- [ ] Log list/download/delete still works.
-- [ ] Config read/save still works.
-- [ ] Telemetry page updates reliably for all builds:
-  - [ ] `lolin_c3_mini_hobbywing`
-  - [ ] `lolin_c3_mini_tmotor`
-  - [ ] `lolin_c3_mini_xag`
-- [ ] Dashboard shows firmware info and basic status correctly.
-- [ ] Captive portal fallback behavior remains functional.
+- [x] Firmware upload still works end-to-end.
+- [x] Log list/download/delete still works.
+- [x] Config read/save still works.
+- [x] Telemetry page updates reliably for all builds:
+  - [x] `lolin_c3_mini_hobbywing`
+  - [x] `lolin_c3_mini_tmotor`
+  - [x] `lolin_c3_mini_xag`
+- [x] Dashboard shows firmware info and basic status correctly.
+- [x] Captive portal fallback behavior remains functional.
 
 ## Delivery Strategy
 Use a single implementation flow with one commit per phase:
