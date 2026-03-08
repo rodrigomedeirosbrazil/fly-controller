@@ -196,10 +196,10 @@ Commit message suggestion: `feat(web): add dashboard home page`
 ### Phase 5 - Consistency and cleanup
 Commit message suggestion: `style(web): unify ui and optimize frontend footprint`
 
-- [ ] Unify button styles, spacing, and typography across pages.
-- [ ] Remove duplicated inline JS helpers where possible.
-- [ ] Ensure all pages are mobile-friendly (current viewport already exists).
-- [ ] Keep only essential visual effects and avoid heavy UI libraries.
+- [x] Unify button styles, spacing, and typography across pages.
+- [x] Remove duplicated inline JS helpers where possible.
+- [x] Ensure all pages are mobile-friendly (current viewport already exists).
+- [x] Keep only essential visual effects and avoid heavy UI libraries.
 
 ### Phase 6 - Validation checklist
 - [ ] Firmware upload still works end-to-end.

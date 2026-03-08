@@ -552,8 +552,8 @@ const char* TELEMETRY_HTML = R"rawliteral(
     <div class="page">
         <div class="topbar">
             <a class="nav-btn secondary" href="/">Dashboard</a>
-            <a class="nav-btn secondary" href="/">Firmware</a>
-            <a class="nav-btn secondary" href="/">Logs</a>
+            <a class="nav-btn secondary" href="/firmware">Firmware</a>
+            <a class="nav-btn secondary" href="/logs-page">Logs</a>
             <a class="nav-btn secondary" href="/config">Configuration</a>
         </div>
 
@@ -576,6 +576,12 @@ const char* TELEMETRY_HTML = R"rawliteral(
 
     <script>
         const $ = (id) => document.getElementById(id);
+        const setText = (id, value) => {
+            const el = $(id);
+            if (el.textContent !== value) {
+                el.textContent = value;
+            }
+        };
         const fmtC = (mc) => `${(mc / 1000).toFixed(1)} C`;
         const fmtV = (mv) => `${(mv / 1000).toFixed(2)} V`;
         const fmtA = (ma) => `${(ma / 1000).toFixed(1)} A`;
@@ -590,25 +596,25 @@ const char* TELEMETRY_HTML = R"rawliteral(
         function render(data) {
             if (!data.hasTelemetry) {
                 setStatus("nodata");
-                $("freshness").textContent = "Waiting for telemetry";
+                setText("freshness", "Waiting for telemetry");
             } else {
                 const age = data.uptimeMs - data.lastTelemetryUpdateMs;
                 setStatus(age > 3000 ? "stale" : "live");
-                $("freshness").textContent = `Last update ${Math.max(0, age)} ms ago`;
+                setText("freshness", `Last update ${Math.max(0, age)} ms ago`);
             }
 
-            $("batteryVoltage").textContent = fmtV(data.batteryVoltageMv || 0);
-            $("socCc").textContent = `${data.batteryPercentCc || 0} %`;
-            $("socVoltage").textContent = `${data.batteryPercentVoltage || 0} %`;
-            $("powerKw").textContent = fmtKw(data.powerKwX10 || 0);
-            $("powerPercent").textContent = `Limit: ${data.powerPercent || 0} %`;
-            $("throttlePercent").textContent = `${data.throttlePercent || 0} %`;
-            $("throttleRaw").textContent = `Raw: ${data.throttleRaw || 0}`;
-            $("motorTemp").textContent = fmtC(data.motorTempMc || 0);
-            $("rpm").textContent = data.rpm ? `${data.rpm} rpm` : "N/A";
-            $("escTemp").textContent = fmtC(data.escTempMc || 0);
-            $("escCurrent").textContent = data.escCurrentMa ? fmtA(data.escCurrentMa) : "N/A";
-            $("armed").textContent = data.armed ? "ARMED" : "DISARMED";
+            setText("batteryVoltage", fmtV(data.batteryVoltageMv || 0));
+            setText("socCc", `${data.batteryPercentCc || 0} %`);
+            setText("socVoltage", `${data.batteryPercentVoltage || 0} %`);
+            setText("powerKw", fmtKw(data.powerKwX10 || 0));
+            setText("powerPercent", `Limit: ${data.powerPercent || 0} %`);
+            setText("throttlePercent", `${data.throttlePercent || 0} %`);
+            setText("throttleRaw", `Raw: ${data.throttleRaw || 0}`);
+            setText("motorTemp", fmtC(data.motorTempMc || 0));
+            setText("rpm", data.rpm ? `${data.rpm} rpm` : "N/A");
+            setText("escTemp", fmtC(data.escTempMc || 0));
+            setText("escCurrent", data.escCurrentMa ? fmtA(data.escCurrentMa) : "N/A");
+            setText("armed", data.armed ? "ARMED" : "DISARMED");
         }
 
         function loadTelemetry() {
