@@ -2,6 +2,7 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../BoardConfig.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -571,6 +572,43 @@ void ControllerWebServer::startAP() {
                 request->send(200, "text/plain", "Success: Configuration saved");
             }
         });
+
+    // Telemetry API
+    server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        DynamicJsonDocument doc(512);
+
+        const bool hasTelemetry = telemetry.hasData();
+        const bool hasCurrentSensor = getBoardConfig().hasCurrentSensor;
+        const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
+        const uint32_t batteryCurrentMa = telemetry.getBatteryCurrentMilliAmps();
+
+        // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
+        uint16_t powerKwX10 = 0;
+        if (hasTelemetry && hasCurrentSensor) {
+            const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
+            powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
+        }
+
+        doc["hasTelemetry"] = hasTelemetry;
+        doc["batteryPercentCc"] = batteryMonitor.getSoC();
+        doc["batteryPercentVoltage"] = batteryMonitor.getSoCFromVoltage();
+        doc["batteryVoltageMv"] = batteryVoltageMv;
+        doc["powerKwX10"] = powerKwX10;
+        doc["throttlePercent"] = throttle.getThrottlePercentage();
+        doc["throttleRaw"] = throttle.getThrottleRaw();
+        doc["powerPercent"] = power.getPower();
+        doc["motorTempMc"] = telemetry.getMotorTempMilliCelsius();
+        doc["rpm"] = hasCurrentSensor ? telemetry.getRpm() : 0;
+        doc["escCurrentMa"] = hasCurrentSensor ? batteryCurrentMa : 0;
+        doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
+        doc["armed"] = throttle.isArmed();
+        doc["uptimeMs"] = millis();
+        doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
+
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
 
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
