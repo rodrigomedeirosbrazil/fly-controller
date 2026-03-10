@@ -47,7 +47,7 @@ jobs:
             RELEASE_TAG="${GITHUB_REF#refs/tags/}"
           fi
           echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "# Overwritten by CI - do not edit" > src/Version.h
+          echo "/* Overwritten by CI - do not edit */" > src/Version.h
           echo "#ifndef VERSION_H" >> src/Version.h
           echo "#define VERSION_H" >> src/Version.h
           echo "#define APP_VERSION \"${RELEASE_TAG}\"" >> src/Version.h
