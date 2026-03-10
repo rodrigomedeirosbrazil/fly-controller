@@ -13,15 +13,12 @@
 #include "Pages/LogsPage.h"
 #include "Pages/TelemetryPage.h"
 #include "Pages/LegacyIndexPage.h"
+#include "../Version.h"
 
 const char* SOFT_AP_SSID = "FlyController";
 
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
-
-#ifndef APP_VERSION
-#define APP_VERSION "dev"
-#endif
 
 #if IS_HOBBYWING
 const char* CONTROLLER_LABEL = "Hobbywing";
