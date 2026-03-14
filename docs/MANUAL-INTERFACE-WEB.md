@@ -77,13 +77,14 @@ Mostra os dados ao vivo do sistema, atualizados a cada 1 segundo.
 | **Throttle**         | Posição do acelerador (%). |
 | **Raw**              | Valor bruto do acelerador (para diagnóstico). |
 | **Motor**            | Temperatura do motor (°C). |
-| **RPM**              | Rotação do motor (rpm), quando disponível. |
+| **RPM**              | Rotação do motor (rpm). **N/A** quando não há sensor de corrente (ex.: build XAG); **0** é valor válido quando o sensor existe. |
 | **ESC**              | Temperatura do ESC (°C). |
-| **ESC Current**      | Corrente do ESC (A), quando há sensor. |
+| **ESC Current**      | Corrente consumida (A). **N/A** quando não há sensor de corrente; **0** é valor válido quando o sensor existe. |
 | **System**           | ARMED ou DISARMED. |
 | **Last update**      | Há quantos milissegundos os dados foram atualizados. |
+| **BMS**              | Card exibido apenas quando o JBD BMS está conectado e enviando dados: temperatura máxima da bateria (NTCs), célula mín/máx (mV) e delta (balanceamento). |
 
-Em builds sem sensor de corrente (ou sem telemetria de corrente), campos como **Power**, **RPM** e **ESC Current** podem aparecer como **N/A** ou **0**.
+A interface usa flags de **disponibilidade** enviadas pela API: quando um dado não está disponível (ex.: sem sensor de corrente), o valor é exibido como **N/A**; quando está disponível, **0** é mostrado como zero (não como N/A).
 
 ---
 
@@ -212,7 +213,7 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 - A interface é servida pelo próprio controlador (ESP32); não depende de internet.
 - O ponto de acesso **FlyController** não usa senha; qualquer dispositivo próximo pode conectar. Use em ambiente controlado.
 - As configurações são validadas no servidor (por exemplo, capacidade 1000–200000 mAh, tensões e temperaturas dentro das faixas). Valores fora do permitido são rejeitados com mensagem de erro.
-- A API de telemetria está em **GET /api/telemetry** (JSON). A página de Configuração usa **GET /config/values** (ler) e **POST /config/save** (gravar) com corpo JSON.
+- A API de telemetria está em **GET /api/telemetry** (JSON). O objeto **availability** indica quais dados estão disponíveis (`current`, `rpm`, `powerKw`, `bms`, `bmsCells`). Campos numéricos como `rpm`, `escCurrentMa` e `powerKwX10` são omitidos quando indisponíveis (a página mostra N/A). Quando o JBD BMS está conectado, o objeto **bms** traz `tempMaxC`, `cellMinMv`, `cellMaxMv` e `cellDeltaMv`. A página de Configuração usa **GET /config/values** (ler) e **POST /config/save** (gravar) com corpo JSON.
 
 ---
 
