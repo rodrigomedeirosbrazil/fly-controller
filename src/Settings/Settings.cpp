@@ -11,6 +11,7 @@ Settings::Settings() {
     escMaxTemp = 0;
     escTempReductionStart = 0;
     powerControlEnabled = true;
+    wifiAutoDisableAfterCalibration = true;
 }
 
 void Settings::init() {
@@ -36,6 +37,9 @@ void Settings::load() {
 
     // Load power control enabled (default: true)
     powerControlEnabled = preferences.getBool("pwrCtrl", getDefaultPowerControlEnabled());
+
+    // Load Wi-Fi auto-disable after throttle calibration (default: enabled)
+    wifiAutoDisableAfterCalibration = preferences.getBool("wifiAutoOffCal", getDefaultWifiAutoDisableAfterCalibration());
 }
 
 void Settings::save() {
@@ -47,6 +51,7 @@ void Settings::save() {
     preferences.putInt("escMaxT", escMaxTemp);
     preferences.putInt("escRedT", escTempReductionStart);
     preferences.putBool("pwrCtrl", powerControlEnabled);
+    preferences.putBool("wifiAutoOffCal", wifiAutoDisableAfterCalibration);
 }
 
 uint16_t Settings::getBatteryCapacityMah() const {
@@ -113,6 +118,14 @@ void Settings::setPowerControlEnabled(bool enabled) {
     powerControlEnabled = enabled;
 }
 
+bool Settings::getWifiAutoDisableAfterCalibration() const {
+    return wifiAutoDisableAfterCalibration;
+}
+
+void Settings::setWifiAutoDisableAfterCalibration(bool enabled) {
+    wifiAutoDisableAfterCalibration = enabled;
+}
+
 uint16_t Settings::getDefaultBatteryCapacity() const {
     return getBoardConfig().defaultBatteryCapacity;
 }
@@ -145,3 +158,6 @@ bool Settings::getDefaultPowerControlEnabled() const {
     return true;  // Power control enabled by default
 }
 
+bool Settings::getDefaultWifiAutoDisableAfterCalibration() const {
+    return true;  // Keep current behavior by default
+}

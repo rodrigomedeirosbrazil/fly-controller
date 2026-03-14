@@ -2,424 +2,34 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../BoardConfig.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "Pages/CommonLayout.h"
+#include "Pages/ConfigPage.h"
+#include "Pages/DashboardPage.h"
+#include "Pages/FirmwarePage.h"
+#include "Pages/LogsPage.h"
+#include "Pages/TelemetryPage.h"
+#include "Pages/LegacyIndexPage.h"
+#include "../Version.h"
 
 const char* SOFT_AP_SSID = "FlyController";
 
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
-const char* INDEX_HTML = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>FlyController Manager</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f4; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
-        h1 { color: #333; }
-        h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        p { color: #666; margin-bottom: 20px; }
-        form { margin-top: 20px; margin-bottom: 40px; }
-        input[type="file"] { border: 1px solid #ddd; padding: 10px; border-radius: 4px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
-        input[type="submit"] { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; }
-        input[type="submit"]:hover { background-color: #0056b3; }
-        .message { margin-top: 20px; padding: 10px; border-radius: 4px; }
-        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+#if IS_HOBBYWING
+const char* CONTROLLER_LABEL = "Hobbywing";
+#elif IS_TMOTOR
+const char* CONTROLLER_LABEL = "Tmotor";
+#elif IS_XAG
+const char* CONTROLLER_LABEL = "XAG";
+#else
+const char* CONTROLLER_LABEL = "Unknown";
+#endif
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; }
-        .btn-sm { padding: 5px 10px; font-size: 12px; margin: 2px; text-decoration: none; display: inline-block; border-radius: 3px; color: white; border: none; cursor: pointer;}
-        .btn-download { background-color: #28a745; }
-        .btn-delete { background-color: #dc3545; }
-        .btn-config { background-color: #17a2b8; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; border-radius: 4px; margin: 10px 0; font-size: 16px; }
-        .btn-config:hover { background-color: #138496; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>FlyController</h1>
-
-        <a href="/config" class="btn-config">⚙️ Configuration</a>
-
-        <h2>Firmware Update</h2>
-        <p>Select a .bin file to update the device.</p>
-        <form method="POST" action="/update" enctype="multipart/form-data">
-            <input type="file" name="update" accept=".bin">
-            <input type="submit" value="Update Firmware">
-        </form>
-        <div id="response" class="message"></div>
-
-        <h2>Data Logs</h2>
-        <p>Download or manage telemetry logs.</p>
-        <table id="fileTable">
-            <thead>
-                <tr>
-                    <th>File</th>
-                    <th>Size</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td colspan="3">Loading...</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <script>
-        // Firmware Update Logic
-        document.querySelector('form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            const responseDiv = document.getElementById('response');
-            responseDiv.className = 'message';
-            responseDiv.textContent = 'Updating...';
-
-            fetch('/update', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.text())
-            .then(data => {
-                responseDiv.textContent = data;
-                if (data.includes('Success')) {
-                    responseDiv.classList.add('success');
-                    setTimeout(() => { window.location.reload(); }, 5000);
-                } else {
-                    responseDiv.classList.add('error');
-                }
-            })
-            .catch(error => {
-                responseDiv.textContent = 'Error: ' + error;
-                responseDiv.classList.add('error');
-            });
-        });
-
-        // File Manager Logic
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-        }
-
-        function loadFiles() {
-            fetch('/list')
-                .then(response => response.json())
-                .then(files => {
-                    const tbody = document.querySelector('#fileTable tbody');
-                    tbody.innerHTML = '';
-
-                    if(files.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3">No logs found.</td></tr>';
-                        return;
-                    }
-
-                    // Sort files (newest first)
-                    files.sort((a, b) => b.name.localeCompare(a.name));
-
-                    files.forEach(file => {
-                        const tr = document.createElement('tr');
-                        const downloadLink = '/logs' + file.name;
-
-                        tr.innerHTML = `
-                            <td>${file.name.replace('/', '')}</td>
-                            <td>${formatBytes(file.size)}</td>
-                            <td>
-                                <a href="${downloadLink}" class="btn-sm btn-download" download>Download</a>
-                                <button onclick="deleteFile('${file.name}')" class="btn-sm btn-delete">Delete</button>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.querySelector('#fileTable tbody').innerHTML = '<tr><td colspan="3">Error loading files</td></tr>';
-                });
-        }
-
-        function deleteFile(filename) {
-            if(confirm('Are you sure you want to delete ' + filename + '?')) {
-                fetch('/delete?file=' + filename)
-                    .then(response => {
-                        if(response.ok) {
-                            loadFiles();
-                        } else {
-                            alert('Failed to delete file');
-                        }
-                    });
-            }
-        }
-
-        // Load files on start
-        loadFiles();
-    </script>
-</body>
-</html>
-)rawliteral";
-
-const char* CONFIG_HTML = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-    <title>FlyController - Configuration</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
-        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
-        h1 { color: #333; text-align: center; }
-        h2 { color: #555; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; }
-        input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        select { cursor: pointer; }
-        .info-text { color: #888; font-size: 12px; margin-top: 5px; }
-        .total-voltage { background-color: #e7f3ff; padding: 8px; border-radius: 4px; margin-top: 5px; font-size: 12px; color: #0066cc; }
-        button { background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 20px; }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-        .message { margin-top: 20px; padding: 10px; border-radius: 4px; display: none; }
-        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .back-link { display: block; text-align: center; margin-top: 20px; color: #007bff; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>FlyController Configuration</h1>
-
-        <form id="configForm">
-            <h2>Battery Settings</h2>
-
-            <div class="form-group">
-                <label for="batteryCapacity">Battery Capacity (Ah):</label>
-                <select id="batteryCapacity" name="batteryCapacity">
-                    <option value="18">18 Ah</option>
-                    <option value="34">34 Ah</option>
-                    <option value="65">65 Ah</option>
-                    <option value="custom">Custom (enter value)</option>
-                </select>
-                <input type="number" id="batteryCapacityCustom" name="batteryCapacityCustom" min="1" max="200" step="0.1" placeholder="Enter capacity in Ah" style="display: none; margin-top: 10px;">
-                <div class="info-text">Select from preset values or choose custom to enter your own capacity.</div>
-            </div>
-
-            <div class="form-group">
-                <label for="minVoltagePerCell">Minimum Voltage per Cell (V):</label>
-                <input type="number" id="minVoltagePerCell" name="minVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
-                <div class="info-text">Minimum safe voltage per cell (typically 3.0V - 3.15V for LiPo).</div>
-                <div class="total-voltage" id="minVoltageTotal">Total: <span id="minVoltageTotalValue">0.00</span> V (14 cells)</div>
-            </div>
-
-            <div class="form-group">
-                <label for="maxVoltagePerCell">Maximum Voltage per Cell (V):</label>
-                <input type="number" id="maxVoltagePerCell" name="maxVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
-                <div class="info-text">Maximum safe voltage per cell (typically 4.1V - 4.2V for LiPo).</div>
-                <div class="total-voltage" id="maxVoltageTotal">Total: <span id="maxVoltageTotalValue">0.00</span> V (14 cells)</div>
-            </div>
-
-            <h2>Motor Temperature Settings</h2>
-
-            <div class="form-group">
-                <label for="motorMaxTemp">Maximum Motor Temperature (°C):</label>
-                <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
-                <div class="info-text">Motor will be completely disabled at this temperature.</div>
-            </div>
-
-            <div class="form-group">
-                <label for="motorTempReductionStart">Motor Temperature Reduction Start (°C):</label>
-                <input type="number" id="motorTempReductionStart" name="motorTempReductionStart" min="0" max="150" step="1" required>
-                <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
-            </div>
-
-            <h2>ESC Temperature Settings</h2>
-
-            <div class="form-group">
-                <label for="escMaxTemp">Maximum ESC Temperature (°C):</label>
-                <input type="number" id="escMaxTemp" name="escMaxTemp" min="0" max="150" step="1" required>
-                <div class="info-text">ESC will be completely disabled at this temperature.</div>
-            </div>
-
-            <div class="form-group">
-                <label for="escTempReductionStart">ESC Temperature Reduction Start (°C):</label>
-                <input type="number" id="escTempReductionStart" name="escTempReductionStart" min="0" max="150" step="1" required>
-                <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
-            </div>
-
-            <h2>Power Control Settings</h2>
-
-            <div class="form-group">
-                <label for="powerControlEnabled" style="display: flex; align-items: center; cursor: pointer;">
-                    <input type="checkbox" id="powerControlEnabled" name="powerControlEnabled" style="width: auto; margin-right: 10px; cursor: pointer;">
-                    <span>Enable Power Control</span>
-                </label>
-                <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
-            </div>
-
-            <button type="submit" id="saveButton">Save Configuration</button>
-            <div class="message" id="message"></div>
-        </form>
-
-        <a href="/" class="back-link">← Back to Main Page</a>
-    </div>
-
-    <script>
-        const CELL_COUNT = 14; // BATTERY_CELL_COUNT
-
-        // Load current values
-        function loadCurrentValues() {
-            fetch('/config/values')
-                .then(response => response.json())
-                .then(data => {
-                    // Battery capacity
-                    const capacityAh = data.batteryCapacity / 1000;
-                    if (capacityAh == 18 || capacityAh == 35 || capacityAh == 65) {
-                        document.getElementById('batteryCapacity').value = capacityAh;
-                        document.getElementById('batteryCapacityCustom').style.display = 'none';
-                    } else {
-                        document.getElementById('batteryCapacity').value = 'custom';
-                        document.getElementById('batteryCapacityCustom').value = capacityAh;
-                        document.getElementById('batteryCapacityCustom').style.display = 'block';
-                    }
-
-                    // Battery voltages (convert from millivolts to volts per cell)
-                    const minVoltagePerCell = (data.batteryMinVoltage / 1000) / CELL_COUNT;
-                    const maxVoltagePerCell = (data.batteryMaxVoltage / 1000) / CELL_COUNT;
-                    document.getElementById('minVoltagePerCell').value = minVoltagePerCell.toFixed(2);
-                    document.getElementById('maxVoltagePerCell').value = maxVoltagePerCell.toFixed(2);
-                    updateVoltageTotals();
-
-                    // Motor temperatures (convert from millicelsius to celsius)
-                    document.getElementById('motorMaxTemp').value = data.motorMaxTemp / 1000;
-                    document.getElementById('motorTempReductionStart').value = data.motorTempReductionStart / 1000;
-
-                    // ESC temperatures (convert from millicelsius to celsius)
-                    document.getElementById('escMaxTemp').value = data.escMaxTemp / 1000;
-                    document.getElementById('escTempReductionStart').value = data.escTempReductionStart / 1000;
-
-                    // Power control enabled
-                    document.getElementById('powerControlEnabled').checked = data.powerControlEnabled || false;
-                })
-                .catch(error => {
-                    console.error('Error loading values:', error);
-                    showMessage('Error loading current configuration', 'error');
-                });
-        }
-
-        // Update voltage totals when per-cell values change
-        function updateVoltageTotals() {
-            const minVoltagePerCell = parseFloat(document.getElementById('minVoltagePerCell').value) || 0;
-            const maxVoltagePerCell = parseFloat(document.getElementById('maxVoltagePerCell').value) || 0;
-
-            const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
-            const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
-
-            document.getElementById('minVoltageTotalValue').textContent = minVoltageTotal.toFixed(2);
-            document.getElementById('maxVoltageTotalValue').textContent = maxVoltageTotal.toFixed(2);
-        }
-
-        // Handle battery capacity select change
-        document.getElementById('batteryCapacity').addEventListener('change', function() {
-            if (this.value === 'custom') {
-                document.getElementById('batteryCapacityCustom').style.display = 'block';
-                document.getElementById('batteryCapacityCustom').focus();
-            } else {
-                document.getElementById('batteryCapacityCustom').style.display = 'none';
-            }
-        });
-
-        // Update voltage totals on input
-        document.getElementById('minVoltagePerCell').addEventListener('input', updateVoltageTotals);
-        document.getElementById('maxVoltagePerCell').addEventListener('input', updateVoltageTotals);
-
-        // Handle form submission
-        document.getElementById('configForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const saveButton = document.getElementById('saveButton');
-            const messageDiv = document.getElementById('message');
-            saveButton.disabled = true;
-            messageDiv.style.display = 'none';
-
-            // Get battery capacity
-            let capacityAh;
-            if (document.getElementById('batteryCapacity').value === 'custom') {
-                capacityAh = parseFloat(document.getElementById('batteryCapacityCustom').value);
-            } else {
-                capacityAh = parseFloat(document.getElementById('batteryCapacity').value);
-            }
-
-            // Validate
-            if (!capacityAh || capacityAh < 1 || capacityAh > 200) {
-                showMessage('Battery capacity must be between 1 and 200 Ah', 'error');
-                saveButton.disabled = false;
-                return;
-            }
-
-            // Prepare data
-            const minVoltagePerCell = parseFloat(document.getElementById('minVoltagePerCell').value);
-            const maxVoltagePerCell = parseFloat(document.getElementById('maxVoltagePerCell').value);
-            const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
-            const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
-
-            const data = {
-                batteryCapacity: Math.round(capacityAh * 1000), // Convert to mAh
-                batteryMinVoltage: Math.round(minVoltageTotal * 1000), // Convert to millivolts
-                batteryMaxVoltage: Math.round(maxVoltageTotal * 1000), // Convert to millivolts
-                motorMaxTemp: Math.round(parseFloat(document.getElementById('motorMaxTemp').value) * 1000), // Convert to millicelsius
-                motorTempReductionStart: Math.round(parseFloat(document.getElementById('motorTempReductionStart').value) * 1000),
-                escMaxTemp: Math.round(parseFloat(document.getElementById('escMaxTemp').value) * 1000),
-                escTempReductionStart: Math.round(parseFloat(document.getElementById('escTempReductionStart').value) * 1000),
-                powerControlEnabled: document.getElementById('powerControlEnabled').checked
-            };
-
-            // Send to server
-            fetch('/config/save', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.text())
-            .then(text => {
-                if (text.includes('Success') || response.ok) {
-                    showMessage('Configuration saved successfully!', 'success');
-                } else {
-                    showMessage('Error saving configuration: ' + text, 'error');
-                }
-                saveButton.disabled = false;
-            })
-            .catch(error => {
-                showMessage('Error saving configuration: ' + error, 'error');
-                saveButton.disabled = false;
-            });
-        });
-
-        function showMessage(text, type) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = text;
-            messageDiv.className = 'message ' + type;
-            messageDiv.style.display = 'block';
-        }
-
-        // Load values on page load
-        loadCurrentValues();
-    </script>
-</body>
-</html>
-)rawliteral";
 
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     isActive = true;
@@ -443,7 +53,9 @@ void ControllerWebServer::startAP() {
 
     // Handle root URL
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", INDEX_HTML);
+        String page = renderDashboardPage();
+        applyCommonTokens(page, APP_VERSION, __DATE__, __TIME__, CONTROLLER_LABEL);
+        request->send(200, "text/html", page);
     });
 
     // Get current configuration values (JSON) - register BEFORE /config to avoid conflicts
@@ -461,6 +73,7 @@ void ControllerWebServer::startAP() {
         doc["escMaxTemp"] = settings.getEscMaxTemp();
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+        doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
 
         String response;
         serializeJson(doc, response);
@@ -565,6 +178,11 @@ void ControllerWebServer::startAP() {
                     settings.setPowerControlEnabled(enabled);
                 }
 
+                if (doc.containsKey("wifiAutoDisableAfterCalibration")) {
+                    bool enabled = doc["wifiAutoDisableAfterCalibration"];
+                    settings.setWifiAutoDisableAfterCalibration(enabled);
+                }
+
                 // Save to Preferences
                 settings.save();
 
@@ -572,9 +190,58 @@ void ControllerWebServer::startAP() {
             }
         });
 
+    // Telemetry API
+    server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        DynamicJsonDocument doc(512);
+
+        const bool hasTelemetry = telemetry.hasData();
+        const bool hasCurrentSensor = getBoardConfig().hasCurrentSensor;
+        const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
+        const uint32_t batteryCurrentMa = telemetry.getBatteryCurrentMilliAmps();
+
+        // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
+        uint16_t powerKwX10 = 0;
+        if (hasTelemetry && hasCurrentSensor) {
+            const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
+            powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
+        }
+
+        doc["hasTelemetry"] = hasTelemetry;
+        doc["batteryPercentCc"] = batteryMonitor.getSoC();
+        doc["batteryPercentVoltage"] = batteryMonitor.getSoCFromVoltage();
+        doc["batteryVoltageMv"] = batteryVoltageMv;
+        doc["powerKwX10"] = powerKwX10;
+        doc["throttlePercent"] = throttle.getThrottlePercentage();
+        doc["throttleRaw"] = throttle.getThrottleRaw();
+        doc["powerPercent"] = power.getPower();
+        doc["motorTempMc"] = telemetry.getMotorTempMilliCelsius();
+        doc["rpm"] = hasCurrentSensor ? telemetry.getRpm() : 0;
+        doc["escCurrentMa"] = hasCurrentSensor ? batteryCurrentMa : 0;
+        doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
+        doc["armed"] = throttle.isArmed();
+        doc["uptimeMs"] = millis();
+        doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
+
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", CONFIG_HTML);
+        request->send(200, "text/html", renderConfigPage());
+    });
+
+    server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderTelemetryPage());
+    });
+
+    server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderFirmwarePage());
+    });
+
+    server.on("/logs-page", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderLogsPage());
     });
 
     // Serve static files from LittleFS under /logs
@@ -695,8 +362,15 @@ void ControllerWebServer::stop() {
 }
 
 void ControllerWebServer::handleClient() {
-    // Only stop the web server if it's active AND the throttle is calibrated AND no update is in progress.
-    if (isActive && throttle.isCalibrated() && !Update.isRunning()) {
+    extern Settings settings;
+
+    // Only stop the web server if auto-disable is enabled AND throttle is calibrated AND no update is in progress.
+    if (
+        isActive
+        && settings.getWifiAutoDisableAfterCalibration()
+        && throttle.isCalibrated()
+        && !Update.isRunning()
+    ) {
         stop();
     }
 

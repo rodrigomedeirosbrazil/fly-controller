@@ -66,7 +66,20 @@ void Xctod::init() {
 
     Serial.println("BLE advertising started");
 
-    // Configure CSV header for log file
+    // XCTOD CSV fields (name and index):
+    //  0: $XCTOD (prefix)
+    //  1: battery_percent_cc
+    //  2: battery_percent_voltage
+    //  3: voltage
+    //  4: power_kw
+    //  5: throttle_percent
+    //  6: throttle_raw
+    //  7: power_percent
+    //  8: motor_temp
+    //  9: rpm
+    // 10: esc_current
+    // 11: esc_temp
+    // 12: armed
     logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
 }
 

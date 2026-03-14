@@ -114,7 +114,7 @@ void HobbywingCan::setLedColor(uint8_t color, uint8_t blink) {
 }
 
 void HobbywingCan::setDirection(bool isCcw) {
-    uint8_t data[1] = { isCcw ? 0x00 : 0x01 };
+    uint8_t data[1] = { static_cast<uint8_t>(isCcw ? 0x00 : 0x01) };
 
     extern Canbus canbus;
     uint8_t targetNodeId = (canbus.getEscNodeId() != 0) ? canbus.getEscNodeId() : escNodeId;
