@@ -7,6 +7,11 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
+struct BleFrame {
+    uint8_t data[16];
+    size_t  len;
+};
+
 static JbdBms* s_jbdBms = nullptr;
 
 // ---------------------------------------------------------------------------
@@ -23,6 +28,7 @@ void onNotifyCallback(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t len
 // ---------------------------------------------------------------------------
 JbdBms::JbdBms()
     : pClient_(nullptr), pCharRx_(nullptr), pCharTx_(nullptr),
+      txQueue_(nullptr), txTaskHandle_(nullptr),
       state_(Idle), connected_(false), hasData_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), rxLen_(0),
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
@@ -47,6 +53,8 @@ void JbdBms::init() {
         DEBUG_PRINTLN("[JBD] ERROR: createClient failed");
         return;
     }
+    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
+    xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
     DEBUG_PRINTLN("[JBD] Init OK");
 }
@@ -58,11 +66,29 @@ void JbdBms::resetConnection() {
     if (pClient_ && pClient_->isConnected()) {
         pClient_->disconnect();
     }
+    if (txQueue_ != nullptr) {
+        xQueueReset(txQueue_);
+    }
     connected_ = false;
     pCharRx_   = nullptr;
     pCharTx_   = nullptr;
     rxLen_     = 0;
     state_     = Idle;
+}
+
+// ---------------------------------------------------------------------------
+// txTask — FreeRTOS task that performs BLE writes (avoids blocking the main loop)
+// ---------------------------------------------------------------------------
+void JbdBms::txTask(void* arg) {
+    JbdBms* self = static_cast<JbdBms*>(arg);
+    BleFrame frame;
+    for (;;) {
+        if (xQueueReceive(self->txQueue_, &frame, portMAX_DELAY)) {
+            if (self->pCharTx_ && self->pClient_ && self->pClient_->isConnected()) {
+                self->pCharTx_->writeValue(frame.data, frame.len, false);
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -346,26 +372,24 @@ void JbdBms::sendLoginRequest() {
 
 // ---------------------------------------------------------------------------
 void JbdBms::sendBasicInfoRequest() {
-    if (!pCharTx_) return;
-    uint8_t frame[8];
-    size_t  frameLen;
-    buildReadFrame(JBD_REG_BASIC_INFO, frame, &frameLen);
+    if (!txQueue_) return;
+    BleFrame frame;
+    buildReadFrame(JBD_REG_BASIC_INFO, frame.data, &frame.len);
     DEBUG_PRINT("[JBD] TX: ");
-    printFrameHex(frame, frameLen);
-    pCharTx_->writeValue(frame, frameLen, false);
+    printFrameHex(frame.data, frame.len);
+    xQueueSend(txQueue_, &frame, 0);
 }
 
 // ---------------------------------------------------------------------------
 // sendCellVoltageRequest
 // ---------------------------------------------------------------------------
 void JbdBms::sendCellVoltageRequest() {
-    if (!pCharTx_) return;
-    uint8_t frame[8];
-    size_t  frameLen;
-    buildReadFrame(JBD_REG_CELL_VOLTAGES, frame, &frameLen);
+    if (!txQueue_) return;
+    BleFrame frame;
+    buildReadFrame(JBD_REG_CELL_VOLTAGES, frame.data, &frame.len);
     DEBUG_PRINT("[JBD] TX cells: ");
-    printFrameHex(frame, frameLen);
-    pCharTx_->writeValue(frame, frameLen, false);
+    printFrameHex(frame.data, frame.len);
+    xQueueSend(txQueue_, &frame, 0);
 }
 
 // Decode register 0x03 (Basic Info)

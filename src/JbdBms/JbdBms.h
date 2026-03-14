@@ -2,6 +2,9 @@
 #define JBD_BMS_H
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/queue.h>
 
 // JBD BMS uses fixed BLE address (no scan). Define JBD_BMS_BLE_ADDRESS in config.h.
 
@@ -69,6 +72,8 @@ private:
     BLEClient*               pClient_;
     BLERemoteCharacteristic* pCharRx_;  // FF01 - BMS->ESP (notify)
     BLERemoteCharacteristic* pCharTx_;  // FF02 - ESP->BMS (write)
+    QueueHandle_t txQueue_;    // queue of frames for BLE TX (consumed by tx task)
+    TaskHandle_t  txTaskHandle_;
     State        state_;
     bool         connected_;
     bool         hasData_;
@@ -115,6 +120,7 @@ private:
     void printBasicInfo();
     void printCellVoltages();
     void resetConnection();
+    static void txTask(void* arg);
 
 public:
     // Called by global notify callback — do not call directly
