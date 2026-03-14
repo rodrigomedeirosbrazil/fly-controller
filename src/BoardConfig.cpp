@@ -14,7 +14,7 @@ static const BoardConfig s_config = {
     65000, 110000, 80000
 };
 #elif IS_TMOTOR
-// Tmotor: corrente via CAN, sem arranque suave, 18Ah, 110/80°C ESC
+// Tmotor: current via CAN, no smooth start, 18Ah, 110/80°C ESC
 static const BoardConfig s_config = {
     true, false, true,
     18000, 110000, 80000

@@ -6,6 +6,7 @@
 #include "../Temperature/Temperature.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../Logger/Logger.h"
+#include "../JbdBms/JbdBms.h"
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -80,7 +81,10 @@ void Xctod::init() {
     // 10: esc_current
     // 11: esc_temp
     // 12: armed
-    logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed");
+    // 13: battery_temp_max (JBD)
+    // 14: cell_voltage_min_mv (JBD)
+    // 15: cell_voltage_max_mv (JBD)
+    logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv");
 }
 
 void Xctod::write() {
@@ -97,6 +101,7 @@ void Xctod::write() {
     writeMotorInfo(data);
     writeEscInfo(data);
     writeSystemStatus(data);
+    writeBmsInfo(data);
     data += "\r\n";
 
     logger.log(data);
@@ -192,4 +197,26 @@ void Xctod::writeEscInfo(String &data) {
 
 void Xctod::writeSystemStatus(String &data) {
     data += String(throttle.isArmed() ? "YES" : "NO");
+}
+
+void Xctod::writeBmsInfo(String &data) {
+    if (jbdBms.hasData() && jbdBms.getNtcCount() > 0) {
+        int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
+        for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
+            int16_t t = jbdBms.getNtcTempCelsius(i);
+            if (t > maxTemp) maxTemp = t;
+        }
+        data += ",";
+        data += String(maxTemp);
+    } else {
+        data += ",";
+    }
+    if (jbdBms.hasCellData()) {
+        data += ",";
+        data += String(jbdBms.getCellMinMilliVolts());
+        data += ",";
+        data += String(jbdBms.getCellMaxMilliVolts());
+    } else {
+        data += ",,";
+    }
 }

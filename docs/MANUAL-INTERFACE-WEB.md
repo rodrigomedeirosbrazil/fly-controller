@@ -118,6 +118,8 @@ Lista os arquivos de log armazenados na memória interna (LittleFS). Apenas arqu
 
 A tabela mostra o **nome do arquivo** e o **tamanho**. A lista é recarregada ao abrir a página; após excluir um arquivo, a tabela é atualizada.
 
+Os logs em CSV incluem, quando disponível, dados do BMS JBD: **battery_temp_max** (temperatura máxima da bateria entre os NTCs), **cell_voltage_min_mv** e **cell_voltage_max_mv** (menor e maior tensão por célula em mV). Esses campos aparecem vazios se o BMS não estiver conectado.
+
 ---
 
 ## 7. Configuração (Configuration)
@@ -174,7 +176,18 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 
 ---
 
-### 7.5 Wi‑Fi (Wi-Fi Settings)
+### 7.5 JBD BMS
+
+| Configuração | Descrição e uso |
+|--------------|------------------|
+| **Use JBD BMS** | **Marcado:** o controlador tenta conectar a um BMS JBD via Bluetooth para obter tensão do pack, corrente e dados de células. Esses dados são usados como **fallback** quando não há telemetria do ESC (ex.: XAG ou CAN desconectado) e também são enviados nos logs e na telemetria BLE (temperatura máxima da bateria, tensão mínima e máxima por célula). **Desmarcado:** a conexão com o BMS não é tentada. **Padrão:** ativado. |
+| **BMS Bluetooth address (MAC)** | Endereço MAC do BMS no formato **XX:XX:XX:XX:XX:XX** (6 bytes em hexadecimal separados por dois pontos). Obtenha o endereço com um aplicativo de scan BLE no celular; o BMS JBD usa o serviço 0xFF00. Exemplo: `A5:C2:39:2B:FC:4E`. Se estiver em branco ou com formato inválido, a conexão não será feita. |
+
+**Nota:** Após alterar o MAC, salve a configuração e reinicie o controlador para que a nova conexão seja tentada.
+
+---
+
+### 7.6 Wi‑Fi (Wi-Fi Settings)
 
 | Configuração | Descrição e uso |
 |--------------|------------------|

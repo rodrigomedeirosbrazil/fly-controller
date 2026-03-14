@@ -23,7 +23,7 @@ struct TelemetryData {
     // ESC
     int32_t escTemperatureMilliCelsius;    // m°C (ex: 80000 = 80.000°C)
 
-    // Timestamp da última atualização
+    // Timestamp of last update
     unsigned long lastUpdate;
 };
 

@@ -73,6 +73,8 @@ void ControllerWebServer::startAP() {
         doc["escMaxTemp"] = settings.getEscMaxTemp();
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+        doc["jbdBmsEnabled"] = settings.getJbdBmsEnabled();
+        doc["jbdBmsMac"] = settings.getJbdBmsMac();
         doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
 
         String response;
@@ -176,6 +178,43 @@ void ControllerWebServer::startAP() {
                 if (doc.containsKey("powerControlEnabled")) {
                     bool enabled = doc["powerControlEnabled"];
                     settings.setPowerControlEnabled(enabled);
+                }
+
+                if (doc.containsKey("jbdBmsEnabled")) {
+                    bool enabled = doc["jbdBmsEnabled"];
+                    settings.setJbdBmsEnabled(enabled);
+                }
+
+                if (doc.containsKey("jbdBmsMac")) {
+                    const char* mac = doc["jbdBmsMac"].as<const char*>();
+                    if (mac != nullptr) {
+                        String s(mac);
+                        s.trim();
+                        if (s.length() > 0) {
+                            if (s.length() != 17) {
+                                request->send(400, "text/plain", "BMS MAC must be 17 characters (XX:XX:XX:XX:XX:XX)");
+                                return;
+                            }
+                            for (int i = 0; i < 17; i++) {
+                                if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
+                                    if (s[i] != ':') {
+                                        request->send(400, "text/plain", "BMS MAC format: XX:XX:XX:XX:XX:XX");
+                                        return;
+                                    }
+                                } else {
+                                    char c = s[i];
+                                    bool hex = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+                                    if (!hex) {
+                                        request->send(400, "text/plain", "BMS MAC must use hex digits (0-9, A-F)");
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        settings.setJbdBmsMac(s.c_str());
+                    } else {
+                        settings.setJbdBmsMac("");
+                    }
                 }
 
                 if (doc.containsKey("wifiAutoDisableAfterCalibration")) {

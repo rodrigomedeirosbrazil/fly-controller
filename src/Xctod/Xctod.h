@@ -32,6 +32,7 @@ private:
     void writeMotorInfo(String &data);
     void writeEscInfo(String &data);
     void writeSystemStatus(String &data);
+    void writeBmsInfo(String &data);
 };
 
 #endif // XCTOD_H
