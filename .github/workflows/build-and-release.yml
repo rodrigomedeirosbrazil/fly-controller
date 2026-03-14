@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Cache pip and PlatformIO
         uses: actions/cache@v4
@@ -72,12 +74,39 @@ jobs:
       - name: Set release body
         id: release
         run: |
-          echo "tag=${{ steps.version.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="HEAD"
+          else
+            REF="${GITHUB_REF#refs/tags/}"
+          fi
+
+          PREVIOUS_TAG=$(git tag -l --sort=-v:refname | awk -v t="$TAG" '{ if ($0 == t) found=1; else if (found) { print; exit } }')
+          if [ -z "$PREVIOUS_TAG" ]; then
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD 2>/dev/null | head -1)
+          fi
+
+          CHANGELOG=""
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log "$PREVIOUS_TAG..$REF" --pretty=format:"- %s (%h)" 2>/dev/null || true)
+          fi
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG=$(git log -20 --pretty=format:"- %s (%h)" 2>/dev/null || true)
+          fi
+
           {
             echo "body<<RELEASE_BODY"
             echo "**Commit:** \`${GITHUB_SHA}\`"
             echo "**Ref:** ${GITHUB_REF_NAME}"
             echo ""
+            if [ -n "$CHANGELOG" ]; then
+              echo "### Changes since previous release"
+              echo ""
+              echo "$CHANGELOG"
+              echo ""
+            fi
             echo "### Firmware images"
             echo "- \`firmware-hobbywing.bin\` — Hobbywing (DroneCAN)"
             echo "- \`firmware-tmotor.bin\` — T-Motor (UAVCAN)"
