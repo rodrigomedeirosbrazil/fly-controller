@@ -106,7 +106,7 @@ public:
             100,
             0
         );
-        // Garante que o valor fique entre 0 e 100
+        // Ensure value stays between 0 and 100
         return constrain(mapped, 0, 100);
     }
 
@@ -133,14 +133,14 @@ void test_calcBatteryLimit() {
     p.canbus.ready = false;
     assert(p.calcBatteryLimit() == 0);
     p.canbus.ready = true;
-    p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE; // Acima do mínimo
+    p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE; // Above minimum
     p.setBatteryPowerFloor(80);
     std::cout << "[DEBUG] batteryPowerFloor=" << p.batteryPowerFloor << ", calcBatteryLimit()=" << p.calcBatteryLimit() << std::endl;
-    assert(p.calcBatteryLimit() == 80); // Não altera
+    assert(p.calcBatteryLimit() == 80); // Does not change
     assert(p.batteryPowerFloor == 80);
 
-    // Agora simula queda de voltagem
-    p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE - 1; // Abaixo do mínimo
+    // Now simulate voltage drop
+    p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE - 1; // Below minimum
     p.setBatteryPowerFloor(15);
     assert(p.calcBatteryLimit() == 10); // 15-5
     assert(p.batteryPowerFloor == 10);
@@ -148,7 +148,7 @@ void test_calcBatteryLimit() {
     assert(p.batteryPowerFloor == 5);
     assert(p.calcBatteryLimit() == 0);  // 5-5
     assert(p.batteryPowerFloor == 0);
-    assert(p.calcBatteryLimit() == 0);  // já está zerado
+    assert(p.calcBatteryLimit() == 0);  // already zeroed
     assert(p.batteryPowerFloor == 0);
     std::cout << "test_calcBatteryLimit passed\n";
 }
@@ -168,14 +168,14 @@ void test_calcMotorTempLimit() {
 
 void test_calcPower() {
     Power p;
-    // Caso: tudo normal, sem limitação
+    // Case: all normal, no limitation
     p.canbus.ready = true;
     p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE;
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
     p.setBatteryPowerFloor(100);
     assert(p.calcPower() == 100 && "Power should be 100 when all limits are OK");
 
-    // Caso: limitação por bateria (abaixo do mínimo, stepwise)
+    // Case: battery limitation (below minimum, stepwise)
     p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE - 1;
     p.setBatteryPowerFloor(15);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
@@ -183,13 +183,13 @@ void test_calcPower() {
     assert(p.calcPower() == 5 && "Power should be 5 after two steps");
     assert(p.calcPower() == 0 && "Power should be 0 after three steps");
 
-    // Caso: limitação por temperatura (meio do range)
+    // Case: temperature limitation (mid range)
     p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE;
     p.setBatteryPowerFloor(100);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 5;
     assert(p.calcPower() == 50 && "Power should be 50 when motor temp is at midpoint");
 
-    // Caso: limitação por ambos (o menor prevalece)
+    // Case: limitation by both (lowest prevails)
     p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE - 1;
     p.setBatteryPowerFloor(15);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 5;
@@ -197,20 +197,20 @@ void test_calcPower() {
     p.setBatteryPowerFloor(5);
     assert(p.calcPower() == 0 && "Power should be 0 (battery limit < temp limit)");
 
-    // Caso: limitação total por temperatura (acima do máximo)
+    // Case: full limitation by temperature (above max)
     p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE;
     p.setBatteryPowerFloor(100);
     p.motorTemp.temp = MOTOR_MAX_TEMP + 5;
     assert(p.calcPower() == 0 && "Power should be 0 when temp is above max");
 
-    // Caso: limitação total por bateria (abaixo do mínimo)
+    // Case: full limitation by battery (below minimum)
     p.canbus.ready = true;
     p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE;
     p.setBatteryPowerFloor(0);
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
     assert(p.calcPower() == 0 && "Power should be 0 when battery is at min");
 
-    // Caso: CAN bus não pronto
+    // Case: CAN bus not ready
     p.canbus.ready = false;
     p.motorTemp.temp = MOTOR_MAX_TEMP - 15;
     assert(p.calcPower() == 0 && "Power should be 0 when CAN bus is not ready");

@@ -6,8 +6,8 @@
 // JBD BMS uses fixed BLE address (no scan). Define JBD_BMS_BLE_ADDRESS in config.h.
 
 // JBD GATT: Service 0xFF00
-// FF01 = Module->Phone: Notify, Read  → pCharRx_ (registrar notify aqui)
-// FF02 = Phone->Module: Write w/o Rsp → pCharTx_ (escrever comandos aqui)
+// FF01 = Module->Phone: Notify, Read → pCharRx_ (register notify here)
+// FF02 = Phone->Module: Write w/o Rsp → pCharTx_ (write commands here)
 #define JBD_SERVICE_UUID     "0000ff00-0000-1000-8000-00805f9b34fb"
 #define JBD_CHAR_UUID_RX     "0000ff01-0000-1000-8000-00805f9b34fb"  // notify
 #define JBD_CHAR_UUID_TX     "0000ff02-0000-1000-8000-00805f9b34fb"  // write
@@ -52,11 +52,11 @@ public:
     uint8_t  getDsgFetEnabled()         const { return dsgFetEnabled_; }
     uint16_t getCurrentErrors()         const { return currentErrors_; }
 
-    // Tensões individuais das células (mV)
+    // Individual cell voltages (mV)
     uint16_t getCellVoltageMilliVolts(uint8_t index) const;
     uint16_t getCellMinMilliVolts()  const;
     uint16_t getCellMaxMilliVolts()  const;
-    uint16_t getCellDeltaMilliVolts() const; // diferença max-min (indicador de balance)
+    uint16_t getCellDeltaMilliVolts() const; // max-min difference (balance indicator)
 
 private:
     enum State {
@@ -67,8 +67,8 @@ private:
     };
 
     BLEClient*               pClient_;
-    BLERemoteCharacteristic* pCharRx_;  // FF01 — BMS→ESP (notify)
-    BLERemoteCharacteristic* pCharTx_;  // FF02 — ESP→BMS (write)
+    BLERemoteCharacteristic* pCharRx_;  // FF01 - BMS->ESP (notify)
+    BLERemoteCharacteristic* pCharTx_;  // FF02 - ESP->BMS (write)
     State        state_;
     bool         connected_;
     bool         hasData_;
@@ -81,7 +81,7 @@ private:
     uint8_t rxBuffer_[JBD_RX_BUFFER_SIZE];
     size_t  rxLen_;
 
-    // Dados decodificados — registro 0x03
+    // Decoded data — register 0x03
     uint32_t packVoltageMilliVolts_;
     int32_t  packCurrentMilliAmps_;
     uint8_t  socPercent_;
@@ -95,12 +95,12 @@ private:
     uint8_t  dsgFetEnabled_;
     uint16_t currentErrors_;
 
-    // Dados decodificados — registro 0x04
+    // Decoded data — register 0x04
     bool     hasCellData_;
     uint16_t cellVoltagesMv_[JBD_MAX_CELLS];
 
-    // Controle de requisição alternada 0x03 / 0x04
-    bool     requestCells_; // alterna entre pedir 0x03 e 0x04
+    // Alternating request control 0x03 / 0x04
+    bool     requestCells_; // alternate between requesting 0x03 and 0x04
 
     // Internos
     void buildReadFrame(uint8_t reg, uint8_t* out, size_t* outLen);
@@ -117,7 +117,7 @@ private:
     void resetConnection();
 
 public:
-    // Chamado pelo callback global de notify — não chamar diretamente
+    // Called by global notify callback — do not call directly
     void onNotify(uint8_t* data, size_t len);
 };
 

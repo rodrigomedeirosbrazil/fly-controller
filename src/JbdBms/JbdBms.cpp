@@ -9,7 +9,7 @@
 static JbdBms* s_jbdBms = nullptr;
 
 // ---------------------------------------------------------------------------
-// Callback global de notify
+// Global notify callback
 // ---------------------------------------------------------------------------
 void onNotifyCallback(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t length, bool isNotify) {
     if (s_jbdBms && pData && length > 0) {
@@ -40,10 +40,10 @@ JbdBms::JbdBms()
 // ---------------------------------------------------------------------------
 void JbdBms::init() {
     s_jbdBms = this;
-    // BLEDevice::init() já deve ter sido chamado pelo sistema principal
+    // BLEDevice::init() must have been called by the main system
     pClient_ = BLEDevice::createClient();
     if (!pClient_) {
-        DEBUG_PRINTLN("[JBD] ERRO: createClient falhou");
+        DEBUG_PRINTLN("[JBD] ERROR: createClient failed");
         return;
     }
     state_ = Idle;
@@ -51,7 +51,7 @@ void JbdBms::init() {
 }
 
 // ---------------------------------------------------------------------------
-// resetConnection — limpa estado BLE para nova tentativa
+// resetConnection — clears BLE state for new attempt
 // ---------------------------------------------------------------------------
 void JbdBms::resetConnection() {
     if (pClient_ && pClient_->isConnected()) {
@@ -65,7 +65,7 @@ void JbdBms::resetConnection() {
 }
 
 // ---------------------------------------------------------------------------
-// update — máquina de estados, chamar no loop()
+// update — state machine, call from loop()
 // ---------------------------------------------------------------------------
 void JbdBms::update() {
     switch (state_) {
@@ -79,7 +79,7 @@ void JbdBms::update() {
             }
             if (millis() - lastConnectAttempt_ >= CONNECT_RETRY_MS) {
                 lastConnectAttempt_ = millis();
-                DEBUG_PRINTLN("[JBD] Conectando...");
+                DEBUG_PRINTLN("[JBD] Connecting...");
                 state_ = Connecting;
             }
             break;
@@ -97,10 +97,10 @@ void JbdBms::update() {
             if (pClient_->connect(addr)) {
                 connected_ = true;
                 rxLen_     = 0;
-                DEBUG_PRINTLN("[JBD] Conectado");
+                DEBUG_PRINTLN("[JBD] Connected");
                 state_ = Connected;
             } else {
-                DEBUG_PRINTLN("[JBD] Falha na conexão, tentando novamente...");
+                DEBUG_PRINTLN("[JBD] Connection failed, retrying...");
                 resetConnection();
             }
             break;
@@ -108,56 +108,56 @@ void JbdBms::update() {
 
         // ------------------------------------------------------------------
         case Connected: {
-            // Localiza o service JBD (FF00)
+            // Locate the JBD service (FF00)
             BLERemoteService* pService = pClient_->getService(JBD_SERVICE_UUID);
             if (!pService) {
-                DEBUG_PRINTLN("[JBD] Service FF00 não encontrado");
+                DEBUG_PRINTLN("[JBD] Service FF00 not found");
                 resetConnection();
                 break;
             }
 
-            // Localiza características
+            // Locate characteristics
             pCharRx_ = pService->getCharacteristic(JBD_CHAR_UUID_RX); // FF01 notify
             pCharTx_ = pService->getCharacteristic(JBD_CHAR_UUID_TX); // FF02 write
 
             if (!pCharRx_ || !pCharTx_) {
-                DEBUG_PRINTLN("[JBD] Characteristics FF01/FF02 não encontradas");
+                DEBUG_PRINTLN("[JBD] Characteristics FF01/FF02 not found");
                 resetConnection();
                 break;
             }
 
-            // FIX: ESP32-C3 precisa escrever no CCCD descriptor manualmente.
-            // registerForNotify por si só pode não ativar as notificações no C3.
+            // FIX: ESP32-C3 needs to write the CCCD descriptor manually.
+            // registerForNotify alone may not enable notifications on C3.
             pCharRx_->registerForNotify(onNotifyCallback);
 
-            // Escreve 0x0100 no descriptor 0x2902 para habilitar notify explicitamente
+            // Write 0x0100 to descriptor 0x2902 to enable notify explicitly
             BLERemoteDescriptor* pCccd = pCharRx_->getDescriptor(BLEUUID((uint16_t)0x2902));
             if (pCccd) {
                 uint8_t notifyOn[2] = {0x01, 0x00};
                 pCccd->writeValue(notifyOn, 2, true);
-                DEBUG_PRINTLN("[JBD] CCCD escrito manualmente (0x0100)");
+                DEBUG_PRINTLN("[JBD] CCCD written manually (0x0100)");
             } else {
-                DEBUG_PRINTLN("[JBD] AVISO: descriptor 0x2902 não encontrado — notify pode não funcionar");
+                DEBUG_PRINTLN("[JBD] WARNING: descriptor 0x2902 not found — notify may not work");
             }
 
             state_             = Subscribed;
-            lastRequestMillis_ = 0; // força envio imediato
-            DEBUG_PRINTLN("[JBD] Subscrito em FF02, pronto para leituras");
+            lastRequestMillis_ = 0; // force immediate send
+            DEBUG_PRINTLN("[JBD] Subscribed to FF02, ready for reads");
             break;
         }
 
         // ------------------------------------------------------------------
         case Subscribed:
             if (!pClient_->isConnected()) {
-                DEBUG_PRINTLN("[JBD] Desconectado inesperadamente");
+                DEBUG_PRINTLN("[JBD] Unexpectedly disconnected");
                 resetConnection();
                 break;
             }
 
-            // Processa frames acumulados no buffer de RX
+            // Process frames accumulated in RX buffer
             processRxBuffer();
 
-            // Envia requisições alternadas: 0x03 (basic) e 0x04 (células)
+            // Send alternating requests: 0x03 (basic) and 0x04 (cells)
             if (millis() - lastRequestMillis_ >= REQUEST_INTERVAL_MS) {
                 lastRequestMillis_ = millis();
                 if (requestCells_) {
@@ -172,12 +172,12 @@ void JbdBms::update() {
 }
 
 // ---------------------------------------------------------------------------
-// onNotify — chamado pela ISR-like do BLE stack
+// onNotify — called by BLE stack ISR-like callback
 // ---------------------------------------------------------------------------
 void JbdBms::onNotify(uint8_t* data, size_t len) {
     if (rxLen_ + len > JBD_RX_BUFFER_SIZE) {
-        // Overflow: descarta buffer para evitar lixo acumulado
-        DEBUG_PRINTLN("[JBD] RX buffer overflow, descartando");
+        // Overflow: discard buffer to avoid garbage accumulation
+        DEBUG_PRINTLN("[JBD] RX buffer overflow, discarding");
         rxLen_ = 0;
     }
     memcpy(rxBuffer_ + rxLen_, data, len);
@@ -185,27 +185,27 @@ void JbdBms::onNotify(uint8_t* data, size_t len) {
 }
 
 // ---------------------------------------------------------------------------
-// processRxBuffer — extrai e valida frames JBD do buffer acumulado
+// processRxBuffer — extract and validate JBD frames from accumulated buffer
 //
-// Este BMS (SP14S004 V1.0) envia respostas com wrapper "FF AA" antes do frame DD:
+// This BMS (SP14S004 V1.0) sends responses with "FF AA" wrapper before DD frame:
 //   FF AA | DD | REG | STATUS | LEN | DATA[LEN] | CHK_H | CHK_L | 77
 //
-// Como BLE limita 20 bytes/pacote, a resposta pode vir em múltiplos chunks.
-// onNotify() acumula tudo em rxBuffer_ e aqui montamos o frame completo.
+// BLE limits 20 bytes per packet, so the response may arrive in multiple chunks.
+// onNotify() accumulates all in rxBuffer_ and here we assemble the full frame.
 //
-// Checksum (recepção): 0x10000 - (STATUS + LEN + DATA[...])
+// Checksum (reception): 0x10000 - (STATUS + LEN + DATA[...])
 // ---------------------------------------------------------------------------
 void JbdBms::processRxBuffer() {
     while (rxLen_ > 0) {
 
-        // --- Descarta wrapper FF AA se presente no início ---
+        // --- Discard FF AA wrapper if present at start ---
         if (rxLen_ >= 2 && rxBuffer_[0] == 0xFF && rxBuffer_[1] == 0xAA) {
             memmove(rxBuffer_, rxBuffer_ + 2, rxLen_ - 2);
             rxLen_ -= 2;
             continue;
         }
 
-        // --- Busca byte de início 0xDD ---
+        // --- Look for start byte 0xDD ---
         if (rxBuffer_[0] != JBD_FRAME_START) {
             size_t skip = 0;
             while (skip < rxLen_ && rxBuffer_[skip] != JBD_FRAME_START) skip++;
@@ -215,7 +215,7 @@ void JbdBms::processRxBuffer() {
             continue;
         }
 
-        // --- Precisa de pelo menos 4 bytes para ler LEN ---
+        // --- Need at least 4 bytes to read LEN ---
         if (rxLen_ < 4) return;
 
         uint8_t reg     = rxBuffer_[1];
@@ -225,18 +225,18 @@ void JbdBms::processRxBuffer() {
         // Frame completo: DD(1) + REG(1) + STATUS(1) + LEN(1) + DATA(N) + CHK_H(1) + CHK_L(1) + 77(1)
         size_t frameLen = (size_t)dataLen + 7;
 
-        // Aguarda chegada do frame inteiro (pode vir em múltiplos pacotes BLE)
+        // Wait for full frame to arrive (may come in multiple BLE packets)
         if (rxLen_ < frameLen) return;
 
-        // --- Verifica byte de fim 0x77 ---
+        // --- Verify end byte 0x77 ---
         if (rxBuffer_[frameLen - 1] != JBD_FRAME_END) {
-            DEBUG_PRINTLN("[JBD] Frame end inválido, ressincronizando...");
+            DEBUG_PRINTLN("[JBD] Invalid frame end, resyncing...");
             memmove(rxBuffer_, rxBuffer_ + 1, rxLen_ - 1);
             rxLen_ -= 1;
             continue;
         }
 
-        // --- Log do frame bruto ---
+        // --- Raw frame log ---
         DEBUG_PRINT("[JBD] RX: ");
         printFrameHex(rxBuffer_, frameLen);
 
@@ -246,7 +246,7 @@ void JbdBms::processRxBuffer() {
         uint16_t recvChk = ((uint16_t)rxBuffer_[4 + dataLen] << 8) | rxBuffer_[5 + dataLen];
 
         if (((sum + recvChk) & 0xFFFF) != 0) {
-            DEBUG_PRINT("[JBD] Checksum inválido sum=0x");
+            DEBUG_PRINT("[JBD] Invalid checksum sum=0x");
             DEBUG_PRINT_HEX((uint16_t)(sum & 0xFFFF), HEX);
             DEBUG_PRINT(" chk=0x");
             DEBUG_PRINT_HEX(recvChk, HEX);
@@ -256,7 +256,7 @@ void JbdBms::processRxBuffer() {
             continue;
         }
 
-        // --- Frame válido: processa ---
+        // --- Valid frame: process ---
         const uint8_t* dataPayload = rxBuffer_ + 4;
 
         if (status == 0x00) {
@@ -268,30 +268,30 @@ void JbdBms::processRxBuffer() {
                 printCellVoltages();
             }
         } else {
-            DEBUG_PRINT("[JBD] BMS erro: reg=0x");
+            DEBUG_PRINT("[JBD] BMS error: reg=0x");
             DEBUG_PRINT_HEX(reg, HEX);
             DEBUG_PRINT(" status=0x");
             DEBUG_PRINT_HEX(status, HEX);
             DEBUG_PRINTLN();
         }
 
-        // Consome frame do buffer
+        // Consume frame from buffer
         memmove(rxBuffer_, rxBuffer_ + frameLen, rxLen_ - frameLen);
         rxLen_ -= frameLen;
     }
 }
 
 // ---------------------------------------------------------------------------
-// buildReadFrame — monta frame de leitura JBD (7 bytes)
+// buildReadFrame — build JBD read frame (7 bytes)
 //
-// Formato:  DD | A5 | REG | 00 | CHK_H | CHK_L | 77
-// Checksum: 0x10000 - REG  (apenas o byte REG, sem CMD nem LEN)
+// Format:  DD | A5 | REG | 00 | CHK_H | CHK_L | 77
+// Checksum: 0x10000 - REG  (REG byte only, no CMD or LEN)
 //
-// Confirmado pelo frame canônico: DD A5 03 00 FF FD 77
+// Confirmed by canonical frame: DD A5 03 00 FF FD 77
 //   0x10000 - 0x03 = 0xFFFD ✓
 // ---------------------------------------------------------------------------
 void JbdBms::buildReadFrame(uint8_t reg, uint8_t* out, size_t* outLen) {
-    uint16_t checksum = (uint16_t)(0x10000 - reg);  // só o REG
+    uint16_t checksum = (uint16_t)(0x10000 - reg);  // REG only
 
     out[0] = JBD_FRAME_START;
     out[1] = JBD_CMD_READ;
@@ -304,8 +304,8 @@ void JbdBms::buildReadFrame(uint8_t reg, uint8_t* out, size_t* outLen) {
 }
 
 // ---------------------------------------------------------------------------
-// buildWriteFrame — monta frame de escrita JBD
-// Formato: DD | 5A | REG | LEN | DATA... | CHK_H | CHK_L | 77
+// buildWriteFrame — build JBD write frame
+// Format: DD | 5A | REG | LEN | DATA... | CHK_H | CHK_L | 77
 // Checksum: 0x10000 - (REG + LEN + DATA[...])
 // ---------------------------------------------------------------------------
 void JbdBms::buildWriteFrame(uint8_t reg, const uint8_t* data, uint8_t dataLen, uint8_t* out, size_t* outLen) {
@@ -325,8 +325,8 @@ void JbdBms::buildWriteFrame(uint8_t reg, const uint8_t* data, uint8_t dataLen, 
 }
 
 // ---------------------------------------------------------------------------
-// sendLoginRequest — envia senha padrão JBD (0x00000000) no reg 0x00
-// Necessário em alguns firmwares antes de aceitar leituras
+// sendLoginRequest — send default JBD password (0x00000000) to reg 0x00
+// Required on some firmwares before accepting reads
 // ---------------------------------------------------------------------------
 void JbdBms::sendLoginRequest() {
     if (!pCharTx_) return;
@@ -364,28 +364,28 @@ void JbdBms::sendCellVoltageRequest() {
     pCharTx_->writeValue(frame, frameLen, false);
 }
 
-// decodifica registro 0x03 (Basic Info)
+// Decode register 0x03 (Basic Info)
 //
-// Protocolo JBD padrão, offset dentro do campo DATA:
-//   0-1   Tensão total          (unidade: 10mV)
-//   2-3   Corrente              (unidade: 10mA, signed)
-//   4-5   Capacidade restante   (unidade: 10mAh)
-//   6-7   Capacidade nominal    (unidade: 10mAh)
-//   8-9   Ciclos de carga
-//  10-11  Data de produção (BCD YYYYMMDD compactado)
-//  12-13  Bitmask balance (células 1-16)
-//  14-15  Bitmask balance (células 17-32)
-//  16-17  Flags de proteção/erro
-//    18   Versão de software
+// JBD standard protocol, offset within DATA field:
+//   0-1   Total voltage         (unit: 10mV)
+//   2-3   Current               (unit: 10mA, signed)
+//   4-5   Remaining capacity     (unit: 10mAh)
+//   6-7   Nominal capacity       (unit: 10mAh)
+//   8-9   Charge cycles
+//  10-11  Production date (BCD YYYYMMDD packed)
+//  12-13  Balance bitmask (cells 1-16)
+//  14-15  Balance bitmask (cells 17-32)
+//  16-17  Protection/error flags
+//    18   Software version
 //    19   SoC (%)
 //    20   FET status (bit0=CHG, bit1=DSG)
-//    21   Nº de células em série
-//    22   Nº de NTCs
-//  23+    Temperatura NTC (2 bytes cada, Kelvin*10, big-endian)
+//    21   Number of cells in series
+//    22   Number of NTCs
+//  23+    NTC temperature (2 bytes each, Kelvin*10, big-endian)
 // ---------------------------------------------------------------------------
 void JbdBms::parseBasicInfo(const uint8_t* d, size_t dataLen) {
     if (dataLen < 23) {
-        DEBUG_PRINT("[JBD] dataLen curto: ");
+        DEBUG_PRINT("[JBD] dataLen too short: ");
         DEBUG_PRINTLN(dataLen);
         return;
     }
@@ -413,17 +413,17 @@ void JbdBms::parseBasicInfo(const uint8_t* d, size_t dataLen) {
 }
 
 // ---------------------------------------------------------------------------
-// parseCellVoltages — decodifica registro 0x04
+// parseCellVoltages — decode register 0x04
 //
-// DATA: 2 bytes por célula, big-endian, valor direto em mV
-//   d[0-1] = célula 1 (mV)
-//   d[2-3] = célula 2 (mV)
+// DATA: 2 bytes per cell, big-endian, direct value in mV
+//   d[0-1] = cell 1 (mV)
+//   d[2-3] = cell 2 (mV)
 //   ...
 // ---------------------------------------------------------------------------
 void JbdBms::parseCellVoltages(const uint8_t* d, size_t dataLen) {
     uint8_t count = dataLen / 2;
     if (count > JBD_MAX_CELLS) count = JBD_MAX_CELLS;
-    // Atualiza cellCount_ se ainda não veio do 0x03
+    // Update cellCount_ if not yet received from 0x03
     if (cellCount_ == 0) cellCount_ = count;
     for (uint8_t i = 0; i < count; i++) {
         cellVoltagesMv_[i] = (uint16_t)d[i * 2] << 8 | d[i * 2 + 1];
@@ -446,7 +446,7 @@ void JbdBms::printCellVoltages() {
         DEBUG_PRINT(": ");
         DEBUG_PRINT(v / 1000);
         DEBUG_PRINT(".");
-        // 3 casas decimais
+        // 3 decimal places
         uint16_t frac = v % 1000;
         if (frac < 100) DEBUG_PRINT("0");
         if (frac < 10)  DEBUG_PRINT("0");
@@ -513,25 +513,25 @@ void JbdBms::printFrameHex(const uint8_t* data, size_t len) {
 // ---------------------------------------------------------------------------
 void JbdBms::printBasicInfo() {
     DEBUG_PRINTLN("[JBD] ===== Basic Info =====");
-    DEBUG_PRINT("[JBD] Tensão: ");
+    DEBUG_PRINT("[JBD] Voltage: ");
     DEBUG_PRINT(packVoltageMilliVolts_ / 1000);
     DEBUG_PRINT(".");
-    DEBUG_PRINT((packVoltageMilliVolts_ % 1000) / 10);  // 2 casas decimais
+    DEBUG_PRINT((packVoltageMilliVolts_ % 1000) / 10);  // 2 decimal places
     DEBUG_PRINTLN(" V");
-    DEBUG_PRINT("[JBD] Corrente: ");
+    DEBUG_PRINT("[JBD] Current: ");
     DEBUG_PRINT(packCurrentMilliAmps_);
     DEBUG_PRINTLN(" mA");
     DEBUG_PRINT("[JBD] SoC: ");
     DEBUG_PRINT(socPercent_);
     DEBUG_PRINTLN(" %");
-    DEBUG_PRINT("[JBD] Células: ");
+    DEBUG_PRINT("[JBD] Cells: ");
     DEBUG_PRINTLN(cellCount_);
-    DEBUG_PRINT("[JBD] Ciclos: ");
+    DEBUG_PRINT("[JBD] Cycles: ");
     DEBUG_PRINTLN(cycleCount_);
-    DEBUG_PRINT("[JBD] Cap. nominal: ");
+    DEBUG_PRINT("[JBD] Nominal cap: ");
     DEBUG_PRINT(designCapacityMahl_);
     DEBUG_PRINTLN(" mAh");
-    DEBUG_PRINT("[JBD] Cap. restante: ");
+    DEBUG_PRINT("[JBD] Remaining cap: ");
     DEBUG_PRINT(balanceCapacityMahl_);
     DEBUG_PRINTLN(" mAh");
     DEBUG_PRINT("[JBD] FET CHG=");
@@ -539,7 +539,7 @@ void JbdBms::printBasicInfo() {
     DEBUG_PRINT(" DSG=");
     DEBUG_PRINTLN(dsgFetEnabled_ ? "ON" : "OFF");
     if (currentErrors_) {
-        DEBUG_PRINT("[JBD] ERROS: 0x");
+        DEBUG_PRINT("[JBD] ERRORS: 0x");
         DEBUG_PRINT_HEX(currentErrors_, HEX);
         DEBUG_PRINTLN();
     }

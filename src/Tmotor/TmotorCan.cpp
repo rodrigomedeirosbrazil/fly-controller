@@ -11,7 +11,7 @@ extern twai_message_t canMsg;
 
 
 // CRC16-CCITT-FALSE para DroneCAN/UAVCAN
-// Baseado no manual TM-UAVCAN v2.3, Apêndice 5.1
+// Based on TM-UAVCAN v2.3 manual, Appendix 5.1
 static uint16_t crcAddByte(uint16_t crc_val, uint8_t byte) {
     crc_val ^= (uint16_t)((uint16_t)(byte) << 8);
     for (uint8_t j = 0; j < 8; j++) {
@@ -623,7 +623,7 @@ void TmotorCan::sendEnableReporting(bool enable) {
     }
     delay(2);
 
-    // Frame 2: payload[5-9] (5 bytes) - ÚLTIMO FRAME
+    // Frame 2: payload[5-9] (5 bytes) - LAST FRAME
     localCanMsg.data[0] = payload[5];  // len[1]
     localCanMsg.data[1] = payload[6];  // enable[0]
     localCanMsg.data[2] = payload[7];  // enable[1]
