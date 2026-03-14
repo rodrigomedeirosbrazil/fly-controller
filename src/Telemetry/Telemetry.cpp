@@ -2,6 +2,7 @@
 #include "TelemetryBackend.h"
 #include "../config_controller.h"
 #include "../config.h"
+#include "../JbdBms/JbdBms.h"
 
 static const TelemetryBackend* s_backend_ptr = nullptr;
 
@@ -59,15 +60,27 @@ void Telemetry::update() {
 }
 
 bool Telemetry::hasData() const {
-    return s_backend_ptr && s_backend_ptr->hasData && s_backend_ptr->hasData();
+    if (s_backend_ptr && s_backend_ptr->hasData && s_backend_ptr->hasData()) {
+        return true;
+    }
+    return jbdBms.hasData();
 }
 
 uint16_t Telemetry::getBatteryVoltageMilliVolts() const {
-    return s_backend_ptr && s_backend_ptr->getBatteryVoltageMilliVolts ? s_backend_ptr->getBatteryVoltageMilliVolts() : 0;
+    uint16_t v = s_backend_ptr && s_backend_ptr->getBatteryVoltageMilliVolts ? s_backend_ptr->getBatteryVoltageMilliVolts() : 0;
+    if (v == 0 && jbdBms.hasData()) {
+        return (uint16_t)jbdBms.getPackVoltageMilliVolts();
+    }
+    return v;
 }
 
 uint32_t Telemetry::getBatteryCurrentMilliAmps() const {
-    return s_backend_ptr && s_backend_ptr->getBatteryCurrentMilliAmps ? s_backend_ptr->getBatteryCurrentMilliAmps() : 0;
+    uint32_t a = s_backend_ptr && s_backend_ptr->getBatteryCurrentMilliAmps ? s_backend_ptr->getBatteryCurrentMilliAmps() : 0;
+    if (a == 0 && jbdBms.hasData()) {
+        int32_t jbdMa = jbdBms.getPackCurrentMilliAmps();
+        return (uint32_t)(jbdMa < 0 ? -jbdMa : jbdMa);
+    }
+    return a;
 }
 
 uint16_t Telemetry::getRpm() const {
