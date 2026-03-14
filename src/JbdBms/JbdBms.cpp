@@ -1,6 +1,7 @@
 #include "JbdBms.h"
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../Throttle/Throttle.h"
 #include <BLEDevice.h>
 #include <BLEClient.h>
 #include <BLEUtils.h>
@@ -76,6 +77,9 @@ void JbdBms::update() {
             String mac = settings.getJbdBmsMac();
             if (!settings.getJbdBmsEnabled() || mac.length() < 17) {
                 break;  // Do not attempt connection
+            }
+            if (throttle.isArmed()) {
+                break;  // Do not attempt connection while motor is armed
             }
             if (millis() - lastConnectAttempt_ >= CONNECT_RETRY_MS) {
                 lastConnectAttempt_ = millis();
