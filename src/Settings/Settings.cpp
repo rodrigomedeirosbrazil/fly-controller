@@ -12,6 +12,7 @@ Settings::Settings() {
     escTempReductionStart = 0;
     powerControlEnabled = true;
     wifiAutoDisableAfterCalibration = true;
+    jbdBmsEnabled = true;
 }
 
 void Settings::init() {
@@ -40,6 +41,10 @@ void Settings::load() {
 
     // Load Wi-Fi auto-disable after throttle calibration (default: enabled)
     wifiAutoDisableAfterCalibration = preferences.getBool("wifiAutoOffCal", getDefaultWifiAutoDisableAfterCalibration());
+
+    // Load JBD BMS settings
+    jbdBmsMac = preferences.getString("jbdBmsMac", "");
+    jbdBmsEnabled = preferences.getBool("jbdBmsEn", getDefaultJbdBmsEnabled());
 }
 
 void Settings::save() {
@@ -52,6 +57,8 @@ void Settings::save() {
     preferences.putInt("escRedT", escTempReductionStart);
     preferences.putBool("pwrCtrl", powerControlEnabled);
     preferences.putBool("wifiAutoOffCal", wifiAutoDisableAfterCalibration);
+    preferences.putString("jbdBmsMac", jbdBmsMac);
+    preferences.putBool("jbdBmsEn", jbdBmsEnabled);
 }
 
 uint16_t Settings::getBatteryCapacityMah() const {
@@ -160,4 +167,28 @@ bool Settings::getDefaultPowerControlEnabled() const {
 
 bool Settings::getDefaultWifiAutoDisableAfterCalibration() const {
     return true;  // Keep current behavior by default
+}
+
+String Settings::getJbdBmsMac() const {
+    return jbdBmsMac;
+}
+
+void Settings::setJbdBmsMac(const char* mac) {
+    if (mac != nullptr) {
+        jbdBmsMac = String(mac);
+    } else {
+        jbdBmsMac = "";
+    }
+}
+
+bool Settings::getJbdBmsEnabled() const {
+    return jbdBmsEnabled;
+}
+
+void Settings::setJbdBmsEnabled(bool enabled) {
+    jbdBmsEnabled = enabled;
+}
+
+bool Settings::getDefaultJbdBmsEnabled() const {
+    return true;  // Use JBD BMS by default when MAC is set
 }

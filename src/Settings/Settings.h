@@ -41,6 +41,12 @@ public:
     bool getWifiAutoDisableAfterCalibration() const;
     void setWifiAutoDisableAfterCalibration(bool enabled);
 
+    // JBD BMS
+    String getJbdBmsMac() const;
+    void setJbdBmsMac(const char* mac);
+    bool getJbdBmsEnabled() const;
+    void setJbdBmsEnabled(bool enabled);
+
 private:
     Preferences preferences;
 
@@ -54,6 +60,7 @@ private:
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
     bool getDefaultWifiAutoDisableAfterCalibration() const;
+    bool getDefaultJbdBmsEnabled() const;
 
     // Current values
     uint16_t batteryCapacityMah;
@@ -65,6 +72,8 @@ private:
     int32_t escTempReductionStart;
     bool powerControlEnabled;
     bool wifiAutoDisableAfterCalibration;
+    String jbdBmsMac;
+    bool jbdBmsEnabled;
 };
 
 #endif // SETTINGS_H
