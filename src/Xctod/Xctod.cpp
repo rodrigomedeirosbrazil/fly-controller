@@ -81,7 +81,9 @@ void Xctod::init() {
     // 10: esc_current
     // 11: esc_temp
     // 12: armed
-    // 13: battery_temp_max (JBD), 14: cell_voltage_min_mv, 15: cell_voltage_max_mv
+    // 13: battery_temp_max (JBD)
+    // 14: cell_voltage_min_mv (JBD)
+    // 15: cell_voltage_max_mv (JBD)
     logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv");
 }
 
