@@ -12,7 +12,7 @@ Settings::Settings() {
     escTempReductionStart = 0;
     powerControlEnabled = true;
     wifiAutoDisableAfterCalibration = true;
-    jbdBmsEnabled = true;
+    jbdBmsEnabled = false;
 }
 
 void Settings::init() {
@@ -42,8 +42,8 @@ void Settings::load() {
     // Load Wi-Fi auto-disable after throttle calibration (default: enabled)
     wifiAutoDisableAfterCalibration = preferences.getBool("wifiAutoOffCal", getDefaultWifiAutoDisableAfterCalibration());
 
-    // Load JBD BMS settings (default MAC from config.h for migration)
-    jbdBmsMac = preferences.getString("jbdBmsMac", JBD_BMS_BLE_ADDRESS);
+    // Load JBD BMS settings (default: empty MAC, disabled; configure via web)
+    jbdBmsMac = preferences.getString("jbdBmsMac", "");
     jbdBmsEnabled = preferences.getBool("jbdBmsEn", getDefaultJbdBmsEnabled());
 }
 
@@ -190,5 +190,5 @@ void Settings::setJbdBmsEnabled(bool enabled) {
 }
 
 bool Settings::getDefaultJbdBmsEnabled() const {
-    return true;  // Use JBD BMS by default when MAC is set
+    return false;  // JBD BMS disabled by default; user enables and sets MAC via web
 }

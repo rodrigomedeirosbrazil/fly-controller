@@ -6,7 +6,7 @@
 #include <freertos/task.h>
 #include <freertos/queue.h>
 
-// JBD BMS uses fixed BLE address (no scan). Define JBD_BMS_BLE_ADDRESS in config.h.
+// JBD BMS uses fixed BLE address (no scan). MAC is configured via Settings/web interface.
 
 // JBD GATT: Service 0xFF00
 // FF01 = Module->Phone: Notify, Read → pCharRx_ (register notify here)
