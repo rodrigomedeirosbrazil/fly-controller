@@ -3,6 +3,8 @@
 #include "../config.h"
 #include "../Settings/Settings.h"
 #include "../BoardConfig.h"
+#include "../Telemetry/TelemetryAvailability.h"
+#include "../JbdBms/JbdBms.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -231,35 +233,68 @@ void ControllerWebServer::startAP() {
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(512);
+        DynamicJsonDocument doc(768);
 
         const bool hasTelemetry = telemetry.hasData();
-        const bool hasCurrentSensor = getBoardConfig().hasCurrentSensor;
         const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
         const uint32_t batteryCurrentMa = telemetry.getBatteryCurrentMilliAmps();
 
         // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
         uint16_t powerKwX10 = 0;
-        if (hasTelemetry && hasCurrentSensor) {
+        if (isPowerKwAvailable()) {
             const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
             powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
         }
+
+        // Availability: explicit flags so frontend can show N/A vs 0
+        JsonObject availability = doc.createNestedObject("availability");
+        availability["current"] = isCurrentAvailable();
+        availability["rpm"] = isRpmAvailable();
+        availability["powerKw"] = isPowerKwAvailable();
+        availability["bms"] = isBmsDataAvailable();
+        availability["bmsCells"] = isBmsCellDataAvailable();
 
         doc["hasTelemetry"] = hasTelemetry;
         doc["batteryPercentCc"] = batteryMonitor.getSoC();
         doc["batteryPercentVoltage"] = batteryMonitor.getSoCFromVoltage();
         doc["batteryVoltageMv"] = batteryVoltageMv;
-        doc["powerKwX10"] = powerKwX10;
+
+        if (isPowerKwAvailable()) {
+            doc["powerKwX10"] = powerKwX10;
+        }
         doc["throttlePercent"] = throttle.getThrottlePercentage();
         doc["throttleRaw"] = throttle.getThrottleRaw();
         doc["powerPercent"] = power.getPower();
         doc["motorTempMc"] = telemetry.getMotorTempMilliCelsius();
-        doc["rpm"] = hasCurrentSensor ? telemetry.getRpm() : 0;
-        doc["escCurrentMa"] = hasCurrentSensor ? batteryCurrentMa : 0;
+        if (isRpmAvailable()) {
+            doc["rpm"] = telemetry.getRpm();
+        }
+        if (isCurrentAvailable()) {
+            doc["escCurrentMa"] = batteryCurrentMa;
+        }
         doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
         doc["armed"] = throttle.isArmed();
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
+
+        // JBD BMS data when available
+        if (isBmsDataAvailable()) {
+            JsonObject bms = doc.createNestedObject("bms");
+            bms["available"] = true;
+            if (jbdBms.getNtcCount() > 0) {
+                int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
+                for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
+                    int16_t t = jbdBms.getNtcTempCelsius(i);
+                    if (t > maxTemp) maxTemp = t;
+                }
+                bms["tempMaxC"] = maxTemp;
+            }
+            if (isBmsCellDataAvailable()) {
+                bms["cellMinMv"] = jbdBms.getCellMinMilliVolts();
+                bms["cellMaxMv"] = jbdBms.getCellMaxMilliVolts();
+                bms["cellDeltaMv"] = jbdBms.getCellDeltaMilliVolts();
+            }
+        }
 
         String response;
         serializeJson(doc, response);
