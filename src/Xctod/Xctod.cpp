@@ -1,6 +1,7 @@
 #include "Xctod.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "../Telemetry/TelemetryAvailability.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
@@ -139,7 +140,7 @@ void Xctod::writeBatteryInfo(String &data) {
     data += String(decimals);
     data += ",";
 
-    if (getBoardConfig().hasCurrentSensor && telemetry.hasData()) {
+    if (isPowerKwAvailable()) {
         uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
         uint32_t powerKwInt = powerMilliWatts / 1000000;
         uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
@@ -173,7 +174,7 @@ void Xctod::writeMotorInfo(String &data) {
     }
     data += ",";
 
-    if (getBoardConfig().hasCurrentSensor && telemetry.hasData()) {
+    if (isCurrentAvailable()) {
         data += String(telemetry.getRpm());
         data += ",";
         data += String(telemetry.getBatteryCurrentMilliAmps() / 1000);

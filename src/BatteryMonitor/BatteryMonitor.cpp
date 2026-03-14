@@ -1,6 +1,7 @@
 #include "BatteryMonitor.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "../Telemetry/TelemetryAvailability.h"
 
 extern Settings settings;
 
@@ -22,10 +23,7 @@ void BatteryMonitor::update() {
 }
 
 void BatteryMonitor::updateCoulombCount() {
-    if (!getBoardConfig().hasCurrentSensor) {
-        return;
-    }
-    if (!telemetry.hasData()) {
+    if (!isCurrentAvailable()) {
         return;
     }
 
