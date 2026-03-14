@@ -42,7 +42,7 @@ class Power;
 class Xctod;
 class JbdBms;
 
-// JBD BMS BLE: set your BMS address (6-byte format from BLE scanner)
+// JBD BMS BLE: default MAC when none saved in Settings (configure via web)
 #define JBD_BMS_BLE_ADDRESS "A5:C2:39:2B:FC:4E"
 
 extern Buzzer buzzer;

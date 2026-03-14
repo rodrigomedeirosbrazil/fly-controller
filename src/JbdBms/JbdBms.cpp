@@ -1,5 +1,6 @@
 #include "JbdBms.h"
 #include "../config.h"
+#include "../Settings/Settings.h"
 #include <BLEDevice.h>
 #include <BLEClient.h>
 #include <BLEUtils.h>
@@ -46,7 +47,7 @@ void JbdBms::init() {
         return;
     }
     state_ = Idle;
-    DEBUG_PRINTLN("[JBD] Init OK | addr: " JBD_BMS_BLE_ADDRESS);
+    DEBUG_PRINTLN("[JBD] Init OK");
 }
 
 // ---------------------------------------------------------------------------
@@ -70,17 +71,29 @@ void JbdBms::update() {
     switch (state_) {
 
         // ------------------------------------------------------------------
-        case Idle:
+        case Idle: {
+            extern Settings settings;
+            String mac = settings.getJbdBmsMac();
+            if (!settings.getJbdBmsEnabled() || mac.length() < 17) {
+                break;  // Do not attempt connection
+            }
             if (millis() - lastConnectAttempt_ >= CONNECT_RETRY_MS) {
                 lastConnectAttempt_ = millis();
                 DEBUG_PRINTLN("[JBD] Conectando...");
                 state_ = Connecting;
             }
             break;
+        }
 
         // ------------------------------------------------------------------
         case Connecting: {
-            BLEAddress addr(JBD_BMS_BLE_ADDRESS);
+            extern Settings settings;
+            String mac = settings.getJbdBmsMac();
+            if (mac.length() < 17) {
+                resetConnection();
+                break;
+            }
+            BLEAddress addr(mac.c_str());
             if (pClient_->connect(addr)) {
                 connected_ = true;
                 rxLen_     = 0;
