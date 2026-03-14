@@ -74,6 +74,22 @@ inline String renderConfigPage() {
             <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
         </div>
 
+        <h2>JBD BMS</h2>
+
+        <div class="form-group">
+            <label for="jbdBmsEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="jbdBmsEnabled" name="jbdBmsEnabled" style="width: auto;">
+                <span>Use JBD BMS</span>
+            </label>
+            <div class="info-text">When enabled, the controller will connect to a JBD BMS over Bluetooth for battery voltage, current, and cell data (fallback when ESC telemetry is unavailable).</div>
+        </div>
+
+        <div class="form-group">
+            <label for="jbdBmsMac">BMS Bluetooth address (MAC):</label>
+            <input type="text" id="jbdBmsMac" name="jbdBmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
+            <div class="info-text">Get the MAC from a BLE scanner app. Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons).</div>
+        </div>
+
         <h2>Wi-Fi Settings</h2>
 
         <div class="form-group">
@@ -128,6 +144,8 @@ const loadCurrentValues = () => {
             $('escTempReductionStart').value = data.escTempReductionStart / 1000;
 
             $('powerControlEnabled').checked = data.powerControlEnabled || false;
+            $('jbdBmsEnabled').checked = data.jbdBmsEnabled !== false;
+            $('jbdBmsMac').value = data.jbdBmsMac || '';
             $('wifiAutoDisableAfterCalibration').checked = data.wifiAutoDisableAfterCalibration !== false;
         })
         .catch((error) => {
@@ -173,6 +191,13 @@ $('configForm').addEventListener('submit', function(e) {
     const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
     const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
 
+    const jbdBmsMac = $('jbdBmsMac').value.trim();
+    if ($('jbdBmsEnabled').checked && jbdBmsMac && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(jbdBmsMac)) {
+        showMessage('message', 'BMS MAC must be in format XX:XX:XX:XX:XX:XX', 'err');
+        saveButton.disabled = false;
+        return;
+    }
+
     const data = {
         batteryCapacity: Math.round(capacityAh * 1000),
         batteryMinVoltage: Math.round(minVoltageTotal * 1000),
@@ -182,6 +207,8 @@ $('configForm').addEventListener('submit', function(e) {
         escMaxTemp: Math.round(parseFloat($('escMaxTemp').value) * 1000),
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000),
         powerControlEnabled: $('powerControlEnabled').checked,
+        jbdBmsEnabled: $('jbdBmsEnabled').checked,
+        jbdBmsMac: jbdBmsMac,
         wifiAutoDisableAfterCalibration: $('wifiAutoDisableAfterCalibration').checked
     };
 
