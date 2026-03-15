@@ -10,6 +10,8 @@ BatteryMonitor::BatteryMonitor() {
     batteryCapacityMilliAh = 0;
     remainingMilliAh = 0;
     lastCoulombTs = 0;
+    coulombRemainderMaMs = 0;
+    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::init() {
@@ -23,31 +25,45 @@ void BatteryMonitor::update() {
 }
 
 void BatteryMonitor::updateCoulombCount() {
+    unsigned long currentTs = millis();
+
     if (!isCurrentAvailable()) {
+        lastCoulombTs = currentTs;
+        zeroCurrentStartMs = 0;
         return;
     }
-
-    unsigned long currentTs = millis();
 
     // Initialize timestamp on first call
     if (lastCoulombTs == 0) {
         lastCoulombTs = currentTs;
+        zeroCurrentStartMs = 0;
         recalibrateFromVoltage();
         return;
     }
 
     // Check if we should recalibrate from voltage (no load condition)
-    if (telemetry.getBatteryCurrentMilliAmps() == 0) {
-        recalibrateFromVoltage();
-        lastCoulombTs = currentTs;
-        return;
+    const uint32_t currentMa = telemetry.getBatteryCurrentMilliAmps();
+    if (currentMa <= BATTERY_RECALIBRATION_CURRENT_MA) {
+        if (zeroCurrentStartMs == 0) {
+            zeroCurrentStartMs = currentTs;
+        } else if (currentTs - zeroCurrentStartMs >= BATTERY_RECALIBRATION_STABLE_MS) {
+            recalibrateFromVoltage();
+            coulombRemainderMaMs = 0;
+            lastCoulombTs = currentTs;
+            return;
+        }
+    } else {
+        zeroCurrentStartMs = 0;
     }
 
     // Calculate time delta in milliseconds
     unsigned long deltaMs = currentTs - lastCoulombTs;
 
     // Calculate mAh consumed: ΔmAh = (I(mA) * Δt(ms)) / 3600000
-    uint32_t deltaMilliAh = (telemetry.getBatteryCurrentMilliAmps() * deltaMs) / 3600000;
+    uint64_t deltaMaMs = (uint64_t)currentMa * (uint64_t)deltaMs;
+    coulombRemainderMaMs += deltaMaMs;
+    uint32_t deltaMilliAh = (uint32_t)(coulombRemainderMaMs / 3600000ULL);
+    coulombRemainderMaMs %= 3600000ULL;
 
     // Subtract from remaining capacity
     if (deltaMilliAh <= remainingMilliAh) {
@@ -171,4 +187,3 @@ void BatteryMonitor::setCapacity(uint16_t mAh) {
 void BatteryMonitor::resetToFullCharge() {
     remainingMilliAh = batteryCapacityMilliAh;
 }
-

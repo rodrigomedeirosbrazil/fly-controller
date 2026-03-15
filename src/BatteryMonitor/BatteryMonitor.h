@@ -27,6 +27,8 @@ private:
     uint32_t batteryCapacityMilliAh;  // Capacity in mAh (65Ah for Hobbywing, 18Ah for others)
     uint32_t remainingMilliAh;         // Remaining capacity in mAh
     unsigned long lastCoulombTs;       // Timestamp of last Coulomb update
+    uint64_t coulombRemainderMaMs;     // Remainder accumulator (mA*ms) for precision
+    unsigned long zeroCurrentStartMs;  // Start time for no-load detection
 
     // Internal methods
     void updateCoulombCount();
@@ -35,4 +37,3 @@ private:
 };
 
 #endif // BATTERY_MONITOR_H
-
