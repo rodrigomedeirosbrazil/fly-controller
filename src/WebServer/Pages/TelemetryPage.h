@@ -15,12 +15,9 @@ inline String renderTelemetryPage() {
         <div class="value" id="batteryVoltage">--</div>
     </div>
     <div class="card">
-        <div class="label">Battery SoC (CC)</div>
-        <div class="value" id="socCc">--</div>
-    </div>
-    <div class="card">
-        <div class="label">Battery SoC (Voltage)</div>
-        <div class="value" id="socVoltage">--</div>
+        <div class="label">Battery SoC</div>
+        <div class="value" id="soc">--</div>
+        <div class="sub" id="socCc">--</div>
     </div>
     <div class="card">
         <div class="label">Power</div>
@@ -80,8 +77,8 @@ const renderTelemetry = (data) => {
     }
 
     setText('batteryVoltage', fmtV(data.batteryVoltageMv || 0));
-    setText('socCc', `${data.batteryPercentCc || 0} %`);
-    setText('socVoltage', `${data.batteryPercentVoltage || 0} %`);
+    setText('soc', `${data.batteryPercentVoltage || 0} %`);
+    setText('socCc', `CC: ${data.batteryPercentCc ?? 0} %`);
     setText('powerKw', av.powerKw ? fmtKw(data.powerKwX10 ?? 0) : 'N/A');
     setText('powerPercent', `Limit: ${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
