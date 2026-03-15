@@ -25,6 +25,8 @@ public:
 private:
     // Coulomb counting state
     uint32_t batteryCapacityMilliAh;  // Capacity in mAh (65Ah for Hobbywing, 18Ah for others)
+    uint32_t usableCapacityMilliAh;   // Usable capacity in mAh (internal reserve applied)
+    uint32_t reserveMilliAh;          // Reserved capacity in mAh
     uint32_t remainingMilliAh;         // Remaining capacity in mAh
     unsigned long lastCoulombTs;       // Timestamp of last Coulomb update
     uint64_t coulombRemainderMaMs;     // Remainder accumulator (mA*ms) for precision
@@ -34,6 +36,8 @@ private:
     void updateCoulombCount();
     void recalibrateFromVoltage();
     uint8_t estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts);
+    void updateUsableCapacity();
+    uint32_t getUsableRemainingMah() const;
 };
 
 #endif // BATTERY_MONITOR_H
