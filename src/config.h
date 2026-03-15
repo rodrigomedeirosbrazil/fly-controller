@@ -93,8 +93,6 @@ extern ADS1115 ads1115;
 
 // ========== BATTERY PARAMETERS ==========
 #define BATTERY_CELL_COUNT 14  // 14S LiPo battery pack (fixed, not configurable)
-// Internal reserve: usable capacity as % of nominal (not exposed to users)
-#define BATTERY_USABLE_PERCENT 80
 // Recalibrate coulomb count when current stays below threshold for a while.
 #define BATTERY_RECALIBRATION_CURRENT_MA 200
 #define BATTERY_RECALIBRATION_STABLE_MS 2000

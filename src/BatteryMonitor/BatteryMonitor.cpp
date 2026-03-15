@@ -24,6 +24,7 @@ void BatteryMonitor::init() {
 }
 
 void BatteryMonitor::update() {
+    updateUsableCapacity();
     updateCoulombCount();
 }
 
@@ -208,15 +209,32 @@ void BatteryMonitor::updateUsableCapacity() {
         return;
     }
 
-    uint32_t usable = (batteryCapacityMilliAh * BATTERY_USABLE_PERCENT) / 100;
-    if (usable == 0) {
-        usable = 1;
-    } else if (usable > batteryCapacityMilliAh) {
-        usable = batteryCapacityMilliAh;
+    uint16_t minMv = settings.getBatteryMinVoltage();
+    uint16_t maxMv = settings.getBatteryMaxVoltage();
+    if (maxMv < minMv) {
+        uint16_t tmp = maxMv;
+        maxMv = minMv;
+        minMv = tmp;
     }
 
+    uint8_t socMin = estimateSoCFromVoltageLiPo(minMv);
+    uint8_t socMax = estimateSoCFromVoltageLiPo(maxMv);
+    if (socMax < socMin) {
+        socMax = socMin;
+    }
+
+    uint32_t reserve = ((uint32_t)batteryCapacityMilliAh * socMin) / 100;
+    uint32_t usable = ((uint32_t)batteryCapacityMilliAh * (socMax - socMin)) / 100;
+
+    if (reserve > batteryCapacityMilliAh) {
+        reserve = batteryCapacityMilliAh;
+    }
+    if (usable > batteryCapacityMilliAh - reserve) {
+        usable = batteryCapacityMilliAh - reserve;
+    }
+
+    reserveMilliAh = reserve;
     usableCapacityMilliAh = usable;
-    reserveMilliAh = batteryCapacityMilliAh - usableCapacityMilliAh;
 }
 
 uint32_t BatteryMonitor::getUsableRemainingMah() const {
