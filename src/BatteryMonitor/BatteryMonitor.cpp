@@ -8,46 +8,66 @@ extern Settings settings;
 BatteryMonitor::BatteryMonitor() {
     // Capacity will be set from Settings in init()
     batteryCapacityMilliAh = 0;
+    usableCapacityMilliAh = 0;
+    reserveMilliAh = 0;
     remainingMilliAh = 0;
     lastCoulombTs = 0;
+    coulombRemainderMaMs = 0;
+    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::init() {
     // Load capacity from Settings
     batteryCapacityMilliAh = settings.getBatteryCapacityMah();
+    updateUsableCapacity();
     remainingMilliAh = batteryCapacityMilliAh;
 }
 
 void BatteryMonitor::update() {
+    updateUsableCapacity();
     updateCoulombCount();
 }
 
 void BatteryMonitor::updateCoulombCount() {
+    unsigned long currentTs = millis();
+
     if (!isCurrentAvailable()) {
+        lastCoulombTs = currentTs;
+        zeroCurrentStartMs = 0;
         return;
     }
-
-    unsigned long currentTs = millis();
 
     // Initialize timestamp on first call
     if (lastCoulombTs == 0) {
         lastCoulombTs = currentTs;
+        zeroCurrentStartMs = 0;
         recalibrateFromVoltage();
         return;
     }
 
     // Check if we should recalibrate from voltage (no load condition)
-    if (telemetry.getBatteryCurrentMilliAmps() == 0) {
-        recalibrateFromVoltage();
-        lastCoulombTs = currentTs;
-        return;
+    const uint32_t currentMa = telemetry.getBatteryCurrentMilliAmps();
+    if (currentMa <= BATTERY_RECALIBRATION_CURRENT_MA) {
+        if (zeroCurrentStartMs == 0) {
+            zeroCurrentStartMs = currentTs;
+        } else if (currentTs - zeroCurrentStartMs >= BATTERY_RECALIBRATION_STABLE_MS) {
+            recalibrateFromVoltage();
+            coulombRemainderMaMs = 0;
+            lastCoulombTs = currentTs;
+            return;
+        }
+    } else {
+        zeroCurrentStartMs = 0;
     }
 
     // Calculate time delta in milliseconds
     unsigned long deltaMs = currentTs - lastCoulombTs;
 
     // Calculate mAh consumed: ΔmAh = (I(mA) * Δt(ms)) / 3600000
-    uint32_t deltaMilliAh = (telemetry.getBatteryCurrentMilliAmps() * deltaMs) / 3600000;
+    uint64_t deltaMaMs = (uint64_t)currentMa * (uint64_t)deltaMs;
+    coulombRemainderMaMs += deltaMaMs;
+    uint32_t deltaMilliAh = (uint32_t)(coulombRemainderMaMs / 3600000ULL);
+    coulombRemainderMaMs %= 3600000ULL;
 
     // Subtract from remaining capacity
     if (deltaMilliAh <= remainingMilliAh) {
@@ -128,10 +148,11 @@ void BatteryMonitor::recalibrateFromVoltage() {
 
 uint8_t BatteryMonitor::getSoC() {
     if (getBoardConfig().hasCurrentSensor) {
-        if (batteryCapacityMilliAh == 0) {
+        if (usableCapacityMilliAh == 0) {
             return 0;
         }
-        uint32_t soc = (remainingMilliAh * 100) / batteryCapacityMilliAh;
+        uint32_t usableRemaining = getUsableRemainingMah();
+        uint32_t soc = (usableRemaining * 100) / usableCapacityMilliAh;
         return constrain((uint8_t)soc, 0, 100);
     }
     if (!telemetry.hasData()) {
@@ -149,14 +170,18 @@ uint8_t BatteryMonitor::getSoCFromVoltage() {
 
 uint16_t BatteryMonitor::getRemainingMah() {
     if (getBoardConfig().hasCurrentSensor) {
-        return (uint16_t)remainingMilliAh;
+        return (uint16_t)getUsableRemainingMah();
     }
     uint8_t soc = getSoC();
     return (uint16_t)((batteryCapacityMilliAh * soc) / 100);
 }
 
 uint16_t BatteryMonitor::getConsumedMah() {
-    return (uint16_t)(batteryCapacityMilliAh - getRemainingMah());
+    if (usableCapacityMilliAh == 0) {
+        return 0;
+    }
+    uint32_t remaining = getUsableRemainingMah();
+    return (uint16_t)(usableCapacityMilliAh - remaining);
 }
 
 uint16_t BatteryMonitor::getCapacity() {
@@ -165,10 +190,60 @@ uint16_t BatteryMonitor::getCapacity() {
 
 void BatteryMonitor::setCapacity(uint16_t mAh) {
     batteryCapacityMilliAh = mAh;
+    updateUsableCapacity();
     remainingMilliAh = mAh;  // Reset to full charge
+    coulombRemainderMaMs = 0;
+    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::resetToFullCharge() {
     remainingMilliAh = batteryCapacityMilliAh;
+    coulombRemainderMaMs = 0;
+    zeroCurrentStartMs = 0;
 }
 
+void BatteryMonitor::updateUsableCapacity() {
+    if (batteryCapacityMilliAh == 0) {
+        usableCapacityMilliAh = 0;
+        reserveMilliAh = 0;
+        return;
+    }
+
+    uint16_t minMv = settings.getBatteryMinVoltage();
+    uint16_t maxMv = settings.getBatteryMaxVoltage();
+    if (maxMv < minMv) {
+        uint16_t tmp = maxMv;
+        maxMv = minMv;
+        minMv = tmp;
+    }
+
+    uint8_t socMin = estimateSoCFromVoltageLiPo(minMv);
+    uint8_t socMax = estimateSoCFromVoltageLiPo(maxMv);
+    if (socMax < socMin) {
+        socMax = socMin;
+    }
+
+    uint32_t reserve = ((uint32_t)batteryCapacityMilliAh * socMin) / 100;
+    uint32_t usable = ((uint32_t)batteryCapacityMilliAh * (socMax - socMin)) / 100;
+
+    if (reserve > batteryCapacityMilliAh) {
+        reserve = batteryCapacityMilliAh;
+    }
+    if (usable > batteryCapacityMilliAh - reserve) {
+        usable = batteryCapacityMilliAh - reserve;
+    }
+
+    reserveMilliAh = reserve;
+    usableCapacityMilliAh = usable;
+}
+
+uint32_t BatteryMonitor::getUsableRemainingMah() const {
+    if (remainingMilliAh <= reserveMilliAh) {
+        return 0;
+    }
+    uint32_t usableRemaining = remainingMilliAh - reserveMilliAh;
+    if (usableRemaining > usableCapacityMilliAh) {
+        usableRemaining = usableCapacityMilliAh;
+    }
+    return usableRemaining;
+}

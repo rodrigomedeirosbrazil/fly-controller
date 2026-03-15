@@ -93,6 +93,9 @@ extern ADS1115 ads1115;
 
 // ========== BATTERY PARAMETERS ==========
 #define BATTERY_CELL_COUNT 14  // 14S LiPo battery pack (fixed, not configurable)
+// Recalibrate coulomb count when current stays below threshold for a while.
+#define BATTERY_RECALIBRATION_CURRENT_MA 200
+#define BATTERY_RECALIBRATION_STABLE_MS 2000
 // BATTERY_MIN_VOLTAGE and BATTERY_MAX_VOLTAGE are now managed by Settings class
 #if IS_XAG
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
