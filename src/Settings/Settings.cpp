@@ -13,6 +13,7 @@ Settings::Settings() {
     powerControlEnabled = true;
     wifiAutoDisableAfterCalibration = true;
     jbdBmsEnabled = false;
+    throttleCurveGamma = 1.0f;
 }
 
 void Settings::init() {
@@ -45,6 +46,9 @@ void Settings::load() {
     // Load JBD BMS settings (default: empty MAC, disabled; configure via web)
     jbdBmsMac = preferences.getString("jbdBmsMac", "");
     jbdBmsEnabled = preferences.getBool("jbdBmsEn", getDefaultJbdBmsEnabled());
+
+    // Load throttle curve gamma (1.0 = linear; higher = less sensitive at low throttle)
+    throttleCurveGamma = preferences.getFloat("thrCurveG", getDefaultThrottleCurveGamma());
 }
 
 void Settings::save() {
@@ -59,6 +63,7 @@ void Settings::save() {
     preferences.putBool("wifiAutoOffCal", wifiAutoDisableAfterCalibration);
     preferences.putString("jbdBmsMac", jbdBmsMac);
     preferences.putBool("jbdBmsEn", jbdBmsEnabled);
+    preferences.putFloat("thrCurveG", throttleCurveGamma);
 }
 
 uint16_t Settings::getBatteryCapacityMah() const {
@@ -123,6 +128,14 @@ bool Settings::getPowerControlEnabled() const {
 
 void Settings::setPowerControlEnabled(bool enabled) {
     powerControlEnabled = enabled;
+}
+
+float Settings::getThrottleCurveGamma() const {
+    return throttleCurveGamma;
+}
+
+void Settings::setThrottleCurveGamma(float gamma) {
+    throttleCurveGamma = constrain(gamma, THROTTLE_CURVE_GAMMA_MIN, THROTTLE_CURVE_GAMMA_MAX);
 }
 
 bool Settings::getWifiAutoDisableAfterCalibration() const {
@@ -191,4 +204,8 @@ void Settings::setJbdBmsEnabled(bool enabled) {
 
 bool Settings::getDefaultJbdBmsEnabled() const {
     return false;  // JBD BMS disabled by default; user enables and sets MAC via web
+}
+
+float Settings::getDefaultThrottleCurveGamma() const {
+    return 1.0f;  // Linear response by default
 }

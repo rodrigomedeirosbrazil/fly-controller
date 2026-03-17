@@ -37,6 +37,10 @@ public:
     bool getPowerControlEnabled() const;
     void setPowerControlEnabled(bool enabled);
 
+    // Throttle curve (power law: y = x^gamma; 1.0 = linear)
+    float getThrottleCurveGamma() const;
+    void setThrottleCurveGamma(float gamma);
+
     // Wi-Fi behavior
     bool getWifiAutoDisableAfterCalibration() const;
     void setWifiAutoDisableAfterCalibration(bool enabled);
@@ -61,6 +65,7 @@ private:
     bool getDefaultPowerControlEnabled() const;
     bool getDefaultWifiAutoDisableAfterCalibration() const;
     bool getDefaultJbdBmsEnabled() const;
+    float getDefaultThrottleCurveGamma() const;
 
     // Current values
     uint16_t batteryCapacityMah;
@@ -74,6 +79,7 @@ private:
     bool wifiAutoDisableAfterCalibration;
     String jbdBmsMac;
     bool jbdBmsEnabled;
+    float throttleCurveGamma;
 };
 
 #endif // SETTINGS_H

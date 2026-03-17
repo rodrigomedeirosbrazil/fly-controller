@@ -74,6 +74,14 @@ inline String renderConfigPage() {
             <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
         </div>
 
+        <h2>Throttle Response</h2>
+
+        <div class="form-group">
+            <label for="throttleCurveGamma">Throttle curve (gamma):</label>
+            <input type="number" id="throttleCurveGamma" name="throttleCurveGamma" min="1" max="3" step="0.1" required>
+            <div class="info-text">Power-law curve: 1.0 = linear; higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0.</div>
+        </div>
+
         <h2>JBD BMS</h2>
 
         <div class="form-group">
@@ -144,6 +152,11 @@ const loadCurrentValues = () => {
             $('escTempReductionStart').value = data.escTempReductionStart / 1000;
 
             $('powerControlEnabled').checked = data.powerControlEnabled || false;
+            if (typeof data.throttleCurveGamma === 'number') {
+                $('throttleCurveGamma').value = data.throttleCurveGamma;
+            } else {
+                $('throttleCurveGamma').value = '1.0';
+            }
             $('jbdBmsEnabled').checked = data.jbdBmsEnabled !== false;
             $('jbdBmsMac').value = data.jbdBmsMac || '';
             $('wifiAutoDisableAfterCalibration').checked = data.wifiAutoDisableAfterCalibration !== false;
@@ -198,6 +211,13 @@ $('configForm').addEventListener('submit', function(e) {
         return;
     }
 
+    const throttleCurveGamma = parseFloat($('throttleCurveGamma').value);
+    if (isNaN(throttleCurveGamma) || throttleCurveGamma < 1 || throttleCurveGamma > 3) {
+        showMessage('message', 'Throttle curve gamma must be between 1.0 and 3.0', 'err');
+        saveButton.disabled = false;
+        return;
+    }
+
     const data = {
         batteryCapacity: Math.round(capacityAh * 1000),
         batteryMinVoltage: Math.round(minVoltageTotal * 1000),
@@ -207,6 +227,7 @@ $('configForm').addEventListener('submit', function(e) {
         escMaxTemp: Math.round(parseFloat($('escMaxTemp').value) * 1000),
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000),
         powerControlEnabled: $('powerControlEnabled').checked,
+        throttleCurveGamma: throttleCurveGamma,
         jbdBmsEnabled: $('jbdBmsEnabled').checked,
         jbdBmsMac: jbdBmsMac,
         wifiAutoDisableAfterCalibration: $('wifiAutoDisableAfterCalibration').checked
