@@ -79,7 +79,7 @@ inline String renderConfigPage() {
         <div class="form-group">
             <label for="throttleCurveGamma">Throttle curve (gamma):</label>
             <input type="number" id="throttleCurveGamma" name="throttleCurveGamma" min="1" max="3" step="0.1" required>
-            <div class="info-text">Power-law curve: 1.0 = linear; higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0.</div>
+            <div class="info-text">Power-law curve: 1.0 = linear (curve disabled); higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0. Recommended for a noticeable effect: 1.5 to 2.0.</div>
         </div>
 
         <h2>JBD BMS</h2>
