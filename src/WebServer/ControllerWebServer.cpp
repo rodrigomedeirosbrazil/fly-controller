@@ -75,6 +75,7 @@ void ControllerWebServer::startAP() {
         doc["escMaxTemp"] = settings.getEscMaxTemp();
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+        doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
         doc["jbdBmsEnabled"] = settings.getJbdBmsEnabled();
         doc["jbdBmsMac"] = settings.getJbdBmsMac();
         doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
@@ -180,6 +181,16 @@ void ControllerWebServer::startAP() {
                 if (doc.containsKey("powerControlEnabled")) {
                     bool enabled = doc["powerControlEnabled"];
                     settings.setPowerControlEnabled(enabled);
+                }
+
+                if (doc.containsKey("throttleCurveGamma")) {
+                    float gamma = doc["throttleCurveGamma"].as<float>();
+                    if (gamma >= 1.0f && gamma <= 3.0f) {
+                        settings.setThrottleCurveGamma(gamma);
+                    } else {
+                        request->send(400, "text/plain", "Throttle curve gamma must be between 1.0 and 3.0");
+                        return;
+                    }
                 }
 
                 if (doc.containsKey("jbdBmsEnabled")) {

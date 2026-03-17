@@ -3,6 +3,7 @@
 #include "../BoardConfig.h"
 #include "../Throttle/Throttle.h"
 #include "../Temperature/Temperature.h"
+#include <cmath>
 
 extern Throttle throttle;
 extern Temperature motorTemp;
@@ -42,11 +43,17 @@ unsigned int Power::getPwm() {
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
-    float targetPwm = (float)map(
-        (long)clampedRaw,
-        (long)throttleMin, (long)throttleMax,
-        (long)ESC_MIN_PWM,  (long)ESC_MAX_PWM
-    );
+    // Power-law curve: norm in [0,1], then target = norm^gamma (gamma > 1 = less sensitive at low throttle)
+    unsigned int range = throttleMax - throttleMin;
+    float targetPwm;
+    if (range == 0) {
+        targetPwm = (float)ESC_MIN_PWM;
+    } else {
+        float norm = (float)(clampedRaw - throttleMin) / (float)range;
+        float gamma = settings.getThrottleCurveGamma();
+        float curved = (gamma == 1.0f) ? norm : (float)pow((double)norm, (double)gamma);
+        targetPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * curved;
+    }
     targetPwm = constrain(targetPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
 
     bool throttleActive = (targetPwm > (float)(ESC_MIN_PWM + THROTTLE_DEADBAND_US));
