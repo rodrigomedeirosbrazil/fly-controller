@@ -45,6 +45,7 @@ void ControllerWebServer::begin() {
 void ControllerWebServer::startAP() {
     Serial.println("Configuring access point...");
     WiFi.mode(WIFI_AP);
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
     WiFi.softAPConfig(apIP, apIP, netMsk);
     WiFi.softAP(SOFT_AP_SSID);
 
