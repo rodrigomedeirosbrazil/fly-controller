@@ -41,7 +41,7 @@ void setup()
 
   webServer.begin();
 
-  // Initialize ADS1115 for all builds (throttle, motor temp; XAG also uses Ch2/Ch3 for ESC temp and battery)
+  // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
   extern ADS1115 ads1115;
   ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
@@ -121,6 +121,8 @@ void loop()
 #if IS_XAG
   extern Temperature escTemp;
   escTemp.handle();
+#endif
+#if IS_XAG || IS_TMOTOR
   batterySensor.handle();
 #endif
   buzzer.handle();

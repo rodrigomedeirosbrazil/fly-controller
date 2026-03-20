@@ -22,8 +22,10 @@
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "Settings/Settings.h"
 #include "ADS1115/ADS1115.h"
-#if IS_XAG
+#if IS_XAG || IS_TMOTOR
 #include "Sensors/BatteryVoltageSensor.h"
+#endif
+#if IS_XAG
 #include "Xag/XagTelemetry.h"
 #endif
 
@@ -60,8 +62,10 @@ extern twai_message_t canMsg;
 #endif
 #if IS_XAG
 extern Temperature escTemp;
-extern BatteryVoltageSensor batterySensor;
 extern XagTelemetry xagTelemetry;
+#endif
+#if IS_XAG || IS_TMOTOR
+extern BatteryVoltageSensor batterySensor;
 #endif
 extern Power power;
 extern BatteryMonitor batteryMonitor;
@@ -97,7 +101,7 @@ extern ADS1115 ads1115;
 #define BATTERY_RECALIBRATION_CURRENT_MA 200
 #define BATTERY_RECALIBRATION_STABLE_MS 2000
 // BATTERY_MIN_VOLTAGE and BATTERY_MAX_VOLTAGE are now managed by Settings class
-#if IS_XAG
+#if IS_XAG || IS_TMOTOR
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
 // Calibrated: 20.90 * (51.45V / 46.493V) = 23.13 (corrected under-reading)
@@ -154,6 +158,6 @@ extern ADS1115 ads1115;
 #define ADS1115_THROTTLE_CHANNEL   0  // ADS1115 Channel A0 - Throttle Hall Sensor
 #define ADS1115_MOTOR_TEMP_CHANNEL 1  // ADS1115 Channel A1 - Motor NTC Sensor
 #define ADS1115_ESC_TEMP_CHANNEL   2  // ADS1115 Channel A2 - ESC NTC (XAG only)
-#define ADS1115_BATTERY_CHANNEL    3  // ADS1115 Channel A3 - Battery voltage divider (XAG only)
+#define ADS1115_BATTERY_CHANNEL    3  // ADS1115 Channel A3 - Battery voltage divider (XAG, Tmotor)
 
 #endif

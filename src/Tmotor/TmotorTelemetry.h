@@ -5,7 +5,7 @@
 #include <Arduino.h>
 
 /**
- * Tmotor telemetry aggregator: TmotorCan (CAN) + motorTemp (ADS1115)
+ * Tmotor telemetry aggregator: battery voltage from ADS1115; current/RPM/ESC temp from TmotorCan (CAN); motor temp from NTC/ADS1115.
  */
 class TmotorTelemetry {
 public:

@@ -35,6 +35,16 @@ Temperature escTemp(
     []() { return ads1115.readChannel(ADS1115_ESC_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
+#elif IS_TMOTOR
+BatteryVoltageSensor batterySensor(
+    []() { return ads1115.readChannel(ADS1115_BATTERY_CHANNEL); },
+    BATTERY_DIVIDER_RATIO,
+    4.096f  // ADS1115 reference (GAIN_ONE)
+);
+Temperature motorTemp(
+    []() { return ads1115.readChannel(ADS1115_MOTOR_TEMP_CHANNEL); },
+    4.096f  // ADS1115 reference (GAIN_ONE)
+);
 #else
 Temperature motorTemp(
     []() { return ads1115.readChannel(ADS1115_MOTOR_TEMP_CHANNEL); },
