@@ -54,6 +54,8 @@ void BatteryMonitor::updateCoulombCount() {
             recalibrateFromVoltage();
             coulombRemainderMaMs = 0;
             lastCoulombTs = currentTs;
+            // Restart the stable window; otherwise time since the original low-current
+            zeroCurrentStartMs = currentTs;
             return;
         }
     } else {
