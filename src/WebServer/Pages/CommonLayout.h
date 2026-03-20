@@ -11,6 +11,7 @@ struct PageSpec {
     const char* extraHead;
     const char* extraScript;
     const char* pageClass;
+    const char* bodyClass;
 };
 
 inline String renderNavLink(const char* route, const char* label, const char* activeRoute) {
@@ -47,7 +48,13 @@ inline String renderPage(const PageSpec& spec) {
     if (spec.extraHead) {
         page += spec.extraHead;
     }
-    page += "</head><body>";
+    page += "</head><body";
+    if (spec.bodyClass && spec.bodyClass[0]) {
+        page += " class=\"";
+        page += spec.bodyClass;
+        page += "\"";
+    }
+    page += ">";
     page += "<div class=\"" + pageClass + "\">";
     page += renderTopbar(spec.activeRoute);
     page += spec.body ? spec.body : "";

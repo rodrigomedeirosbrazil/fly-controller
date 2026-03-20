@@ -43,7 +43,8 @@ $('fwForm').addEventListener('submit', function(e) {
         body,
         nullptr,
         script,
-        "page narrow"
+        "page narrow",
+        nullptr
     };
 
     return renderPage(spec);

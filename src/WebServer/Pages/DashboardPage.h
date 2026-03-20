@@ -66,6 +66,7 @@ setInterval(loadDashboard, 1000);
         body,
         nullptr,
         script,
+        nullptr,
         nullptr
     };
 

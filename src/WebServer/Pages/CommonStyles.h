@@ -227,4 +227,115 @@ th {
     .nav-btn { flex: 1 1 auto; text-align: center; }
     .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
+
+/* Telemetry: fullscreen dashboard on mobile (portrait and landscape) */
+@media (max-width: 768px), ((max-height: 500px) and (max-width: 1024px)) {
+    html:has(body.telemetry-page) {
+        height: 100%;
+        min-height: 100dvh;
+        overflow: hidden;
+    }
+
+    body.telemetry-page {
+        min-height: 100dvh;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    body.telemetry-page .page.page-telemetry {
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        min-height: 100%;
+        min-height: 100dvh;
+        height: 100%;
+        padding: 8px 10px 10px;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
+
+    body.telemetry-page .page.page-telemetry .topbar {
+        flex-shrink: 0;
+        margin-bottom: 8px;
+        padding-top: 6px;
+        padding-bottom: 8px;
+    }
+
+    body.telemetry-page .page.page-telemetry .topbar .nav-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+
+    .telemetry-shell {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow: hidden;
+    }
+
+    .telemetry-header.panel {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: 10px 12px;
+    }
+
+    .telemetry-header.panel h1 {
+        font-size: clamp(16px, 4vw, 20px);
+        margin-bottom: 4px;
+    }
+
+    .telemetry-grid.grid {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        display: grid;
+        gap: 8px;
+        align-content: stretch;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    @media (orientation: landscape) and (min-width: 480px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (orientation: landscape) and (min-width: 700px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+    }
+
+    .telemetry-grid .card {
+        min-height: 0;
+        min-width: 0;
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .telemetry-grid .label {
+        font-size: 10px;
+    }
+
+    .telemetry-grid .value {
+        font-size: clamp(14px, 3.5vmin, 18px);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+
+    .telemetry-grid .sub {
+        font-size: clamp(10px, 2.8vmin, 12px);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+    }
+}
 )rawliteral";

@@ -4,12 +4,13 @@
 
 inline String renderTelemetryPage() {
     const char* body = R"rawliteral(
-<div class="panel">
+<div class="telemetry-shell">
+<div class="panel telemetry-header">
     <h1>Live Telemetry</h1>
     <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
 </div>
 
-<div class="grid">
+<div class="grid telemetry-grid">
     <div class="card">
         <div class="label">Battery Voltage</div>
         <div class="value" id="batteryVoltage">--</div>
@@ -49,6 +50,7 @@ inline String renderTelemetryPage() {
         <div class="value" id="bmsTempMax">--</div>
         <div class="sub" id="bmsCells">--</div>
     </div>
+</div>
 </div>
 )rawliteral";
 
@@ -119,7 +121,8 @@ setInterval(loadTelemetry, 1000);
         body,
         nullptr,
         script,
-        nullptr
+        "page page-telemetry",
+        "telemetry-page"
     };
 
     return renderPage(spec);
