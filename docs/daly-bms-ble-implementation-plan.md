@@ -65,6 +65,18 @@ Compatibility finding:
 - The repository evidence is strongest for the `0xD2` family used by H/K/M/S style BLE modules and K-Series devices.
 - The `0xA5` family must be handled later as a separate implementation effort.
 
+### Additional observations from screenshots
+
+The device screenshots collected from the official Daly app and LightBlue add these practical observations:
+
+- The main BLE service used by the battery is confirmed as `0000FFF0-0000-1000-8000-00805F9B34FB`.
+- The main telemetry command path still appears to use a notify/read characteristic plus a write/write-without-response characteristic, consistent with the implementation approach already selected for `DalyBms`.
+- The local device name shown in the app must not be treated as a protocol identifier or discovery signal, because the user can rename it in the app.
+- The manufacturer data shown in LightBlue includes manufacturer id `0x0402` and a payload containing `JHB`, which is useful as a future scan/discovery heuristic if scan mode is ever added.
+- The official Daly app clearly exposes version and identification data such as software version, slave board software version, hardware version, battery code, serial number, total usage time, and power-on time. These fields confirm that additional read paths exist, but they are not required for v1 telemetry fallback.
+- The official app confirms this specific pack is operating as a 14-series battery and exposes individual cell voltages. Runtime parsing must continue to trust the BMS-reported cell count and cell values rather than infer battery structure from marketing strings or UI names.
+- LightBlue also shows an additional custom service rooted at `02F00000-0000-0000-0000-000000000FE0` with characteristics `0FF0` through `0FF5`. This service should be treated as auxiliary/unknown for now and must not replace the primary `FFF0` telemetry path without packet captures proving it is required.
+
 ## Current Project Impact
 
 The existing JBD integration is currently coupled into:
@@ -161,6 +173,12 @@ The following behaviors must switch to the generic active BMS source:
 - RX/notify UUID: `0000fff1-0000-1000-8000-00805f9b34fb`
 - TX/write UUID: `0000fff2-0000-1000-8000-00805f9b34fb`
 
+Additional note from real-device inspection:
+
+- A second custom service rooted at `02F00000-0000-0000-0000-000000000FE0` may also be present and expose `0FF0`-`0FF5`.
+- v1 must ignore this auxiliary service unless future captures show that the official app depends on it for the core `0xD2` telemetry path.
+- The implementation should continue to prefer the classic `FFF0` service with the notify/write pair for first-stage communication.
+
 ### Request strategy
 
 v1 request strategy:
@@ -189,6 +207,27 @@ On invalid frames:
 - keep the last known good decoded values
 - do not mark new data as valid
 - do not crash or permanently poison the connection state
+
+### Debug logging requirements
+
+Initial Daly integration must provide debug visibility comparable to `JbdBms` so field validation is practical during bring-up.
+
+Required debug behavior when `DEBUG` is enabled:
+
+- log connection attempts and disconnects
+- log service/characteristic discovery success and failure
+- log every transmitted request frame in hex
+- log every received frame or assembled payload in hex before decode
+- log CRC failures and frame-length mismatches
+- log parsed summary values after successful decode, at least:
+  - pack voltage
+  - pack current
+  - SoC
+  - cell count
+  - temperature count
+  - min/max/delta cell voltage
+
+Logging style should match the existing `JbdBms` diagnostics closely enough that bring-up and comparison are straightforward.
 
 ### Fields to decode in v1
 
@@ -361,6 +400,11 @@ The implementation must not expose separate `jbd` and `daly` blocks. The fronten
 - Validate rejection of bad CRC frame.
 - Validate rejection of too-short frame.
 - Validate rejection of wrong start byte or wrong function.
+- Compare parsed real-device values against the official Daly app when debugging on hardware, especially:
+  - 14-cell count
+  - per-cell voltage range
+  - pack voltage
+  - SoC
 
 ### Backend behavior tests
 
@@ -369,6 +413,7 @@ The implementation must not expose separate `jbd` and `daly` blocks. The fronten
 - No BMS selected: facade reports no data and never attempts BLE connection.
 - Armed throttle: both JBD and Daly connection attempts remain suppressed.
 - Disconnect after successful connection: backend returns to retry flow without hanging.
+- Debug logs for Daly are present and useful enough to trace connect, request, notify, decode, and error states in the same style as `JbdBms`.
 
 ### Settings and migration tests
 
@@ -409,9 +454,11 @@ Recommended commit sequence during implementation:
 
 - v1 supports only Daly BLE `0xD2` devices.
 - Manual MAC entry is the only supported device selection workflow.
+- The user-configured local BLE name must be ignored as a protocol signal.
 - The BLE runtime initialized by XCTOD remains compatible with adding another BLE client backend.
 - The project should preserve current integer telemetry transport units and frontend JSON shape.
 - Extra Daly features available in 80-register or settings/version/password responses are not required for the first delivery.
+- Version/identification data visible in the official app should be treated as future enhancement material, not a blocker for the first telemetry-focused delivery.
 - If a specific Daly hardware unit later proves to use `0xA5`, that will be handled as a separate follow-up feature, not as a bug fix to this v1 scope.
 
 ## Future Phase: Daly `0xA5`
