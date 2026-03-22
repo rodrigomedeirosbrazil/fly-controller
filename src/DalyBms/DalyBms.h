@@ -85,6 +85,9 @@ private:
     void sendStatusRequest();
     void processRxBuffer();
     void parseStatusFrame(const uint8_t* frame, size_t frameLen);
+    void printFrameHex(const uint8_t* data, size_t len) const;
+    void printStatusSummary() const;
+    void printCellVoltages() const;
     static uint16_t crc16Modbus(const uint8_t* data, size_t len);
 };
 
