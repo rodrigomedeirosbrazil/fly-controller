@@ -12,7 +12,7 @@ Settings::Settings() {
     escTempReductionStart = 0;
     powerControlEnabled = true;
     wifiAutoDisableAfterCalibration = true;
-    jbdBmsEnabled = false;
+    bmsType = BmsTypeNone;
     throttleCurveGamma = 1.0f;
 }
 
@@ -43,9 +43,21 @@ void Settings::load() {
     // Load Wi-Fi auto-disable after throttle calibration (default: enabled)
     wifiAutoDisableAfterCalibration = preferences.getBool("wifiAutoOffCal", getDefaultWifiAutoDisableAfterCalibration());
 
-    // Load JBD BMS settings (default: empty MAC, disabled; configure via web)
-    jbdBmsMac = preferences.getString("jbdBmsMac", "");
-    jbdBmsEnabled = preferences.getBool("jbdBmsEn", getDefaultJbdBmsEnabled());
+    // Load generic Bluetooth BMS settings, falling back to legacy JBD keys.
+    if (preferences.isKey("bmsType") || preferences.isKey("bmsMac")) {
+        bmsType = preferences.getUChar("bmsType", getDefaultBmsType());
+        bmsMac = preferences.getString("bmsMac", "");
+    } else {
+        const String legacyMac = preferences.getString("jbdBmsMac", "");
+        const bool legacyEnabled = preferences.getBool("jbdBmsEn", false);
+        if (legacyEnabled && legacyMac.length() >= 17) {
+            bmsType = BmsTypeJbd;
+            bmsMac = legacyMac;
+        } else {
+            bmsType = getDefaultBmsType();
+            bmsMac = "";
+        }
+    }
 
     // Load throttle curve gamma (1.0 = linear; higher = less sensitive at low throttle)
     throttleCurveGamma = preferences.getFloat("thrCurveG", getDefaultThrottleCurveGamma());
@@ -61,8 +73,8 @@ void Settings::save() {
     preferences.putInt("escRedT", escTempReductionStart);
     preferences.putBool("pwrCtrl", powerControlEnabled);
     preferences.putBool("wifiAutoOffCal", wifiAutoDisableAfterCalibration);
-    preferences.putString("jbdBmsMac", jbdBmsMac);
-    preferences.putBool("jbdBmsEn", jbdBmsEnabled);
+    preferences.putUChar("bmsType", bmsType);
+    preferences.putString("bmsMac", bmsMac);
     preferences.putFloat("thrCurveG", throttleCurveGamma);
 }
 
@@ -182,28 +194,31 @@ bool Settings::getDefaultWifiAutoDisableAfterCalibration() const {
     return true;  // Keep current behavior by default
 }
 
-String Settings::getJbdBmsMac() const {
-    return jbdBmsMac;
+uint8_t Settings::getBmsType() const {
+    return bmsType;
 }
 
-void Settings::setJbdBmsMac(const char* mac) {
+void Settings::setBmsType(uint8_t type) {
+    if (type > BmsTypeDaly) {
+        type = BmsTypeNone;
+    }
+    bmsType = type;
+}
+
+String Settings::getBmsMac() const {
+    return bmsMac;
+}
+
+void Settings::setBmsMac(const char* mac) {
     if (mac != nullptr) {
-        jbdBmsMac = String(mac);
+        bmsMac = String(mac);
     } else {
-        jbdBmsMac = "";
+        bmsMac = "";
     }
 }
 
-bool Settings::getJbdBmsEnabled() const {
-    return jbdBmsEnabled;
-}
-
-void Settings::setJbdBmsEnabled(bool enabled) {
-    jbdBmsEnabled = enabled;
-}
-
-bool Settings::getDefaultJbdBmsEnabled() const {
-    return false;  // JBD BMS disabled by default; user enables and sets MAC via web
+uint8_t Settings::getDefaultBmsType() const {
+    return BmsTypeNone;
 }
 
 float Settings::getDefaultThrottleCurveGamma() const {

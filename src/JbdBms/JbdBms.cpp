@@ -1,6 +1,5 @@
 #include "JbdBms.h"
 #include "../config.h"
-#include "../Settings/Settings.h"
 #include "../Throttle/Throttle.h"
 #include <BLEDevice.h>
 #include <BLEClient.h>
@@ -29,7 +28,7 @@ void onNotifyCallback(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t len
 JbdBms::JbdBms()
     : pClient_(nullptr), pCharRx_(nullptr), pCharTx_(nullptr),
       txQueue_(nullptr), txTaskHandle_(nullptr),
-      state_(Idle), connected_(false), hasData_(false),
+      state_(Idle), enabled_(false), connected_(false), hasData_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), rxLen_(0),
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
       cellCount_(0), ntcCount_(0), cycleCount_(0),
@@ -57,6 +56,18 @@ void JbdBms::init() {
     xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
     DEBUG_PRINTLN("[JBD] Init OK");
+}
+
+void JbdBms::setEnabled(bool enabled) {
+    enabled_ = enabled;
+    if (!enabled_) {
+        resetConnection();
+    }
+}
+
+void JbdBms::setMacAddress(const String& macAddress) {
+    macAddress_ = macAddress;
+    macAddress_.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -99,9 +110,7 @@ void JbdBms::update() {
 
         // ------------------------------------------------------------------
         case Idle: {
-            extern Settings settings;
-            String mac = settings.getJbdBmsMac();
-            if (!settings.getJbdBmsEnabled() || mac.length() < 17) {
+            if (!enabled_ || macAddress_.length() < 17) {
                 break;  // Do not attempt connection
             }
             if (throttle.isArmed()) {
@@ -117,13 +126,11 @@ void JbdBms::update() {
 
         // ------------------------------------------------------------------
         case Connecting: {
-            extern Settings settings;
-            String mac = settings.getJbdBmsMac();
-            if (mac.length() < 17) {
+            if (macAddress_.length() < 17) {
                 resetConnection();
                 break;
             }
-            BLEAddress addr(mac.c_str());
+            BLEAddress addr(macAddress_.c_str());
             if (pClient_->connect(addr)) {
                 connected_ = true;
                 rxLen_     = 0;

@@ -76,8 +76,8 @@ void ControllerWebServer::startAP() {
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
         doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
-        doc["jbdBmsEnabled"] = settings.getJbdBmsEnabled();
-        doc["jbdBmsMac"] = settings.getJbdBmsMac();
+        doc["bmsType"] = settings.getBmsType();
+        doc["bmsMac"] = settings.getBmsMac();
         doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
 
         String response;
@@ -193,13 +193,17 @@ void ControllerWebServer::startAP() {
                     }
                 }
 
-                if (doc.containsKey("jbdBmsEnabled")) {
-                    bool enabled = doc["jbdBmsEnabled"];
-                    settings.setJbdBmsEnabled(enabled);
+                uint8_t bmsType = settings.getBmsType();
+                if (doc.containsKey("bmsType")) {
+                    bmsType = doc["bmsType"].as<uint8_t>();
+                    if (bmsType > BmsTypeDaly) {
+                        request->send(400, "text/plain", "BMS type is invalid");
+                        return;
+                    }
                 }
 
-                if (doc.containsKey("jbdBmsMac")) {
-                    const char* mac = doc["jbdBmsMac"].as<const char*>();
+                if (doc.containsKey("bmsMac")) {
+                    const char* mac = doc["bmsMac"].as<const char*>();
                     if (mac != nullptr) {
                         String s(mac);
                         s.trim();
@@ -224,11 +228,17 @@ void ControllerWebServer::startAP() {
                                 }
                             }
                         }
-                        settings.setJbdBmsMac(s.c_str());
+                        settings.setBmsMac(s.c_str());
                     } else {
-                        settings.setJbdBmsMac("");
+                        settings.setBmsMac("");
                     }
                 }
+
+                if (bmsType != BmsTypeNone && settings.getBmsMac().length() != 17) {
+                    request->send(400, "text/plain", "BMS MAC must be configured for the selected BMS type");
+                    return;
+                }
+                settings.setBmsType(bmsType);
 
                 if (doc.containsKey("wifiAutoDisableAfterCalibration")) {
                     bool enabled = doc["wifiAutoDisableAfterCalibration"];
@@ -288,7 +298,7 @@ void ControllerWebServer::startAP() {
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
 
-        // JBD BMS data when available
+        // Generic Bluetooth BMS data when available
         if (isBmsDataAvailable()) {
             JsonObject bms = doc.createNestedObject("bms");
             bms["available"] = true;

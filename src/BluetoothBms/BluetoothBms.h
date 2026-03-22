@@ -23,6 +23,9 @@ public:
     uint16_t getCellMinMilliVolts() const;
     uint16_t getCellMaxMilliVolts() const;
     uint16_t getCellDeltaMilliVolts() const;
+
+private:
+    uint8_t getActiveType() const;
 };
 
 #endif // BLUETOOTH_BMS_H
