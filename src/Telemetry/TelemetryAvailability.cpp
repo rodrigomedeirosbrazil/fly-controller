@@ -1,9 +1,7 @@
 #include "TelemetryAvailability.h"
 #include "../BoardConfig.h"
 #include "Telemetry.h"
-#include "../JbdBms/JbdBms.h"
-
-extern JbdBms jbdBms;
+#include "../config.h"
 
 bool isCurrentAvailable(void) {
     return getBoardConfig().hasCurrentSensor && telemetry.hasData();
@@ -18,9 +16,9 @@ bool isPowerKwAvailable(void) {
 }
 
 bool isBmsDataAvailable(void) {
-    return jbdBms.hasData();
+    return bluetoothBms.hasData();
 }
 
 bool isBmsCellDataAvailable(void) {
-    return jbdBms.hasCellData();
+    return bluetoothBms.hasCellData();
 }

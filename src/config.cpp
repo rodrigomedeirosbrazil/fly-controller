@@ -1,6 +1,8 @@
 #include "config.h"
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
+#include "BluetoothBms/BluetoothBms.h"
+#include "DalyBms/DalyBms.h"
 #include "Xctod/Xctod.h"
 #include "JbdBms/JbdBms.h"
 #include "Settings/Settings.h"
@@ -54,6 +56,8 @@ Temperature motorTemp(
 
 Power power;
 BatteryMonitor batteryMonitor;
+BluetoothBms bluetoothBms;
+DalyBms dalyBms;
 Xctod xctod;
 JbdBms jbdBms;
 Settings settings;

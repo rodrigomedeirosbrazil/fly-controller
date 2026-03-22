@@ -4,6 +4,12 @@
 #include <Arduino.h>
 #include <Preferences.h>
 
+enum BmsType : uint8_t {
+    BmsTypeNone = 0,
+    BmsTypeJbd = 1,
+    BmsTypeDaly = 2
+};
+
 class Settings {
 public:
     Settings();
@@ -45,11 +51,11 @@ public:
     bool getWifiAutoDisableAfterCalibration() const;
     void setWifiAutoDisableAfterCalibration(bool enabled);
 
-    // JBD BMS
-    String getJbdBmsMac() const;
-    void setJbdBmsMac(const char* mac);
-    bool getJbdBmsEnabled() const;
-    void setJbdBmsEnabled(bool enabled);
+    // Bluetooth BMS
+    uint8_t getBmsType() const;
+    void setBmsType(uint8_t type);
+    String getBmsMac() const;
+    void setBmsMac(const char* mac);
 
 private:
     Preferences preferences;
@@ -64,7 +70,7 @@ private:
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
     bool getDefaultWifiAutoDisableAfterCalibration() const;
-    bool getDefaultJbdBmsEnabled() const;
+    uint8_t getDefaultBmsType() const;
     float getDefaultThrottleCurveGamma() const;
 
     // Current values
@@ -77,8 +83,8 @@ private:
     int32_t escTempReductionStart;
     bool powerControlEnabled;
     bool wifiAutoDisableAfterCalibration;
-    String jbdBmsMac;
-    bool jbdBmsEnabled;
+    String bmsMac;
+    uint8_t bmsType;
     float throttleCurveGamma;
 };
 

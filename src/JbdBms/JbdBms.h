@@ -37,6 +37,8 @@ public:
     JbdBms();
     void init();
     void update();
+    void setEnabled(bool enabled);
+    void setMacAddress(const String& macAddress);
 
     bool isConnected() const { return connected_; }
     bool hasData()     const { return hasData_; }
@@ -75,8 +77,10 @@ private:
     QueueHandle_t txQueue_;    // queue of frames for BLE TX (consumed by tx task)
     TaskHandle_t  txTaskHandle_;
     State        state_;
+    bool         enabled_;
     bool         connected_;
     bool         hasData_;
+    String       macAddress_;
     unsigned long lastConnectAttempt_;
     unsigned long lastRequestMillis_;
 

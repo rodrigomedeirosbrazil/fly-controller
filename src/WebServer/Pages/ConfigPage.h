@@ -82,20 +82,22 @@ inline String renderConfigPage() {
             <div class="info-text">Power-law curve: 1.0 = linear (curve disabled); higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0. Recommended for a noticeable effect: 1.5 to 2.0.</div>
         </div>
 
-        <h2>JBD BMS</h2>
+        <h2>Bluetooth BMS</h2>
 
         <div class="form-group">
-            <label for="jbdBmsEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                <input type="checkbox" id="jbdBmsEnabled" name="jbdBmsEnabled" style="width: auto;">
-                <span>Use JBD BMS</span>
-            </label>
-            <div class="info-text">When enabled, the controller will connect to a JBD BMS over Bluetooth for battery voltage, current, and cell data (fallback when ESC telemetry is unavailable).</div>
+            <label for="bmsType">BMS type:</label>
+            <select id="bmsType" name="bmsType">
+                <option value="0">Disabled</option>
+                <option value="1">JBD</option>
+                <option value="2">Daly (D2 BLE)</option>
+            </select>
+            <div class="info-text">Select the Bluetooth BMS backend. Daly support in this firmware targets the D2 BLE family over service FFF0.</div>
         </div>
 
         <div class="form-group">
-            <label for="jbdBmsMac">BMS Bluetooth address (MAC):</label>
-            <input type="text" id="jbdBmsMac" name="jbdBmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
-            <div class="info-text">Get the MAC from a BLE scanner app. Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons).</div>
+            <label for="bmsMac">BMS Bluetooth address (MAC):</label>
+            <input type="text" id="bmsMac" name="bmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
+            <div class="info-text">Manual MAC entry only. Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons).</div>
         </div>
 
         <h2>Wi-Fi Settings</h2>
@@ -157,8 +159,8 @@ const loadCurrentValues = () => {
             } else {
                 $('throttleCurveGamma').value = '1.0';
             }
-            $('jbdBmsEnabled').checked = data.jbdBmsEnabled !== false;
-            $('jbdBmsMac').value = data.jbdBmsMac || '';
+            $('bmsType').value = String(typeof data.bmsType === 'number' ? data.bmsType : 0);
+            $('bmsMac').value = data.bmsMac || '';
             $('wifiAutoDisableAfterCalibration').checked = data.wifiAutoDisableAfterCalibration !== false;
         })
         .catch((error) => {
@@ -204,8 +206,9 @@ $('configForm').addEventListener('submit', function(e) {
     const minVoltageTotal = minVoltagePerCell * CELL_COUNT;
     const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
 
-    const jbdBmsMac = $('jbdBmsMac').value.trim();
-    if ($('jbdBmsEnabled').checked && jbdBmsMac && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(jbdBmsMac)) {
+    const bmsType = parseInt($('bmsType').value, 10) || 0;
+    const bmsMac = $('bmsMac').value.trim();
+    if (bmsType !== 0 && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(bmsMac)) {
         showMessage('message', 'BMS MAC must be in format XX:XX:XX:XX:XX:XX', 'err');
         saveButton.disabled = false;
         return;
@@ -228,8 +231,8 @@ $('configForm').addEventListener('submit', function(e) {
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000),
         powerControlEnabled: $('powerControlEnabled').checked,
         throttleCurveGamma: throttleCurveGamma,
-        jbdBmsEnabled: $('jbdBmsEnabled').checked,
-        jbdBmsMac: jbdBmsMac,
+        bmsType: bmsType,
+        bmsMac: bmsMac,
         wifiAutoDisableAfterCalibration: $('wifiAutoDisableAfterCalibration').checked
     };
 

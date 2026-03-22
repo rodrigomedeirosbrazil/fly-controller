@@ -4,7 +4,6 @@
 #include "../Settings/Settings.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
-#include "../JbdBms/JbdBms.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -77,8 +76,8 @@ void ControllerWebServer::startAP() {
         doc["escTempReductionStart"] = settings.getEscTempReductionStart();
         doc["powerControlEnabled"] = settings.getPowerControlEnabled();
         doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
-        doc["jbdBmsEnabled"] = settings.getJbdBmsEnabled();
-        doc["jbdBmsMac"] = settings.getJbdBmsMac();
+        doc["bmsType"] = settings.getBmsType();
+        doc["bmsMac"] = settings.getBmsMac();
         doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
 
         String response;
@@ -194,13 +193,17 @@ void ControllerWebServer::startAP() {
                     }
                 }
 
-                if (doc.containsKey("jbdBmsEnabled")) {
-                    bool enabled = doc["jbdBmsEnabled"];
-                    settings.setJbdBmsEnabled(enabled);
+                uint8_t bmsType = settings.getBmsType();
+                if (doc.containsKey("bmsType")) {
+                    bmsType = doc["bmsType"].as<uint8_t>();
+                    if (bmsType > BmsTypeDaly) {
+                        request->send(400, "text/plain", "BMS type is invalid");
+                        return;
+                    }
                 }
 
-                if (doc.containsKey("jbdBmsMac")) {
-                    const char* mac = doc["jbdBmsMac"].as<const char*>();
+                if (doc.containsKey("bmsMac")) {
+                    const char* mac = doc["bmsMac"].as<const char*>();
                     if (mac != nullptr) {
                         String s(mac);
                         s.trim();
@@ -225,11 +228,17 @@ void ControllerWebServer::startAP() {
                                 }
                             }
                         }
-                        settings.setJbdBmsMac(s.c_str());
+                        settings.setBmsMac(s.c_str());
                     } else {
-                        settings.setJbdBmsMac("");
+                        settings.setBmsMac("");
                     }
                 }
+
+                if (bmsType != BmsTypeNone && settings.getBmsMac().length() != 17) {
+                    request->send(400, "text/plain", "BMS MAC must be configured for the selected BMS type");
+                    return;
+                }
+                settings.setBmsType(bmsType);
 
                 if (doc.containsKey("wifiAutoDisableAfterCalibration")) {
                     bool enabled = doc["wifiAutoDisableAfterCalibration"];
@@ -289,22 +298,22 @@ void ControllerWebServer::startAP() {
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
 
-        // JBD BMS data when available
+        // Generic Bluetooth BMS data when available
         if (isBmsDataAvailable()) {
             JsonObject bms = doc.createNestedObject("bms");
             bms["available"] = true;
-            if (jbdBms.getNtcCount() > 0) {
-                int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
-                for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
-                    int16_t t = jbdBms.getNtcTempCelsius(i);
+            if (bluetoothBms.getTempCount() > 0) {
+                int16_t maxTemp = bluetoothBms.getTempCelsius(0);
+                for (uint8_t i = 1; i < bluetoothBms.getTempCount(); i++) {
+                    int16_t t = bluetoothBms.getTempCelsius(i);
                     if (t > maxTemp) maxTemp = t;
                 }
                 bms["tempMaxC"] = maxTemp;
             }
             if (isBmsCellDataAvailable()) {
-                bms["cellMinMv"] = jbdBms.getCellMinMilliVolts();
-                bms["cellMaxMv"] = jbdBms.getCellMaxMilliVolts();
-                bms["cellDeltaMv"] = jbdBms.getCellDeltaMilliVolts();
+                bms["cellMinMv"] = bluetoothBms.getCellMinMilliVolts();
+                bms["cellMaxMv"] = bluetoothBms.getCellMaxMilliVolts();
+                bms["cellDeltaMv"] = bluetoothBms.getCellDeltaMilliVolts();
             }
         }
 
