@@ -2,7 +2,6 @@
 #include "TelemetryBackend.h"
 #include "../config_controller.h"
 #include "../config.h"
-#include "../JbdBms/JbdBms.h"
 
 static const TelemetryBackend* s_backend_ptr = nullptr;
 
@@ -63,22 +62,22 @@ bool Telemetry::hasData() const {
     if (s_backend_ptr && s_backend_ptr->hasData && s_backend_ptr->hasData()) {
         return true;
     }
-    return jbdBms.hasData();
+    return bluetoothBms.hasData();
 }
 
 uint16_t Telemetry::getBatteryVoltageMilliVolts() const {
     uint16_t v = s_backend_ptr && s_backend_ptr->getBatteryVoltageMilliVolts ? s_backend_ptr->getBatteryVoltageMilliVolts() : 0;
-    if (v == 0 && jbdBms.hasData()) {
-        return (uint16_t)jbdBms.getPackVoltageMilliVolts();
+    if (v == 0 && bluetoothBms.hasData()) {
+        return (uint16_t)bluetoothBms.getPackVoltageMilliVolts();
     }
     return v;
 }
 
 uint32_t Telemetry::getBatteryCurrentMilliAmps() const {
     uint32_t a = s_backend_ptr && s_backend_ptr->getBatteryCurrentMilliAmps ? s_backend_ptr->getBatteryCurrentMilliAmps() : 0;
-    if (a == 0 && jbdBms.hasData()) {
-        int32_t jbdMa = jbdBms.getPackCurrentMilliAmps();
-        return (uint32_t)(jbdMa < 0 ? -jbdMa : jbdMa);
+    if (a == 0 && bluetoothBms.hasData()) {
+        int32_t bmsMa = bluetoothBms.getPackCurrentMilliAmps();
+        return (uint32_t)(bmsMa < 0 ? -bmsMa : bmsMa);
     }
     return a;
 }

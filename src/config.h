@@ -20,6 +20,7 @@
 #endif
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
+#include "BluetoothBms/BluetoothBms.h"
 #include "Settings/Settings.h"
 #include "ADS1115/ADS1115.h"
 #if IS_XAG || IS_TMOTOR
@@ -69,6 +70,7 @@ extern BatteryVoltageSensor batterySensor;
 #endif
 extern Power power;
 extern BatteryMonitor batteryMonitor;
+extern BluetoothBms bluetoothBms;
 extern Xctod xctod;
 extern JbdBms jbdBms;
 extern Settings settings;

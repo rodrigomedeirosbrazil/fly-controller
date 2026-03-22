@@ -4,7 +4,6 @@
 #include "../Settings/Settings.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
-#include "../JbdBms/JbdBms.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -293,18 +292,18 @@ void ControllerWebServer::startAP() {
         if (isBmsDataAvailable()) {
             JsonObject bms = doc.createNestedObject("bms");
             bms["available"] = true;
-            if (jbdBms.getNtcCount() > 0) {
-                int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
-                for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
-                    int16_t t = jbdBms.getNtcTempCelsius(i);
+            if (bluetoothBms.getTempCount() > 0) {
+                int16_t maxTemp = bluetoothBms.getTempCelsius(0);
+                for (uint8_t i = 1; i < bluetoothBms.getTempCount(); i++) {
+                    int16_t t = bluetoothBms.getTempCelsius(i);
                     if (t > maxTemp) maxTemp = t;
                 }
                 bms["tempMaxC"] = maxTemp;
             }
             if (isBmsCellDataAvailable()) {
-                bms["cellMinMv"] = jbdBms.getCellMinMilliVolts();
-                bms["cellMaxMv"] = jbdBms.getCellMaxMilliVolts();
-                bms["cellDeltaMv"] = jbdBms.getCellDeltaMilliVolts();
+                bms["cellMinMv"] = bluetoothBms.getCellMinMilliVolts();
+                bms["cellMaxMv"] = bluetoothBms.getCellMaxMilliVolts();
+                bms["cellDeltaMv"] = bluetoothBms.getCellDeltaMilliVolts();
             }
         }
 
