@@ -18,10 +18,13 @@ public:
 
     void init();
     void write();
+    void setAdvertisingEnabled(bool enabled);
+    bool isAdvertisingEnabled() const;
 
 private:
     unsigned long lastUpdate;
     static const unsigned long UPDATE_INTERVAL = 1000;
+    bool advertisingEnabled;
 
     BLEServer *pServer;
     BLEService *pService;

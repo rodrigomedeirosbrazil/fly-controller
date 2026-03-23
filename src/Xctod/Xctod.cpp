@@ -31,6 +31,7 @@ class ServerCallbacks : public BLEServerCallbacks {
 
 Xctod::Xctod() {
     lastUpdate = 0;
+    advertisingEnabled = false;
     pServer = nullptr;
     pService = nullptr;
     pCharacteristic = nullptr;
@@ -65,6 +66,7 @@ void Xctod::init() {
     pAdvertising->setMinPreferred(0x06);
     pAdvertising->setMaxPreferred(0x12);
     BLEDevice::startAdvertising();
+    advertisingEnabled = true;
 
     Serial.println("BLE advertising started");
 
@@ -109,6 +111,24 @@ void Xctod::write() {
 
     pCharacteristic->setValue(data.c_str());
     pCharacteristic->notify();
+}
+
+void Xctod::setAdvertisingEnabled(bool enabled) {
+    if (enabled == advertisingEnabled) {
+        return;
+    }
+
+    if (enabled) {
+        BLEDevice::startAdvertising();
+    } else {
+        BLEDevice::stopAdvertising();
+    }
+
+    advertisingEnabled = enabled;
+}
+
+bool Xctod::isAdvertisingEnabled() const {
+    return advertisingEnabled;
 }
 
 void Xctod::writeBatteryInfo(String &data) {
