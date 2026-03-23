@@ -97,7 +97,13 @@ inline String renderConfigPage() {
         <div class="form-group">
             <label for="bmsMac">BMS Bluetooth address (MAC):</label>
             <input type="text" id="bmsMac" name="bmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
-            <div class="info-text">Manual MAC entry only. Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons).</div>
+            <div class="info-text">Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons), or use the scanner below.</div>
+        </div>
+
+        <div class="form-group">
+            <button type="button" id="scanBmsButton">Scan for BMS</button>
+            <div class="info-text" id="bmsScanStatus">Press "Scan for BMS" to search nearby JBD and Daly devices.</div>
+            <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
         </div>
 
         <h2>Wi-Fi Settings</h2>
@@ -118,6 +124,13 @@ inline String renderConfigPage() {
 
     const char* script = R"rawliteral(
 const CELL_COUNT = 14;
+const BMS_TYPE_LABELS = {
+    1: 'JBD',
+    2: 'Daly (D2 BLE)',
+    0: 'Unknown'
+};
+
+let bmsScanPollTimer = null;
 
 const updateVoltageTotals = () => {
     const minVoltagePerCell = parseFloat($('minVoltagePerCell').value) || 0;
@@ -126,6 +139,155 @@ const updateVoltageTotals = () => {
     const maxVoltageTotal = maxVoltagePerCell * CELL_COUNT;
     setText('minVoltageTotalValue', minVoltageTotal.toFixed(2));
     setText('maxVoltageTotalValue', maxVoltageTotal.toFixed(2));
+};
+
+const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const setBmsScanStatus = (text) => {
+    setText('bmsScanStatus', text);
+};
+
+const stopBmsScanPolling = () => {
+    if (bmsScanPollTimer) {
+        clearTimeout(bmsScanPollTimer);
+        bmsScanPollTimer = null;
+    }
+};
+
+const scheduleBmsScanPolling = (delayMs = 1000) => {
+    stopBmsScanPolling();
+    bmsScanPollTimer = setTimeout(loadBmsScanStatus, delayMs);
+};
+
+const renderBmsScanResults = (results) => {
+    const container = $('bmsScanResults');
+    container.innerHTML = '';
+
+    if (!Array.isArray(results) || results.length === 0) {
+        return;
+    }
+
+    const sortedResults = [...results].sort((a, b) => (b.rssi || -999) - (a.rssi || -999));
+    sortedResults.forEach((entry) => {
+        const row = document.createElement('div');
+        row.style.border = '1px solid rgba(255,255,255,0.12)';
+        row.style.borderRadius = '10px';
+        row.style.padding = '12px';
+        row.style.display = 'grid';
+        row.style.gap = '8px';
+        row.innerHTML = `
+            <div><strong>${escapeHtml(BMS_TYPE_LABELS[entry.detectedType] || 'Unknown')}</strong></div>
+            <div>${escapeHtml(entry.name || 'Unnamed device')}</div>
+            <div>MAC: <code>${escapeHtml(entry.mac || '')}</code></div>
+            <div>RSSI: ${typeof entry.rssi === 'number' ? entry.rssi + ' dBm' : 'N/A'}</div>
+            <div>Services: <code>${escapeHtml(entry.advertisedServices || 'none')}</code></div>
+            <div><button type="button" class="use-bms-result" data-mac="${escapeHtml(entry.mac || '')}" data-type="${escapeHtml(entry.detectedType || 0)}">Use this BMS</button></div>
+        `;
+        container.appendChild(row);
+    });
+
+    container.querySelectorAll('.use-bms-result').forEach((button) => {
+        button.addEventListener('click', () => {
+            const selectedMac = button.dataset.mac || '';
+            const detectedType = button.dataset.type || '0';
+
+            $('bmsMac').value = selectedMac;
+            if (detectedType !== '0') {
+                $('bmsType').value = detectedType;
+                setBmsScanStatus('Selected scanned BMS. Review the detected type and save the configuration.');
+            } else {
+                $('scanBmsButton').disabled = true;
+                setBmsScanStatus('Trying to detect the BMS type by connecting to the selected device...');
+                detectBmsType(selectedMac)
+                    .then((data) => {
+                        $('scanBmsButton').disabled = false;
+                        if (data && Number(data.detectedType) > 0) {
+                            $('bmsType').value = String(data.detectedType);
+                            setBmsScanStatus('BMS type detected after connection. Review the fields and save the configuration.');
+                        } else {
+                            setBmsScanStatus('Selected BLE device MAC. Type is still unknown after the connection test.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error detecting BMS type:', error);
+                        $('scanBmsButton').disabled = false;
+                        setBmsScanStatus('Could not detect the BMS type after the connection test.');
+                    });
+            }
+        });
+    });
+};
+
+const applyBmsScanState = (data) => {
+    const status = data && data.status ? data.status : 'idle';
+    const isBusy = !!(data && data.busy);
+    $('scanBmsButton').disabled = isBusy;
+
+    if (status === 'scanning') {
+        setBmsScanStatus('Scanning nearby BLE devices...');
+        renderBmsScanResults(Array.isArray(data.results) ? data.results : []);
+        scheduleBmsScanPolling();
+        return;
+    }
+
+    stopBmsScanPolling();
+
+    if (status === 'error') {
+        setBmsScanStatus(data && data.error ? `Scan failed: ${data.error}` : 'Scan failed.');
+        renderBmsScanResults([]);
+        return;
+    }
+
+    if (status === 'complete') {
+        const results = Array.isArray(data.results) ? data.results : [];
+        renderBmsScanResults(results);
+        if (results.length === 0) {
+            setBmsScanStatus('No BLE devices were found nearby.');
+        } else {
+            setBmsScanStatus('Showing all BLE devices. Recognized JBD/Daly entries are labeled automatically.');
+        }
+        return;
+    }
+
+    renderBmsScanResults(Array.isArray(data && data.results) ? data.results : []);
+    setBmsScanStatus('Press "Scan for BMS" to search nearby BLE devices and inspect advertised services.');
+};
+
+function loadBmsScanStatus() {
+    fetchJson('/api/bms/scan/status')
+        .then(applyBmsScanState)
+        .catch((error) => {
+            console.error('Error loading BMS scan status:', error);
+            stopBmsScanPolling();
+            $('scanBmsButton').disabled = false;
+            setBmsScanStatus('Unable to read BLE scan status.');
+        });
+}
+
+const startBmsScan = () => {
+    $('scanBmsButton').disabled = true;
+    setBmsScanStatus('Starting BLE scan...');
+    fetch('/api/bms/scan/start', { method: 'POST' })
+        .then((response) => response.json())
+        .then(applyBmsScanState)
+        .catch((error) => {
+            console.error('Error starting BMS scan:', error);
+            $('scanBmsButton').disabled = false;
+            setBmsScanStatus('Unable to start BLE scan.');
+        });
+};
+
+const detectBmsType = (mac) => {
+    return fetch('/api/bms/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mac })
+    }).then((response) => response.json());
 };
 
 const loadCurrentValues = () => {
@@ -180,6 +342,7 @@ $('batteryCapacity').addEventListener('change', function() {
 
 $('minVoltagePerCell').addEventListener('input', updateVoltageTotals);
 $('maxVoltagePerCell').addEventListener('input', updateVoltageTotals);
+$('scanBmsButton').addEventListener('click', startBmsScan);
 
 $('configForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -257,6 +420,7 @@ $('configForm').addEventListener('submit', function(e) {
 });
 
 loadCurrentValues();
+loadBmsScanStatus();
 )rawliteral";
 
     PageSpec spec = {

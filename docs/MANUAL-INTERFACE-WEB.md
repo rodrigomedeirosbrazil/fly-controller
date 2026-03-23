@@ -177,12 +177,13 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 
 ---
 
-### 7.5 JBD BMS
+### 7.5 Bluetooth BMS
 
 | Configuração | Descrição e uso |
 |--------------|------------------|
-| **Use JBD BMS** | **Marcado:** o controlador tenta conectar a um BMS JBD via Bluetooth para obter tensão do pack, corrente e dados de células. Esses dados são usados como **fallback** quando não há telemetria do ESC (ex.: XAG ou CAN desconectado) e também são enviados nos logs e na telemetria BLE (temperatura máxima da bateria, tensão mínima e máxima por célula). **Desmarcado:** a conexão com o BMS não é tentada. **Padrão:** ativado. |
-| **BMS Bluetooth address (MAC)** | Endereço MAC do BMS no formato **XX:XX:XX:XX:XX:XX** (6 bytes em hexadecimal separados por dois pontos). Obtenha o endereço com um aplicativo de scan BLE no celular; o BMS JBD usa o serviço 0xFF00. Exemplo: `A5:C2:39:2B:FC:4E`. Se estiver em branco ou com formato inválido, a conexão não será feita. |
+| **BMS type** | Seleciona o backend Bluetooth do BMS. Atualmente a interface suporta **JBD** e **Daly (D2 BLE)**. |
+| **BMS Bluetooth address (MAC)** | Endereço MAC do BMS no formato **XX:XX:XX:XX:XX:XX** (6 bytes em hexadecimal separados por dois pontos). Pode ser digitado manualmente ou preenchido pelo scanner BLE da própria página. |
+| **Scan for BMS** | Executa uma busca BLE manual por BMS compatíveis enquanto a página de configuração está aberta. O scanner lista apenas dispositivos que anunciam os serviços conhecidos do firmware: **0xFF00** para **JBD** e **0xFFF0** para **Daly (D2 BLE)**. Ao selecionar um resultado, a interface preenche automaticamente o **tipo do BMS** e o **MAC**. |
 
 **Nota:** Após alterar o MAC, salve a configuração e reinicie o controlador para que a nova conexão seja tentada.
 
