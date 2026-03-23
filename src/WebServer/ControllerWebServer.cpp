@@ -31,6 +31,49 @@ const char* CONTROLLER_LABEL = "XAG";
 const char* CONTROLLER_LABEL = "Unknown";
 #endif
 
+namespace {
+const char* toBmsScanStatusLabel(uint8_t status) {
+    switch (status) {
+        case BluetoothBmsScanScanning:
+            return "scanning";
+        case BluetoothBmsScanComplete:
+            return "complete";
+        case BluetoothBmsScanError:
+            return "error";
+        case BluetoothBmsScanIdle:
+        default:
+            return "idle";
+    }
+}
+
+void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 200) {
+    DynamicJsonDocument doc(2048);
+    doc["ok"] = (httpStatus >= 200 && httpStatus < 300);
+    doc["status"] = toBmsScanStatusLabel(bluetoothBms.getWebScanStatus());
+    doc["busy"] = bluetoothBms.isWebScanBusy();
+
+    if (bluetoothBms.getWebScanStatus() == BluetoothBmsScanError && strlen(bluetoothBms.getWebScanError()) > 0) {
+        doc["error"] = bluetoothBms.getWebScanError();
+    }
+
+    JsonArray results = doc.createNestedArray("results");
+    const BluetoothBmsScanResult* scanResults = bluetoothBms.getWebScanResults();
+    const uint8_t resultCount = bluetoothBms.getWebScanResultCount();
+
+    for (uint8_t i = 0; i < resultCount; i++) {
+        JsonObject entry = results.createNestedObject();
+        entry["mac"] = scanResults[i].mac;
+        entry["name"] = scanResults[i].name;
+        entry["rssi"] = scanResults[i].rssi;
+        entry["detectedType"] = scanResults[i].detectedType;
+    }
+
+    String response;
+    serializeJson(doc, response);
+    request->send(httpStatus, "application/json", response);
+}
+} // namespace
+
 
 ControllerWebServer::ControllerWebServer() : server(80) { // Initialize server on port 80
     isActive = true;
@@ -85,6 +128,16 @@ void ControllerWebServer::startAP() {
         Serial.print("[WebServer] Sending JSON response: ");
         Serial.println(response);
         request->send(200, "application/json", response);
+    });
+
+    server.on("/api/bms/scan/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        sendBmsScanStatusResponse(request);
+    });
+
+    server.on("/api/bms/scan/start", HTTP_POST, [](AsyncWebServerRequest *request) {
+        const bool started = bluetoothBms.startWebScan();
+        const int httpStatus = started ? 200 : 500;
+        sendBmsScanStatusResponse(request, httpStatus);
     });
 
     // Save configuration - register BEFORE /config to avoid conflicts
