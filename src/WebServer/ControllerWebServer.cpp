@@ -66,6 +66,7 @@ void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 
         entry["name"] = scanResults[i].name;
         entry["rssi"] = scanResults[i].rssi;
         entry["detectedType"] = scanResults[i].detectedType;
+        entry["advertisedServices"] = scanResults[i].advertisedServices;
     }
 
     String response;
@@ -139,6 +140,38 @@ void ControllerWebServer::startAP() {
         const int httpStatus = started ? 200 : 500;
         sendBmsScanStatusResponse(request, httpStatus);
     });
+
+    server.on("/api/bms/detect", HTTP_POST, [](AsyncWebServerRequest *request){}, nullptr,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            static String body;
+            if (index == 0) {
+                body = "";
+            }
+            body += String(reinterpret_cast<char*>(data), len);
+
+            if (index + len != total) {
+                return;
+            }
+
+            DynamicJsonDocument doc(256);
+            DeserializationError error = deserializeJson(doc, body);
+            if (error) {
+                request->send(400, "application/json", "{\"ok\":false,\"error\":\"Invalid JSON\"}");
+                return;
+            }
+
+            const String mac = doc["mac"] | "";
+            const uint8_t detectedType = bluetoothBms.detectBmsTypeByMac(mac);
+
+            DynamicJsonDocument responseDoc(128);
+            responseDoc["ok"] = true;
+            responseDoc["mac"] = mac;
+            responseDoc["detectedType"] = detectedType;
+
+            String response;
+            serializeJson(responseDoc, response);
+            request->send(200, "application/json", response);
+        });
 
     // Save configuration - register BEFORE /config to avoid conflicts
     server.on("/config/save", HTTP_POST, [](AsyncWebServerRequest *request){}, nullptr,

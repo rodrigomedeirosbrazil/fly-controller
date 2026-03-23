@@ -126,7 +126,8 @@ inline String renderConfigPage() {
 const CELL_COUNT = 14;
 const BMS_TYPE_LABELS = {
     1: 'JBD',
-    2: 'Daly (D2 BLE)'
+    2: 'Daly (D2 BLE)',
+    0: 'Unknown'
 };
 
 let bmsScanPollTimer = null;
@@ -184,6 +185,7 @@ const renderBmsScanResults = (results) => {
             <div>${escapeHtml(entry.name || 'Unnamed device')}</div>
             <div>MAC: <code>${escapeHtml(entry.mac || '')}</code></div>
             <div>RSSI: ${typeof entry.rssi === 'number' ? entry.rssi + ' dBm' : 'N/A'}</div>
+            <div>Services: <code>${escapeHtml(entry.advertisedServices || 'none')}</code></div>
             <div><button type="button" class="use-bms-result" data-mac="${escapeHtml(entry.mac || '')}" data-type="${escapeHtml(entry.detectedType || 0)}">Use this BMS</button></div>
         `;
         container.appendChild(row);
@@ -191,9 +193,32 @@ const renderBmsScanResults = (results) => {
 
     container.querySelectorAll('.use-bms-result').forEach((button) => {
         button.addEventListener('click', () => {
-            $('bmsMac').value = button.dataset.mac || '';
-            $('bmsType').value = button.dataset.type || '0';
-            setBmsScanStatus('Selected scanned BMS. Review the fields and save the configuration.');
+            const selectedMac = button.dataset.mac || '';
+            const detectedType = button.dataset.type || '0';
+
+            $('bmsMac').value = selectedMac;
+            if (detectedType !== '0') {
+                $('bmsType').value = detectedType;
+                setBmsScanStatus('Selected scanned BMS. Review the detected type and save the configuration.');
+            } else {
+                $('scanBmsButton').disabled = true;
+                setBmsScanStatus('Trying to detect the BMS type by connecting to the selected device...');
+                detectBmsType(selectedMac)
+                    .then((data) => {
+                        $('scanBmsButton').disabled = false;
+                        if (data && Number(data.detectedType) > 0) {
+                            $('bmsType').value = String(data.detectedType);
+                            setBmsScanStatus('BMS type detected after connection. Review the fields and save the configuration.');
+                        } else {
+                            setBmsScanStatus('Selected BLE device MAC. Type is still unknown after the connection test.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error detecting BMS type:', error);
+                        $('scanBmsButton').disabled = false;
+                        setBmsScanStatus('Could not detect the BMS type after the connection test.');
+                    });
+            }
         });
     });
 };
@@ -222,15 +247,15 @@ const applyBmsScanState = (data) => {
         const results = Array.isArray(data.results) ? data.results : [];
         renderBmsScanResults(results);
         if (results.length === 0) {
-            setBmsScanStatus('No compatible JBD or Daly BMS was found nearby.');
+            setBmsScanStatus('No BLE devices were found nearby.');
         } else {
-            setBmsScanStatus('Select a detected BMS to fill type and MAC automatically.');
+            setBmsScanStatus('Showing all BLE devices. Recognized JBD/Daly entries are labeled automatically.');
         }
         return;
     }
 
     renderBmsScanResults(Array.isArray(data && data.results) ? data.results : []);
-    setBmsScanStatus('Press "Scan for BMS" to search nearby JBD and Daly devices.');
+    setBmsScanStatus('Press "Scan for BMS" to search nearby BLE devices and inspect advertised services.');
 };
 
 function loadBmsScanStatus() {
@@ -255,6 +280,14 @@ const startBmsScan = () => {
             $('scanBmsButton').disabled = false;
             setBmsScanStatus('Unable to start BLE scan.');
         });
+};
+
+const detectBmsType = (mac) => {
+    return fetch('/api/bms/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mac })
+    }).then((response) => response.json());
 };
 
 const loadCurrentValues = () => {

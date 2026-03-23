@@ -18,6 +18,7 @@ struct BluetoothBmsScanResult {
     String name;
     int rssi;
     uint8_t detectedType;
+    String advertisedServices;
 };
 
 class BluetoothBms {
@@ -48,6 +49,7 @@ public:
     uint8_t getWebScanResultCount() const;
     const BluetoothBmsScanResult* getWebScanResults() const;
     bool isWebScanBusy() const;
+    uint8_t detectBmsTypeByMac(const String& macAddress);
 
 private:
     static const uint8_t MAX_WEB_SCAN_RESULTS = 16;
@@ -58,7 +60,8 @@ private:
     void resumeTelemetryAdvertisingAfterScan();
     void completeWebScan();
     static void onWebScanComplete(BLEScanResults scanResults);
-    bool tryStoreScanResult(const String& mac, const String& name, int rssi, uint8_t detectedType);
+    bool tryStoreScanResult(const String& mac, const String& name, int rssi, uint8_t detectedType, const String& advertisedServices);
+    bool isValidMacAddress(const String& macAddress) const;
 
     uint8_t webScanStatus_ = BluetoothBmsScanIdle;
     char webScanError_[64] = {0};

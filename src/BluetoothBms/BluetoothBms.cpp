@@ -5,6 +5,7 @@
 #include "../Settings/Settings.h"
 #include "../Xctod/Xctod.h"
 #include <BLEAdvertisedDevice.h>
+#include <BLEClient.h>
 #include <BLEDevice.h>
 
 namespace {
@@ -228,6 +229,7 @@ void BluetoothBms::clearWebScanResults() {
         webScanResults_[i].name = "";
         webScanResults_[i].rssi = 0;
         webScanResults_[i].detectedType = BmsTypeNone;
+        webScanResults_[i].advertisedServices = "";
     }
     webScanResultCount_ = 0;
     resetWebScanState(BluetoothBmsScanIdle);
@@ -251,6 +253,37 @@ const BluetoothBmsScanResult* BluetoothBms::getWebScanResults() const {
 
 bool BluetoothBms::isWebScanBusy() const {
     return webScanStatus_ == BluetoothBmsScanScanning;
+}
+
+uint8_t BluetoothBms::detectBmsTypeByMac(const String& macAddress) {
+    String mac = macAddress;
+    mac.trim();
+
+    if (!BLEDevice::getInitialized() || !isValidMacAddress(mac)) {
+        return BmsTypeNone;
+    }
+
+    jbdBms.setEnabled(false);
+    dalyBms.setEnabled(false);
+    pauseTelemetryAdvertisingForScan();
+
+    uint8_t detectedType = BmsTypeNone;
+    BLEClient* probeClient = BLEDevice::createClient();
+    if (probeClient != nullptr) {
+        BLEAddress addr(mac.c_str());
+        if (probeClient->connect(addr)) {
+            if (probeClient->getService(DALY_SCAN_SERVICE_UUID) != nullptr) {
+                detectedType = BmsTypeDaly;
+            } else if (probeClient->getService(JBD_SCAN_SERVICE_UUID) != nullptr) {
+                detectedType = BmsTypeJbd;
+            }
+            probeClient->disconnect();
+        }
+        delete probeClient;
+    }
+
+    resumeTelemetryAdvertisingAfterScan();
+    return detectedType;
 }
 
 void BluetoothBms::resetWebScanState(uint8_t status) {
@@ -278,6 +311,16 @@ void BluetoothBms::completeWebScan() {
     for (int i = 0; i < results.getCount(); i++) {
         BLEAdvertisedDevice device = results.getDevice(i);
         uint8_t detectedType = BmsTypeNone;
+        String advertisedServices = "";
+
+        const int serviceUuidCount = device.getServiceUUIDCount();
+        for (int serviceIndex = 0; serviceIndex < serviceUuidCount; serviceIndex++) {
+            const String serviceUuid = String(device.getServiceUUID(serviceIndex).toString().c_str());
+            if (advertisedServices.length() > 0) {
+                advertisedServices += ", ";
+            }
+            advertisedServices += serviceUuid;
+        }
 
         if (device.isAdvertisingService(BLEUUID(JBD_SCAN_SERVICE_UUID))) {
             detectedType = BmsTypeJbd;
@@ -285,13 +328,9 @@ void BluetoothBms::completeWebScan() {
             detectedType = BmsTypeDaly;
         }
 
-        if (detectedType == BmsTypeNone) {
-            continue;
-        }
-
         const String mac = String(device.getAddress().toString().c_str());
         const String name = device.haveName() ? String(device.getName().c_str()) : "";
-        tryStoreScanResult(mac, name, device.getRSSI(), detectedType);
+        tryStoreScanResult(mac, name, device.getRSSI(), detectedType, advertisedServices);
     }
 
     scan->clearResults();
@@ -304,13 +343,14 @@ void BluetoothBms::onWebScanComplete(BLEScanResults scanResults) {
     bluetoothBms.completeWebScan();
 }
 
-bool BluetoothBms::tryStoreScanResult(const String& mac, const String& name, int rssi, uint8_t detectedType) {
+bool BluetoothBms::tryStoreScanResult(const String& mac, const String& name, int rssi, uint8_t detectedType, const String& advertisedServices) {
     for (uint8_t i = 0; i < webScanResultCount_; i++) {
         if (webScanResults_[i].mac == mac) {
             if (rssi > webScanResults_[i].rssi) {
                 webScanResults_[i].name = name;
                 webScanResults_[i].rssi = rssi;
                 webScanResults_[i].detectedType = detectedType;
+                webScanResults_[i].advertisedServices = advertisedServices;
             }
             return true;
         }
@@ -324,6 +364,31 @@ bool BluetoothBms::tryStoreScanResult(const String& mac, const String& name, int
     webScanResults_[webScanResultCount_].name = name;
     webScanResults_[webScanResultCount_].rssi = rssi;
     webScanResults_[webScanResultCount_].detectedType = detectedType;
+    webScanResults_[webScanResultCount_].advertisedServices = advertisedServices;
     webScanResultCount_++;
+    return true;
+}
+
+bool BluetoothBms::isValidMacAddress(const String& macAddress) const {
+    if (macAddress.length() != 17) {
+        return false;
+    }
+
+    for (int i = 0; i < 17; i++) {
+        if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
+            if (macAddress[i] != ':') {
+                return false;
+            }
+        } else {
+            const char c = macAddress[i];
+            const bool isHex = (c >= '0' && c <= '9')
+                || (c >= 'A' && c <= 'F')
+                || (c >= 'a' && c <= 'f');
+            if (!isHex) {
+                return false;
+            }
+        }
+    }
+
     return true;
 }
