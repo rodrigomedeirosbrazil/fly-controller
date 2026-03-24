@@ -409,48 +409,23 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/json", response);
     });
 
-    // Config JS is served separately so /config HTML fits in heap (no second 26KB buffer for AsyncResponseStream).
+    server.on("/config.css", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/css; charset=utf-8", reinterpret_cast<const uint8_t*>(COMMON_CSS), strlen(COMMON_CSS));
+    });
+
     server.on("/config.js", HTTP_GET, [](AsyncWebServerRequest *request){
-        AsyncResponseStream* stream = request->beginResponseStream("application/javascript; charset=utf-8", 2048);
-        if (stream == nullptr) {
-            request->send(500, "text/plain", "Out of memory");
-            return;
-        }
-        stream->print(COMMON_JS);
-        stream->print(getConfigPageScript());
-        request->send(stream);
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_JS), strlen_P(CONFIG_PAGE_JS));
     });
 
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-        String page = renderConfigPage();
-        const size_t len = page.length();
+        const size_t len = strlen_P(CONFIG_PAGE_HTML);
         Serial.printf("[WebServer] GET /config html=%u heap=%u\n", (unsigned)len, (unsigned)ESP.getFreeHeap());
         if (len == 0) {
             request->send(500, "text/plain", "Config page build failed");
             return;
         }
-        // Do not use send(String): AsyncBasicResponse duplicates the body; with ~13KB HTML + copy heap can fail
-        // silently (blank response). Stream with small initial buffer + chunked writes avoids one huge cbuf alloc.
-        AsyncResponseStream* stream = request->beginResponseStream("text/html; charset=utf-8", 2048);
-        if (stream == nullptr) {
-            request->send(500, "text/plain", "Stream alloc failed");
-            return;
-        }
-        constexpr size_t kChunk = 512;
-        const uint8_t* data = reinterpret_cast<const uint8_t*>(page.c_str());
-        size_t off = 0;
-        while (off < len) {
-            const size_t n = (len - off) > kChunk ? kChunk : (len - off);
-            const size_t w = stream->write(data + off, n);
-            if (w != n) {
-                Serial.printf("[WebServer] GET /config write failed off=%u n=%u w=%u\n", (unsigned)off, (unsigned)n, (unsigned)w);
-                request->send(500, "text/plain", "Response write failed");
-                return;
-            }
-            off += w;
-        }
-        request->send(stream);
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_HTML), len);
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
