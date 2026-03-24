@@ -10,6 +10,7 @@ public:
     Logger();
     void init();
     void startLogging();
+    void log(const char* data);
     void log(const String &data);
     void setHeader(const String &header);
     ~Logger();

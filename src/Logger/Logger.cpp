@@ -137,7 +137,7 @@ void Logger::setHeader(const String &header) {
     csvHeader = header;
 }
 
-void Logger::log(const String &data) {
+void Logger::log(const char* data) {
     bool isArmed = throttle.isArmed();
 
     // Detect transition from armed to disarmed
@@ -175,4 +175,8 @@ void Logger::log(const String &data) {
 
     logFile.print(data);
     logFile.flush(); // Force data to be written to storage immediately
+}
+
+void Logger::log(const String &data) {
+    log(data.c_str());
 }

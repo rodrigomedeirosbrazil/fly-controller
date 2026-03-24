@@ -8,6 +8,8 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../Logger/Logger.h"
 #include "../JbdBms/JbdBms.h"
+#include <cstdarg>
+#include <cstdio>
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -17,6 +19,33 @@ extern Power power;
 extern Temperature motorTemp;
 extern BatteryMonitor batteryMonitor;
 extern Logger logger;
+
+namespace {
+bool appendToBuffer(char* data, size_t size, size_t& used, const char* format, ...) {
+    if (used >= size) {
+        return false;
+    }
+
+    va_list args;
+    va_start(args, format);
+    const int written = vsnprintf(data + used, size - used, format, args);
+    va_end(args);
+
+    if (written < 0) {
+        return false;
+    }
+
+    const size_t charsWritten = static_cast<size_t>(written);
+    if (charsWritten >= (size - used)) {
+        used = size - 1;
+        data[used] = '\0';
+        return false;
+    }
+
+    used += charsWritten;
+    return true;
+}
+} // namespace
 
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
@@ -97,19 +126,21 @@ void Xctod::write() {
 
     lastUpdate = millis();
 
-    String data = "$XCTOD,";
+    char data[TELEMETRY_BUFFER_SIZE] = {0};
+    size_t used = 0;
 
-    writeBatteryInfo(data);
-    writeThrottleInfo(data);
-    writeMotorInfo(data);
-    writeEscInfo(data);
-    writeSystemStatus(data);
-    writeBmsInfo(data);
-    data += "\r\n";
+    appendToBuffer(data, sizeof(data), used, "$XCTOD,");
+    writeBatteryInfo(data, sizeof(data), used);
+    writeThrottleInfo(data, sizeof(data), used);
+    writeMotorInfo(data, sizeof(data), used);
+    writeEscInfo(data, sizeof(data), used);
+    writeSystemStatus(data, sizeof(data), used);
+    writeBmsInfo(data, sizeof(data), used);
+    appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.log(data);
 
-    pCharacteristic->setValue(data.c_str());
+    pCharacteristic->setValue(reinterpret_cast<uint8_t*>(data), used);
     pCharacteristic->notify();
 }
 
@@ -131,9 +162,9 @@ bool Xctod::isAdvertisingEnabled() const {
     return advertisingEnabled;
 }
 
-void Xctod::writeBatteryInfo(String &data) {
+void Xctod::writeBatteryInfo(char* data, size_t size, size_t& used) {
     if (!telemetry.hasData()) {
-        data += ",,,,"; // battery_percent_cc, battery_percent_voltage, voltage, power_kw
+        appendToBuffer(data, size, used, ",,,,"); // battery_percent_cc, battery_percent_voltage, voltage, power_kw
         return;
     }
 
@@ -148,96 +179,90 @@ void Xctod::writeBatteryInfo(String &data) {
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
-    data += String(batteryPercentageCC);
-    data += ",";
-    data += String(batteryPercentageVoltage);
-    data += ",";
-    data += String(volts);
-    data += ".";
+    appendToBuffer(data, size, used, "%u,%u,%u.", batteryPercentageCC, batteryPercentageVoltage, volts);
     if (decimals < 10) {
-        data += "0";
+        appendToBuffer(data, size, used, "0");
     }
-    data += String(decimals);
-    data += ",";
+    appendToBuffer(data, size, used, "%u,", decimals);
 
     if (isPowerKwAvailable()) {
         uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
         uint32_t powerKwInt = powerMilliWatts / 1000000;
         uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
-        data += String(powerKwInt);
-        data += ".";
-        data += String(powerKwDecimal);
+        appendToBuffer(data, size, used, "%lu.%lu", (unsigned long)powerKwInt, (unsigned long)powerKwDecimal);
     }
-    data += ",";
+    appendToBuffer(data, size, used, ",");
 }
 
-void Xctod::writeThrottleInfo(String &data) {
+void Xctod::writeThrottleInfo(char* data, size_t size, size_t& used) {
     unsigned int throttlePercentage = throttle.getThrottlePercentage();
     unsigned int throttleRaw = throttle.getThrottleRaw();
     unsigned int powerPercentage = power.getPower();
 
-    data += String(throttlePercentage);
-    data += ",";
-    data += String(throttleRaw);
-    data += ",";
-    data += String(powerPercentage);
-    data += ",";
+    appendToBuffer(data, size, used, "%u,%u,%u,", throttlePercentage, throttleRaw, powerPercentage);
 }
 
-void Xctod::writeMotorInfo(String &data) {
+void Xctod::writeMotorInfo(char* data, size_t size, size_t& used) {
     // Motor temperature: all controllers use telemetry (Hobbywing/Tmotor from CAN+sensor, XAG from sensor)
     if (!telemetry.hasData()) {
-        data += ","; // motor temperature not available
+        appendToBuffer(data, size, used, ","); // motor temperature not available
     } else {
         int32_t tempCelsius = telemetry.getMotorTempMilliCelsius() / 1000;
-        data += String(tempCelsius);
+        appendToBuffer(data, size, used, "%ld", (long)tempCelsius);
     }
-    data += ",";
+    appendToBuffer(data, size, used, ",");
 
     if (isCurrentAvailable()) {
-        data += String(telemetry.getRpm());
-        data += ",";
-        data += String(telemetry.getBatteryCurrentMilliAmps() / 1000);
+        appendToBuffer(
+            data,
+            size,
+            used,
+            "%lu,%lu",
+            (unsigned long)telemetry.getRpm(),
+            (unsigned long)(telemetry.getBatteryCurrentMilliAmps() / 1000)
+        );
     } else {
-        data += ",";
+        appendToBuffer(data, size, used, ",");
     }
-    data += ",";
+    appendToBuffer(data, size, used, ",");
 }
 
-void Xctod::writeEscInfo(String &data) {
+void Xctod::writeEscInfo(char* data, size_t size, size_t& used) {
     if (!telemetry.hasData()) {
-        data += ",";
+        appendToBuffer(data, size, used, ",");
         return;
     }
 
     // Format directly from millicelsius using integer division
     int32_t escTempCelsius = telemetry.getEscTempMilliCelsius() / 1000;
-    data += String(escTempCelsius);
-    data += ",";
+    appendToBuffer(data, size, used, "%ld,", (long)escTempCelsius);
 }
 
-void Xctod::writeSystemStatus(String &data) {
-    data += String(throttle.isArmed() ? "YES" : "NO");
+void Xctod::writeSystemStatus(char* data, size_t size, size_t& used) {
+    appendToBuffer(data, size, used, "%s", throttle.isArmed() ? "YES" : "NO");
 }
 
-void Xctod::writeBmsInfo(String &data) {
+void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
     if (jbdBms.hasData() && jbdBms.getNtcCount() > 0) {
         int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
         for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
             int16_t t = jbdBms.getNtcTempCelsius(i);
             if (t > maxTemp) maxTemp = t;
         }
-        data += ",";
-        data += String(maxTemp);
+        appendToBuffer(data, size, used, ",%d", maxTemp);
     } else {
-        data += ",";
+        appendToBuffer(data, size, used, ",");
     }
     if (jbdBms.hasCellData()) {
-        data += ",";
-        data += String(jbdBms.getCellMinMilliVolts());
-        data += ",";
-        data += String(jbdBms.getCellMaxMilliVolts());
+        appendToBuffer(
+            data,
+            size,
+            used,
+            ",%u,%u",
+            jbdBms.getCellMinMilliVolts(),
+            jbdBms.getCellMaxMilliVolts()
+        );
     } else {
-        data += ",,";
+        appendToBuffer(data, size, used, ",,");
     }
 }
