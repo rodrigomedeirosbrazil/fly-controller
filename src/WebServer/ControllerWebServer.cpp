@@ -17,6 +17,10 @@
 #include "Pages/TelemetryPage.h"
 #include "Pages/LegacyIndexPage.h"
 #include "../Version.h"
+#include "../Logger/Logger.h"
+#include <vector>
+
+extern Logger logger;
 
 const char* SOFT_AP_SSID = "FlyController";
 
@@ -495,6 +499,32 @@ void ControllerWebServer::startAP() {
         } else {
             request->send(400, "text/plain", "Missing file param");
         }
+    });
+
+    server.on("/delete-all-logs", HTTP_GET, [](AsyncWebServerRequest *request){
+        File root = LittleFS.open("/");
+        if (!root) {
+            request->send(500, "text/plain", "Filesystem error");
+            return;
+        }
+        std::vector<String> toDelete;
+        File file = root.openNextFile();
+        while (file) {
+            String fileName = String(file.name());
+            if (!fileName.startsWith("/")) {
+                fileName = "/" + fileName;
+            }
+            if (fileName.endsWith(".txt")) {
+                toDelete.push_back(fileName);
+            }
+            file = root.openNextFile();
+        }
+        root.close();
+        for (const String& name : toDelete) {
+            LittleFS.remove(name);
+        }
+        logger.afterLogFilesClearedFromStorage();
+        request->send(200, "text/plain", "OK");
     });
 
     // Handle firmware update POST request

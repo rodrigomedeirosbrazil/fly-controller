@@ -13,6 +13,8 @@ public:
     void log(const char* data);
     void log(const String &data);
     void setHeader(const String &header);
+    /** Call after log .txt files were removed from LittleFS (e.g. web UI delete-all). */
+    void afterLogFilesClearedFromStorage();
     ~Logger();
 
 private:

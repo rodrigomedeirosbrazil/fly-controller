@@ -12,6 +12,9 @@ inline String renderLogsPage() {
             <tbody><tr><td colspan="3">Loading...</td></tr></tbody>
         </table>
     </div>
+    <div class="panel-footer" style="margin-top:1rem;">
+        <button type="button" id="deleteAllBtn" class="btn btn-red" disabled onclick="deleteAllLogs()">Delete all logs</button>
+    </div>
 </div>
 )rawliteral";
 
@@ -20,11 +23,14 @@ const loadFiles = () => {
     fetchJson('/list')
         .then((files) => {
             const tbody = document.querySelector('#fileTable tbody');
+            const deleteAllBtn = document.querySelector('#deleteAllBtn');
             tbody.innerHTML = '';
             if (files.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3">No logs found.</td></tr>';
+                if (deleteAllBtn) deleteAllBtn.disabled = true;
                 return;
             }
+            if (deleteAllBtn) deleteAllBtn.disabled = false;
             files.sort((a, b) => b.name.localeCompare(a.name));
             files.forEach((f) => {
                 const tr = document.createElement('tr');
@@ -40,12 +46,21 @@ const loadFiles = () => {
         })
         .catch(() => {
             document.querySelector('#fileTable tbody').innerHTML = '<tr><td colspan="3">Error loading files.</td></tr>';
+            const deleteAllBtn = document.querySelector('#deleteAllBtn');
+            if (deleteAllBtn) deleteAllBtn.disabled = true;
         });
 };
 
 const deleteFile = (filename) => {
     if (!confirm(`Delete ${filename}?`)) return;
     fetch('/delete?file=' + filename).then((r) => r.ok ? loadFiles() : alert('Delete failed'));
+};
+
+const deleteAllLogs = () => {
+    const deleteAllBtn = document.querySelector('#deleteAllBtn');
+    if (deleteAllBtn && deleteAllBtn.disabled) return;
+    if (!confirm('This will permanently delete all log files on the device. Continue?')) return;
+    fetch('/delete-all-logs').then((r) => (r.ok ? loadFiles() : alert('Delete all failed')));
 };
 
 loadFiles();

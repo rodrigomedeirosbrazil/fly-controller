@@ -137,6 +137,14 @@ void Logger::setHeader(const String &header) {
     csvHeader = header;
 }
 
+void Logger::afterLogFilesClearedFromStorage() {
+    closeLogFile();
+    createNewFile();
+    if (loggingEnabled) {
+        openLogFile();
+    }
+}
+
 void Logger::log(const char* data) {
     bool isArmed = throttle.isArmed();
 
