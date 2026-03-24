@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_system.h>
 
 #include <ESP32Servo.h>
 #if USES_CAN_BUS
@@ -34,6 +35,8 @@ Logger logger;
 void setup()
 {
   Serial.begin(115200);
+  // After a crash/reboot (e.g. stack overflow), reason is visible on next boot. ESP_RST_PANIC=4, ESP_RST_INT_WDT=5, ESP_RST_TASK_WDT=6.
+  Serial.printf("[Main] esp_reset_reason=%d\n", static_cast<int>(esp_reset_reason()));
 
   // Initialize Settings first (loads from Preferences)
   extern Settings settings;

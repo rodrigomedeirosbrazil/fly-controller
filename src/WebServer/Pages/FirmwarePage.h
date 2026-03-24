@@ -43,6 +43,7 @@ $('fwForm').addEventListener('submit', function(e) {
         body,
         nullptr,
         script,
+        nullptr,
         "page narrow",
         nullptr
     };

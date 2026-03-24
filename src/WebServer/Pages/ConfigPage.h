@@ -1,128 +1,170 @@
 #pragma once
 
-#include "CommonLayout.h"
+#include <Arduino.h>
 
-inline String renderConfigPage() {
-    const char* body = R"rawliteral(
-<div class="panel">
-    <h1>FlyController Configuration</h1>
-
-    <form id="configForm">
-        <h2>Battery Settings</h2>
-
-        <div class="form-group">
-            <label for="batteryCapacity">Battery Capacity (Ah):</label>
-            <select id="batteryCapacity" name="batteryCapacity">
-                <option value="18">18 Ah</option>
-                <option value="34">34 Ah</option>
-                <option value="65">65 Ah</option>
-                <option value="custom">Custom (enter value)</option>
-            </select>
-            <input type="number" id="batteryCapacityCustom" name="batteryCapacityCustom" min="1" max="200" step="0.1" placeholder="Enter capacity in Ah" style="display: none; margin-top: 10px;">
-            <div class="info-text">Select from preset values or choose custom to enter your own capacity.</div>
+static const char CONFIG_PAGE_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FlyController - Configuration</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/config.css">
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <a class="nav-btn" href="/">Dashboard</a>
+            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/firmware">Firmware</a>
+            <a class="nav-btn" href="/logs-page">Logs</a>
+            <a class="nav-btn active" href="/config">Configuration</a>
         </div>
 
-        <div class="form-group">
-            <label for="minVoltagePerCell">Minimum Voltage per Cell (V):</label>
-            <input type="number" id="minVoltagePerCell" name="minVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
-            <div class="info-text">Minimum safe voltage per cell (typically 3.0V - 3.15V for LiPo).</div>
-            <div class="total-voltage" id="minVoltageTotal">Total: <span id="minVoltageTotalValue">0.00</span> V (14 cells)</div>
+        <div class="panel">
+            <h1>FlyController Configuration</h1>
+
+            <form id="configForm">
+                <h2>Battery Settings</h2>
+
+                <div class="form-group">
+                    <label for="batteryCapacity">Battery Capacity (Ah):</label>
+                    <select id="batteryCapacity" name="batteryCapacity">
+                        <option value="18">18 Ah</option>
+                        <option value="34">34 Ah</option>
+                        <option value="65">65 Ah</option>
+                        <option value="custom">Custom (enter value)</option>
+                    </select>
+                    <input type="number" id="batteryCapacityCustom" name="batteryCapacityCustom" min="1" max="200" step="0.1" placeholder="Enter capacity in Ah" style="display: none; margin-top: 10px;">
+                    <div class="info-text">Select from preset values or choose custom to enter your own capacity.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="minVoltagePerCell">Minimum Voltage per Cell (V):</label>
+                    <input type="number" id="minVoltagePerCell" name="minVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
+                    <div class="info-text">Minimum safe voltage per cell (typically 3.0V - 3.15V for LiPo).</div>
+                    <div class="total-voltage" id="minVoltageTotal">Total: <span id="minVoltageTotalValue">0.00</span> V (14 cells)</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="maxVoltagePerCell">Maximum Voltage per Cell (V):</label>
+                    <input type="number" id="maxVoltagePerCell" name="maxVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
+                    <div class="info-text">Maximum safe voltage per cell (typically 4.1V - 4.2V for LiPo).</div>
+                    <div class="total-voltage" id="maxVoltageTotal">Total: <span id="maxVoltageTotalValue">0.00</span> V (14 cells)</div>
+                </div>
+
+                <h2>Motor Temperature Settings</h2>
+
+                <div class="form-group">
+                    <label for="motorMaxTemp">Maximum Motor Temperature (C):</label>
+                    <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
+                    <div class="info-text">Motor will be completely disabled at this temperature.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="motorTempReductionStart">Motor Temperature Reduction Start (C):</label>
+                    <input type="number" id="motorTempReductionStart" name="motorTempReductionStart" min="0" max="150" step="1" required>
+                    <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+                </div>
+
+                <h2>ESC Temperature Settings</h2>
+
+                <div class="form-group">
+                    <label for="escMaxTemp">Maximum ESC Temperature (C):</label>
+                    <input type="number" id="escMaxTemp" name="escMaxTemp" min="0" max="150" step="1" required>
+                    <div class="info-text">ESC will be completely disabled at this temperature.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="escTempReductionStart">ESC Temperature Reduction Start (C):</label>
+                    <input type="number" id="escTempReductionStart" name="escTempReductionStart" min="0" max="150" step="1" required>
+                    <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+                </div>
+
+                <h2>Power Control Settings</h2>
+
+                <div class="form-group">
+                    <label for="powerControlEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="powerControlEnabled" name="powerControlEnabled" style="width: auto;">
+                        <span>Enable Power Control</span>
+                    </label>
+                    <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
+                </div>
+
+                <h2>Throttle Response</h2>
+
+                <div class="form-group">
+                    <label for="throttleCurveGamma">Throttle curve (gamma):</label>
+                    <input type="number" id="throttleCurveGamma" name="throttleCurveGamma" min="1" max="3" step="0.1" required>
+                    <div class="info-text">Power-law curve: 1.0 = linear (curve disabled); higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0. Recommended for a noticeable effect: 1.5 to 2.0.</div>
+                </div>
+
+                <h2>Bluetooth BMS</h2>
+
+                <div class="form-group">
+                    <label for="bmsType">BMS type:</label>
+                    <select id="bmsType" name="bmsType">
+                        <option value="0">Disabled</option>
+                        <option value="1">JBD</option>
+                        <option value="2">Daly (D2 BLE)</option>
+                    </select>
+                    <div class="info-text">Select the Bluetooth BMS backend. Daly support in this firmware targets the D2 BLE family over service FFF0.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bmsMac">BMS Bluetooth address (MAC):</label>
+                    <input type="text" id="bmsMac" name="bmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
+                    <div class="info-text">Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons), or use the scanner below.</div>
+                </div>
+
+                <div class="form-group">
+                    <button type="button" id="scanBmsButton">Scan for BMS</button>
+                    <div class="info-text" id="bmsScanStatus">Press "Scan for BMS" to search nearby JBD and Daly devices.</div>
+                    <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
+                </div>
+
+                <h2>Wi-Fi Settings</h2>
+
+                <div class="form-group">
+                    <label for="wifiAutoDisableAfterCalibration" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="wifiAutoDisableAfterCalibration" name="wifiAutoDisableAfterCalibration" style="width: auto;">
+                        <span>Disable Wi-Fi after throttle calibration</span>
+                    </label>
+                    <div class="info-text">When enabled, access point and web server are stopped automatically after throttle calibration completes.</div>
+                </div>
+
+                <button type="submit" id="saveButton">Save Configuration</button>
+                <div class="message" id="message"></div>
+            </form>
         </div>
+    </div>
 
-        <div class="form-group">
-            <label for="maxVoltagePerCell">Maximum Voltage per Cell (V):</label>
-            <input type="number" id="maxVoltagePerCell" name="maxVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
-            <div class="info-text">Maximum safe voltage per cell (typically 4.1V - 4.2V for LiPo).</div>
-            <div class="total-voltage" id="maxVoltageTotal">Total: <span id="maxVoltageTotalValue">0.00</span> V (14 cells)</div>
-        </div>
-
-        <h2>Motor Temperature Settings</h2>
-
-        <div class="form-group">
-            <label for="motorMaxTemp">Maximum Motor Temperature (C):</label>
-            <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
-            <div class="info-text">Motor will be completely disabled at this temperature.</div>
-        </div>
-
-        <div class="form-group">
-            <label for="motorTempReductionStart">Motor Temperature Reduction Start (C):</label>
-            <input type="number" id="motorTempReductionStart" name="motorTempReductionStart" min="0" max="150" step="1" required>
-            <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
-        </div>
-
-        <h2>ESC Temperature Settings</h2>
-
-        <div class="form-group">
-            <label for="escMaxTemp">Maximum ESC Temperature (C):</label>
-            <input type="number" id="escMaxTemp" name="escMaxTemp" min="0" max="150" step="1" required>
-            <div class="info-text">ESC will be completely disabled at this temperature.</div>
-        </div>
-
-        <div class="form-group">
-            <label for="escTempReductionStart">ESC Temperature Reduction Start (C):</label>
-            <input type="number" id="escTempReductionStart" name="escTempReductionStart" min="0" max="150" step="1" required>
-            <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
-        </div>
-
-        <h2>Power Control Settings</h2>
-
-        <div class="form-group">
-            <label for="powerControlEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                <input type="checkbox" id="powerControlEnabled" name="powerControlEnabled" style="width: auto;">
-                <span>Enable Power Control</span>
-            </label>
-            <div class="info-text">When enabled, power output is limited based on battery voltage, motor temperature, and ESC temperature. When disabled, full power is available without limitations.</div>
-        </div>
-
-        <h2>Throttle Response</h2>
-
-        <div class="form-group">
-            <label for="throttleCurveGamma">Throttle curve (gamma):</label>
-            <input type="number" id="throttleCurveGamma" name="throttleCurveGamma" min="1" max="3" step="0.1" required>
-            <div class="info-text">Power-law curve: 1.0 = linear (curve disabled); higher values = less sensitive at low throttle, more responsive at high throttle. Range: 1.0 to 3.0. Recommended for a noticeable effect: 1.5 to 2.0.</div>
-        </div>
-
-        <h2>Bluetooth BMS</h2>
-
-        <div class="form-group">
-            <label for="bmsType">BMS type:</label>
-            <select id="bmsType" name="bmsType">
-                <option value="0">Disabled</option>
-                <option value="1">JBD</option>
-                <option value="2">Daly (D2 BLE)</option>
-            </select>
-            <div class="info-text">Select the Bluetooth BMS backend. Daly support in this firmware targets the D2 BLE family over service FFF0.</div>
-        </div>
-
-        <div class="form-group">
-            <label for="bmsMac">BMS Bluetooth address (MAC):</label>
-            <input type="text" id="bmsMac" name="bmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
-            <div class="info-text">Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons), or use the scanner below.</div>
-        </div>
-
-        <div class="form-group">
-            <button type="button" id="scanBmsButton">Scan for BMS</button>
-            <div class="info-text" id="bmsScanStatus">Press "Scan for BMS" to search nearby JBD and Daly devices.</div>
-            <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
-        </div>
-
-        <h2>Wi-Fi Settings</h2>
-
-        <div class="form-group">
-            <label for="wifiAutoDisableAfterCalibration" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                <input type="checkbox" id="wifiAutoDisableAfterCalibration" name="wifiAutoDisableAfterCalibration" style="width: auto;">
-                <span>Disable Wi-Fi after throttle calibration</span>
-            </label>
-            <div class="info-text">When enabled, access point and web server are stopped automatically after throttle calibration completes.</div>
-        </div>
-
-        <button type="submit" id="saveButton">Save Configuration</button>
-        <div class="message" id="message"></div>
-    </form>
-</div>
+    <script defer src="/config.js"></script>
+</body>
+</html>
 )rawliteral";
 
-    const char* script = R"rawliteral(
+static const char CONFIG_PAGE_JS[] PROGMEM = R"rawliteral(
+const $ = (id) => document.getElementById(id);
+
+const setText = (id, value) => {
+    const el = $(id);
+    if (!el) return;
+    if (el.textContent !== value) {
+        el.textContent = value;
+    }
+};
+
+const fetchJson = (url) => fetch(url).then((r) => r.json());
+
+const showMessage = (id, text, kind) => {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = `message ${kind}`;
+    el.style.display = 'block';
+};
+
 const CELL_COUNT = 14;
 const BMS_TYPE_LABELS = {
     1: 'JBD',
@@ -143,7 +185,7 @@ const updateVoltageTotals = () => {
 
 const escapeHtml = (value) => String(value || '')
     .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
+    .replace(/[\u003C]/g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
@@ -422,16 +464,3 @@ $('configForm').addEventListener('submit', function(e) {
 loadCurrentValues();
 loadBmsScanStatus();
 )rawliteral";
-
-    PageSpec spec = {
-        "FlyController - Configuration",
-        "/config",
-        body,
-        nullptr,
-        script,
-        nullptr,
-        nullptr
-    };
-
-    return renderPage(spec);
-}

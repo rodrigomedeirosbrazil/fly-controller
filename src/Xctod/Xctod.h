@@ -24,18 +24,19 @@ public:
 private:
     unsigned long lastUpdate;
     static const unsigned long UPDATE_INTERVAL = 1000;
+    static const size_t TELEMETRY_BUFFER_SIZE = 256;
     bool advertisingEnabled;
 
     BLEServer *pServer;
     BLEService *pService;
     BLECharacteristic *pCharacteristic;
 
-    void writeBatteryInfo(String &data);
-    void writeThrottleInfo(String &data);
-    void writeMotorInfo(String &data);
-    void writeEscInfo(String &data);
-    void writeSystemStatus(String &data);
-    void writeBmsInfo(String &data);
+    void writeBatteryInfo(char* data, size_t size, size_t& used);
+    void writeThrottleInfo(char* data, size_t size, size_t& used);
+    void writeMotorInfo(char* data, size_t size, size_t& used);
+    void writeEscInfo(char* data, size_t size, size_t& used);
+    void writeSystemStatus(char* data, size_t size, size_t& used);
+    void writeBmsInfo(char* data, size_t size, size_t& used);
 };
 
 #endif // XCTOD_H
