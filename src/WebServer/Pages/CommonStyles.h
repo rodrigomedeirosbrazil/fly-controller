@@ -97,6 +97,21 @@ body {
     font-size: 13px;
 }
 
+/* Telemetry page: larger cards on desktop only (avoid overriding mobile telemetry rules) */
+@media (min-width: 769px) and (min-height: 501px) {
+    .page-telemetry .telemetry-grid .label {
+        font-size: 13px;
+    }
+
+    .page-telemetry .telemetry-grid .value {
+        font-size: 24px;
+    }
+
+    .page-telemetry .telemetry-grid .sub {
+        font-size: 15px;
+    }
+}
+
 h1 {
     margin: 0 0 8px 0;
     font-size: 24px;
@@ -321,18 +336,18 @@ th {
     }
 
     .telemetry-grid .label {
-        font-size: 10px;
+        font-size: 12px;
     }
 
     .telemetry-grid .value {
-        font-size: clamp(14px, 3.5vmin, 18px);
+        font-size: clamp(18px, 4.5vmin, 24px);
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
     .telemetry-grid .sub {
-        font-size: clamp(10px, 2.8vmin, 12px);
+        font-size: clamp(12px, 3.2vmin, 15px);
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
