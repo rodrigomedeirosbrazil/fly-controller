@@ -3,8 +3,9 @@
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 
 // JBD BMS uses fixed BLE address (no scan). MAC is configured via Settings/web interface.
 
@@ -76,6 +77,10 @@ private:
     BLERemoteCharacteristic* pCharTx_;  // FF02 - ESP->BMS (write)
     QueueHandle_t txQueue_;    // queue of frames for BLE TX (consumed by tx task)
     TaskHandle_t  txTaskHandle_;
+    QueueHandle_t connectQueue_;   // depth 1: main loop requests connect (worker runs BLEClient::connect)
+    TaskHandle_t  connectTaskHandle_;
+    SemaphoreHandle_t stateMutex_;
+    uint32_t      connectSessionId_; // incremented on resetConnection() to drop stale connect results
     State        state_;
     bool         enabled_;
     bool         connected_;
@@ -84,7 +89,7 @@ private:
     unsigned long lastConnectAttempt_;
     unsigned long lastRequestMillis_;
 
-    static const unsigned long CONNECT_RETRY_MS   = 5000;
+    static const unsigned long CONNECT_RETRY_MS   = 10000;
     static const unsigned long REQUEST_INTERVAL_MS = 2000;
 
     uint8_t rxBuffer_[JBD_RX_BUFFER_SIZE];
@@ -124,7 +129,9 @@ private:
     void printBasicInfo();
     void printCellVoltages();
     void resetConnection();
+    void applyResetConnectionLocked(); // caller must hold stateMutex_
     static void txTask(void* arg);
+    static void connectTask(void* arg);
 
 public:
     // Called by global notify callback — do not call directly

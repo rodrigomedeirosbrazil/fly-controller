@@ -1,10 +1,12 @@
 #include "JbdBms.h"
 #include "../config.h"
 #include "../Throttle/Throttle.h"
+#include <cstring>
 #include <BLEDevice.h>
 #include <BLEClient.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <esp_gap_ble_api.h>
 
 struct BleFrame {
     uint8_t data[16];
@@ -28,6 +30,8 @@ void onNotifyCallback(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t len
 JbdBms::JbdBms()
     : pClient_(nullptr), pCharRx_(nullptr), pCharTx_(nullptr),
       txQueue_(nullptr), txTaskHandle_(nullptr),
+      connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
+      connectSessionId_(0),
       state_(Idle), enabled_(false), connected_(false), hasData_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), rxLen_(0),
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
@@ -46,6 +50,12 @@ JbdBms::JbdBms()
 // ---------------------------------------------------------------------------
 void JbdBms::init() {
     s_jbdBms = this;
+    stateMutex_ = xSemaphoreCreateMutex();
+    connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
+    if (stateMutex_ == nullptr || connectQueue_ == nullptr) {
+        DEBUG_PRINTLN("[JBD] ERROR: mutex or connect queue create failed");
+        return;
+    }
     // BLEDevice::init() must have been called by the main system
     pClient_ = BLEDevice::createClient();
     if (!pClient_) {
@@ -54,6 +64,9 @@ void JbdBms::init() {
     }
     txQueue_ = xQueueCreate(4, sizeof(BleFrame));
     xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
+    if (xTaskCreate(connectTask, "jbd_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
+        DEBUG_PRINTLN("[JBD] ERROR: connect task create failed");
+    }
     state_ = Idle;
     DEBUG_PRINTLN("[JBD] Init OK");
 }
@@ -71,9 +84,22 @@ void JbdBms::setMacAddress(const String& macAddress) {
 }
 
 // ---------------------------------------------------------------------------
-// resetConnection — clears BLE state for new attempt
+// resetConnection — clears BLE state for new attempt (invalidates in-flight connect)
 // ---------------------------------------------------------------------------
 void JbdBms::resetConnection() {
+    if (stateMutex_ == nullptr) {
+        return;
+    }
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
+    connectSessionId_++;
+    applyResetConnectionLocked();
+    xSemaphoreGive(stateMutex_);
+}
+
+// ---------------------------------------------------------------------------
+// applyResetConnectionLocked — caller must hold stateMutex_
+// ---------------------------------------------------------------------------
+void JbdBms::applyResetConnectionLocked() {
     if (pClient_ && pClient_->isConnected()) {
         pClient_->disconnect();
     }
@@ -85,6 +111,78 @@ void JbdBms::resetConnection() {
     pCharTx_   = nullptr;
     rxLen_     = 0;
     state_     = Idle;
+}
+
+// ---------------------------------------------------------------------------
+// connectTask — runs BLEClient::connect off the main loop (connect blocks for a long time when BMS is absent)
+// ---------------------------------------------------------------------------
+void JbdBms::connectTask(void* arg) {
+    JbdBms* self = static_cast<JbdBms*>(arg);
+    uint8_t cmd = 0;
+    for (;;) {
+        if (xQueueReceive(self->connectQueue_, &cmd, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+
+        char mac[18];
+        mac[0] = '\0';
+        uint32_t session = 0;
+        bool okToConnect = false;
+
+        xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+        session = self->connectSessionId_;
+        if (self->macAddress_.length() >= 17) {
+            strncpy(mac, self->macAddress_.c_str(), 18);
+            mac[17] = '\0';
+        }
+        okToConnect = self->enabled_ && !throttle.isArmed() && strlen(mac) == 17;
+        xSemaphoreGive(self->stateMutex_);
+
+        if (!okToConnect) {
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+
+        BLEAddress addr(mac);
+        bool connectedOk = self->pClient_ != nullptr
+            && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);
+
+        xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+        if (session != self->connectSessionId_) {
+            if (self->pClient_ != nullptr && self->pClient_->isConnected()) {
+                self->pClient_->disconnect();
+            }
+            self->applyResetConnectionLocked();
+            self->lastConnectAttempt_ = millis();
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+        if (!self->enabled_ || throttle.isArmed()) {
+            if (self->pClient_ != nullptr && self->pClient_->isConnected()) {
+                self->pClient_->disconnect();
+            }
+            self->applyResetConnectionLocked();
+            self->lastConnectAttempt_ = millis();
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+        if (connectedOk) {
+            self->connected_ = true;
+            self->rxLen_     = 0;
+            self->state_     = Connected;
+            DEBUG_PRINTLN("[JBD] Connected");
+        } else {
+            DEBUG_PRINTLN("[JBD] Connection failed, retrying...");
+            self->applyResetConnectionLocked();
+            self->lastConnectAttempt_ = millis();
+        }
+        xSemaphoreGive(self->stateMutex_);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -116,30 +214,33 @@ void JbdBms::update() {
             if (throttle.isArmed()) {
                 break;  // Do not attempt connection while motor is armed
             }
-            if (millis() - lastConnectAttempt_ >= CONNECT_RETRY_MS) {
-                lastConnectAttempt_ = millis();
-                DEBUG_PRINTLN("[JBD] Connecting...");
-                state_ = Connecting;
+            {
+                const unsigned long now = millis();
+                if (lastConnectAttempt_ != 0 && (now - lastConnectAttempt_) < CONNECT_RETRY_MS) {
+                    break;
+                }
             }
+            if (connectQueue_ == nullptr) {
+                break;
+            }
+            {
+                uint8_t q = 1;
+                if (xQueueSend(connectQueue_, &q, 0) != pdTRUE) {
+                    break;
+                }
+            }
+            DEBUG_PRINTLN("[JBD] Connecting...");
+            state_ = Connecting;
             break;
         }
 
         // ------------------------------------------------------------------
         case Connecting: {
-            if (macAddress_.length() < 17) {
+            if (!enabled_ || macAddress_.length() < 17 || throttle.isArmed()) {
                 resetConnection();
                 break;
             }
-            BLEAddress addr(macAddress_.c_str());
-            if (pClient_->connect(addr)) {
-                connected_ = true;
-                rxLen_     = 0;
-                DEBUG_PRINTLN("[JBD] Connected");
-                state_ = Connected;
-            } else {
-                DEBUG_PRINTLN("[JBD] Connection failed, retrying...");
-                resetConnection();
-            }
+            // BLE connect runs in connectTask; main loop stays responsive
             break;
         }
 

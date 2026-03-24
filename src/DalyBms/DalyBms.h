@@ -3,6 +3,10 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 
 class BLEClient;
 class BLERemoteCharacteristic;
@@ -50,12 +54,16 @@ private:
     static const uint8_t MAX_CELLS = 32;
     static const uint8_t MAX_TEMPS = 8;
     static const size_t RX_BUFFER_SIZE = 192;
-    static const unsigned long CONNECT_RETRY_MS = 5000;
+    static const unsigned long CONNECT_RETRY_MS = 10000;
     static const unsigned long REQUEST_INTERVAL_MS = 2000;
 
     BLEClient* pClient_;
     BLERemoteCharacteristic* pCharRx_;
     BLERemoteCharacteristic* pCharTx_;
+    QueueHandle_t connectQueue_;
+    TaskHandle_t connectTaskHandle_;
+    SemaphoreHandle_t stateMutex_;
+    uint32_t connectSessionId_;
     State state_;
     bool enabled_;
     bool connected_;
@@ -82,6 +90,8 @@ private:
     bool dischargeEnabled_;
 
     void resetConnection();
+    void applyResetConnectionLocked(); // caller must hold stateMutex_
+    static void connectTask(void* arg);
     void sendStatusRequest();
     void processRxBuffer();
     void parseStatusFrame(const uint8_t* frame, size_t frameLen);
