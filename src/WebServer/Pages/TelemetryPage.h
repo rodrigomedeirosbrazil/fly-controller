@@ -121,6 +121,7 @@ setInterval(loadTelemetry, 1000);
         body,
         nullptr,
         script,
+        nullptr,
         "page page-telemetry",
         "telemetry-page"
     };

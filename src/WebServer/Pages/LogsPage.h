@@ -58,6 +58,7 @@ loadFiles();
         nullptr,
         script,
         nullptr,
+        nullptr,
         nullptr
     };
 

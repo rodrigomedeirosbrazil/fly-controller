@@ -122,7 +122,22 @@ inline String renderConfigPage() {
 </div>
 )rawliteral";
 
-    const char* script = R"rawliteral(
+    PageSpec spec = {
+        "FlyController - Configuration",
+        "/config",
+        body,
+        nullptr,
+        nullptr,
+        "/config.js",
+        nullptr,
+        nullptr
+    };
+
+    return renderPage(spec);
+}
+
+inline const char* getConfigPageScript() {
+    return R"rawliteral(
 const CELL_COUNT = 14;
 const BMS_TYPE_LABELS = {
     1: 'JBD',
@@ -143,7 +158,7 @@ const updateVoltageTotals = () => {
 
 const escapeHtml = (value) => String(value || '')
     .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
+    .replace(/[\u003C]/g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
@@ -422,16 +437,4 @@ $('configForm').addEventListener('submit', function(e) {
 loadCurrentValues();
 loadBmsScanStatus();
 )rawliteral";
-
-    PageSpec spec = {
-        "FlyController - Configuration",
-        "/config",
-        body,
-        nullptr,
-        script,
-        nullptr,
-        nullptr
-    };
-
-    return renderPage(spec);
 }

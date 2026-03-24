@@ -1,6 +1,50 @@
 #include "Settings.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include <cmath>
+#include <cstring>
+
+namespace {
+
+// Max chars for BMS MAC NVS reads (17 + ':' + NUL + small margin). Using Preferences::getString(key, buf, maxLen)
+// avoids the Arduino overload that allocates char buf[len] on the stack — corrupted NVS length can overflow the stack and reboot.
+constexpr size_t kMaxBmsMacNvsReadChars = 32;
+
+String readBoundedPrefString(Preferences& prefs, const char* key) {
+    char buf[kMaxBmsMacNvsReadChars + 1];
+    std::memset(buf, 0, sizeof(buf));
+    const size_t n = prefs.getString(key, buf, sizeof(buf));
+    if (n == 0) {
+        return String();
+    }
+    buf[sizeof(buf) - 1] = '\0';
+    return String(buf);
+}
+
+bool isValidBmsMacFormat(const String& s) {
+    if (s.length() == 0) {
+        return true;
+    }
+    if (s.length() != 17) {
+        return false;
+    }
+    for (int i = 0; i < 17; i++) {
+        if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
+            if (s.charAt(i) != ':') {
+                return false;
+            }
+        } else {
+            const char c = s.charAt(i);
+            const bool hex = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+            if (!hex) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+} // namespace
 
 Settings::Settings() {
     batteryCapacityMah = 0;
@@ -46,9 +90,9 @@ void Settings::load() {
     // Load generic Bluetooth BMS settings, falling back to legacy JBD keys.
     if (preferences.isKey("bmsType") || preferences.isKey("bmsMac")) {
         bmsType = preferences.getUChar("bmsType", getDefaultBmsType());
-        bmsMac = preferences.getString("bmsMac", "");
+        bmsMac = readBoundedPrefString(preferences, "bmsMac");
     } else {
-        const String legacyMac = preferences.getString("jbdBmsMac", "");
+        const String legacyMac = readBoundedPrefString(preferences, "jbdBmsMac");
         const bool legacyEnabled = preferences.getBool("jbdBmsEn", false);
         if (legacyEnabled && legacyMac.length() >= 17) {
             bmsType = BmsTypeJbd;
@@ -61,6 +105,41 @@ void Settings::load() {
 
     // Load throttle curve gamma (1.0 = linear; higher = less sensitive at low throttle)
     throttleCurveGamma = preferences.getFloat("thrCurveG", getDefaultThrottleCurveGamma());
+
+    bool repaired = false;
+
+    bmsMac.trim();
+    if (!isValidBmsMacFormat(bmsMac)) {
+        if (bmsMac.length() > 0) {
+            Serial.println("[Settings] Invalid or oversized BMS MAC in NVS, clearing");
+            repaired = true;
+        }
+        bmsMac = "";
+    }
+
+    if (bmsType > BmsTypeDaly) {
+        Serial.println("[Settings] Invalid BMS type in NVS, resetting to None");
+        bmsType = BmsTypeNone;
+        repaired = true;
+    }
+
+    if (bmsType != BmsTypeNone && bmsMac.length() != 17) {
+        Serial.println("[Settings] BMS type requires a valid MAC; disabling BMS in NVS");
+        bmsType = BmsTypeNone;
+        repaired = true;
+    }
+
+    if (std::isnan(throttleCurveGamma)
+        || throttleCurveGamma < THROTTLE_CURVE_GAMMA_MIN
+        || throttleCurveGamma > THROTTLE_CURVE_GAMMA_MAX) {
+        Serial.println("[Settings] Invalid throttle curve gamma in NVS, using default");
+        throttleCurveGamma = getDefaultThrottleCurveGamma();
+        repaired = true;
+    }
+
+    if (repaired) {
+        save();
+    }
 }
 
 void Settings::save() {

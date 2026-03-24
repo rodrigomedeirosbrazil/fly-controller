@@ -10,6 +10,8 @@ struct PageSpec {
     const char* body;
     const char* extraHead;
     const char* extraScript;
+    /** If set, skips inline COMMON_JS + extraScript and emits only <script src="..." defer></script> (saves heap on large pages). */
+    const char* externalScriptUrl;
     const char* pageClass;
     const char* bodyClass;
 };
@@ -36,7 +38,10 @@ inline String renderTopbar(const char* activeRoute) {
 
 inline String renderPage(const PageSpec& spec) {
     String pageClass = spec.pageClass ? spec.pageClass : "page";
-    String page = "<!DOCTYPE html><html><head>";
+    // Do not reserve tens of KB here: Arduino String keeps that capacity even if the final HTML is ~13KB,
+    // which steals RAM from AsyncResponseStream and causes chunked /config writes to fail when heap is low.
+    String page;
+    page += "<!DOCTYPE html><html><head>";
     page += "<title>";
     page += spec.title ? spec.title : "FlyController";
     page += "</title>";
@@ -59,12 +64,18 @@ inline String renderPage(const PageSpec& spec) {
     page += renderTopbar(spec.activeRoute);
     page += spec.body ? spec.body : "";
     page += "</div>";
-    page += "<script>";
-    page += COMMON_JS;
-    if (spec.extraScript) {
-        page += spec.extraScript;
+    if (spec.externalScriptUrl) {
+        page += "<script src=\"";
+        page += spec.externalScriptUrl;
+        page += "\" defer></script>";
+    } else {
+        page += "<script>";
+        page += COMMON_JS;
+        if (spec.extraScript) {
+            page += spec.extraScript;
+        }
+        page += "</script>";
     }
-    page += "</script>";
     page += "</body></html>";
     return page;
 }

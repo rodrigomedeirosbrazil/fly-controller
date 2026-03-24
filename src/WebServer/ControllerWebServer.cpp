@@ -110,7 +110,8 @@ void ControllerWebServer::startAP() {
 
         Serial.println("[WebServer] /config/values requested");
 
-        DynamicJsonDocument doc(512);
+        // Room for numeric fields plus bmsMac (up to 17 chars) and JSON overhead; avoids ArduinoJson overflow if NVS was ever odd.
+        DynamicJsonDocument doc(1024);
         doc["batteryCapacity"] = settings.getBatteryCapacityMah();
         doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
         doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
@@ -408,9 +409,48 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/json", response);
     });
 
+    // Config JS is served separately so /config HTML fits in heap (no second 26KB buffer for AsyncResponseStream).
+    server.on("/config.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        AsyncResponseStream* stream = request->beginResponseStream("application/javascript; charset=utf-8", 2048);
+        if (stream == nullptr) {
+            request->send(500, "text/plain", "Out of memory");
+            return;
+        }
+        stream->print(COMMON_JS);
+        stream->print(getConfigPageScript());
+        request->send(stream);
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderConfigPage());
+        String page = renderConfigPage();
+        const size_t len = page.length();
+        Serial.printf("[WebServer] GET /config html=%u heap=%u\n", (unsigned)len, (unsigned)ESP.getFreeHeap());
+        if (len == 0) {
+            request->send(500, "text/plain", "Config page build failed");
+            return;
+        }
+        // Do not use send(String): AsyncBasicResponse duplicates the body; with ~13KB HTML + copy heap can fail
+        // silently (blank response). Stream with small initial buffer + chunked writes avoids one huge cbuf alloc.
+        AsyncResponseStream* stream = request->beginResponseStream("text/html; charset=utf-8", 2048);
+        if (stream == nullptr) {
+            request->send(500, "text/plain", "Stream alloc failed");
+            return;
+        }
+        constexpr size_t kChunk = 512;
+        const uint8_t* data = reinterpret_cast<const uint8_t*>(page.c_str());
+        size_t off = 0;
+        while (off < len) {
+            const size_t n = (len - off) > kChunk ? kChunk : (len - off);
+            const size_t w = stream->write(data + off, n);
+            if (w != n) {
+                Serial.printf("[WebServer] GET /config write failed off=%u n=%u w=%u\n", (unsigned)off, (unsigned)n, (unsigned)w);
+                request->send(500, "text/plain", "Response write failed");
+                return;
+            }
+            off += w;
+        }
+        request->send(stream);
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
