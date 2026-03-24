@@ -43,6 +43,7 @@ void Logger::createNewFile() {
     root.rewindDirectory();
 
     int maxFileNum = 0;
+    int minEmptyFileNum = -1;
 
     File file = root.openNextFile();
     while (file) {
@@ -68,6 +69,11 @@ void Logger::createNewFile() {
                 if (num > maxFileNum) {
                     maxFileNum = num;
                 }
+                if (file.size() == 0) {
+                    if (minEmptyFileNum < 0 || num < minEmptyFileNum) {
+                        minEmptyFileNum = num;
+                    }
+                }
             }
         }
         file.close();
@@ -76,8 +82,17 @@ void Logger::createNewFile() {
 
     root.close();
 
-    int nextFileNum = maxFileNum + 1;
     char fileNameBuf[16];
+
+    if (minEmptyFileNum >= 0) {
+        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.txt", minEmptyFileNum);
+        currentFileName = String(fileNameBuf);
+        Serial.print("Reusing empty log file: ");
+        Serial.println(currentFileName);
+        return;
+    }
+
+    int nextFileNum = maxFileNum + 1;
     snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.txt", nextFileNum);
     currentFileName = String(fileNameBuf);
 
@@ -90,7 +105,7 @@ void Logger::createNewFile() {
     } else {
         Serial.print("Failed to create log file: ");
         Serial.println(currentFileName);
-        currentFileName = ""; // Limpar nome se falhou
+        currentFileName = "";
     }
 }
 
@@ -128,8 +143,7 @@ void Logger::stopLogging() {
     if (loggingEnabled) {
         closeLogFile();
         loggingEnabled = false;
-        // Prepare new file for next session
-        createNewFile();
+        currentFileName = "";
     }
 }
 
