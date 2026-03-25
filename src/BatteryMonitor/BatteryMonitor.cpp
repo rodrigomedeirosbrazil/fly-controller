@@ -1,6 +1,5 @@
 #include "BatteryMonitor.h"
 #include "../config.h"
-#include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
 
 extern Settings settings;
@@ -185,11 +184,11 @@ void BatteryMonitor::recalibrateFromVoltage() {
     uint8_t scaledSoc = estimateSoCFromConfiguredVoltageRange(batteryMilliVolts);
     uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
 
-    if (getBoardConfig().hasCurrentSensor) {
-        // Hobbywing/Tmotor: smooth recalibration 90% Coulomb + 10% voltage-based
+    if (isCurrentAvailable()) {
+        // Current available: smooth recalibration 90% Coulomb + 10% voltage-based
         remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
     } else {
-        // XAG: voltage-only
+        // No current source available: voltage-only
         remainingMilliAh = voltageBasedRemaining;
     }
 
@@ -199,7 +198,7 @@ void BatteryMonitor::recalibrateFromVoltage() {
 }
 
 uint8_t BatteryMonitor::getSoC() {
-    if (getBoardConfig().hasCurrentSensor) {
+    if (isCurrentAvailable()) {
         if (usableCapacityMilliAh == 0) {
             return 0;
         }
@@ -221,7 +220,7 @@ uint8_t BatteryMonitor::getSoCFromVoltage() {
 }
 
 uint16_t BatteryMonitor::getRemainingMah() {
-    if (getBoardConfig().hasCurrentSensor) {
+    if (isCurrentAvailable()) {
         return (uint16_t)getUsableRemainingMah();
     }
     uint8_t soc = getSoC();
