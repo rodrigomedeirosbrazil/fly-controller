@@ -1,6 +1,5 @@
 #include "BatteryMonitor.h"
 #include "../config.h"
-#include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
 
 extern Settings settings;
@@ -86,7 +85,7 @@ void BatteryMonitor::updateCoulombCount() {
     lastCoulombTs = currentTs;
 }
 
-uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) {
+uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) const {
     // Calculate voltage per cell
     uint16_t cellMilliVolts = batteryMilliVolts / BATTERY_CELL_COUNT;
 
@@ -126,20 +125,70 @@ uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) {
     return (cellMilliVolts > 4200) ? 100 : 0;
 }
 
+void BatteryMonitor::getConfiguredSocWindow(uint8_t& socMin, uint8_t& socMax) const {
+    uint16_t minMv = settings.getBatteryMinVoltage();
+    uint16_t maxMv = settings.getBatteryMaxVoltage();
+    if (maxMv < minMv) {
+        uint16_t tmp = maxMv;
+        maxMv = minMv;
+        minMv = tmp;
+    }
+
+    socMin = estimateSoCFromVoltageLiPo(minMv);
+    socMax = estimateSoCFromVoltageLiPo(maxMv);
+    if (socMax < socMin) {
+        socMax = socMin;
+    }
+}
+
+uint8_t BatteryMonitor::estimateSoCFromConfiguredVoltageRange(uint16_t batteryMilliVolts) const {
+    uint8_t socMin = 0;
+    uint8_t socMax = 100;
+    getConfiguredSocWindow(socMin, socMax);
+
+    if (socMax <= socMin) {
+        return 0;
+    }
+
+    uint8_t absoluteSoc = estimateSoCFromVoltageLiPo(batteryMilliVolts);
+    if (absoluteSoc <= socMin) {
+        return 0;
+    }
+    if (absoluteSoc >= socMax) {
+        return 100;
+    }
+
+    uint32_t num = (uint32_t)(absoluteSoc - socMin) * 100U;
+    uint32_t den = (uint32_t)(socMax - socMin);
+    return (uint8_t)(num / den);
+}
+
+uint32_t BatteryMonitor::remainingMahFromScaledSoc(uint8_t scaledSoc) const {
+    if (scaledSoc > 100) {
+        scaledSoc = 100;
+    }
+    uint32_t usableFromSoc = ((uint32_t)scaledSoc * usableCapacityMilliAh) / 100U;
+    uint32_t remaining = reserveMilliAh + usableFromSoc;
+    if (remaining > batteryCapacityMilliAh) {
+        remaining = batteryCapacityMilliAh;
+    }
+    return remaining;
+}
+
 void BatteryMonitor::recalibrateFromVoltage() {
     if (!telemetry.hasData()) {
         return;
     }
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
-    uint8_t voltagePercentage = estimateSoCFromVoltageLiPo(batteryMilliVolts);
-    uint32_t voltageBasedRemaining = ((uint32_t)voltagePercentage * batteryCapacityMilliAh) / 100;
+    uint8_t scaledSoc = estimateSoCFromConfiguredVoltageRange(batteryMilliVolts);
+    uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
 
-    if (getBoardConfig().hasCurrentSensor) {
-        // Hobbywing/Tmotor: smooth recalibration 90% Coulomb + 10% voltage-based
+    if (isCurrentAvailable()) {
+        // Current available: smooth recalibration 90% Coulomb + 10% voltage-based
         remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
     } else {
-        // XAG: voltage-only
+        // No current source available: voltage-only
         remainingMilliAh = voltageBasedRemaining;
     }
 
@@ -149,7 +198,7 @@ void BatteryMonitor::recalibrateFromVoltage() {
 }
 
 uint8_t BatteryMonitor::getSoC() {
-    if (getBoardConfig().hasCurrentSensor) {
+    if (isCurrentAvailable()) {
         if (usableCapacityMilliAh == 0) {
             return 0;
         }
@@ -160,22 +209,22 @@ uint8_t BatteryMonitor::getSoC() {
     if (!telemetry.hasData()) {
         return 0;
     }
-    return estimateSoCFromVoltageLiPo(telemetry.getBatteryVoltageMilliVolts());
+    return estimateSoCFromConfiguredVoltageRange(telemetry.getBatteryVoltageMilliVolts());
 }
 
 uint8_t BatteryMonitor::getSoCFromVoltage() {
     if (!telemetry.hasData()) {
         return 0;
     }
-    return estimateSoCFromVoltageLiPo(telemetry.getBatteryVoltageMilliVolts());
+    return estimateSoCFromConfiguredVoltageRange(telemetry.getBatteryVoltageMilliVolts());
 }
 
 uint16_t BatteryMonitor::getRemainingMah() {
-    if (getBoardConfig().hasCurrentSensor) {
+    if (isCurrentAvailable()) {
         return (uint16_t)getUsableRemainingMah();
     }
     uint8_t soc = getSoC();
-    return (uint16_t)((batteryCapacityMilliAh * soc) / 100);
+    return (uint16_t)(((uint32_t)usableCapacityMilliAh * soc) / 100U);
 }
 
 uint16_t BatteryMonitor::getConsumedMah() {
@@ -211,19 +260,9 @@ void BatteryMonitor::updateUsableCapacity() {
         return;
     }
 
-    uint16_t minMv = settings.getBatteryMinVoltage();
-    uint16_t maxMv = settings.getBatteryMaxVoltage();
-    if (maxMv < minMv) {
-        uint16_t tmp = maxMv;
-        maxMv = minMv;
-        minMv = tmp;
-    }
-
-    uint8_t socMin = estimateSoCFromVoltageLiPo(minMv);
-    uint8_t socMax = estimateSoCFromVoltageLiPo(maxMv);
-    if (socMax < socMin) {
-        socMax = socMin;
-    }
+    uint8_t socMin = 0;
+    uint8_t socMax = 100;
+    getConfiguredSocWindow(socMin, socMax);
 
     uint32_t reserve = ((uint32_t)batteryCapacityMilliAh * socMin) / 100;
     uint32_t usable = ((uint32_t)batteryCapacityMilliAh * (socMax - socMin)) / 100;

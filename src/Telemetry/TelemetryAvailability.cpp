@@ -4,7 +4,7 @@
 #include "../config.h"
 
 bool isCurrentAvailable(void) {
-    return getBoardConfig().hasCurrentSensor && telemetry.hasData();
+    return (getBoardConfig().hasCurrentSensor && telemetry.hasData()) || bluetoothBms.hasData();
 }
 
 bool isRpmAvailable(void) {
