@@ -182,8 +182,8 @@ void BatteryMonitor::recalibrateFromVoltage() {
     }
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
-    uint8_t voltagePercentage = estimateSoCFromVoltageLiPo(batteryMilliVolts);
-    uint32_t voltageBasedRemaining = ((uint32_t)voltagePercentage * batteryCapacityMilliAh) / 100;
+    uint8_t scaledSoc = estimateSoCFromConfiguredVoltageRange(batteryMilliVolts);
+    uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
 
     if (getBoardConfig().hasCurrentSensor) {
         // Hobbywing/Tmotor: smooth recalibration 90% Coulomb + 10% voltage-based
@@ -210,14 +210,14 @@ uint8_t BatteryMonitor::getSoC() {
     if (!telemetry.hasData()) {
         return 0;
     }
-    return estimateSoCFromVoltageLiPo(telemetry.getBatteryVoltageMilliVolts());
+    return estimateSoCFromConfiguredVoltageRange(telemetry.getBatteryVoltageMilliVolts());
 }
 
 uint8_t BatteryMonitor::getSoCFromVoltage() {
     if (!telemetry.hasData()) {
         return 0;
     }
-    return estimateSoCFromVoltageLiPo(telemetry.getBatteryVoltageMilliVolts());
+    return estimateSoCFromConfiguredVoltageRange(telemetry.getBatteryVoltageMilliVolts());
 }
 
 uint16_t BatteryMonitor::getRemainingMah() {
@@ -225,7 +225,7 @@ uint16_t BatteryMonitor::getRemainingMah() {
         return (uint16_t)getUsableRemainingMah();
     }
     uint8_t soc = getSoC();
-    return (uint16_t)((batteryCapacityMilliAh * soc) / 100);
+    return (uint16_t)(((uint32_t)usableCapacityMilliAh * soc) / 100U);
 }
 
 uint16_t BatteryMonitor::getConsumedMah() {
