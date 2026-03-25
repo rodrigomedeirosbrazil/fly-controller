@@ -35,7 +35,7 @@ private:
     // Internal methods
     void updateCoulombCount();
     void recalibrateFromVoltage();
-    uint8_t estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts);
+    uint8_t estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) const;
     uint8_t estimateSoCFromConfiguredVoltageRange(uint16_t batteryMilliVolts) const;
     void getConfiguredSocWindow(uint8_t& socMin, uint8_t& socMax) const;
     uint32_t remainingMahFromScaledSoc(uint8_t scaledSoc) const;
