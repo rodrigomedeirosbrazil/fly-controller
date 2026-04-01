@@ -7,21 +7,28 @@ extern TmotorCan tmotorCan;
 extern Temperature motorTemp;
 extern BatteryVoltageSensor batterySensor;
 
+static int32_t motorTempMilliCelsiusForDisplay() {
+    if (tmotorCan.hasRecentMotorTempFromCan()) {
+        return (int32_t)tmotorCan.getMotorTemperature() * 1000;
+    }
+    return (int32_t)(motorTemp.getTemperature() * 1000.0);
+}
+
 void TmotorTelemetry::update() {
     cachedBatteryVoltageMilliVolts = batterySensor.getVoltageMilliVolts();
 
     if (tmotorCan.hasTelemetry()) {
         cachedBatteryCurrentMilliAmps = tmotorCan.getBatteryCurrent();
         cachedRpm = tmotorCan.getRpm();
-        cachedMotorTempMilliCelsius = (int32_t)(motorTemp.getTemperature() * 1000.0);
+        cachedMotorTempMilliCelsius = motorTempMilliCelsiusForDisplay();
         cachedEscTempMilliCelsius = (int32_t)tmotorCan.getEscTemperature() * 1000;
         cachedLastUpdate = millis();
         cachedHasData = true;
     } else {
-        // No CAN telemetry: still expose data that does not depend on CAN (battery voltage ADS1115, motor temp NTC/ADS1115)
+        // No ESC_STATUS recently: still expose battery (ADS1115), motor temp (CAN motor temp if fresh, else NTC)
         cachedBatteryCurrentMilliAmps = 0;
         cachedRpm = 0;
-        cachedMotorTempMilliCelsius = (int32_t)(motorTemp.getTemperature() * 1000.0);
+        cachedMotorTempMilliCelsius = motorTempMilliCelsiusForDisplay();
         cachedEscTempMilliCelsius = 0;
         cachedLastUpdate = millis();
         cachedHasData = true;

@@ -2,11 +2,9 @@
 #include "../config.h"
 #include "../BoardConfig.h"
 #include "../Throttle/Throttle.h"
-#include "../Temperature/Temperature.h"
 #include <cmath>
 
 extern Throttle throttle;
-extern Temperature motorTemp;
 extern Settings settings;
 
 Power::Power() {
@@ -168,7 +166,9 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    int32_t motorTempMilliCelsius = (int32_t)(motorTemp.getTemperature() * 1000.0);
+    if (!telemetry.hasData()) return 100;
+
+    int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
 
     if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID)
         return 100;

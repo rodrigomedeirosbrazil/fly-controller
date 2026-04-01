@@ -41,6 +41,7 @@ static uint16_t crcAdd(uint16_t crc_val, const uint8_t* bytes, size_t len) {
 TmotorCan::TmotorCan() {
     lastReadEscStatus = 0;
     lastReadPushCan = 0;
+    lastMotorTempFromCanMs = 0;
     lastPushSci = 0;
     lastThrottleSend = 0;
     transferId = 0;
@@ -123,6 +124,11 @@ bool TmotorCan::hasTelemetry() {
     // Consider telemetry available if we've received ESC_STATUS within the last second
     return lastReadEscStatus != 0
         && millis() - lastReadEscStatus < 1000;
+}
+
+bool TmotorCan::hasRecentMotorTempFromCan() {
+    return lastMotorTempFromCanMs != 0
+        && millis() - lastMotorTempFromCanMs < 1000;
 }
 
 bool TmotorCan::isReady() {
@@ -326,6 +332,7 @@ void TmotorCan::handlePushCan(twai_message_t *canMsg) {
         float tempKelvin = convertFloat16ToFloat(motorTempValue);
         motorTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
 
+        lastMotorTempFromCanMs = millis();
         lastReadPushCan = millis();
         pushCanBufferLen = 0;  // Reset for next transfer
     } else {
@@ -390,6 +397,7 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     DEBUG_PRINT(motor_temp_celsius);
     DEBUG_PRINTLN("°C");
 
+    lastMotorTempFromCanMs = millis();
     lastReadPushCan = millis();
 }
 
