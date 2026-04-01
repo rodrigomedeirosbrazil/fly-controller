@@ -61,6 +61,8 @@ public:
     // Connectivity status
     bool isReady();  // Checks if ESC is available on the network (detected via NodeStatus)
     bool hasTelemetry();  // Checks if telemetry data is available
+    /** True if motor temperature was parsed from Status 5 or PUSHCAN within the last second (independent of hasTelemetry). */
+    bool hasRecentMotorTempFromCan();
 
 private:
     // ESC-specific data
@@ -76,6 +78,7 @@ private:
     // Timestamps for connectivity control
     unsigned long lastReadEscStatus;
     unsigned long lastReadPushCan;
+    unsigned long lastMotorTempFromCanMs;  // Status 5 or PUSHCAN motor temp payload
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
 
