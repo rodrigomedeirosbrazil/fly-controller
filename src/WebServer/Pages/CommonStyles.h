@@ -241,24 +241,26 @@ th {
 .status.status-warning { background: #fef3c7; color: #92400e; }
 .status.status-inactive { background: #fee2e2; color: #991b1b; }
 
-.wake-panel {
-    margin-bottom: 0;
-    padding: 12px 14px;
-}
-
-.wake-panel-row {
+.telemetry-header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.wake-status-line {
+.telemetry-header-copy {
+    min-width: 0;
+}
+
+.telemetry-header-bottom {
+    margin-top: 10px;
+}
+
+.wake-inline {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
-    margin-top: 4px;
 }
 
 .wake-button {
@@ -274,7 +276,7 @@ th {
     .page { padding: 14px; }
     .nav-btn { flex: 1 1 auto; text-align: center; }
     .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .wake-panel-row {
+    .telemetry-header-top {
         flex-direction: column;
         align-items: stretch;
     }
@@ -336,11 +338,6 @@ th {
     .telemetry-header.panel {
         flex-shrink: 0;
         margin-bottom: 0;
-        padding: 10px 12px;
-    }
-
-    .wake-panel {
-        flex-shrink: 0;
         padding: 10px 12px;
     }
 

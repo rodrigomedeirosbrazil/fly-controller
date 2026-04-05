@@ -26,22 +26,23 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
 
         <div class="telemetry-shell">
             <div class="panel telemetry-header">
-                <h1>Live Telemetry</h1>
-                <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
-            </div>
-
-            <div class="panel wake-panel">
-                <div class="wake-panel-row">
-                    <div>
-                        <div class="label">Screen</div>
-                        <div class="wake-status-line">
-                            <span id="wakeStatusBadge" class="status status-secondary">INACTIVE</span>
-                            <span id="wakeSupportHint" class="sub">Trying automatic keep-awake...</span>
-                        </div>
+                <div class="telemetry-header-top">
+                    <div class="telemetry-header-copy">
+                        <h1>Live Telemetry</h1>
+                        <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
                     </div>
                     <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Keep Screen Awake</button>
                 </div>
-                <div class="sub wake-help" id="wakeHelp">The page will try automatically first. If the screen still turns off, tap the button once.</div>
+                <div class="telemetry-header-bottom">
+                    <div class="wake-inline">
+                        <span class="label">Screen</span>
+                        <span id="wakeStatusBadge" class="status status-secondary">INACTIVE</span>
+                        <span id="wakeSupportHint" class="sub">Trying automatic keep-awake...</span>
+                    </div>
+                    <div class="sub wake-help" id="wakeHelp">
+                        The page will try automatically first. If the screen still turns off, tap the button once.
+                    </div>
+                </div>
             </div>
 
             <div class="grid telemetry-grid">
