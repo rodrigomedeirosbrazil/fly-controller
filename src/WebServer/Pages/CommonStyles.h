@@ -241,50 +241,114 @@ th {
 .status.status-warning { background: #fef3c7; color: #92400e; }
 .status.status-inactive { background: #fee2e2; color: #991b1b; }
 
-.telemetry-header-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
 .telemetry-header-copy {
     min-width: 0;
 }
 
-.telemetry-header-bottom {
-    margin-top: 10px;
+.telemetry-hero-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
 }
 
-.wake-inline {
+.hero-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 112px;
+}
+
+.hero-main {
+    margin-top: 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
+}
+
+.hero-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.telemetry-header h2,
+.wake-card h2 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
 }
 
 .wake-button {
     flex-shrink: 0;
-    min-width: 150px;
+    min-height: 34px;
+    min-width: 0;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 13px;
 }
 
-.wake-help {
+.help-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+}
+
+.telemetry-header .status,
+.wake-card .status {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+}
+
+.help-panel {
+    display: none;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.help-panel.open {
+    display: block;
+}
+
+.telemetry-grid .card.bms-card {
+    justify-content: flex-start;
+}
+
+.telemetry-grid .sub.multiline {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.telemetry-grid .sub.bms-meta {
+    margin-top: 6px;
+    font-size: clamp(13px, 1.9vw, 16px);
+    line-height: 1.18;
+}
+
+.telemetry-grid .value.bms-value {
     margin-top: 8px;
+    margin-bottom: 0;
+    position: relative;
+    z-index: 2;
 }
 
 @media (max-width: 600px) {
     .page { padding: 14px; }
     .nav-btn { flex: 1 1 auto; text-align: center; }
     .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-    .telemetry-header-top {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .wake-button {
-        width: 100%;
-        min-width: 0;
-    }
 }
 
 /* Telemetry: fullscreen dashboard on mobile (portrait and landscape) */
@@ -341,9 +405,19 @@ th {
         padding: 10px 12px;
     }
 
+    .wake-card.panel {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: 10px 12px;
+    }
+
     .telemetry-header.panel h1 {
-        font-size: clamp(16px, 4vw, 20px);
-        margin-bottom: 4px;
+        font-size: 20px;
+        margin-bottom: 0;
+    }
+
+    .hero-card {
+        min-height: 108px;
     }
 
     .telemetry-grid.grid {
@@ -351,7 +425,7 @@ th {
         min-height: 0;
         overflow: hidden;
         display: grid;
-        gap: 8px;
+        gap: 10px;
         align-content: stretch;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: minmax(0, 1fr);
@@ -372,7 +446,7 @@ th {
     .telemetry-grid .card {
         min-height: 0;
         min-width: 0;
-        padding: 8px 10px;
+        padding: 14px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -384,14 +458,16 @@ th {
     }
 
     .telemetry-grid .value {
-        font-size: clamp(18px, 4.5vmin, 24px);
+        margin-top: 10px;
+        font-size: clamp(30px, 5vw, 40px);
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
     .telemetry-grid .sub {
-        font-size: clamp(12px, 3.2vmin, 15px);
+        margin-top: 10px;
+        font-size: clamp(18px, 3vw, 24px);
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;

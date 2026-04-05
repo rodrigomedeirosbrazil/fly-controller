@@ -25,23 +25,24 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="telemetry-shell">
-            <div class="panel telemetry-header">
-                <div class="telemetry-header-top">
+            <div class="telemetry-hero-grid">
+                <div class="panel telemetry-header hero-card">
                     <div class="telemetry-header-copy">
                         <h1>Live Telemetry</h1>
-                        <div>Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
+                        <div class="hero-main">Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
                     </div>
-                    <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Keep Screen Awake</button>
                 </div>
-                <div class="telemetry-header-bottom">
-                    <div class="wake-inline">
-                        <span class="label">Screen</span>
+
+                <div class="panel wake-card hero-card">
+                    <h2>Keep Screen On</h2>
+                    <div class="hero-actions">
                         <span id="wakeStatusBadge" class="status status-secondary">INACTIVE</span>
-                        <span id="wakeSupportHint" class="sub">Trying automatic keep-awake...</span>
+                        <button type="button" id="wakeHelpToggle" class="help-button" aria-expanded="false" aria-controls="wakeHelp">?</button>
                     </div>
-                    <div class="sub wake-help" id="wakeHelp">
-                        The page will try automatically first. If the screen still turns off, tap the button once.
+                    <div class="hero-actions">
+                        <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Keep Awake</button>
                     </div>
+                    <div class="help-panel" id="wakeHelp">The page will try automatically first. If the screen still turns off, tap the button once.</div>
                 </div>
             </div>
 
@@ -80,10 +81,10 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="value" id="armed">--</div>
                     <div class="sub" id="freshness">--</div>
                 </div>
-                <div class="card" id="bmsCard" style="display: none;">
+                <div class="card bms-card" id="bmsCard" style="display: none;">
                     <div class="label">BMS</div>
-                    <div class="value" id="bmsTempMax">--</div>
-                    <div class="sub" id="bmsCells">--</div>
+                    <div class="value bms-value" id="bmsTempMax">--</div>
+                    <div class="sub multiline bms-meta" id="bmsCells">--</div>
                 </div>
             </div>
         </div>
@@ -102,6 +103,14 @@ const setText = (id, value) => {
     if (!el) return;
     if (el.textContent !== value) {
         el.textContent = value;
+    }
+};
+
+const setHtml = (id, value) => {
+    const el = $(id);
+    if (!el) return;
+    if (el.innerHTML !== value) {
+        el.innerHTML = value;
     }
 };
 
@@ -227,11 +236,11 @@ const syncWakeUi = (state, reason) => {
     const button = $('wakeToggleButton');
 
     const stateMap = {
-        idle: { label: 'INACTIVE', cls: 'status-secondary', button: 'Keep Screen Awake' },
+        idle: { label: 'INACTIVE', cls: 'status-secondary', button: 'Keep Awake' },
         requesting: { label: 'TRYING', cls: 'status-secondary', button: 'Working...' },
         'active-native': { label: 'ACTIVE', cls: 'status-active', button: 'Disable' },
         'active-fallback': { label: 'ACTIVE', cls: 'status-active', button: 'Disable' },
-        'needs-user-gesture': { label: 'NEED TAP', cls: 'status-warning', button: 'Keep Screen Awake' },
+        'needs-user-gesture': { label: 'NEED TAP', cls: 'status-warning', button: 'Keep Awake' },
         unsupported: { label: 'UNSUPPORTED', cls: 'status-inactive', button: 'Retry' },
         error: { label: 'RETRY', cls: 'status-warning', button: 'Retry' }
     };
@@ -245,8 +254,6 @@ const syncWakeUi = (state, reason) => {
         button.textContent = view.button;
         button.disabled = state === 'requesting';
     }
-
-    setText('wakeSupportHint', wakeReason);
 
     if (isAppleMobile) {
         setText(
@@ -414,6 +421,15 @@ async function reacquireWakeIfNeeded() {
 const initTelemetryWake = () => {
     syncWakeUi('idle', 'Preparing keep-awake controls.');
 
+    const helpToggle = $('wakeHelpToggle');
+    const helpPanel = $('wakeHelp');
+    if (helpToggle && helpPanel) {
+        helpToggle.addEventListener('click', () => {
+            const isOpen = helpPanel.classList.toggle('open');
+            helpToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+    }
+
     const button = $('wakeToggleButton');
     if (button) {
         button.addEventListener('click', async () => {
@@ -499,7 +515,7 @@ const renderTelemetry = (data) => {
         bmsCard.style.display = '';
         setText('bmsTempMax', data.bms.tempMaxC != null ? `${data.bms.tempMaxC} C` : '--');
         if (data.bms.cellMinMv != null && data.bms.cellMaxMv != null) {
-            setText('bmsCells', `Cell: ${data.bms.cellMinMv}-${data.bms.cellMaxMv} mV, delta ${data.bms.cellDeltaMv ?? '--'} mV`);
+            setHtml('bmsCells', `Cell: ${data.bms.cellMinMv}-${data.bms.cellMaxMv} mV<br>Delta: ${data.bms.cellDeltaMv ?? '--'} mV`);
         } else {
             setText('bmsCells', '--');
         }
