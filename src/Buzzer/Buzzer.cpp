@@ -5,7 +5,7 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
   pwmChannel(1),       // Use channel 1 to avoid conflict with ESP32Servo (uses timer 0)
   pwmFrequency(2500),  // 2.5 kHz - typical frequency for passive buzzers
   pwmResolution(8),    // 8-bit resolution (0-255)
-  pwmDutyCycle(255),   // 100% duty cycle for maximum volume
+  pwmDutyCycle(128),   // 50% duty cycle gives a stronger AC drive for passive buzzers
   playing(false),
   startTime(0),
   beepDuration(0),
