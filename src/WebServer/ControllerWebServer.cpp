@@ -11,6 +11,10 @@
 #include <esp_heap_caps.h>
 #include "Pages/CommonLayout.h"
 #include "Pages/ConfigPage.h"
+#include "Pages/ConfigPowerPage.h"
+#include "Pages/ConfigThermalPage.h"
+#include "Pages/ConfigBmsPage.h"
+#include "Pages/ConfigSystemPage.h"
 #include "Pages/ConfigHubPage.h"
 #include "Pages/DashboardPage.h"
 #include "Pages/FirmwarePage.h"
@@ -427,6 +431,26 @@ void ControllerWebServer::startAP() {
         request->send(200, "text/css; charset=utf-8", reinterpret_cast<const uint8_t*>(COMMON_CSS), strlen(COMMON_CSS));
     });
 
+    server.on("/config-power.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/config-power.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_POWER_PAGE_JS), strlen_P(CONFIG_POWER_PAGE_JS));
+    });
+
+    server.on("/config-thermal.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/config-thermal.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_THERMAL_PAGE_JS), strlen_P(CONFIG_THERMAL_PAGE_JS));
+    });
+
+    server.on("/config-bms.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/config-bms.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_JS), strlen_P(CONFIG_BMS_PAGE_JS));
+    });
+
+    server.on("/config-system.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/config-system.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_JS), strlen_P(CONFIG_SYSTEM_PAGE_JS));
+    });
+
     server.on("/config.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config.js");
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_JS), strlen_P(CONFIG_PAGE_JS));
@@ -438,35 +462,27 @@ void ControllerWebServer::startAP() {
     });
 
     server.on("/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
-            "Battery & Power",
-            "/config/power",
-            "Dedicated battery and power configuration will live here."
-        ));
+        const size_t len = strlen_P(CONFIG_POWER_PAGE_HTML);
+        logWebHeap("/config/power");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_POWER_PAGE_HTML), len);
     });
 
     server.on("/config/thermal", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
-            "Thermal Protection",
-            "/config/thermal",
-            "Dedicated thermal limits and protection settings will live here."
-        ));
+        const size_t len = strlen_P(CONFIG_THERMAL_PAGE_HTML);
+        logWebHeap("/config/thermal");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_THERMAL_PAGE_HTML), len);
     });
 
     server.on("/config/bms", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
-            "Bluetooth BMS",
-            "/config/bms",
-            "Dedicated Bluetooth BMS configuration and tools will live here."
-        ));
+        const size_t len = strlen_P(CONFIG_BMS_PAGE_HTML);
+        logWebHeap("/config/bms");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_HTML), len);
     });
 
     server.on("/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
-            "System",
-            "/config/system",
-            "Dedicated system behavior settings will live here."
-        ));
+        const size_t len = strlen_P(CONFIG_SYSTEM_PAGE_HTML);
+        logWebHeap("/config/system");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_HTML), len);
     });
 
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
