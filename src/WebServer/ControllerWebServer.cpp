@@ -11,6 +11,7 @@
 #include <esp_heap_caps.h>
 #include "Pages/CommonLayout.h"
 #include "Pages/ConfigPage.h"
+#include "Pages/ConfigHubPage.h"
 #include "Pages/DashboardPage.h"
 #include "Pages/FirmwarePage.h"
 #include "Pages/LogsPage.h"
@@ -436,16 +437,42 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_JS), strlen_P(TELEMETRY_PAGE_JS));
     });
 
+    server.on("/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
+            "Battery & Power",
+            "/config/power",
+            "Dedicated battery and power configuration will live here."
+        ));
+    });
+
+    server.on("/config/thermal", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
+            "Thermal Protection",
+            "/config/thermal",
+            "Dedicated thermal limits and protection settings will live here."
+        ));
+    });
+
+    server.on("/config/bms", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
+            "Bluetooth BMS",
+            "/config/bms",
+            "Dedicated Bluetooth BMS configuration and tools will live here."
+        ));
+    });
+
+    server.on("/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/html", renderConfigSectionPlaceholderPage(
+            "System",
+            "/config/system",
+            "Dedicated system behavior settings will live here."
+        ));
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_PAGE_HTML);
         logWebHeap("/config");
-        Serial.printf("[WebServer] GET /config html=%u\n", (unsigned)len);
-        if (len == 0) {
-            request->send(500, "text/plain", "Config page build failed");
-            return;
-        }
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_HTML), len);
+        request->send(200, "text/html", renderConfigHubPage());
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){

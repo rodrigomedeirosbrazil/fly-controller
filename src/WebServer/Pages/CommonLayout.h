@@ -36,6 +36,17 @@ inline String renderTopbar(const char* activeRoute) {
     return html;
 }
 
+inline String renderConfigSubnav(const char* activeRoute) {
+    String html = "<div class=\"subnav\">";
+    html += renderNavLink("/config", "Overview", activeRoute);
+    html += renderNavLink("/config/power", "Power", activeRoute);
+    html += renderNavLink("/config/thermal", "Thermal", activeRoute);
+    html += renderNavLink("/config/bms", "BMS", activeRoute);
+    html += renderNavLink("/config/system", "System", activeRoute);
+    html += "</div>";
+    return html;
+}
+
 inline String renderPage(const PageSpec& spec) {
     String pageClass = spec.pageClass ? spec.pageClass : "page";
     // Do not reserve tens of KB here: Arduino String keeps that capacity even if the final HTML is ~13KB,

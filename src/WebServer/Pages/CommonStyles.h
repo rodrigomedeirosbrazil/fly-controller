@@ -43,6 +43,13 @@ body {
     background: var(--bg);
 }
 
+.subnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
 .nav-btn {
     background: var(--primary);
     color: white;
@@ -70,6 +77,18 @@ body {
     border-radius: var(--radius);
     padding: 14px;
     box-shadow: var(--shadow);
+}
+
+.link-card {
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.link-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .grid {
