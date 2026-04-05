@@ -236,11 +236,53 @@ th {
 .status.live { background: #dcfce7; color: #166534; }
 .status.stale { background: #fef9c3; color: #854d0e; }
 .status.nodata { background: #fee2e2; color: #991b1b; }
+.status.status-secondary { background: #e5e7eb; color: #374151; }
+.status.status-active { background: #dcfce7; color: #166534; }
+.status.status-warning { background: #fef3c7; color: #92400e; }
+.status.status-inactive { background: #fee2e2; color: #991b1b; }
+
+.wake-panel {
+    margin-bottom: 0;
+    padding: 12px 14px;
+}
+
+.wake-panel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.wake-status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.wake-button {
+    flex-shrink: 0;
+    min-width: 150px;
+}
+
+.wake-help {
+    margin-top: 8px;
+}
 
 @media (max-width: 600px) {
     .page { padding: 14px; }
     .nav-btn { flex: 1 1 auto; text-align: center; }
     .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .wake-panel-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wake-button {
+        width: 100%;
+        min-width: 0;
+    }
 }
 
 /* Telemetry: fullscreen dashboard on mobile (portrait and landscape) */
@@ -294,6 +336,11 @@ th {
     .telemetry-header.panel {
         flex-shrink: 0;
         margin-bottom: 0;
+        padding: 10px 12px;
+    }
+
+    .wake-panel {
+        flex-shrink: 0;
         padding: 10px 12px;
     }
 

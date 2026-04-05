@@ -431,6 +431,11 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_JS), strlen_P(CONFIG_PAGE_JS));
     });
 
+    server.on("/telemetry.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/telemetry.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_JS), strlen_P(TELEMETRY_PAGE_JS));
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
         const size_t len = strlen_P(CONFIG_PAGE_HTML);
@@ -444,7 +449,9 @@ void ControllerWebServer::startAP() {
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderTelemetryPage());
+        const size_t len = strlen_P(TELEMETRY_PAGE_HTML);
+        logWebHeap("/telemetry");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_HTML), len);
     });
 
     server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
