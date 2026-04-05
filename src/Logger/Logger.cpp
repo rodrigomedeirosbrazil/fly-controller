@@ -48,12 +48,12 @@ void Logger::createNewFile() {
     File file = root.openNextFile();
     while (file) {
         String fileName = file.name();
-        // Assuming format /00001.txt - remove leading / if present
+        // Assuming format /00001.csv - remove leading / if present
         if (fileName.startsWith("/")) {
             fileName = fileName.substring(1);
         }
 
-        // Check if it matches pattern digit+.txt
+        // Check if it matches pattern digit+.<ext>
         int dotIndex = fileName.indexOf('.');
         if (dotIndex > 0) {
             String numPart = fileName.substring(0, dotIndex);
@@ -85,7 +85,7 @@ void Logger::createNewFile() {
     char fileNameBuf[16];
 
     if (minEmptyFileNum >= 0) {
-        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.txt", minEmptyFileNum);
+        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", minEmptyFileNum);
         currentFileName = String(fileNameBuf);
         Serial.print("Reusing empty log file: ");
         Serial.println(currentFileName);
@@ -93,7 +93,7 @@ void Logger::createNewFile() {
     }
 
     int nextFileNum = maxFileNum + 1;
-    snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.txt", nextFileNum);
+    snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", nextFileNum);
     currentFileName = String(fileNameBuf);
 
     // POWER LOSS SAFETY

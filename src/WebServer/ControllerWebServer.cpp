@@ -431,6 +431,11 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_JS), strlen_P(CONFIG_PAGE_JS));
     });
 
+    server.on("/telemetry.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/telemetry.js");
+        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_JS), strlen_P(TELEMETRY_PAGE_JS));
+    });
+
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
     server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request){
         const size_t len = strlen_P(CONFIG_PAGE_HTML);
@@ -444,7 +449,9 @@ void ControllerWebServer::startAP() {
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(200, "text/html", renderTelemetryPage());
+        const size_t len = strlen_P(TELEMETRY_PAGE_HTML);
+        logWebHeap("/telemetry");
+        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_HTML), len);
     });
 
     server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -470,8 +477,8 @@ void ControllerWebServer::startAP() {
                 // Ensure leading slash for consistency
                 if(!fileName.startsWith("/")) fileName = "/" + fileName;
 
-                // Only list .txt files (logs)
-                if(fileName.endsWith(".txt")) {
+                // Only list log files
+                if(fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
                     if(!first) json += ",";
                     first = false;
                     json += "{\"name\":\"" + fileName + "\",\"size\":" + String(file.size()) + "}";
@@ -514,7 +521,7 @@ void ControllerWebServer::startAP() {
             if (!fileName.startsWith("/")) {
                 fileName = "/" + fileName;
             }
-            if (fileName.endsWith(".txt")) {
+            if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
                 toDelete.push_back(fileName);
             }
             file = root.openNextFile();

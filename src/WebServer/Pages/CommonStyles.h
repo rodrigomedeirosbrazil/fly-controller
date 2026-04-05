@@ -226,16 +226,128 @@ th {
 .btn-red { background: #dc2626; }
 
 .status {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 4px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: bold;
+    line-height: 1;
+    vertical-align: middle;
 }
 
 .status.live { background: #dcfce7; color: #166534; }
 .status.stale { background: #fef9c3; color: #854d0e; }
 .status.nodata { background: #fee2e2; color: #991b1b; }
+.status.status-secondary { background: #e5e7eb; color: #374151; }
+.status.status-active { background: #dcfce7; color: #166534; }
+.status.status-warning { background: #fef3c7; color: #92400e; }
+.status.status-inactive { background: #fee2e2; color: #991b1b; }
+
+.telemetry-header-copy {
+    min-width: 0;
+}
+
+.telemetry-hero-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.hero-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 112px;
+}
+
+.hero-main {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.hero-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.telemetry-header h2,
+.wake-card h2 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.wake-button {
+    flex-shrink: 0;
+    min-height: 34px;
+    min-width: 0;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.help-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: #f8fafc;
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+}
+
+.telemetry-header .status,
+.wake-card .status {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+}
+
+.help-panel {
+    display: none;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.help-panel.open {
+    display: block;
+}
+
+.telemetry-grid .card.bms-card {
+    justify-content: flex-start;
+}
+
+.telemetry-grid .sub.multiline {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.telemetry-grid .sub.bms-meta {
+    margin-top: 6px;
+    font-size: clamp(12px, 1.8vw, 15px);
+    line-height: 1.18;
+}
+
+.telemetry-grid .value.bms-value {
+    margin-top: 8px;
+    margin-bottom: 0;
+    position: relative;
+    z-index: 2;
+}
 
 @media (max-width: 600px) {
     .page { padding: 14px; }
@@ -264,7 +376,7 @@ th {
         min-height: 100%;
         min-height: 100dvh;
         height: 100%;
-        padding: 8px 10px 10px;
+        padding: 7px 9px 8px;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
@@ -272,13 +384,13 @@ th {
 
     body.telemetry-page .page.page-telemetry .topbar {
         flex-shrink: 0;
-        margin-bottom: 8px;
-        padding-top: 6px;
-        padding-bottom: 8px;
+        margin-bottom: 6px;
+        padding-top: 4px;
+        padding-bottom: 6px;
     }
 
     body.telemetry-page .page.page-telemetry .topbar .nav-btn {
-        padding: 8px 10px;
+        padding: 7px 8px;
         font-size: 12px;
     }
 
@@ -287,19 +399,69 @@ th {
         min-height: 0;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
         overflow: hidden;
+    }
+
+    .telemetry-hero-grid {
+        gap: 8px;
     }
 
     .telemetry-header.panel {
         flex-shrink: 0;
         margin-bottom: 0;
-        padding: 10px 12px;
+        padding: 8px 10px;
+    }
+
+    .wake-card.panel {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        padding: 8px 10px;
     }
 
     .telemetry-header.panel h1 {
-        font-size: clamp(16px, 4vw, 20px);
-        margin-bottom: 4px;
+        font-size: 18px;
+        margin-bottom: 0;
+        line-height: 1.05;
+    }
+
+    .hero-card {
+        min-height: 96px;
+    }
+
+    .hero-main {
+        margin-top: 8px;
+        gap: 5px;
+    }
+
+    .hero-actions {
+        margin-top: 8px;
+        gap: 5px;
+    }
+
+    .telemetry-header .status,
+    .wake-card .status {
+        min-height: 24px;
+        padding: 0 8px;
+        font-size: 10px;
+    }
+
+    .wake-button {
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+
+    .help-button {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
+
+    .help-panel {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.25;
     }
 
     .telemetry-grid.grid {
@@ -328,29 +490,38 @@ th {
     .telemetry-grid .card {
         min-height: 0;
         min-width: 0;
-        padding: 8px 10px;
+        padding: 10px 11px 9px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         overflow: hidden;
     }
 
     .telemetry-grid .label {
-        font-size: 12px;
+        font-size: 11px;
+        line-height: 1.05;
     }
 
     .telemetry-grid .value {
-        font-size: clamp(18px, 4.5vmin, 24px);
+        margin-top: 6px;
+        font-size: clamp(27px, 4.4vw, 36px);
+        line-height: 1.02;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
     .telemetry-grid .sub {
-        font-size: clamp(12px, 3.2vmin, 15px);
+        margin-top: 6px;
+        font-size: clamp(14px, 2.3vw, 19px);
+        line-height: 1.12;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
+    }
+
+    .telemetry-grid .sub.multiline {
+        white-space: normal;
     }
 }
 )rawliteral";
