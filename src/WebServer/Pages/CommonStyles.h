@@ -226,11 +226,15 @@ th {
 .btn-red { background: #dc2626; }
 
 .status {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 4px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: bold;
+    line-height: 1;
+    vertical-align: middle;
 }
 
 .status.live { background: #dcfce7; color: #166534; }
@@ -334,7 +338,7 @@ th {
 
 .telemetry-grid .sub.bms-meta {
     margin-top: 6px;
-    font-size: clamp(13px, 1.9vw, 16px);
+    font-size: clamp(12px, 1.8vw, 15px);
     line-height: 1.18;
 }
 
@@ -372,7 +376,7 @@ th {
         min-height: 100%;
         min-height: 100dvh;
         height: 100%;
-        padding: 8px 10px 10px;
+        padding: 7px 9px 8px;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
@@ -380,13 +384,13 @@ th {
 
     body.telemetry-page .page.page-telemetry .topbar {
         flex-shrink: 0;
-        margin-bottom: 8px;
-        padding-top: 6px;
-        padding-bottom: 8px;
+        margin-bottom: 6px;
+        padding-top: 4px;
+        padding-bottom: 6px;
     }
 
     body.telemetry-page .page.page-telemetry .topbar .nav-btn {
-        padding: 8px 10px;
+        padding: 7px 8px;
         font-size: 12px;
     }
 
@@ -395,29 +399,69 @@ th {
         min-height: 0;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 6px;
         overflow: hidden;
+    }
+
+    .telemetry-hero-grid {
+        gap: 8px;
     }
 
     .telemetry-header.panel {
         flex-shrink: 0;
         margin-bottom: 0;
-        padding: 10px 12px;
+        padding: 8px 10px;
     }
 
     .wake-card.panel {
         flex-shrink: 0;
         margin-bottom: 0;
-        padding: 10px 12px;
+        padding: 8px 10px;
     }
 
     .telemetry-header.panel h1 {
-        font-size: 20px;
+        font-size: 18px;
         margin-bottom: 0;
+        line-height: 1.05;
     }
 
     .hero-card {
-        min-height: 108px;
+        min-height: 96px;
+    }
+
+    .hero-main {
+        margin-top: 8px;
+        gap: 5px;
+    }
+
+    .hero-actions {
+        margin-top: 8px;
+        gap: 5px;
+    }
+
+    .telemetry-header .status,
+    .wake-card .status {
+        min-height: 24px;
+        padding: 0 8px;
+        font-size: 10px;
+    }
+
+    .wake-button {
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+    }
+
+    .help-button {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
+
+    .help-panel {
+        margin-top: 8px;
+        font-size: 12px;
+        line-height: 1.25;
     }
 
     .telemetry-grid.grid {
@@ -425,7 +469,7 @@ th {
         min-height: 0;
         overflow: hidden;
         display: grid;
-        gap: 10px;
+        gap: 8px;
         align-content: stretch;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: minmax(0, 1fr);
@@ -446,31 +490,38 @@ th {
     .telemetry-grid .card {
         min-height: 0;
         min-width: 0;
-        padding: 14px;
+        padding: 10px 11px 9px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         overflow: hidden;
     }
 
     .telemetry-grid .label {
-        font-size: 12px;
+        font-size: 11px;
+        line-height: 1.05;
     }
 
     .telemetry-grid .value {
-        margin-top: 10px;
-        font-size: clamp(30px, 5vw, 40px);
+        margin-top: 6px;
+        font-size: clamp(27px, 4.4vw, 36px);
+        line-height: 1.02;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
     .telemetry-grid .sub {
-        margin-top: 10px;
-        font-size: clamp(18px, 3vw, 24px);
+        margin-top: 6px;
+        font-size: clamp(14px, 2.3vw, 19px);
+        line-height: 1.12;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
+    }
+
+    .telemetry-grid .sub.multiline {
+        white-space: normal;
     }
 }
 )rawliteral";
