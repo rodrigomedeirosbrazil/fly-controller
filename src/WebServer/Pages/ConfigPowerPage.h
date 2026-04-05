@@ -109,7 +109,7 @@ const updateVoltageTotals = () => {
 };
 
 const loadCurrentValues = () => {
-    fetch('/config/values')
+    fetch('/api/config/power')
         .then((response) => response.json())
         .then((data) => {
             const capacityAh = data.batteryCapacity / 1000;
@@ -181,7 +181,7 @@ $('powerConfigForm').addEventListener('submit', function(e) {
         throttleCurveGamma: throttleCurveGamma
     };
 
-    fetch('/config/save', {
+    fetch('/api/config/power', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

@@ -71,7 +71,7 @@ const showMessage = (text, kind) => {
 };
 
 const loadCurrentValues = () => {
-    fetch('/config/values')
+    fetch('/api/config/bms')
         .then((response) => response.json())
         .then((data) => {
             $('bmsType').value = String(typeof data.bmsType === 'number' ? data.bmsType : 0);
@@ -99,7 +99,7 @@ $('bmsConfigForm').addEventListener('submit', function(e) {
         return;
     }
 
-    fetch('/config/save', {
+    fetch('/api/config/bms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

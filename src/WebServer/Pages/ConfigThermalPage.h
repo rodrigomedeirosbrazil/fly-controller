@@ -83,7 +83,7 @@ const showMessage = (text, kind) => {
 };
 
 const loadCurrentValues = () => {
-    fetch('/config/values')
+    fetch('/api/config/thermal')
         .then((response) => response.json())
         .then((data) => {
             $('motorMaxTemp').value = data.motorMaxTemp / 1000;
@@ -111,7 +111,7 @@ $('thermalConfigForm').addEventListener('submit', function(e) {
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000)
     };
 
-    fetch('/config/save', {
+    fetch('/api/config/thermal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

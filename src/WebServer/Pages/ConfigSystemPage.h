@@ -63,7 +63,7 @@ const showMessage = (text, kind) => {
 };
 
 const loadCurrentValues = () => {
-    fetch('/config/values')
+    fetch('/api/config/system')
         .then((response) => response.json())
         .then((data) => {
             $('wifiAutoDisableAfterCalibration').checked = data.wifiAutoDisableAfterCalibration !== false;
@@ -81,7 +81,7 @@ $('systemConfigForm').addEventListener('submit', function(e) {
     saveButton.disabled = true;
     $('message').style.display = 'none';
 
-    fetch('/config/save', {
+    fetch('/api/config/system', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
