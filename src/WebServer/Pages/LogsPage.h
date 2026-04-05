@@ -19,6 +19,8 @@ inline String renderLogsPage() {
 )rawliteral";
 
     const char* script = R"rawliteral(
+const toCsvName = (filename) => filename.replace(/\.txt$/i, '.csv');
+
 const loadFiles = () => {
     fetchJson('/list')
         .then((files) => {
@@ -33,12 +35,14 @@ const loadFiles = () => {
             if (deleteAllBtn) deleteAllBtn.disabled = false;
             files.sort((a, b) => b.name.localeCompare(a.name));
             files.forEach((f) => {
+                const displayName = toCsvName(f.name.replace('/', ''));
+                const downloadName = toCsvName(f.name.replace(/^\//, ''));
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${f.name.replace('/', '')}</td>
+                    <td>${displayName}</td>
                     <td>${formatBytes(f.size)}</td>
                     <td>
-                        <a class="btn btn-sm btn-green" href="/logs${f.name}" download>Download</a>
+                        <a class="btn btn-sm btn-green" href="/logs${f.name}" download="${downloadName}">Download CSV</a>
                         <button class="btn btn-sm btn-red" onclick="deleteFile('${f.name}')">Delete</button>
                     </td>`;
                 tbody.appendChild(tr);

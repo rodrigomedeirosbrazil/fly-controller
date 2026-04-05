@@ -477,8 +477,8 @@ void ControllerWebServer::startAP() {
                 // Ensure leading slash for consistency
                 if(!fileName.startsWith("/")) fileName = "/" + fileName;
 
-                // Only list .txt files (logs)
-                if(fileName.endsWith(".txt")) {
+                // Only list log files
+                if(fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
                     if(!first) json += ",";
                     first = false;
                     json += "{\"name\":\"" + fileName + "\",\"size\":" + String(file.size()) + "}";
@@ -521,7 +521,7 @@ void ControllerWebServer::startAP() {
             if (!fileName.startsWith("/")) {
                 fileName = "/" + fileName;
             }
-            if (fileName.endsWith(".txt")) {
+            if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
                 toDelete.push_back(fileName);
             }
             file = root.openNextFile();
