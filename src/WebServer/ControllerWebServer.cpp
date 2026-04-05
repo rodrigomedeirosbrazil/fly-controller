@@ -104,6 +104,38 @@ void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 
 
     sendJsonResponse(request, httpStatus, doc);
 }
+
+void sendPowerConfigResponse(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(512);
+    doc["batteryCapacity"] = settings.getBatteryCapacityMah();
+    doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
+    doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
+    doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+    doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
+    sendJsonResponse(request, 200, doc);
+}
+
+void sendThermalConfigResponse(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(512);
+    doc["motorMaxTemp"] = settings.getMotorMaxTemp();
+    doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
+    doc["escMaxTemp"] = settings.getEscMaxTemp();
+    doc["escTempReductionStart"] = settings.getEscTempReductionStart();
+    sendJsonResponse(request, 200, doc);
+}
+
+void sendBmsConfigResponse(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(256);
+    doc["bmsType"] = settings.getBmsType();
+    doc["bmsMac"] = settings.getBmsMac();
+    sendJsonResponse(request, 200, doc);
+}
+
+void sendSystemConfigResponse(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(128);
+    doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
+    sendJsonResponse(request, 200, doc);
+}
 } // namespace
 
 
@@ -157,6 +189,26 @@ void ControllerWebServer::startAP() {
         doc["bmsMac"] = settings.getBmsMac();
         doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
         sendJsonResponse(request, 200, doc);
+    });
+
+    server.on("/api/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/api/config/power GET");
+        sendPowerConfigResponse(request);
+    });
+
+    server.on("/api/config/thermal", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/api/config/thermal GET");
+        sendThermalConfigResponse(request);
+    });
+
+    server.on("/api/config/bms", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/api/config/bms GET");
+        sendBmsConfigResponse(request);
+    });
+
+    server.on("/api/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/api/config/system GET");
+        sendSystemConfigResponse(request);
     });
 
     server.on("/api/bms/scan/status", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -355,6 +407,211 @@ void ControllerWebServer::startAP() {
     saveHandler->setMethod(HTTP_POST);
     saveHandler->setMaxContentLength(1024);
     server.addHandler(saveHandler);
+
+    AsyncCallbackJsonWebHandler* savePowerHandler = new AsyncCallbackJsonWebHandler(
+        "/api/config/power",
+        [](AsyncWebServerRequest *request, JsonVariant &json) {
+            logWebHeap("/api/config/power POST");
+            if (!json.is<JsonObject>()) {
+                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                return;
+            }
+
+            JsonObject doc = json.as<JsonObject>();
+
+            if (!doc.containsKey("batteryCapacity")
+                || !doc.containsKey("batteryMinVoltage")
+                || !doc.containsKey("batteryMaxVoltage")
+                || !doc.containsKey("powerControlEnabled")
+                || !doc.containsKey("throttleCurveGamma")) {
+                request->send(400, "text/plain", "Missing required power configuration fields");
+                return;
+            }
+
+            uint16_t capacity = doc["batteryCapacity"];
+            if (capacity < 1000 || capacity > 200000) {
+                request->send(400, "text/plain", "Battery capacity out of range (1000-200000 mAh)");
+                return;
+            }
+
+            uint16_t minV = doc["batteryMinVoltage"];
+            if (minV < 2500 || minV > 63000) {
+                request->send(400, "text/plain", "Battery min voltage out of range");
+                return;
+            }
+
+            uint16_t maxV = doc["batteryMaxVoltage"];
+            if (maxV < 2500 || maxV > 63000) {
+                request->send(400, "text/plain", "Battery max voltage out of range");
+                return;
+            }
+
+            float gamma = doc["throttleCurveGamma"].as<float>();
+            if (gamma < 1.0f || gamma > 3.0f) {
+                request->send(400, "text/plain", "Throttle curve gamma must be between 1.0 and 3.0");
+                return;
+            }
+
+            settings.setBatteryCapacityMah(capacity);
+            settings.setBatteryMinVoltage(minV);
+            settings.setBatteryMaxVoltage(maxV);
+            settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
+            settings.setThrottleCurveGamma(gamma);
+            settings.save();
+
+            request->send(200, "text/plain", "Success: Power configuration saved");
+        },
+        512
+    );
+    savePowerHandler->setMethod(HTTP_POST);
+    savePowerHandler->setMaxContentLength(512);
+    server.addHandler(savePowerHandler);
+
+    AsyncCallbackJsonWebHandler* saveThermalHandler = new AsyncCallbackJsonWebHandler(
+        "/api/config/thermal",
+        [](AsyncWebServerRequest *request, JsonVariant &json) {
+            logWebHeap("/api/config/thermal POST");
+            if (!json.is<JsonObject>()) {
+                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                return;
+            }
+
+            JsonObject doc = json.as<JsonObject>();
+
+            if (!doc.containsKey("motorMaxTemp")
+                || !doc.containsKey("motorTempReductionStart")
+                || !doc.containsKey("escMaxTemp")
+                || !doc.containsKey("escTempReductionStart")) {
+                request->send(400, "text/plain", "Missing required thermal configuration fields");
+                return;
+            }
+
+            int32_t motorMaxTemp = doc["motorMaxTemp"];
+            int32_t motorReductionStart = doc["motorTempReductionStart"];
+            int32_t escMaxTemp = doc["escMaxTemp"];
+            int32_t escReductionStart = doc["escTempReductionStart"];
+
+            if (motorMaxTemp < 0 || motorMaxTemp > 150000) {
+                request->send(400, "text/plain", "Motor max temp out of range (0-150000 millicelsius)");
+                return;
+            }
+
+            if (motorReductionStart < 0 || motorReductionStart > 150000) {
+                request->send(400, "text/plain", "Motor temp reduction start out of range");
+                return;
+            }
+
+            if (escMaxTemp < 0 || escMaxTemp > 150000) {
+                request->send(400, "text/plain", "ESC max temp out of range");
+                return;
+            }
+
+            if (escReductionStart < 0 || escReductionStart > 150000) {
+                request->send(400, "text/plain", "ESC temp reduction start out of range");
+                return;
+            }
+
+            settings.setMotorMaxTemp(motorMaxTemp);
+            settings.setMotorTempReductionStart(motorReductionStart);
+            settings.setEscMaxTemp(escMaxTemp);
+            settings.setEscTempReductionStart(escReductionStart);
+            settings.save();
+
+            request->send(200, "text/plain", "Success: Thermal configuration saved");
+        },
+        512
+    );
+    saveThermalHandler->setMethod(HTTP_POST);
+    saveThermalHandler->setMaxContentLength(512);
+    server.addHandler(saveThermalHandler);
+
+    AsyncCallbackJsonWebHandler* saveBmsHandler = new AsyncCallbackJsonWebHandler(
+        "/api/config/bms",
+        [](AsyncWebServerRequest *request, JsonVariant &json) {
+            logWebHeap("/api/config/bms POST");
+            if (!json.is<JsonObject>()) {
+                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                return;
+            }
+
+            JsonObject doc = json.as<JsonObject>();
+            if (!doc.containsKey("bmsType") || !doc.containsKey("bmsMac")) {
+                request->send(400, "text/plain", "Missing required BMS configuration fields");
+                return;
+            }
+
+            const uint8_t bmsType = doc["bmsType"].as<uint8_t>();
+            if (bmsType > BmsTypeDaly) {
+                request->send(400, "text/plain", "BMS type is invalid");
+                return;
+            }
+
+            String s = doc["bmsMac"].as<const char*>() ? doc["bmsMac"].as<const char*>() : "";
+            s.trim();
+
+            if (s.length() > 0) {
+                if (s.length() != 17) {
+                    request->send(400, "text/plain", "BMS MAC must be 17 characters (XX:XX:XX:XX:XX:XX)");
+                    return;
+                }
+                for (int i = 0; i < 17; i++) {
+                    if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
+                        if (s[i] != ':') {
+                            request->send(400, "text/plain", "BMS MAC format: XX:XX:XX:XX:XX:XX");
+                            return;
+                        }
+                    } else {
+                        const char c = s[i];
+                        const bool hex = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+                        if (!hex) {
+                            request->send(400, "text/plain", "BMS MAC must use hex digits (0-9, A-F)");
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (bmsType != BmsTypeNone && s.length() != 17) {
+                request->send(400, "text/plain", "BMS MAC must be configured for the selected BMS type");
+                return;
+            }
+
+            settings.setBmsType(bmsType);
+            settings.setBmsMac(s.c_str());
+            settings.save();
+
+            request->send(200, "text/plain", "Success: BMS configuration saved");
+        },
+        256
+    );
+    saveBmsHandler->setMethod(HTTP_POST);
+    saveBmsHandler->setMaxContentLength(256);
+    server.addHandler(saveBmsHandler);
+
+    AsyncCallbackJsonWebHandler* saveSystemHandler = new AsyncCallbackJsonWebHandler(
+        "/api/config/system",
+        [](AsyncWebServerRequest *request, JsonVariant &json) {
+            logWebHeap("/api/config/system POST");
+            if (!json.is<JsonObject>()) {
+                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                return;
+            }
+
+            JsonObject doc = json.as<JsonObject>();
+            if (!doc.containsKey("wifiAutoDisableAfterCalibration")) {
+                request->send(400, "text/plain", "Missing required system configuration fields");
+                return;
+            }
+
+            settings.setWifiAutoDisableAfterCalibration(doc["wifiAutoDisableAfterCalibration"].as<bool>());
+            settings.save();
+            request->send(200, "text/plain", "Success: System configuration saved");
+        },
+        128
+    );
+    saveSystemHandler->setMethod(HTTP_POST);
+    saveSystemHandler->setMaxContentLength(128);
+    server.addHandler(saveSystemHandler);
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
