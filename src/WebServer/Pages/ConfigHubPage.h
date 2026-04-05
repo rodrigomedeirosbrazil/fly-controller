@@ -46,25 +46,3 @@ inline String renderConfigHubPage() {
 
     return renderPage(spec);
 }
-
-inline String renderConfigSectionPlaceholderPage(const char* title, const char* activeRoute, const char* description) {
-    String body = "<div class=\"panel\">";
-    body += "<h1>";
-    body += title;
-    body += "</h1><div class=\"sub\">";
-    body += description;
-    body += "</div><div class=\"info-text\" style=\"margin-top: 12px;\">This section page is ready. The dedicated form will be added in the next step.</div></div>";
-
-    PageSpec spec = {
-        title,
-        activeRoute,
-        body.c_str(),
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr
-    };
-
-    return renderPage(spec);
-}

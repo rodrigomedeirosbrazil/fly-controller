@@ -10,7 +10,6 @@
 #include <AsyncJson.h>
 #include <esp_heap_caps.h>
 #include "Pages/CommonLayout.h"
-#include "Pages/ConfigPage.h"
 #include "Pages/ConfigPowerPage.h"
 #include "Pages/ConfigThermalPage.h"
 #include "Pages/ConfigBmsPage.h"
@@ -167,30 +166,6 @@ void ControllerWebServer::startAP() {
         request->send(200, "text/html", page);
     });
 
-    // Get current configuration values (JSON) - register BEFORE /config to avoid conflicts
-    server.on("/config/values", HTTP_GET, [](AsyncWebServerRequest *request){
-        extern Settings settings;
-
-        Serial.println("[WebServer] /config/values requested");
-        logWebHeap("/config/values");
-
-        // Room for numeric fields plus bmsMac (up to 17 chars) and JSON overhead; avoids ArduinoJson overflow if NVS was ever odd.
-        DynamicJsonDocument doc(1024);
-        doc["batteryCapacity"] = settings.getBatteryCapacityMah();
-        doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
-        doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
-        doc["motorMaxTemp"] = settings.getMotorMaxTemp();
-        doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
-        doc["escMaxTemp"] = settings.getEscMaxTemp();
-        doc["escTempReductionStart"] = settings.getEscTempReductionStart();
-        doc["powerControlEnabled"] = settings.getPowerControlEnabled();
-        doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
-        doc["bmsType"] = settings.getBmsType();
-        doc["bmsMac"] = settings.getBmsMac();
-        doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
-        sendJsonResponse(request, 200, doc);
-    });
-
     server.on("/api/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/api/config/power GET");
         sendPowerConfigResponse(request);
@@ -247,166 +222,6 @@ void ControllerWebServer::startAP() {
     detectHandler->setMethod(HTTP_POST);
     detectHandler->setMaxContentLength(256);
     server.addHandler(detectHandler);
-
-    // Save configuration - register BEFORE /config to avoid conflicts
-    AsyncCallbackJsonWebHandler* saveHandler = new AsyncCallbackJsonWebHandler(
-        "/config/save",
-        [](AsyncWebServerRequest *request, JsonVariant &json) {
-            logWebHeap("/config/save");
-            if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON: body must be an object");
-                return;
-            }
-
-            extern Settings settings;
-            JsonObject doc = json.as<JsonObject>();
-
-            // Validate and set values
-            if (doc.containsKey("batteryCapacity")) {
-                uint16_t capacity = doc["batteryCapacity"];
-                if (capacity >= 1000 && capacity <= 200000) {
-                    settings.setBatteryCapacityMah(capacity);
-                } else {
-                    request->send(400, "text/plain", "Battery capacity out of range (1000-200000 mAh)");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("batteryMinVoltage")) {
-                uint16_t minV = doc["batteryMinVoltage"];
-                if (minV >= 2500 && minV <= 63000) { // 2.5V to 63V (4.5V * 14 cells)
-                    settings.setBatteryMinVoltage(minV);
-                } else {
-                    request->send(400, "text/plain", "Battery min voltage out of range");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("batteryMaxVoltage")) {
-                uint16_t maxV = doc["batteryMaxVoltage"];
-                if (maxV >= 2500 && maxV <= 63000) {
-                    settings.setBatteryMaxVoltage(maxV);
-                } else {
-                    request->send(400, "text/plain", "Battery max voltage out of range");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("motorMaxTemp")) {
-                int32_t temp = doc["motorMaxTemp"];
-                if (temp >= 0 && temp <= 150000) {
-                    settings.setMotorMaxTemp(temp);
-                } else {
-                    request->send(400, "text/plain", "Motor max temp out of range (0-150000 millicelsius)");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("motorTempReductionStart")) {
-                int32_t temp = doc["motorTempReductionStart"];
-                if (temp >= 0 && temp <= 150000) {
-                    settings.setMotorTempReductionStart(temp);
-                } else {
-                    request->send(400, "text/plain", "Motor temp reduction start out of range");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("escMaxTemp")) {
-                int32_t temp = doc["escMaxTemp"];
-                if (temp >= 0 && temp <= 150000) {
-                    settings.setEscMaxTemp(temp);
-                } else {
-                    request->send(400, "text/plain", "ESC max temp out of range");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("escTempReductionStart")) {
-                int32_t temp = doc["escTempReductionStart"];
-                if (temp >= 0 && temp <= 150000) {
-                    settings.setEscTempReductionStart(temp);
-                } else {
-                    request->send(400, "text/plain", "ESC temp reduction start out of range");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("powerControlEnabled")) {
-                bool enabled = doc["powerControlEnabled"];
-                settings.setPowerControlEnabled(enabled);
-            }
-
-            if (doc.containsKey("throttleCurveGamma")) {
-                float gamma = doc["throttleCurveGamma"].as<float>();
-                if (gamma >= 1.0f && gamma <= 3.0f) {
-                    settings.setThrottleCurveGamma(gamma);
-                } else {
-                    request->send(400, "text/plain", "Throttle curve gamma must be between 1.0 and 3.0");
-                    return;
-                }
-            }
-
-            uint8_t bmsType = settings.getBmsType();
-            if (doc.containsKey("bmsType")) {
-                bmsType = doc["bmsType"].as<uint8_t>();
-                if (bmsType > BmsTypeDaly) {
-                    request->send(400, "text/plain", "BMS type is invalid");
-                    return;
-                }
-            }
-
-            if (doc.containsKey("bmsMac")) {
-                const char* mac = doc["bmsMac"].as<const char*>();
-                if (mac != nullptr) {
-                    String s(mac);
-                    s.trim();
-                    if (s.length() > 0) {
-                        if (s.length() != 17) {
-                            request->send(400, "text/plain", "BMS MAC must be 17 characters (XX:XX:XX:XX:XX:XX)");
-                            return;
-                        }
-                        for (int i = 0; i < 17; i++) {
-                            if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
-                                if (s[i] != ':') {
-                                    request->send(400, "text/plain", "BMS MAC format: XX:XX:XX:XX:XX:XX");
-                                    return;
-                                }
-                            } else {
-                                char c = s[i];
-                                bool hex = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
-                                if (!hex) {
-                                    request->send(400, "text/plain", "BMS MAC must use hex digits (0-9, A-F)");
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    settings.setBmsMac(s.c_str());
-                } else {
-                    settings.setBmsMac("");
-                }
-            }
-
-            if (bmsType != BmsTypeNone && settings.getBmsMac().length() != 17) {
-                request->send(400, "text/plain", "BMS MAC must be configured for the selected BMS type");
-                return;
-            }
-            settings.setBmsType(bmsType);
-
-            if (doc.containsKey("wifiAutoDisableAfterCalibration")) {
-                bool enabled = doc["wifiAutoDisableAfterCalibration"];
-                settings.setWifiAutoDisableAfterCalibration(enabled);
-            }
-
-            settings.save();
-            request->send(200, "text/plain", "Success: Configuration saved");
-        },
-        1024
-    );
-    saveHandler->setMethod(HTTP_POST);
-    saveHandler->setMaxContentLength(1024);
-    server.addHandler(saveHandler);
 
     AsyncCallbackJsonWebHandler* savePowerHandler = new AsyncCallbackJsonWebHandler(
         "/api/config/power",
@@ -706,11 +521,6 @@ void ControllerWebServer::startAP() {
     server.on("/config-system.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config-system.js");
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_JS), strlen_P(CONFIG_SYSTEM_PAGE_JS));
-    });
-
-    server.on("/config.js", HTTP_GET, [](AsyncWebServerRequest *request){
-        logWebHeap("/config.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_PAGE_JS), strlen_P(CONFIG_PAGE_JS));
     });
 
     server.on("/telemetry.js", HTTP_GET, [](AsyncWebServerRequest *request){
