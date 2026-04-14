@@ -40,9 +40,11 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **Serial**: Telemetry and debug (115200 baud).
 - **PWM**: Direct ESC control.
 
-### Analog Inputs
-- **Hall Sensor**: Throttle control (GPIO 0)
-- **NTC Sensor**: Motor temperature (GPIO 1)
+### Analog Inputs (via ADS1115 I2C 16-bit ADC)
+- **Hall Sensor**: Throttle control (ADS1115 Channel 0)
+- **NTC Sensor**: Motor temperature (ADS1115 Channel 1)
+- **NTC Sensor** *(XAG only)*: ESC temperature (ADS1115 Channel 2)
+- **Voltage Divider** *(XAG/Tmotor)*: Battery voltage (ADS1115 Channel 3)
 
 ### Digital I/O
 - **ESC PWM**: GPIO 7 (1050-1950μs)
@@ -107,7 +109,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 // Agnostic NTC sensor (ReadFn + adcVoltageRef)
 - Beta = 3950K for 10K NTC
 - Filtering with 10 samples
-- ADC source: ADS1115 (Hobbywing/Tmotor) or ESP32 built-in (XAG)
+- ADC source: ADS1115 I2C (all builds — legacy GPIO ADC not used in production)
 ```
 
 ### 5. **Canbus** - Communication Management
@@ -143,6 +145,34 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Throttle status
 - Motor and ESC data
 - Overall system status
+```
+
+### 9. **WebServer** - WiFi Configuration Portal
+```cpp
+// WiFi Access Point with captive portal and OTA updates
+- AP mode for easy device discovery
+- Real-time telemetry dashboard
+- Configuration pages: power, thermal, BMS, system settings
+- Firmware Over-The-Air (OTA) updates via ElegantOTA
+- CSV flight log viewing and download
+```
+
+### 10. **BMS Integration** - Battery Management Systems
+```cpp
+// BLE client for smart battery pack monitoring (Daly and JBD)
+- Cell voltage monitoring (min, max, delta)
+- Pack voltage, current, and state-of-charge (SoC)
+- Temperature sensors per pack
+- Charge/discharge/balance status flags
+- BLE device scanning triggered via web portal
+```
+
+### 11. **Logger** - Flight Data Recording
+```cpp
+// CSV logging to LittleFS
+- Auto-start on arm, auto-stop on disarm
+- Configurable data fields and header
+- Log download and deletion via web interface
 ```
 
 ## 📡 Communication Protocols
@@ -190,6 +220,11 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Real-time status
 - ✅ Event logging
 - ✅ Failure diagnosis
+- ✅ Battery Management System support (Daly, JBD via BLE)
+- ✅ Cell voltage and balance monitoring
+- ✅ State-of-charge (SoC) tracking
+- ✅ CSV flight logging to LittleFS (auto on arm/disarm)
+- ✅ Web portal with OTA firmware updates
 
 ## 🔌 Supported Hardware
 
@@ -256,8 +291,13 @@ The required libraries are automatically managed by PlatformIO.
 ```ini
 # platformio.ini
 lib_deps =
-    madhephaestus/ESP32Servo
     bxparks/AceButton@^1.10.1
+    madhephaestus/ESP32Servo
+    https://github.com/me-no-dev/ESPAsyncWebServer.git
+    ayushsharma82/ElegantOTA
+    AsyncTCP
+    adafruit/Adafruit ADS1X15@^2.4.6
+    bblanchon/ArduinoJson@^6.21.3
 ```
 
 ### 4. Build and Upload
@@ -334,12 +374,16 @@ The project supports three controller types, each with its own build environment
 ### 5. Pin Configuration
 ```cpp
 // src/config.h - Main configurations
-// Analog Inputs
-#define THROTTLE_PIN          0  // GPIO0 - Hall Sensor
-#define MOTOR_TEMPERATURE_PIN 1  // GPIO1 - NTC 10K
-// XAG Mode only:
-#define ESC_TEMPERATURE_PIN   4  // GPIO4 - NTC 10K (XAG mode)
-#define BATTERY_VOLTAGE_PIN   3  // GPIO3 - Battery voltage divider (XAG mode)
+
+// I2C Bus (ADS1115 ADC - all builds)
+#define I2C_SDA_PIN 20  // GPIO20 - I2C SDA
+#define I2C_SCL_PIN 21  // GPIO21 - I2C SCL
+
+// ADS1115 Channels
+#define ADS1115_THROTTLE_CHANNEL   0  // Channel A0 - Hall Sensor
+#define ADS1115_MOTOR_TEMP_CHANNEL 1  // Channel A1 - Motor NTC 10K
+#define ADS1115_ESC_TEMP_CHANNEL   2  // Channel A2 - ESC NTC 10K (XAG only)
+#define ADS1115_BATTERY_CHANNEL    3  // Channel A3 - Battery voltage divider (XAG, Tmotor)
 
 // Digital I/O
 #define BUTTON_PIN 5  // GPIO5 - Push button
@@ -404,20 +448,27 @@ src/
 ├── main.cpp              # Main loop
 ├── config.h, config.cpp  # Configuration and object instances
 ├── config_controller.h   # Build type (IS_HOBBYWING, IS_TMOTOR, IS_XAG)
-├── Throttle/             # Throttle control (ReadFn)
-├── Temperature/          # Thermal sensor (ReadFn)
-├── Power/                # Power management
-├── Canbus/               # CAN receive() API
+├── ADS1115/              # I2C 16-bit ADC (primary sensor interface, all builds)
+├── Throttle/             # Throttle control (ReadFn via ADS1115)
+├── Temperature/          # Thermal sensor (ReadFn via ADS1115)
+├── Power/                # Power management & throttle ramp limiting
+├── Canbus/               # CAN receive() API (Hobbywing/Tmotor only)
 ├── Hobbywing/            # HobbywingCan, HobbywingTelemetry
 ├── Tmotor/               # TmotorCan, TmotorTelemetry
 ├── Xag/                  # XagTelemetry (PWM-only)
 ├── Sensors/              # BatteryVoltageSensor (XAG)
 ├── Telemetry/            # Telemetry facade, TelemetryFormatter
 ├── BatteryMonitor/       # Coulomb counting, SoC
-├── Settings/             # Persistent configuration
-├── Button/               # User interface
-├── Buzzer/               # Sonorous alerts
-└── Xctod/                # BLE telemetry
+├── Settings/             # Persistent configuration (ESP32 Preferences)
+├── Button/               # User interface (AceButton)
+├── Buzzer/               # Audible alerts (PWM)
+├── Xctod/                # BLE telemetry (XCTRACK format)
+├── BluetoothBms/         # BLE BMS client (auto-detects Daly/JBD)
+├── DalyBms/              # Daly BMS protocol implementation
+├── JbdBms/               # JBD BMS protocol implementation
+├── Logger/               # CSV flight logging to LittleFS
+└── WebServer/            # WiFi AP, captive portal, OTA updates
+    └── Pages/            # HTML/JS page handlers
 ```
 
 ### Adding New Components
