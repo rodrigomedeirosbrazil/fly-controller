@@ -190,10 +190,16 @@ void BatteryMonitor::recalibrateFromVoltage() {
     uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
 
     if (isCurrentAvailable()) {
-        // Current available: smooth recalibration 90% Coulomb + 10% voltage-based
-        remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
+        // Current available: voltage recalibration is only used as a downward correction.
+        // When the motor stops, battery voltage recovers (IR drop disappears), making
+        // voltage-based SoC appear higher than the true discharge state. Pulling
+        // remainingMilliAh upward in that case would corrupt the coulomb count, so
+        // we only nudge downward — trusting coulomb counting when voltage looks better.
+        if (voltageBasedRemaining < remainingMilliAh) {
+            remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
+        }
     } else {
-        // No current source available: voltage-only
+        // No current source available: voltage is all we have.
         remainingMilliAh = voltageBasedRemaining;
     }
 
