@@ -95,13 +95,18 @@ uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) c
         uint8_t soc;
     };
 
+    // Real LiPo discharge curve: voltage drops quickly from 4.20V to ~4.00V
+    // (surface charge effect) but little actual capacity is consumed in that region.
+    // The main capacity plateau spans 4.00V down to ~3.40V, then drops steeply.
     const VoltToSoC curve[] = {
-        {4200, 100}, {4150, 95}, {4100, 90}, {4050, 85},
-        {4000, 80}, {3950, 75}, {3900, 70}, {3850, 65},
-        {3800, 60}, {3750, 55}, {3700, 50}, {3650, 45},
-        {3600, 40}, {3550, 35}, {3500, 30}, {3450, 25},
-        {3400, 20}, {3350, 15}, {3300, 10}, {3250, 5},
-        {3200, 2}, {3100, 0}
+        {4200, 100}, {4175, 99}, {4150, 97}, {4125, 94},
+        {4100, 91},  {4075, 88}, {4050, 87},
+        {4000, 85},  // plateau begins ~4.00V; most capacity lives below this
+        {3950, 79},  {3900, 72}, {3850, 64},
+        {3800, 56},  {3750, 48}, {3700, 40},
+        {3650, 32},  {3600, 24}, {3550, 17},
+        {3500, 11},  {3450, 6},  {3400, 3},
+        {3300, 1},   {3200, 0}
     };
 
     const int curveSize = sizeof(curve) / sizeof(VoltToSoC);
