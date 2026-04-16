@@ -196,12 +196,14 @@ uint16_t DalyBms::getCellDeltaMilliVolts() const {
 }
 
 void DalyBms::onNotify(uint8_t* data, size_t len) {
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
     if (rxLen_ + len > RX_BUFFER_SIZE) {
         rxLen_ = 0;
         DEBUG_PRINTLN("[Daly] RX buffer overflow, discarding");
     }
     memcpy(rxBuffer_ + rxLen_, data, len);
     rxLen_ += len;
+    xSemaphoreGive(stateMutex_);
 }
 
 void DalyBms::resetConnection() {
@@ -309,14 +311,18 @@ void DalyBms::sendStatusRequest() {
 }
 
 void DalyBms::processRxBuffer() {
-    while (rxLen_ >= 5) {
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
+
+    bool done = false;
+    while (!done && rxLen_ >= 5) {
         if (rxBuffer_[0] != 0xD2) {
             size_t skip = 0;
             while (skip < rxLen_ && rxBuffer_[skip] != 0xD2) skip++;
             if (skip >= rxLen_) {
                 DEBUG_PRINTLN("[Daly] Discarding RX buffer while searching for 0xD2");
                 rxLen_ = 0;
-                return;
+                done = true;
+                continue;
             }
             DEBUG_PRINT("[Daly] Resyncing RX buffer, skipped bytes: ");
             DEBUG_PRINTLN(skip);
@@ -331,10 +337,12 @@ void DalyBms::processRxBuffer() {
             DEBUG_PRINT("[Daly] Invalid frame length: ");
             DEBUG_PRINTLN(frameLen);
             rxLen_ = 0;
-            return;
+            done = true;
+            continue;
         }
         if (rxLen_ < frameLen) {
-            return;
+            done = true;
+            continue;
         }
 
         DEBUG_PRINT("[Daly] RX: ");
@@ -357,6 +365,8 @@ void DalyBms::processRxBuffer() {
         memmove(rxBuffer_, rxBuffer_ + 1, rxLen_ - 1);
         rxLen_ -= 1;
     }
+
+    xSemaphoreGive(stateMutex_);
 }
 
 void DalyBms::parseStatusFrame(const uint8_t* frame, size_t frameLen) {

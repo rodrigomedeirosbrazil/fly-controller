@@ -58,9 +58,11 @@ Settings::Settings() {
     wifiAutoDisableAfterCalibration = true;
     bmsType = BmsTypeNone;
     throttleCurveGamma = 1.0f;
+    mutex_ = nullptr;
 }
 
 void Settings::init() {
+    mutex_ = xSemaphoreCreateMutex();
     preferences.begin("flyctrl", false);
     load();
 }
@@ -143,6 +145,10 @@ void Settings::load() {
 }
 
 void Settings::save() {
+    // Protect against concurrent calls from WiFi task and main loop.
+    // NVS writes are slow (~ms each); holding the mutex ensures the main loop
+    // never reads a partially-updated snapshot of member variables while we write.
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     preferences.putUInt("batCap", batteryCapacityMah);
     preferences.putUInt("batMinV", batteryMinVoltage);
     preferences.putUInt("batMaxV", batteryMaxVoltage);
@@ -155,6 +161,7 @@ void Settings::save() {
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
     preferences.putFloat("thrCurveG", throttleCurveGamma);
+    if (mutex_) xSemaphoreGive(mutex_);
 }
 
 uint16_t Settings::getBatteryCapacityMah() const {
@@ -285,15 +292,21 @@ void Settings::setBmsType(uint8_t type) {
 }
 
 String Settings::getBmsMac() const {
-    return bmsMac;
+    // String is a heap-allocated object — protect against concurrent access from WiFi task.
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+    String copy = bmsMac;
+    if (mutex_) xSemaphoreGive(mutex_);
+    return copy;
 }
 
 void Settings::setBmsMac(const char* mac) {
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     if (mac != nullptr) {
         bmsMac = String(mac);
     } else {
         bmsMac = "";
     }
+    if (mutex_) xSemaphoreGive(mutex_);
 }
 
 uint8_t Settings::getDefaultBmsType() const {
