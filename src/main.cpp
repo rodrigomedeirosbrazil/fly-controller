@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <esp_system.h>
+#include <esp_task_wdt.h>
 
 #include <ESP32Servo.h>
 #if USES_CAN_BUS
@@ -111,6 +112,12 @@ void setup()
 
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
+
+  // Enable task watchdog on the main loop task. If loop() stalls for more than
+  // WDT_TIMEOUT_S seconds (e.g. a blocking BLE call or infinite loop), the
+  // system reboots automatically. esp_task_wdt_reset() is called each iteration.
+  esp_task_wdt_init(WDT_TIMEOUT_S, true);
+  esp_task_wdt_add(NULL);
 }
 
 void loop()
@@ -143,6 +150,8 @@ void loop()
   handleArmedBeep();
 
   webServer.handleClient();
+
+  esp_task_wdt_reset();
 }
 
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)

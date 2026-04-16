@@ -7,7 +7,7 @@
 #include "../Temperature/Temperature.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../Logger/Logger.h"
-#include "../JbdBms/JbdBms.h"
+#include "../BluetoothBms/BluetoothBms.h"
 #include <cstdarg>
 #include <cstdio>
 
@@ -243,24 +243,25 @@ void Xctod::writeSystemStatus(char* data, size_t size, size_t& used) {
 }
 
 void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
-    if (jbdBms.hasData() && jbdBms.getNtcCount() > 0) {
-        int16_t maxTemp = jbdBms.getNtcTempCelsius(0);
-        for (uint8_t i = 1; i < jbdBms.getNtcCount(); i++) {
-            int16_t t = jbdBms.getNtcTempCelsius(i);
+    // Use the BluetoothBms facade so this works with both JBD and Daly BMS types.
+    if (bluetoothBms.hasData() && bluetoothBms.getTempCount() > 0) {
+        int16_t maxTemp = bluetoothBms.getTempCelsius(0);
+        for (uint8_t i = 1; i < bluetoothBms.getTempCount(); i++) {
+            int16_t t = bluetoothBms.getTempCelsius(i);
             if (t > maxTemp) maxTemp = t;
         }
         appendToBuffer(data, size, used, ",%d", maxTemp);
     } else {
         appendToBuffer(data, size, used, ",");
     }
-    if (jbdBms.hasCellData()) {
+    if (bluetoothBms.hasCellData()) {
         appendToBuffer(
             data,
             size,
             used,
             ",%u,%u",
-            jbdBms.getCellMinMilliVolts(),
-            jbdBms.getCellMaxMilliVolts()
+            bluetoothBms.getCellMinMilliVolts(),
+            bluetoothBms.getCellMaxMilliVolts()
         );
     } else {
         appendToBuffer(data, size, used, ",,");

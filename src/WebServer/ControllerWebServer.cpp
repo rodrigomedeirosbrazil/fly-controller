@@ -2,6 +2,7 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
 #include <Update.h>
@@ -273,6 +274,9 @@ void ControllerWebServer::startAP() {
             settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
             settings.setThrottleCurveGamma(gamma);
             settings.save();
+            // Keep the in-memory BatteryMonitor in sync with the new capacity
+            // setting — without this, Coulomb counting uses the old value until reboot.
+            batteryMonitor.setCapacity(settings.getBatteryCapacityMah());
 
             request->send(200, "text/plain", "Success: Power configuration saved");
         },
