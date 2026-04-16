@@ -60,6 +60,11 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
                 </div>
 
+                <div class="form-group">
+                    <label for="configPin">PIN</label>
+                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                </div>
+
                 <button type="submit" id="saveButton">Save Thermal Settings</button>
                 <div class="message" id="message"></div>
             </form>
@@ -73,6 +78,8 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
 
 static const char CONFIG_THERMAL_PAGE_JS[] PROGMEM = R"rawliteral(
 const $ = (id) => document.getElementById(id);
+const getPin = () => sessionStorage.getItem('cfgPin') || '';
+const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 
 const showMessage = (text, kind) => {
     const el = $('message');
@@ -111,9 +118,12 @@ $('thermalConfigForm').addEventListener('submit', function(e) {
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000)
     };
 
+    const pin = $('configPin').value;
+    setPin(pin);
+
     fetch('/api/config/thermal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Config-Pin': pin },
         body: JSON.stringify(data)
     })
         .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
@@ -126,6 +136,8 @@ $('thermalConfigForm').addEventListener('submit', function(e) {
             saveButton.disabled = false;
         });
 });
+
+window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPin(); });
 
 loadCurrentValues();
 )rawliteral";

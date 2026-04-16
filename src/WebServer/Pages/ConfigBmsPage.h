@@ -54,6 +54,11 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
                 </div>
 
+                <div class="form-group">
+                    <label for="configPin">PIN</label>
+                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                </div>
+
                 <button type="submit" id="saveButton">Save BMS Settings</button>
                 <div class="message" id="message"></div>
             </form>
@@ -67,6 +72,8 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
 
 static const char CONFIG_BMS_PAGE_JS[] PROGMEM = R"rawliteral(
 const $ = (id) => document.getElementById(id);
+const getPin = () => sessionStorage.getItem('cfgPin') || '';
+const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 const BMS_TYPE_LABELS = {
     0: 'Unknown',
     1: 'JBD',
@@ -215,7 +222,7 @@ function loadBmsScanStatus() {
 const startBmsScan = () => {
     $('scanBmsButton').disabled = true;
     setBmsScanStatus('Starting BLE scan...');
-    fetch('/api/bms/scan/start', { method: 'POST' })
+    fetch('/api/bms/scan/start', { method: 'POST', headers: { 'X-Config-Pin': getPin() } })
         .then((response) => response.json())
         .then(applyBmsScanState)
         .catch((error) => {
@@ -264,9 +271,12 @@ $('bmsConfigForm').addEventListener('submit', function(e) {
         return;
     }
 
+    const pin = $('configPin').value;
+    setPin(pin);
+
     fetch('/api/config/bms', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Config-Pin': pin },
         body: JSON.stringify({
             bmsType: bmsType,
             bmsMac: bmsMac
@@ -282,6 +292,8 @@ $('bmsConfigForm').addEventListener('submit', function(e) {
             saveButton.disabled = false;
         });
 });
+
+window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPin(); });
 
 loadCurrentValues();
 loadBmsScanStatus();

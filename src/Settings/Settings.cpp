@@ -47,6 +47,7 @@ bool isValidBmsMacFormat(const String& s) {
 } // namespace
 
 Settings::Settings() {
+    configPin = "0000";
     batteryCapacityMah = 0;
     batteryMinVoltage = 0;
     batteryMaxVoltage = 0;
@@ -105,6 +106,10 @@ void Settings::load() {
         }
     }
 
+    // Load config PIN (default "0000")
+    configPin = readBoundedPrefString(preferences, "cfgPin");
+    if (configPin.length() == 0) configPin = "0000";
+
     // Load throttle curve gamma (1.0 = linear; higher = less sensitive at low throttle)
     throttleCurveGamma = preferences.getFloat("thrCurveG", getDefaultThrottleCurveGamma());
 
@@ -149,6 +154,7 @@ void Settings::save() {
     // NVS writes are slow (~ms each); holding the mutex ensures the main loop
     // never reads a partially-updated snapshot of member variables while we write.
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+    preferences.putString("cfgPin", configPin);
     preferences.putUInt("batCap", batteryCapacityMah);
     preferences.putUInt("batMinV", batteryMinVoltage);
     preferences.putUInt("batMaxV", batteryMaxVoltage);
@@ -315,4 +321,17 @@ uint8_t Settings::getDefaultBmsType() const {
 
 float Settings::getDefaultThrottleCurveGamma() const {
     return 1.0f;  // Linear response by default
+}
+
+String Settings::getConfigPin() const {
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+    String copy = configPin;
+    if (mutex_) xSemaphoreGive(mutex_);
+    return copy;
+}
+
+void Settings::setConfigPin(const String& pin) {
+    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+    configPin = pin;
+    if (mutex_) xSemaphoreGive(mutex_);
 }
