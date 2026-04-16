@@ -150,6 +150,12 @@ extern ADS1115 ads1115;
 #define XAG_MOTOR_REACTION_DELAY_MS    1500
 #define XAG_WAKEUP_PWM_PERCENT        5
 
+// ========== WATCHDOG ==========
+// Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()
+// within this window or the system will reboot. 10 s is generous for a loop that
+// normally completes in <5 ms, but gives enough margin for BLE connect retries.
+#define WDT_TIMEOUT_S 10
+
 // ========== ESP32-C3 ADC CONFIGURATION ==========
 #define ADC_RESOLUTION 12        // 12-bit ADC (0-4095)
 #define ADC_MAX_VALUE 4095       // Maximum ADC reading
