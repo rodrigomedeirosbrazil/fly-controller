@@ -136,6 +136,13 @@ void sendSystemConfigResponse(AsyncWebServerRequest* request) {
     doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
     sendJsonResponse(request, 200, doc);
 }
+
+// Returns true when the request carries the correct X-Config-Pin header.
+// All write endpoints (config save, delete, OTA) must call this first.
+bool checkPin(AsyncWebServerRequest* request) {
+    if (!request->hasHeader("X-Config-Pin")) return false;
+    return request->getHeader("X-Config-Pin")->value() == settings.getConfigPin();
+}
 } // namespace
 
 
@@ -194,6 +201,7 @@ void ControllerWebServer::startAP() {
 
     server.on("/api/bms/scan/start", HTTP_POST, [](AsyncWebServerRequest *request) {
         logWebHeap("/api/bms/scan/start");
+        if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
         const bool started = bluetoothBms.startWebScan();
         const int httpStatus = started ? 200 : 500;
         sendBmsScanStatusResponse(request, httpStatus);
@@ -228,6 +236,7 @@ void ControllerWebServer::startAP() {
         "/api/config/power",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/power POST");
+            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
             if (!json.is<JsonObject>()) {
                 request->send(400, "text/plain", "Invalid JSON: body must be an object");
                 return;
@@ -290,6 +299,7 @@ void ControllerWebServer::startAP() {
         "/api/config/thermal",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/thermal POST");
+            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
             if (!json.is<JsonObject>()) {
                 request->send(400, "text/plain", "Invalid JSON: body must be an object");
                 return;
@@ -348,6 +358,7 @@ void ControllerWebServer::startAP() {
         "/api/config/bms",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/bms POST");
+            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
             if (!json.is<JsonObject>()) {
                 request->send(400, "text/plain", "Invalid JSON: body must be an object");
                 return;
@@ -411,6 +422,7 @@ void ControllerWebServer::startAP() {
         "/api/config/system",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/system POST");
+            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
             if (!json.is<JsonObject>()) {
                 request->send(400, "text/plain", "Invalid JSON: body must be an object");
                 return;
@@ -431,6 +443,48 @@ void ControllerWebServer::startAP() {
     saveSystemHandler->setMethod(HTTP_POST);
     saveSystemHandler->setMaxContentLength(128);
     server.addHandler(saveSystemHandler);
+
+    // PIN management — GET: check if pin is "0000" (default); POST: change pin.
+    // The POST body must be { "currentPin": "xxxx", "newPin": "yyyy" }.
+    // newPin must be 4-8 characters. Current PIN is validated before applying.
+    server.on("/api/config/pin", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(64);
+        doc["isDefault"] = (settings.getConfigPin() == "0000");
+        sendJsonResponse(request, 200, doc);
+    });
+
+    AsyncCallbackJsonWebHandler* savePinHandler = new AsyncCallbackJsonWebHandler(
+        "/api/config/pin",
+        [](AsyncWebServerRequest *request, JsonVariant &json) {
+            if (!json.is<JsonObject>()) {
+                request->send(400, "text/plain", "Invalid JSON");
+                return;
+            }
+            JsonObject doc = json.as<JsonObject>();
+            if (!doc.containsKey("currentPin") || !doc.containsKey("newPin")) {
+                request->send(400, "text/plain", "Missing currentPin or newPin");
+                return;
+            }
+            const String currentPin = doc["currentPin"].as<const char*>();
+            const String newPin     = doc["newPin"].as<const char*>();
+            if (currentPin != settings.getConfigPin()) {
+                request->send(403, "text/plain", "Current PIN is incorrect");
+                return;
+            }
+            if (newPin.length() < 4 || newPin.length() > 8) {
+                request->send(400, "text/plain", "New PIN must be 4-8 characters");
+                return;
+            }
+            settings.setConfigPin(newPin);
+            settings.save();
+            ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
+            request->send(200, "text/plain", "PIN updated successfully");
+        },
+        128
+    );
+    savePinHandler->setMethod(HTTP_POST);
+    savePinHandler->setMaxContentLength(128);
+    server.addHandler(savePinHandler);
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -606,9 +660,14 @@ void ControllerWebServer::startAP() {
 
     // Delete file API
     server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
         if(request->hasParam("file")){
             String filename = request->getParam("file")->value();
-            // Security: basic check to ensure we only delete what we expect
+            // Security: reject path traversal and ensure absolute path
+            if (filename.indexOf("..") >= 0) {
+                request->send(400, "text/plain", "Invalid path");
+                return;
+            }
             if(!filename.startsWith("/")) filename = "/" + filename;
 
             if(LittleFS.exists(filename)){
@@ -623,6 +682,7 @@ void ControllerWebServer::startAP() {
     });
 
     server.on("/delete-all-logs", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
         File root = LittleFS.open("/");
         if (!root) {
             request->send(500, "text/plain", "Filesystem error");
@@ -705,7 +765,8 @@ void ControllerWebServer::startAP() {
     });
 
     server.begin(); // Start the web server
-    ElegantOTA.begin(&server); // Start ElegantOTA
+    ElegantOTA.begin(&server);
+    ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
     Serial.println("Web server started.");
 }
 

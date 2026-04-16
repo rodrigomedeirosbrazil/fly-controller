@@ -59,6 +59,10 @@ public:
     String getBmsMac() const;
     void setBmsMac(const char* mac);
 
+    // Config PIN — required on all write endpoints and OTA. Default: "0000".
+    String getConfigPin() const;
+    void setConfigPin(const String& pin);
+
 private:
     Preferences preferences;
     SemaphoreHandle_t mutex_;
@@ -77,6 +81,7 @@ private:
     float getDefaultThrottleCurveGamma() const;
 
     // Current values
+    String configPin;
     uint16_t batteryCapacityMah;
     uint16_t batteryMinVoltage;
     uint16_t batteryMaxVoltage;

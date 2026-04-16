@@ -78,6 +78,11 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">Power-law curve: 1.0 = linear; higher values = less sensitive at low throttle, more responsive at high throttle.</div>
                 </div>
 
+                <div class="form-group">
+                    <label for="configPin">PIN</label>
+                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                </div>
+
                 <button type="submit" id="saveButton">Save Power Settings</button>
                 <div class="message" id="message"></div>
             </form>
@@ -92,6 +97,8 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
 static const char CONFIG_POWER_PAGE_JS[] PROGMEM = R"rawliteral(
 const $ = (id) => document.getElementById(id);
 const CELL_COUNT = 14;
+const getPin = () => sessionStorage.getItem('cfgPin') || '';
+const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 
 const showMessage = (text, kind) => {
     const el = $('message');
@@ -181,9 +188,12 @@ $('powerConfigForm').addEventListener('submit', function(e) {
         throttleCurveGamma: throttleCurveGamma
     };
 
+    const pin = $('configPin').value;
+    setPin(pin);
+
     fetch('/api/config/power', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Config-Pin': pin },
         body: JSON.stringify(data)
     })
         .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
@@ -196,6 +206,9 @@ $('powerConfigForm').addEventListener('submit', function(e) {
             saveButton.disabled = false;
         });
 });
+
+// Pre-fill PIN from sessionStorage
+window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPin(); });
 
 loadCurrentValues();
 )rawliteral";

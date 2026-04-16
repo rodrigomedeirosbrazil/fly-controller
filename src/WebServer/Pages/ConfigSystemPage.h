@@ -40,6 +40,11 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">When enabled, access point and web server are stopped automatically after throttle calibration completes.</div>
                 </div>
 
+                <div class="form-group">
+                    <label for="configPin">PIN</label>
+                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                </div>
+
                 <button type="submit" id="saveButton">Save System Settings</button>
                 <div class="message" id="message"></div>
             </form>
@@ -53,6 +58,8 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
 
 static const char CONFIG_SYSTEM_PAGE_JS[] PROGMEM = R"rawliteral(
 const $ = (id) => document.getElementById(id);
+const getPin = () => sessionStorage.getItem('cfgPin') || '';
+const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 
 const showMessage = (text, kind) => {
     const el = $('message');
@@ -81,9 +88,12 @@ $('systemConfigForm').addEventListener('submit', function(e) {
     saveButton.disabled = true;
     $('message').style.display = 'none';
 
+    const pin = $('configPin').value;
+    setPin(pin);
+
     fetch('/api/config/system', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Config-Pin': pin },
         body: JSON.stringify({
             wifiAutoDisableAfterCalibration: $('wifiAutoDisableAfterCalibration').checked
         })
@@ -98,6 +108,8 @@ $('systemConfigForm').addEventListener('submit', function(e) {
             saveButton.disabled = false;
         });
 });
+
+window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPin(); });
 
 loadCurrentValues();
 )rawliteral";

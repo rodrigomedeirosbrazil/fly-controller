@@ -13,6 +13,14 @@ const setText = (id, value) => {
 
 const fetchJson = (url) => fetch(url).then((r) => r.json());
 
+const getPin = () => sessionStorage.getItem('cfgPin') || '';
+const setPin = (pin) => sessionStorage.setItem('cfgPin', pin);
+
+const fetchWithPin = (url, options = {}) => {
+    const headers = { ...(options.headers || {}), 'X-Config-Pin': getPin() };
+    return fetch(url, { ...options, headers });
+};
+
 const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B';
     const k = 1024;

@@ -6,6 +6,10 @@ inline String renderLogsPage() {
     const char* body = R"rawliteral(
 <div class="panel">
     <h1>Data Logs</h1>
+    <div class="form-group" style="max-width:320px;margin-bottom:1rem;">
+        <label for="logPin">PIN</label>
+        <input type="password" id="logPin" maxlength="8" placeholder="Required to delete" oninput="setPin(this.value)">
+    </div>
     <div class="table-wrap">
         <table id="fileTable">
             <thead><tr><th>File</th><th>Size</th><th>Action</th></tr></thead>
@@ -57,15 +61,23 @@ const loadFiles = () => {
 
 const deleteFile = (filename) => {
     if (!confirm(`Delete ${filename}?`)) return;
-    fetch('/delete?file=' + filename).then((r) => r.ok ? loadFiles() : alert('Delete failed'));
+    fetchWithPin('/delete?file=' + encodeURIComponent(filename))
+        .then((r) => r.ok ? loadFiles() : r.text().then((t) => alert('Delete failed: ' + t)));
 };
 
 const deleteAllLogs = () => {
     const deleteAllBtn = document.querySelector('#deleteAllBtn');
     if (deleteAllBtn && deleteAllBtn.disabled) return;
     if (!confirm('This will permanently delete all log files on the device. Continue?')) return;
-    fetch('/delete-all-logs').then((r) => (r.ok ? loadFiles() : alert('Delete all failed')));
+    fetchWithPin('/delete-all-logs')
+        .then((r) => r.ok ? loadFiles() : r.text().then((t) => alert('Delete failed: ' + t)));
 };
+
+// Pre-fill PIN from sessionStorage on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const pinInput = document.querySelector('#logPin');
+    if (pinInput) pinInput.value = getPin();
+});
 
 loadFiles();
 )rawliteral";
