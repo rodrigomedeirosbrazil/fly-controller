@@ -46,7 +46,9 @@ void setup()
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
   extern ADS1115 ads1115;
-  ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  if (!ads1115.begin(I2C_SDA_PIN, I2C_SCL_PIN)) {
+    DEBUG_PRINTLN("[Main] WARNING: ADS1115 init failed — throttle and temp readings unavailable");
+  }
 
   xctod.init();
   bluetoothBms.init();
@@ -71,18 +73,18 @@ void setup()
 
   esp_err_t install_result = twai_driver_install(&g_config, &t_config, &f_config);
   if (install_result != ESP_OK) {
-    Serial.print("[Main] ERROR: Failed to install TWAI driver - Error: ");
-    Serial.println(install_result);
+    DEBUG_PRINT("[Main] ERROR: Failed to install TWAI driver - Error: ");
+    DEBUG_PRINTLN(install_result);
   } else {
-    Serial.println("[Main] TWAI driver installed successfully");
+    DEBUG_PRINTLN("[Main] TWAI driver installed successfully");
   }
 
   esp_err_t start_result = twai_start();
   if (start_result != ESP_OK) {
-    Serial.print("[Main] ERROR: Failed to start TWAI driver - Error: ");
-    Serial.println(start_result);
+    DEBUG_PRINT("[Main] ERROR: Failed to start TWAI driver - Error: ");
+    DEBUG_PRINTLN(start_result);
   } else {
-    Serial.println("[Main] TWAI driver started successfully");
+    DEBUG_PRINTLN("[Main] TWAI driver started successfully");
 
     // Wait a bit for driver to be ready
     delay(50);
@@ -90,10 +92,10 @@ void setup()
     // Check driver status (using only standard fields)
     twai_status_info_t status_info;
     twai_get_status_info(&status_info);
-    Serial.print("[Main] TWAI Status - TX Errors: ");
-    Serial.print(status_info.tx_error_counter);
-    Serial.print(", RX Errors: ");
-    Serial.println(status_info.rx_error_counter);
+    DEBUG_PRINT("[Main] TWAI Status - TX Errors: ");
+    DEBUG_PRINT(status_info.tx_error_counter);
+    DEBUG_PRINT(", RX Errors: ");
+    DEBUG_PRINTLN(status_info.rx_error_counter);
   }
 
   // Hobbywing-specific initialization
