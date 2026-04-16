@@ -80,7 +80,7 @@ const char* toBmsScanStatusLabel(uint8_t status) {
 }
 
 void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 200) {
-    DynamicJsonDocument doc(2048);
+    StaticJsonDocument<2048> doc;
     doc["ok"] = (httpStatus >= 200 && httpStatus < 300);
     doc["status"] = toBmsScanStatusLabel(bluetoothBms.getWebScanStatus());
     doc["busy"] = bluetoothBms.isWebScanBusy();
@@ -102,38 +102,59 @@ void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 
         entry["advertisedServices"] = scanResults[i].advertisedServices;
     }
 
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "JSON buffer overflow");
+        return;
+    }
+
     sendJsonResponse(request, httpStatus, doc);
 }
 
 void sendPowerConfigResponse(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(512);
+    StaticJsonDocument<512> doc;
     doc["batteryCapacity"] = settings.getBatteryCapacityMah();
     doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
     doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
     doc["powerControlEnabled"] = settings.getPowerControlEnabled();
     doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "JSON buffer overflow");
+        return;
+    }
     sendJsonResponse(request, 200, doc);
 }
 
 void sendThermalConfigResponse(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(512);
+    StaticJsonDocument<512> doc;
     doc["motorMaxTemp"] = settings.getMotorMaxTemp();
     doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
     doc["escMaxTemp"] = settings.getEscMaxTemp();
     doc["escTempReductionStart"] = settings.getEscTempReductionStart();
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "JSON buffer overflow");
+        return;
+    }
     sendJsonResponse(request, 200, doc);
 }
 
 void sendBmsConfigResponse(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(256);
+    StaticJsonDocument<256> doc;
     doc["bmsType"] = settings.getBmsType();
     doc["bmsMac"] = settings.getBmsMac();
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "JSON buffer overflow");
+        return;
+    }
     sendJsonResponse(request, 200, doc);
 }
 
 void sendSystemConfigResponse(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(128);
+    StaticJsonDocument<128> doc;
     doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "JSON buffer overflow");
+        return;
+    }
     sendJsonResponse(request, 200, doc);
 }
 
@@ -220,10 +241,14 @@ void ControllerWebServer::startAP() {
             const String mac = doc["mac"] | "";
             const uint8_t detectedType = bluetoothBms.detectBmsTypeByMac(mac);
 
-            DynamicJsonDocument responseDoc(128);
+            StaticJsonDocument<128> responseDoc;
             responseDoc["ok"] = true;
             responseDoc["mac"] = mac;
             responseDoc["detectedType"] = detectedType;
+            if (responseDoc.overflowed()) {
+                request->send(500, "text/plain", "JSON buffer overflow");
+                return;
+            }
             sendJsonResponse(request, 200, responseDoc);
         },
         256
@@ -451,8 +476,12 @@ void ControllerWebServer::startAP() {
     // The POST body must be { "currentPin": "xxxx", "newPin": "yyyy" }.
     // newPin must be 4-8 characters. Current PIN is validated before applying.
     server.on("/api/config/pin", HTTP_GET, [](AsyncWebServerRequest *request) {
-        DynamicJsonDocument doc(64);
+        StaticJsonDocument<64> doc;
         doc["isDefault"] = (settings.getConfigPin() == "0000");
+        if (doc.overflowed()) {
+            request->send(500, "text/plain", "JSON buffer overflow");
+            return;
+        }
         sendJsonResponse(request, 200, doc);
     });
 
@@ -491,7 +520,7 @@ void ControllerWebServer::startAP() {
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(768);
+        StaticJsonDocument<768> doc;
 
         const bool hasTelemetry = telemetry.hasData();
         const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
@@ -552,6 +581,11 @@ void ControllerWebServer::startAP() {
                 bms["cellMaxMv"] = bluetoothBms.getCellMaxMilliVolts();
                 bms["cellDeltaMv"] = bluetoothBms.getCellDeltaMilliVolts();
             }
+        }
+
+        if (doc.overflowed()) {
+            request->send(500, "text/plain", "JSON buffer overflow");
+            return;
         }
 
         String response;

@@ -46,17 +46,17 @@ void Temperature::readTemperature() {
   }
 
   // Voltage at the divider point: ReadFn returns 0-4095, scale by adcVoltageRef
-  double v = (adcVoltageRef * (double)sum) / (samples * 4095.0);
+  float v = (adcVoltageRef * (float)sum) / (samples * 4095.0f);
 
   // Solving for rt: rt = (v * R) / (VCC - v)
   // VCC is 3.3V (sensor power supply)
-  const double vcc = 3.3;
-  double rt = (v * R) / (vcc - v);
+  const float vcc = 3.3f;
+  float rt = (v * R) / (vcc - v);
 
   // Steinhart-Hart equation using Beta coefficient:
   // 1/T = 1/T0 + (1/B) * ln(Rt/R0)
   // T = 1 / (1/T0 + (1/B) * ln(Rt/R0))
-  double invT = (1.0 / t0) + (1.0 / beta) * log(rt / r0);
-  double tempK = 1.0 / invT;
-  temperature = tempK - 273.15;
+  float invT = (1.0f / t0) + (1.0f / beta) * logf(rt / r0);
+  float tempK = 1.0f / invT;
+  temperature = tempK - 273.15f;
 }

@@ -111,6 +111,39 @@ private:
     const uint16_t paramGetDataTypeId = 1332;         // ParamGet
     const uint16_t genericInstructionDataTypeId = 1000;  // Generic Instruction (Enable Reporting)
 
+    // ESC_STATUS payload field offsets
+    const uint8_t ESC_STATUS_ERROR_COUNT_OFFSET = 0;  // Bytes 0-3
+    const uint8_t ESC_STATUS_VOLTAGE_OFFSET = 6;      // Bytes 6-7 (float16)
+    const uint8_t ESC_STATUS_CURRENT_OFFSET = 8;      // Bytes 8-9 (float16)
+    const uint8_t ESC_STATUS_TEMP_OFFSET = 10;        // Bytes 10-11 (float16)
+    const uint8_t ESC_STATUS_RPM_OFFSET = 12;         // Bytes 12-14 (int18)
+    const uint8_t ESC_STATUS_POWER_RATING_OFFSET = 13;
+    const uint8_t ESC_STATUS_ESC_INDEX_OFFSET = 14;
+    const uint8_t ESC_STATUS_MIN_PAYLOAD_SIZE = 14;   // Minimum size for valid ESC_STATUS
+    const uint8_t ESC_STATUS_MIN_SIZE_WITH_TEMP = 15; // For RPM/index fields
+
+    // PUSHCAN payload constants
+    const uint8_t PUSHCAN_MOTOR_TEMP_OFFSET = 22;     // Motor temperature at bytes 22-23 (offset from buffer start)
+    const uint8_t PUSHCAN_MIN_PAYLOAD_SIZE = 24;      // Minimum size to reach temperature field
+
+    // Status 5 (1154) parsing constants
+    const uint8_t STATUS5_FRAME_LENGTH = 8;           // Single frame: 7 bytes + 1 tail
+    const uint8_t STATUS5_IDC_OFFSET = 0;             // Bytes 0-1 (int16, 0.1A units)
+    const uint8_t STATUS5_CAP_TEMP_OFFSET = 2;        // Bytes 2-3 (int16, 0.1°C units)
+    const uint8_t STATUS5_MOTOR_TEMP_OFFSET = 4;      // Bytes 4-5 (int16, 0.1°C units)
+
+    // UAVCAN multi-frame transfer constants
+    const uint8_t TRANSFER_ID_MASK = 0x1F;
+    const uint8_t CAN_PAYLOAD_SIZE = 8;
+
+    // ParamCfg signature constant
+    const uint64_t PARAMCFG_SIGNATURE = 0x948F5E0B33E0EDEEULL;
+
+    // Throttle constants
+    const int16_t MAX_THROTTLE = 8191;
+    const uint8_t THROTTLE_BYTE0_MASK = 0xFF;
+    const uint8_t THROTTLE_BYTE1_MASK = 0x3F;
+
     // T-Motor-specific parsing methods
     void handleEscStatus(twai_message_t *canMsg);
     void handleEscStatus5(twai_message_t *canMsg);  // Handle Status 5 (Message ID 1154) for motor temperature
