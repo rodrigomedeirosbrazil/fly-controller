@@ -149,7 +149,9 @@ unsigned int Power::calcPower() {
 
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
-    if (!telemetry.hasData()) return 0;
+    // Return conservative 50% when telemetry is not yet available — avoids a
+    // full motor cutoff at startup before the ESC sends its first CAN frame.
+    if (!telemetry.hasData()) return 50;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
