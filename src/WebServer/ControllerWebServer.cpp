@@ -253,11 +253,14 @@ void ControllerWebServer::startAP() {
                 return;
             }
 
-            uint16_t capacity = doc["batteryCapacity"];
-            if (capacity < 1000 || capacity > 200000) {
-                request->send(400, "text/plain", "Battery capacity out of range (1000-200000 mAh)");
+            // Read as uint32_t first so the upper-bound check is meaningful —
+            // uint16_t max is 65535, so "> 65000" would otherwise always be false.
+            uint32_t capacityRaw = doc["batteryCapacity"].as<uint32_t>();
+            if (capacityRaw < 1000 || capacityRaw > 65000) {
+                request->send(400, "text/plain", "Battery capacity out of range (1000-65000 mAh)");
                 return;
             }
+            uint16_t capacity = static_cast<uint16_t>(capacityRaw);
 
             uint16_t minV = doc["batteryMinVoltage"];
             if (minV < 2500 || minV > 63000) {

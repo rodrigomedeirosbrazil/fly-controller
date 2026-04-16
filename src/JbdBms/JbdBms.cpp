@@ -584,15 +584,15 @@ void JbdBms::printCellVoltages() {
     for (uint8_t i = 0; i < count && i < JBD_MAX_CELLS; i++) {
         uint16_t v = cellVoltagesMv_[i];
         DEBUG_PRINT("[JBD] C");
-        if (i + 1 < 10) DEBUG_PRINT("0");
+        if (i + 1 < 10) { DEBUG_PRINT("0"); }
         DEBUG_PRINT(i + 1);
         DEBUG_PRINT(": ");
         DEBUG_PRINT(v / 1000);
         DEBUG_PRINT(".");
         // 3 decimal places
         uint16_t frac = v % 1000;
-        if (frac < 100) DEBUG_PRINT("0");
-        if (frac < 10)  DEBUG_PRINT("0");
+        if (frac < 100) { DEBUG_PRINT("0"); }
+        if (frac < 10)  { DEBUG_PRINT("0"); }
         DEBUG_PRINT(frac);
         DEBUG_PRINTLN(" V");
         if (v < vmin) vmin = v;
@@ -644,7 +644,7 @@ uint16_t JbdBms::getCellDeltaMilliVolts() const {
 void JbdBms::printFrameHex(const uint8_t* data, size_t len) {
     DEBUG_PRINT("[JBD] ");
     for (size_t i = 0; i < len; i++) {
-        if (data[i] < 0x10) DEBUG_PRINT("0");
+        if (data[i] < 0x10) { DEBUG_PRINT("0"); }
         DEBUG_PRINT_HEX(data[i], HEX);
         DEBUG_PRINT(" ");
     }
