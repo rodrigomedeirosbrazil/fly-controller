@@ -9,6 +9,27 @@
 
 extern twai_message_t canMsg;
 
+namespace {
+// Static payload parser helpers for T-Motor CAN messages
+static uint16_t parseUint16LE(const uint8_t *payload, uint8_t offset) {
+    return (uint16_t)payload[offset] | ((uint16_t)payload[offset + 1] << 8);
+}
+
+static uint32_t parseUint32LE(const uint8_t *payload, uint8_t offset) {
+    return (uint32_t)payload[offset] |
+           ((uint32_t)payload[offset + 1] << 8) |
+           ((uint32_t)payload[offset + 2] << 16) |
+           ((uint32_t)payload[offset + 3] << 24);
+}
+
+static int16_t parseInt16LE(const uint8_t *payload, uint8_t offset) {
+    return (int16_t)parseUint16LE(payload, offset);
+}
+
+static int32_t parseInt32LE(const uint8_t *payload, uint8_t offset) {
+    return (int32_t)parseUint32LE(payload, offset);
+}
+} // namespace
 
 // CRC16-CCITT-FALSE para DroneCAN/UAVCAN
 // Based on TM-UAVCAN v2.3 manual, Appendix 5.1
@@ -185,40 +206,28 @@ void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
     if (isEOF) {
         escStatusTransferActive = false;
 
-        // Minimum payload size: 14 bytes
-        if (escStatusBufferLen < 14) {
+        // Minimum payload size validation
+        if (escStatusBufferLen < ESC_STATUS_MIN_PAYLOAD_SIZE) {
             escStatusBufferLen = 0;
             return;
         }
 
-        // Debug: Print accumulated buffer
-        // DEBUG_PRINT("[ESC] Buffer: [");
-        // for (uint8_t i = 0; i < escStatusBufferLen && i < 16; i++) {
-        //     if (i > 0) DEBUG_PRINT(" ");
-        //     if (escStatusBuffer[i] < 0x10) DEBUG_PRINT("0");
-        //     DEBUG_PRINT(escStatusBuffer[i], HEX);
-        // }
-        // DEBUG_PRINTLN("]");
-
         // Extract error_count (uint32, little-endian, bytes 0-3)
-        errorCount = (uint32_t)escStatusBuffer[0] |
-                     ((uint32_t)escStatusBuffer[1] << 8) |
-                     ((uint32_t)escStatusBuffer[2] << 16) |
-                     ((uint32_t)escStatusBuffer[3] << 24);
+        errorCount = parseUint32LE(escStatusBuffer, ESC_STATUS_ERROR_COUNT_OFFSET);
 
-        // Extract voltage (float16, bytes 6-7, little-endian) - CORRECTED POSITION
-        uint16_t voltageFloat16 = (uint16_t)escStatusBuffer[6] | ((uint16_t)escStatusBuffer[7] << 8);
+        // Extract voltage (float16, bytes 6-7, little-endian)
+        uint16_t voltageFloat16 = parseUint16LE(escStatusBuffer, ESC_STATUS_VOLTAGE_OFFSET);
         float voltage = convertFloat16ToFloat(voltageFloat16);
         batteryVoltageMilliVolts = (uint16_t)(voltage * 1000.0f + 0.5f);
 
-        // Extract current (float16, bytes 8-9, little-endian) - CORRECTED POSITION
-        uint16_t currentFloat16 = (uint16_t)escStatusBuffer[8] | ((uint16_t)escStatusBuffer[9] << 8);
+        // Extract current (float16, bytes 8-9, little-endian)
+        uint16_t currentFloat16 = parseUint16LE(escStatusBuffer, ESC_STATUS_CURRENT_OFFSET);
         float current = convertFloat16ToFloat(currentFloat16);
         batteryCurrentMilliAmps = (uint32_t)(current * 1000.0f + 0.5f);
 
-        // Extract ESC temperature (float16, bytes 10-11, little-endian) - CORRECTED POSITION
-        if (escStatusBufferLen >= 12) {
-            uint16_t tempFloat16 = (uint16_t)escStatusBuffer[10] | ((uint16_t)escStatusBuffer[11] << 8);
+        // Extract ESC temperature (float16, bytes 10-11, little-endian)
+        if (escStatusBufferLen >= (ESC_STATUS_TEMP_OFFSET + 1)) {
+            uint16_t tempFloat16 = parseUint16LE(escStatusBuffer, ESC_STATUS_TEMP_OFFSET);
             float tempKelvin = convertFloat16ToFloat(tempFloat16);
             escTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
         } else {
@@ -226,10 +235,8 @@ void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
         }
 
         // Extract RPM (int18, bytes 12-14, signed 3-byte value, little-endian)
-        if (escStatusBufferLen >= 15) {
-            int32_t rpmRaw = (int32_t)escStatusBuffer[12] |
-                             ((int32_t)escStatusBuffer[13] << 8) |
-                             ((int32_t)(escStatusBuffer[14] & 0x03) << 16);  // Only lower 2 bits of byte 14
+        if (escStatusBufferLen >= ESC_STATUS_MIN_SIZE_WITH_TEMP) {
+            int32_t rpmRaw = parseInt32LE(escStatusBuffer, ESC_STATUS_RPM_OFFSET) & 0x3FFFF;  // Only 18 bits
             // Sign extend from 18 bits to 32 bits
             if (rpmRaw & 0x20000) {  // Check sign bit (bit 17)
                 rpmRaw |= 0xFFFC0000;  // Sign extend
@@ -239,11 +246,11 @@ void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
             rpm = 0;
         }
 
-        // Extract power_rating_pct and esc_index (byte 13)
-        if (escStatusBufferLen >= 14) {
-            powerRatingPct = escStatusBuffer[13] & 0x7F;  // Lower 7 bits
-            if (escStatusBufferLen >= 15) {
-                escIndex = escStatusBuffer[14] & 0x1F;  // Lower 5 bits
+        // Extract power_rating_pct and esc_index (bytes 13-14)
+        if (escStatusBufferLen >= ESC_STATUS_MIN_PAYLOAD_SIZE) {
+            powerRatingPct = escStatusBuffer[ESC_STATUS_POWER_RATING_OFFSET] & 0x7F;  // Lower 7 bits
+            if (escStatusBufferLen >= ESC_STATUS_MIN_SIZE_WITH_TEMP) {
+                escIndex = escStatusBuffer[ESC_STATUS_ESC_INDEX_OFFSET] & 0x1F;  // Lower 5 bits
             }
         }
 
@@ -305,28 +312,18 @@ void TmotorCan::handlePushCan(twai_message_t *canMsg) {
         // PUSHCAN structure (Based on Manual Page 12, bytes list, NO LENGTH BYTE):
         // uint32 data_sequence (bytes 0-3)
         // Raw data value starts at byte 4
-        //
-        // Data Packet Structure (inside Raw data):
-        // Offset 0-1: Frame header
-        // Offset 2: Frame ID
-        // ...
-        // Offset 18-19: Temperature (2 bytes)
-        //
-        // Total offset in pushCanBuffer: 4 (sequence) + 18 = 22
+        // Motor temperature at bytes 22-23 of buffer (4 + 18 offset in data array)
 
-        // Minimum size: 4 (data_sequence) + 20 (to reach bytes 19-20) = 24 bytes
-        if (pushCanBufferLen < 24) {
+        // Minimum size validation
+        if (pushCanBufferLen < PUSHCAN_MIN_PAYLOAD_SIZE) {
             pushCanBufferLen = 0;
             return;
         }
 
-        // Extract motor temperature from bytes 18-19 of data array
-        // data array starts at byte 4 (after data_sequence)
-        // So bytes 18-19 of data array are at indices 4+18=22 and 4+19=23
-        uint16_t motorTempValue = (uint16_t)pushCanBuffer[22] | ((uint16_t)pushCanBuffer[23] << 8);
+        // Extract motor temperature from offset 22-23
+        uint16_t motorTempValue = parseUint16LE(pushCanBuffer, PUSHCAN_MOTOR_TEMP_OFFSET);
 
-        // Assuming temperature is in float16 format (similar to ESC_STATUS)
-        // If it's in Kelvin, convert to Celsius
+        // Temperature is in float16 format (in Kelvin)
         float tempKelvin = convertFloat16ToFloat(motorTempValue);
         motorTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
 
@@ -340,37 +337,32 @@ void TmotorCan::handlePushCan(twai_message_t *canMsg) {
 
 void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     // Status 5: Single-frame (7 bytes + tail)
-    // Bytes 0-1: idc (int16_t) - Estimated busbar current
-    // Bytes 2-3: cap_temp (int16_t) - Capacitor temperature in 0.1°C
-    // Bytes 4-5: motor_temp (int16_t) - Motor temperature in 0.1°C
+    // Bytes 0-1: idc (int16_t) - Estimated busbar current (0.1A units)
+    // Bytes 2-3: cap_temp (int16_t) - Capacitor temperature (0.1°C units)
+    // Bytes 4-5: motor_temp (int16_t) - Motor temperature (0.1°C units)
     // Byte 6: reserved
     // Byte 7: tail
 
     uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
 
-    // Validar single-frame
+    // Validate single-frame
     if (!CanUtils::isStartOfFrame(tailByte) || !CanUtils::isEndOfFrame(tailByte)) {
         DEBUG_PRINTLN("[Tmotor] ERROR: Status 5 isn't single-frame");
         return;
     }
 
     // Minimum size check: 7 bytes data + 1 tail = 8 bytes
-    if (canMsg->data_length_code < 8) {
+    if (canMsg->data_length_code < STATUS5_FRAME_LENGTH) {
         DEBUG_PRINTLN("[Tmotor] ERROR: Status 5 frame too short");
         return;
     }
 
-    int16_t idc = (int16_t)((uint16_t)canMsg->data[0] |
-                            ((uint16_t)canMsg->data[1] << 8));
+    int16_t idc = parseInt16LE(canMsg->data, STATUS5_IDC_OFFSET);
+    int16_t cap_temp_raw = parseInt16LE(canMsg->data, STATUS5_CAP_TEMP_OFFSET);
+    int16_t motor_temp_raw = parseInt16LE(canMsg->data, STATUS5_MOTOR_TEMP_OFFSET);
     (void)idc; // only used in DEBUG_PRINT — suppress unused-variable in release builds
 
-    int16_t cap_temp_raw = (int16_t)((uint16_t)canMsg->data[2] |
-                                     ((uint16_t)canMsg->data[3] << 8));
-
-    int16_t motor_temp_raw = (int16_t)((uint16_t)canMsg->data[4] |
-                                       ((uint16_t)canMsg->data[5] << 8));
-
-    // Convert to Celsius (comes in 0.1°C) using integer division with rounding
+    // Convert from 0.1°C units to Celsius using integer division with rounding
     // For positive values: (value + 5) / 10 rounds correctly
     // For negative values: (value - 5) / 10 rounds correctly
     int16_t cap_temp_celsius = (cap_temp_raw >= 0) ? (cap_temp_raw + 5) / 10 : (cap_temp_raw - 5) / 10;
@@ -434,11 +426,8 @@ void TmotorCan::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool save
     payload[26] = savePermanent ? 1 : 0;
 
     // Calculate CRC for multi-frame transfer
-    // ParamCfg signature: 0x948F5E0B33E0EDEE (from manual section 4.3.1)
-    uint64_t signature = 0x948F5E0B33E0EDEEULL;
-
     uint16_t crc = 0xFFFF;
-    crc = crcAddSignature(crc, signature);
+    crc = crcAddSignature(crc, PARAMCFG_SIGNATURE);
     crc = crcAdd(crc, payload, 27);
 
     // Build CAN ID for ParamCfg (1033)
@@ -558,7 +547,7 @@ void TmotorCan::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool save
     }
 
     // Increment TransferID only AFTER all frames sent
-    transferId = (transferId + 1) & 0x1F;
+    transferId = (transferId + 1) & TRANSFER_ID_MASK;
     DEBUG_PRINTLN();
 }
 
@@ -643,7 +632,7 @@ void TmotorCan::sendEnableReporting(bool enable) {
         return;
     }
 
-    transferId = (transferId + 1) & 0x1F;
+    transferId = (transferId + 1) & TRANSFER_ID_MASK;
 }
 
 // Float16 conversion functions (based on PDF section 5.2)
@@ -714,17 +703,17 @@ uint16_t TmotorCan::convertFloatToFloat16(float value) {
 
 void TmotorCan::setRawThrottle(int16_t throttle) {
     // RawCommand (1030) - Throttle control
-    // Range: 0 to 8191 (0 = no throttle, 8191 = max throttle)
+    // Range: 0 to MAX_THROTTLE (0 = no throttle, 8191 = max throttle)
 
     // Validate throttle range
     if (throttle < 0) throttle = 0;
-    if (throttle > 8191) throttle = 8191;
+    if (throttle > MAX_THROTTLE) throttle = MAX_THROTTLE;
 
     twai_message_t localCanMsg;
 
     // Build CAN ID for RawCommand (1030)
     uint32_t priority = 0x10;  // MEDIUM priority
-    uint32_t dataTypeId = rawCommandDataTypeId;  // 1030
+    uint32_t dataTypeId = rawCommandDataTypeId;
     uint32_t service = 0;
     uint32_t srcNodeId = canbus.getNodeId();
 
@@ -742,8 +731,8 @@ void TmotorCan::setRawThrottle(int16_t throttle) {
 
     // For 1 ESC: throttle uses 14 bits (2 bytes when packed)
     // Pack 14-bit throttle into bytes 0-1
-    localCanMsg.data[0] = (uint8_t)(throttle & 0xFF);         // Lower 8 bits
-    localCanMsg.data[1] = (uint8_t)((throttle >> 8) & 0x3F);  // Upper 6 bits
+    localCanMsg.data[0] = (uint8_t)(throttle & THROTTLE_BYTE0_MASK);
+    localCanMsg.data[1] = (uint8_t)((throttle >> 8) & THROTTLE_BYTE1_MASK);
 
     // Padding bytes
     localCanMsg.data[2] = 0x00;
@@ -753,12 +742,12 @@ void TmotorCan::setRawThrottle(int16_t throttle) {
     localCanMsg.data[6] = 0x00;
 
     // Tail byte: Single Frame Transfer
-    localCanMsg.data[7] = 0xC0 | (transferId & 0x1F);
+    localCanMsg.data[7] = 0xC0 | (transferId & TRANSFER_ID_MASK);
 
-    localCanMsg.data_length_code = 8;
+    localCanMsg.data_length_code = CAN_PAYLOAD_SIZE;
 
     // Send
     twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
 
-    transferId = (transferId + 1) & 0x1F;
+    transferId = (transferId + 1) & TRANSFER_ID_MASK;
 }

@@ -5,6 +5,38 @@
 #include "HobbywingCan.h"
 #include "../Canbus/CanUtils.h"
 
+namespace {
+// Static payload parser functions for Hobbywing CAN messages
+static uint8_t parseTemperatureFromPayload(uint8_t *payload) {
+    return payload[HobbywingCan::TEMP_OFFSET];
+}
+
+static uint32_t parseBatteryCurrentFromPayload(uint8_t *payload) {
+    uint16_t deciCurrent = (payload[HobbywingCan::CURRENT_HIGH_BYTE_OFFSET] << 8) |
+                          payload[HobbywingCan::CURRENT_LOW_BYTE_OFFSET];
+    return (uint32_t)deciCurrent * 100;
+}
+
+static uint16_t parseBatteryVoltageMilliVoltsFromPayload(uint8_t *payload) {
+    uint16_t deciVolts = (payload[HobbywingCan::VOLTAGE_HIGH_BYTE_OFFSET] << 8) |
+                        payload[HobbywingCan::VOLTAGE_LOW_BYTE_OFFSET];
+    return (uint16_t)(deciVolts * 100);
+}
+
+static uint16_t parseRpmFromPayload(uint8_t *payload) {
+    return (payload[HobbywingCan::RPM_HIGH_BYTE_OFFSET] << 8) |
+           payload[HobbywingCan::RPM_LOW_BYTE_OFFSET];
+}
+
+static bool parseDirectionCCWFromPayload(uint8_t *payload) {
+    return (payload[HobbywingCan::DIRECTION_OFFSET] & HobbywingCan::DIRECTION_MASK) >> 7 == 1;
+}
+
+static uint8_t parseEscThrottleIdFromPayload(uint8_t *payload) {
+    return payload[HobbywingCan::THROTTLE_ID_OFFSET];
+}
+} // namespace
+
 HobbywingCan::HobbywingCan() {
     lastReadStatusMsg1 = 0;
     lastReadStatusMsg2 = 0;
@@ -59,48 +91,27 @@ bool HobbywingCan::isReady() {
 }
 
 void HobbywingCan::handleStatusMsg1(twai_message_t *canMsg) {
-    if (canMsg->data_length_code != 7) {
+    if (canMsg->data_length_code != STATUS_MSG1_FRAME_LENGTH) {
         return;
     }
 
-    rpm = getRpmFromPayload(canMsg->data);
-    isCcwDirection = getDirectionCCWFromPayload(canMsg->data);
+    rpm = parseRpmFromPayload(canMsg->data);
+    isCcwDirection = parseDirectionCCWFromPayload(canMsg->data);
 
     lastReadStatusMsg2 = millis();
 }
 
 void HobbywingCan::handleStatusMsg2(twai_message_t *canMsg) {
-    if (canMsg->data_length_code != 6) {
+    if (canMsg->data_length_code != STATUS_MSG2_FRAME_LENGTH) {
         return;
     }
 
-    temperature = getTemperatureFromPayload(canMsg->data);
-    batteryCurrentMilliAmps = getBatteryCurrentFromPayload(canMsg->data);
-    batteryVoltageMilliVolts = getBatteryVoltageMilliVoltsFromPayload(canMsg->data);
+    temperature = parseTemperatureFromPayload(canMsg->data);
+    batteryCurrentMilliAmps = parseBatteryCurrentFromPayload(canMsg->data);
+    batteryVoltageMilliVolts = parseBatteryVoltageMilliVoltsFromPayload(canMsg->data);
     lastReadStatusMsg1 = millis();
 }
 
-uint8_t HobbywingCan::getTemperatureFromPayload(uint8_t *payload) {
-    return payload[4];
-}
-
-uint32_t HobbywingCan::getBatteryCurrentFromPayload(uint8_t *payload) {
-    uint16_t deciCurrent = (payload[3] << 8) | payload[2];
-    return (uint32_t)deciCurrent * 100;
-}
-
-uint16_t HobbywingCan::getBatteryVoltageMilliVoltsFromPayload(uint8_t *payload) {
-    uint16_t deciVolts = (payload[1] << 8) | payload[0];
-    return (uint16_t)(deciVolts * 100);
-}
-
-uint16_t HobbywingCan::getRpmFromPayload(uint8_t *payload) {
-    return (payload[1] << 8) | payload[0];
-}
-
-bool HobbywingCan::getDirectionCCWFromPayload(uint8_t *payload) {
-    return (payload[5] & 0x80) >> 7 == 1;
-}
 
 void HobbywingCan::setLedColor(uint8_t color, uint8_t blink) {
     uint8_t data[3];
@@ -185,7 +196,7 @@ void HobbywingCan::handleGetEscIdResponse(twai_message_t *canMsg) {
         return;
     }
 
-    uint8_t escThrottleIdReceived = getEscThrottleIdFromPayload(canMsg->data);
+    uint8_t escThrottleIdReceived = parseEscThrottleIdFromPayload(canMsg->data);
     uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
     (void)escThrottleIdReceived; // only used in DEBUG_PRINT
     (void)sourceNodeId;          // only used in DEBUG_PRINT
@@ -223,10 +234,6 @@ void HobbywingCan::sendMessage(uint8_t priority, uint16_t serviceTypeId, uint8_t
     twai_transmit(&localCanMsg, pdMS_TO_TICKS(10));
 
     transferId++;
-}
-
-uint8_t HobbywingCan::getEscThrottleIdFromPayload(uint8_t *payload) {
-    return payload[1];
 }
 
 void HobbywingCan::handle() {

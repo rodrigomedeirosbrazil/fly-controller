@@ -177,9 +177,12 @@ void checkCanbus()
 #if USES_CAN_BUS
     extern Canbus canbus;
     twai_message_t msg;
+    const unsigned int MAX_CAN_FRAMES_PER_TICK = 10;
+    unsigned int frameCount = 0;
 
-    // Process all received CAN frames
-    while (canbus.receive(&msg)) {
+    // Process received CAN frames with rate limiting to prevent starvation of other tasks
+    while (frameCount < MAX_CAN_FRAMES_PER_TICK && canbus.receive(&msg)) {
+        frameCount++;
 #if IS_HOBBYWING
         extern HobbywingCan hobbywingCan;
         hobbywingCan.parseEscMessage(&msg);
