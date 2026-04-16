@@ -31,7 +31,7 @@ class Throttle {
         int pinValueFiltered;
         unsigned long lastThrottleRead;
 
-        bool throttleArmed;
+        volatile bool throttleArmed;
 
         bool calibrated;
         unsigned int calibratingStep;

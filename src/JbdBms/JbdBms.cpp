@@ -313,6 +313,7 @@ void JbdBms::update() {
 // onNotify — called by BLE stack ISR-like callback
 // ---------------------------------------------------------------------------
 void JbdBms::onNotify(uint8_t* data, size_t len) {
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
     if (rxLen_ + len > JBD_RX_BUFFER_SIZE) {
         // Overflow: discard buffer to avoid garbage accumulation
         DEBUG_PRINTLN("[JBD] RX buffer overflow, discarding");
@@ -320,6 +321,7 @@ void JbdBms::onNotify(uint8_t* data, size_t len) {
     }
     memcpy(rxBuffer_ + rxLen_, data, len);
     rxLen_ += len;
+    xSemaphoreGive(stateMutex_);
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +336,10 @@ void JbdBms::onNotify(uint8_t* data, size_t len) {
 // Checksum (reception): 0x10000 - (STATUS + LEN + DATA[...])
 // ---------------------------------------------------------------------------
 void JbdBms::processRxBuffer() {
-    while (rxLen_ > 0) {
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
+
+    bool done = false;
+    while (!done && rxLen_ > 0) {
 
         // --- Discard FF AA wrapper if present at start ---
         if (rxLen_ >= 2 && rxBuffer_[0] == 0xFF && rxBuffer_[1] == 0xAA) {
@@ -347,14 +352,14 @@ void JbdBms::processRxBuffer() {
         if (rxBuffer_[0] != JBD_FRAME_START) {
             size_t skip = 0;
             while (skip < rxLen_ && rxBuffer_[skip] != JBD_FRAME_START) skip++;
-            if (skip >= rxLen_) { rxLen_ = 0; return; }
+            if (skip >= rxLen_) { rxLen_ = 0; done = true; continue; }
             memmove(rxBuffer_, rxBuffer_ + skip, rxLen_ - skip);
             rxLen_ -= skip;
             continue;
         }
 
         // --- Need at least 4 bytes to read LEN ---
-        if (rxLen_ < 4) return;
+        if (rxLen_ < 4) { done = true; continue; }
 
         uint8_t reg     = rxBuffer_[1];
         uint8_t status  = rxBuffer_[2];
@@ -364,7 +369,7 @@ void JbdBms::processRxBuffer() {
         size_t frameLen = (size_t)dataLen + 7;
 
         // Wait for full frame to arrive (may come in multiple BLE packets)
-        if (rxLen_ < frameLen) return;
+        if (rxLen_ < frameLen) { done = true; continue; }
 
         // --- Verify end byte 0x77 ---
         if (rxBuffer_[frameLen - 1] != JBD_FRAME_END) {
@@ -417,6 +422,8 @@ void JbdBms::processRxBuffer() {
         memmove(rxBuffer_, rxBuffer_ + frameLen, rxLen_ - frameLen);
         rxLen_ -= frameLen;
     }
+
+    xSemaphoreGive(stateMutex_);
 }
 
 // ---------------------------------------------------------------------------

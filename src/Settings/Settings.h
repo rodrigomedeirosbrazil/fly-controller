@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 enum BmsType : uint8_t {
     BmsTypeNone = 0,
@@ -59,6 +61,7 @@ public:
 
 private:
     Preferences preferences;
+    SemaphoreHandle_t mutex_;
 
     // Default values
     uint16_t getDefaultBatteryCapacity() const;
