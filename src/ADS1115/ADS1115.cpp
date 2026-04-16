@@ -32,11 +32,11 @@ bool ADS1115::begin(uint8_t sdaPin, uint8_t sclPin) {
 }
 
 int ADS1115::readChannel(uint8_t channel) {
-    if (!initialized) {
-        return lastValue[channel];
+    if (channel > 3) {
+        return 0;  // Invalid channel — array has only 4 elements [0..3]
     }
 
-    if (channel > 3) {
+    if (!initialized) {
         return lastValue[channel];
     }
 

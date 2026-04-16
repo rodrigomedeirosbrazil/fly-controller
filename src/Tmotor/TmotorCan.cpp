@@ -70,8 +70,6 @@ TmotorCan::TmotorCan() {
 void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
     // Extract DataType ID from CAN ID (assuming DroneCAN format)
     uint16_t dataTypeId = CanUtils::getDataTypeIdFromCanId(canMsg->identifier);
-    uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
-
     // Route to appropriate handler
     if (dataTypeId == escStatusDataTypeId) {
         handleEscStatus(canMsg);
@@ -89,8 +87,8 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
         DEBUG_PRINT(canMsg->data_length_code);
         DEBUG_PRINT(" Data=[");
         for (uint8_t i = 0; i < canMsg->data_length_code && i < 8; i++) {
-            if (i > 0) DEBUG_PRINT(" ");
-            if (canMsg->data[i] < 0x10) DEBUG_PRINT("0");
+            if (i > 0) { DEBUG_PRINT(" "); }
+            if (canMsg->data[i] < 0x10) { DEBUG_PRINT("0"); }
             DEBUG_PRINT_HEX(canMsg->data[i], HEX);
         }
         DEBUG_PRINTLN("]");
@@ -364,6 +362,7 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
 
     int16_t idc = (int16_t)((uint16_t)canMsg->data[0] |
                             ((uint16_t)canMsg->data[1] << 8));
+    (void)idc; // only used in DEBUG_PRINT — suppress unused-variable in release builds
 
     int16_t cap_temp_raw = (int16_t)((uint16_t)canMsg->data[2] |
                                      ((uint16_t)canMsg->data[3] << 8));
@@ -375,6 +374,7 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     // For positive values: (value + 5) / 10 rounds correctly
     // For negative values: (value - 5) / 10 rounds correctly
     int16_t cap_temp_celsius = (cap_temp_raw >= 0) ? (cap_temp_raw + 5) / 10 : (cap_temp_raw - 5) / 10;
+    (void)cap_temp_celsius; // only used in DEBUG_PRINT — suppress unused-variable in release builds
     int16_t motor_temp_celsius = (motor_temp_raw >= 0) ? (motor_temp_raw + 5) / 10 : (motor_temp_raw - 5) / 10;
 
     // Store (convert to uint8_t, with range check)
@@ -403,12 +403,7 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
 
 
 void TmotorCan::requestParam(uint16_t paramIndex) {
-    // Send ParamGet service request to read ESC parameter
-    // Service ID for ParamGet is typically 10 (uavcan.protocol.param.GetSet)
-    twai_message_t localCanMsg;
-
-    // For now, this is a placeholder - ParamGet structure needs to be defined
-    // based on the actual DroneCAN specification
+    // Placeholder — ParamGet structure needs to be defined per DroneCAN spec
     DEBUG_PRINT("[Tmotor] ParamGet request not yet implemented for param index ");
     DEBUG_PRINTLN(paramIndex);
 }

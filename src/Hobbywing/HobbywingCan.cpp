@@ -187,6 +187,8 @@ void HobbywingCan::handleGetEscIdResponse(twai_message_t *canMsg) {
 
     uint8_t escThrottleIdReceived = getEscThrottleIdFromPayload(canMsg->data);
     uint8_t sourceNodeId = CanUtils::getNodeIdFromCanId(canMsg->identifier);
+    (void)escThrottleIdReceived; // only used in DEBUG_PRINT
+    (void)sourceNodeId;          // only used in DEBUG_PRINT
 
     DEBUG_PRINT("Received GetEscID response from Node ID: ");
     DEBUG_PRINT_HEX(sourceNodeId, HEX);

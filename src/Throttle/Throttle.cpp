@@ -139,7 +139,7 @@ void Throttle::handleCalibration(unsigned long now)
 
 void Throttle::readThrottlePin()
 {
-  memcpy(
+  memmove(
     &pinValues,
     &pinValues[1],
     sizeof(pinValues[0]) * (samples - 1)

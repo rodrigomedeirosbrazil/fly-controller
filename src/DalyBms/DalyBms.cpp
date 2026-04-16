@@ -440,7 +440,7 @@ uint16_t DalyBms::crc16Modbus(const uint8_t* data, size_t len) {
 void DalyBms::printFrameHex(const uint8_t* data, size_t len) const {
     DEBUG_PRINT("[Daly] ");
     for (size_t i = 0; i < len; i++) {
-        if (data[i] < 0x10) DEBUG_PRINT("0");
+        if (data[i] < 0x10) { DEBUG_PRINT("0"); }
         DEBUG_PRINT_HEX(data[i], HEX);
         DEBUG_PRINT(" ");
     }
@@ -453,8 +453,8 @@ void DalyBms::printStatusSummary() const {
     DEBUG_PRINT(packVoltageMilliVolts_ / 1000);
     DEBUG_PRINT(".");
     uint16_t voltageFraction = packVoltageMilliVolts_ % 1000;
-    if (voltageFraction < 100) DEBUG_PRINT("0");
-    if (voltageFraction < 10) DEBUG_PRINT("0");
+    if (voltageFraction < 100) { DEBUG_PRINT("0"); }
+    if (voltageFraction < 10)  { DEBUG_PRINT("0"); }
     DEBUG_PRINT(voltageFraction);
     DEBUG_PRINTLN(" V");
     DEBUG_PRINT("[Daly] Current: ");
@@ -500,14 +500,14 @@ void DalyBms::printCellVoltages() const {
     for (uint8_t i = 0; i < cellCount_ && i < MAX_CELLS; i++) {
         uint16_t v = cellVoltagesMv_[i];
         DEBUG_PRINT("[Daly] C");
-        if (i + 1 < 10) DEBUG_PRINT("0");
+        if (i + 1 < 10) { DEBUG_PRINT("0"); }
         DEBUG_PRINT(i + 1);
         DEBUG_PRINT(": ");
         DEBUG_PRINT(v / 1000);
         DEBUG_PRINT(".");
         uint16_t frac = v % 1000;
-        if (frac < 100) DEBUG_PRINT("0");
-        if (frac < 10) DEBUG_PRINT("0");
+        if (frac < 100) { DEBUG_PRINT("0"); }
+        if (frac < 10)  { DEBUG_PRINT("0"); }
         DEBUG_PRINT(frac);
         DEBUG_PRINTLN(" V");
     }

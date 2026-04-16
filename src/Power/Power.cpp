@@ -78,11 +78,12 @@ unsigned int Power::getPwm() {
             if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
                 startState = StartState::RUNNING;
                 outputPwm = wakeupPwm;
-                // Fall through to RUNNING
+                // intentional: transition to RUNNING on same tick — [[fallthrough]] below
             } else {
                 outputPwm = wakeupPwm;
                 return (unsigned int)outputPwm;
             }
+            [[fallthrough]]; // intentional: after delay expires, execute RUNNING logic immediately
         }
         case StartState::RUNNING:
             if (!throttleActive) {
