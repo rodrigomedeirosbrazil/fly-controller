@@ -3,9 +3,9 @@
 Buzzer::Buzzer(uint8_t buzzerPin) :
   pin(buzzerPin),
   pwmChannel(1),       // Use channel 1 to avoid conflict with ESP32Servo (uses timer 0)
-  pwmFrequency(2500),  // 2.5 kHz - typical frequency for passive buzzers
+  pwmFrequency(2500),  // 2.5 kHz - passive buzzer resonant frequency for maximum volume
   pwmResolution(8),    // 8-bit resolution (0-255)
-  pwmDutyCycle(128),   // 50% duty cycle gives a stronger AC drive for passive buzzers
+  pwmDutyCycle(255),   // 100% duty cycle — narrow low-pulse generates harmonics that excite buzzer resonance
   playing(false),
   startTime(0),
   beepDuration(0),
@@ -160,114 +160,44 @@ void Buzzer::setFrequency(uint16_t frequency) {
   }
 }
 
-// Musical note frequencies (Hz) - more precise
-#define NOTE_C4  262
-#define NOTE_D4  294
-#define NOTE_E4  330
-#define NOTE_F4  349
-#define NOTE_G4  392
-#define NOTE_A4  440
-#define NOTE_B4  494
-#define NOTE_C5  523
-#define NOTE_D5  587
-#define NOTE_E5  659
-#define NOTE_G5  784
+// All beep patterns use 2500 Hz (buzzer resonant frequency) at 100% duty cycle.
+// With 255/256 duty, the narrow low-pulse generates harmonics that excite the buzzer
+// at its resonant frequency regardless of the fundamental, maximizing volume.
+// Sounds are distinguished by rhythm (count, duration, pause) rather than pitch.
 
-// Melody definitions - more musical and less "beep-like"
-static const Note systemStartNotes[] = {
-  {NOTE_C4, 120},  // C4 - 120ms
-  {NOTE_E4, 120},  // E4 - 120ms
-  {NOTE_G4, 120},  // G4 - 120ms
-  {NOTE_C5, 200}   // C5 - 200ms (higher octave for fanfare effect)
-};
-
-static const Melody systemStartMelody = {
-  systemStartNotes,
-  4,
-  30  // 30ms pause between notes (faster, more musical)
-};
-
-static const Note calibrationCompleteNotes[] = {
-  {NOTE_G4, 100},  // G4 - 100ms
-  {NOTE_E4, 100},  // E4 - 100ms
-  {NOTE_C4, 100},  // C4 - 100ms
-  {NOTE_G4, 150},  // G4 - 150ms (repeat for confirmation)
-  {NOTE_C5, 250}   // C5 - 250ms (final note)
-};
-
-static const Melody calibrationCompleteMelody = {
-  calibrationCompleteNotes,
-  5,
-  40  // 40ms pause between notes
-};
-
-static const Note disarmedNotes[] = {
-  {NOTE_G4, 150},  // G4 - 150ms
-  {NOTE_E4, 150},  // E4 - 150ms
-  {NOTE_C4, 300}   // C4 - 300ms (longer final note)
-};
-
-static const Melody disarmedMelody = {
-  disarmedNotes,
-  3,
-  60  // 60ms pause between notes
-};
-
-static const Note armingBlockedNotes[] = {
-  {NOTE_E5, 80},   // E5 - 80ms (high note for alert)
-  {NOTE_E5, 80},   // E5 - 80ms
-  {NOTE_E5, 120}   // E5 - 120ms (slightly longer)
-};
-
-static const Melody armingBlockedMelody = {
-  armingBlockedNotes,
-  3,
-  50  // 50ms pause between notes
-};
-
-static const Note armedAlertNotes[] = {
-  {NOTE_F4, 300},  // F4 - 300ms
-  {NOTE_A4, 300}   // A4 - 300ms (alternating for less monotony)
-};
-
-static const Melody armedAlertMelody = {
-  armedAlertNotes,
-  2,
-  100  // 100ms pause between notes
-};
-
-// New contextual methods
 void Buzzer::beepSystemStart() {
-  startMelody(&systemStartMelody);
+  // 3 beeps — friendly startup confirmation
+  startBeep(150, 3, 80);
 }
 
 void Buzzer::beepCalibrationStep() {
-  // 3 short beeps - more noticeable in noisy environments, works on active/passive buzzers
-  startBeep(100, 3, 80, NOTE_D4);  // 100ms each, 80ms pause, 3 repetitions
+  // 2 short beeps — step acknowledgement
+  startBeep(80, 2, 60);
 }
 
 void Buzzer::beepCalibrationComplete() {
-  startMelody(&calibrationCompleteMelody);
+  // 3 longer beeps — positive confirmation
+  startBeep(200, 3, 80);
 }
 
 void Buzzer::beepDisarmed() {
-  startMelody(&disarmedMelody);
+  // 2 slow beeps — relaxed, disarmed state
+  startBeep(250, 2, 150);
 }
 
 void Buzzer::beepArmingBlocked() {
-  // Musical sequence instead of repetitive beeps
-  startMelody(&armingBlockedMelody);
+  // 5 rapid beeps — urgent warning
+  startBeep(60, 5, 40);
 }
 
 void Buzzer::beepButtonClick() {
-  // Short musical note - soft and pleasant
-  startBeep(60, 1, 0, NOTE_A4);  // A4 note, 60ms - pleasant frequency
+  // 1 short beep — tactile click feedback
+  startBeep(50, 1, 0);
 }
 
 void Buzzer::beepArmedAlert() {
-  // Continuous repeating melody - alternates between two notes for less monotony
-  // Musical and alerting, but not harsh like a simple beep
-  startMelody(&armedAlertMelody, true);  // true = repeat continuously
+  // Fast continuous beep — repeating armed alert
+  startBeep(200, 255, 200);
 }
 
 void Buzzer::setPwmOn() {
