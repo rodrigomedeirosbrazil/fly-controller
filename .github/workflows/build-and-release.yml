@@ -66,10 +66,11 @@ jobs:
 
       - name: Prepare release artifacts
         run: |
+          TAG="${{ steps.version.outputs.tag }}"
           mkdir -p release
-          cp .pio/build/lolin_c3_mini_hobbywing/firmware.bin release/firmware-hobbywing.bin
-          cp .pio/build/lolin_c3_mini_tmotor/firmware.bin release/firmware-tmotor.bin
-          cp .pio/build/lolin_c3_mini_xag/firmware.bin release/firmware-xag.bin
+          cp .pio/build/lolin_c3_mini_hobbywing/firmware.bin "release/firmware-hobbywing-${TAG}.bin"
+          cp .pio/build/lolin_c3_mini_tmotor/firmware.bin "release/firmware-tmotor-${TAG}.bin"
+          cp .pio/build/lolin_c3_mini_xag/firmware.bin "release/firmware-xag-${TAG}.bin"
 
       - name: Set release body
         id: release
@@ -108,9 +109,9 @@ jobs:
               echo ""
             fi
             echo "### Firmware images"
-            echo "- \`firmware-hobbywing.bin\` — Hobbywing (DroneCAN)"
-            echo "- \`firmware-tmotor.bin\` — T-Motor (UAVCAN)"
-            echo "- \`firmware-xag.bin\` — XAG (PWM/analog)"
+            echo "- \`firmware-hobbywing-${TAG}.bin\` — Hobbywing (DroneCAN)"
+            echo "- \`firmware-tmotor-${TAG}.bin\` — T-Motor (UAVCAN)"
+            echo "- \`firmware-xag-${TAG}.bin\` — XAG (PWM/analog)"
             echo "RELEASE_BODY"
           } >> "$GITHUB_OUTPUT"
 
@@ -121,8 +122,8 @@ jobs:
           name: ${{ steps.release.outputs.tag }}
           body: ${{ steps.release.outputs.body }}
           files: |
-            release/firmware-hobbywing.bin
-            release/firmware-tmotor.bin
-            release/firmware-xag.bin
+            release/firmware-hobbywing-${{ steps.version.outputs.tag }}.bin
+            release/firmware-tmotor-${{ steps.version.outputs.tag }}.bin
+            release/firmware-xag-${{ steps.version.outputs.tag }}.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
