@@ -5,36 +5,36 @@
 inline String renderConfigHubPage() {
     const char* body = R"rawliteral(
 <div class="panel">
-    <h1>Configuration</h1>
-    <div class="sub">Choose a section to configure the controller.</div>
+    <h1>Configurações</h1>
+    <div class="sub">Escolha uma seção para configurar o controlador.</div>
 </div>
 
 <div class="grid">
     <a class="card link-card" href="/config/power">
-        <div class="label">Battery & Power</div>
-        <div class="value">Power</div>
-        <div class="sub">Battery capacity, voltage limits, power control, and throttle response.</div>
+        <div class="label">Bateria e Energia</div>
+        <div class="value">Energia</div>
+        <div class="sub">Capacidade da bateria, limites de tensão, controle de energia e resposta do acelerador.</div>
     </a>
     <a class="card link-card" href="/config/thermal">
-        <div class="label">Thermal Protection</div>
-        <div class="value">Thermal</div>
-        <div class="sub">Motor and ESC protection thresholds and power reduction points.</div>
+        <div class="label">Proteção Térmica</div>
+        <div class="value">Térmica</div>
+        <div class="sub">Limites de proteção do motor e do ESC e pontos de redução de energia.</div>
     </a>
     <a class="card link-card" href="/config/bms">
-        <div class="label">Bluetooth BMS</div>
+        <div class="label">BMS Bluetooth</div>
         <div class="value">BMS</div>
-        <div class="sub">BMS type, Bluetooth address, and BLE device tools.</div>
+        <div class="sub">Tipo de BMS, endereço Bluetooth e ferramentas de dispositivo BLE.</div>
     </a>
     <a class="card link-card" href="/config/system">
-        <div class="label">Device Behavior</div>
-        <div class="value">System</div>
-        <div class="sub">Wi-Fi behavior and small system-level options.</div>
+        <div class="label">Comportamento do Dispositivo</div>
+        <div class="value">Sistema</div>
+        <div class="sub">Comportamento do Wi-Fi e opções gerais do sistema.</div>
     </a>
 </div>
 )rawliteral";
 
     PageSpec spec = {
-        "FlyController - Configuration",
+        "FlyController - Configurações",
         "/config",
         body,
         nullptr,

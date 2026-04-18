@@ -6,7 +6,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FlyController - Telemetry</title>
+    <title>FlyController - Telemetria</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0b74de">
@@ -17,52 +17,52 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
 <body class="telemetry-page">
     <div class="page page-telemetry">
         <div class="topbar">
-            <a class="nav-btn" href="/">Dashboard</a>
-            <a class="nav-btn active" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/">Painel</a>
+            <a class="nav-btn active" href="/telemetry">Telemetria</a>
             <a class="nav-btn" href="/firmware">Firmware</a>
-            <a class="nav-btn" href="/logs-page">Logs</a>
-            <a class="nav-btn" href="/config">Configuration</a>
+            <a class="nav-btn" href="/logs-page">Registros</a>
+            <a class="nav-btn" href="/config">Configurações</a>
         </div>
 
         <div class="telemetry-shell">
             <div class="telemetry-hero-grid">
                 <div class="panel telemetry-header hero-card">
                     <div class="telemetry-header-copy">
-                        <h1>Live Telemetry</h1>
-                        <div class="hero-main">Data status: <span id="statusBadge" class="status nodata">NO DATA</span></div>
+                        <h1>Telemetria ao Vivo</h1>
+                        <div class="hero-main">Status dos dados: <span id="statusBadge" class="status nodata">SEM DADOS</span></div>
                     </div>
                 </div>
 
                 <div class="panel wake-card hero-card">
-                    <h2>Keep Screen On</h2>
+                    <h2>Manter Tela Ligada</h2>
                     <div class="hero-actions">
-                        <span id="wakeStatusBadge" class="status status-secondary">INACTIVE</span>
+                        <span id="wakeStatusBadge" class="status status-secondary">INATIVO</span>
                         <button type="button" id="wakeHelpToggle" class="help-button" aria-expanded="false" aria-controls="wakeHelp">?</button>
                     </div>
                     <div class="hero-actions">
-                        <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Keep Awake</button>
+                        <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Manter Ativo</button>
                     </div>
-                    <div class="help-panel" id="wakeHelp">The page will try automatically first. If the screen still turns off, tap the button once.</div>
+                    <div class="help-panel" id="wakeHelp">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
                 </div>
             </div>
 
             <div class="grid telemetry-grid">
                 <div class="card">
-                    <div class="label">Battery Voltage</div>
+                    <div class="label">Tensão da Bateria</div>
                     <div class="value" id="batteryVoltage">--</div>
                 </div>
                 <div class="card">
-                    <div class="label">Battery SoC</div>
+                    <div class="label">SoC da Bateria</div>
                     <div class="value" id="soc">--</div>
                     <div class="sub" id="socCc">--</div>
                 </div>
                 <div class="card">
-                    <div class="label">Power</div>
+                    <div class="label">Energia</div>
                     <div class="value" id="powerKw">--</div>
                     <div class="sub" id="powerPercent">--</div>
                 </div>
                 <div class="card">
-                    <div class="label">Throttle</div>
+                    <div class="label">Acelerador</div>
                     <div class="value" id="throttlePercent">--</div>
                     <div class="sub" id="throttleRaw">--</div>
                 </div>
@@ -77,7 +77,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="sub" id="escCurrent">--</div>
                 </div>
                 <div class="card">
-                    <div class="label">System</div>
+                    <div class="label">Sistema</div>
                     <div class="value" id="armed">--</div>
                     <div class="sub" id="freshness">--</div>
                 </div>
@@ -236,13 +236,13 @@ const syncWakeUi = (state, reason) => {
     const button = $('wakeToggleButton');
 
     const stateMap = {
-        idle: { label: 'INACTIVE', cls: 'status-secondary', button: 'Keep Awake' },
-        requesting: { label: 'TRYING', cls: 'status-secondary', button: 'Working...' },
-        'active-native': { label: 'ACTIVE', cls: 'status-active', button: 'Disable' },
-        'active-fallback': { label: 'ACTIVE', cls: 'status-active', button: 'Disable' },
-        'needs-user-gesture': { label: 'NEED TAP', cls: 'status-warning', button: 'Keep Awake' },
-        unsupported: { label: 'UNSUPPORTED', cls: 'status-inactive', button: 'Retry' },
-        error: { label: 'RETRY', cls: 'status-warning', button: 'Retry' }
+        idle: { label: 'INATIVO', cls: 'status-secondary', button: 'Manter Ativo' },
+        requesting: { label: 'TENTANDO', cls: 'status-secondary', button: 'Processando...' },
+        'active-native': { label: 'ATIVO', cls: 'status-active', button: 'Desativar' },
+        'active-fallback': { label: 'ATIVO', cls: 'status-active', button: 'Desativar' },
+        'needs-user-gesture': { label: 'TOQUE NECESSÁRIO', cls: 'status-warning', button: 'Manter Ativo' },
+        unsupported: { label: 'NÃO SUPORTADO', cls: 'status-inactive', button: 'Tentar Novamente' },
+        error: { label: 'TENTAR NOVAMENTE', cls: 'status-warning', button: 'Tentar Novamente' }
     };
 
     const view = stateMap[state] || stateMap.idle;
@@ -259,15 +259,15 @@ const syncWakeUi = (state, reason) => {
         setText(
             'wakeHelp',
             state === 'active-native' || state === 'active-fallback'
-                ? 'Keep this page open while flying. If iPhone turns the screen off again, return here and tap the button.'
-                : 'iPhone may require a tap to keep the screen awake while this page stays open.'
+                ? 'Mantenha esta página aberta durante o voo. Se o iPhone apagar a tela novamente, volte aqui e toque no botão.'
+                : 'O iPhone pode precisar de um toque para manter a tela ativa enquanto esta página permanece aberta.'
         );
     } else {
         setText(
             'wakeHelp',
             state === 'active-native' || state === 'active-fallback'
-                ? 'Keep this page visible while flying. If the browser drops the lock, the page will try to restore it.'
-                : 'The page will try automatically first. If the screen still turns off, tap the button once.'
+                ? 'Mantenha esta página visível durante o voo. Se o navegador perder o bloqueio, a página tentará restaurá-lo.'
+                : 'A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.'
         );
     }
 };
@@ -293,7 +293,7 @@ const releaseWake = async (markDesired = false) => {
     }
 
     stopFallbackWake();
-    syncWakeUi('idle', 'Screen keep-awake is off.');
+    syncWakeUi('idle', 'Manter tela ativa está desligado.');
 };
 
 const attachWakeLockReleaseHandler = (sentinel) => {
@@ -301,10 +301,10 @@ const attachWakeLockReleaseHandler = (sentinel) => {
     sentinel.addEventListener('release', () => {
         wakeLockSentinel = null;
         if (wakeDesired && document.visibilityState === 'visible') {
-            syncWakeUi('needs-user-gesture', 'The browser released the wake lock. Tap the button if it does not come back.');
+            syncWakeUi('needs-user-gesture', 'O navegador liberou o bloqueio de tela. Toque no botão se não voltar.');
             scheduleWakeReacquire(300);
         } else {
-            syncWakeUi('idle', 'Screen keep-awake is off.');
+            syncWakeUi('idle', 'Manter tela ativa está desligado.');
         }
     });
 };
@@ -330,8 +330,8 @@ const tryFallbackWakeLock = async () => {
     }
     await fallbackWake.start();
     syncWakeUi('active-fallback', isAppleMobile
-        ? 'Fallback keep-awake is active for iPhone.'
-        : 'Fallback keep-awake is active.');
+        ? 'Manter ativo por fallback está ativo para iPhone.'
+        : 'Manter ativo por fallback está ativo.');
     return true;
 };
 
@@ -348,12 +348,12 @@ const tryAutoEnableWake = async () => {
     wakeDesired = true;
 
     if (document.visibilityState !== 'visible') {
-        syncWakeUi('idle', 'Open the page to enable keep-awake.');
+        syncWakeUi('idle', 'Abra a página para ativar manter ativo.');
         return false;
     }
 
     clearWakeReacquireTimer();
-    syncWakeUi('requesting', 'Trying automatic keep-awake...');
+    syncWakeUi('requesting', 'Tentando manter ativo automaticamente...');
 
     try {
         await tryNativeWakeLock();
@@ -366,15 +366,15 @@ const tryAutoEnableWake = async () => {
             syncWakeUi(
                 'needs-user-gesture',
                 isUserGestureError(error)
-                    ? 'This browser needs a tap before keep-awake can start.'
-                    : 'Automatic keep-awake is limited here. Tap the button to start the local fallback.'
+                    ? 'Este navegador precisa de um toque antes de iniciar manter ativo.'
+                    : 'Manter ativo automático é limitado aqui. Toque no botão para iniciar o fallback local.'
             );
             return false;
         }
 
         syncWakeUi(
             'unsupported',
-            'This browser does not expose a keep-awake method in the current mode.'
+            'Este navegador não expõe um método de manter ativo no modo atual.'
         );
         return false;
     }
@@ -383,7 +383,7 @@ const tryAutoEnableWake = async () => {
 const enableWakeFromUserGesture = async () => {
     wakeDesired = true;
     clearWakeReacquireTimer();
-    syncWakeUi('requesting', 'Starting keep-awake...');
+    syncWakeUi('requesting', 'Iniciando manter ativo...');
 
     try {
         await tryNativeWakeLock();
@@ -398,8 +398,8 @@ const enableWakeFromUserGesture = async () => {
             syncWakeUi(
                 'error',
                 isUserGestureError(fallbackError) || isUserGestureError(nativeError)
-                    ? 'The browser still wants a direct tap. Try the button again without leaving the page.'
-                    : 'Unable to keep the screen awake on this browser.'
+                    ? 'O navegador ainda requer um toque direto. Tente o botão novamente sem sair da página.'
+                    : 'Não é possível manter a tela ativa neste navegador.'
             );
             return false;
         }
@@ -419,7 +419,7 @@ async function reacquireWakeIfNeeded() {
 }
 
 const initTelemetryWake = () => {
-    syncWakeUi('idle', 'Preparing keep-awake controls.');
+    syncWakeUi('idle', 'Preparando controles de manter ativo.');
 
     const helpToggle = $('wakeHelpToggle');
     const helpPanel = $('wakeHelp');
@@ -458,7 +458,7 @@ const initTelemetryWake = () => {
 
         if (wakeState === 'active-fallback') {
             stopFallbackWake();
-            syncWakeUi('needs-user-gesture', 'Return to this page and tap the button if the screen starts sleeping again.');
+            syncWakeUi('needs-user-gesture', 'Volte a esta página e toque no botão se a tela começar a apagar novamente.');
         }
     });
 
@@ -482,7 +482,7 @@ const setStatus = (kind) => {
     const badge = $('statusBadge');
     if (!badge) return;
     badge.className = `status ${kind}`;
-    badge.textContent = kind === 'live' ? 'LIVE' : (kind === 'stale' ? 'STALE' : 'NO DATA');
+    badge.textContent = kind === 'live' ? 'AO VIVO' : (kind === 'stale' ? 'DESATUALIZADO' : 'SEM DADOS');
 };
 
 const renderTelemetry = (data) => {
@@ -490,25 +490,25 @@ const renderTelemetry = (data) => {
 
     if (!data.hasTelemetry) {
         setStatus('nodata');
-        setText('freshness', 'Waiting for telemetry');
+        setText('freshness', 'Aguardando telemetria');
     } else {
         const age = data.uptimeMs - data.lastTelemetryUpdateMs;
         setStatus(age > 3000 ? 'stale' : 'live');
-        setText('freshness', `Last update ${Math.max(0, age)} ms ago`);
+        setText('freshness', `Última atualização há ${Math.max(0, age)} ms`);
     }
 
     setText('batteryVoltage', fmtV(data.batteryVoltageMv || 0));
     setText('soc', `${data.batteryPercentVoltage || 0} %`);
     setText('socCc', `CC: ${data.batteryPercentCc ?? 0} %`);
     setText('powerKw', av.powerKw ? fmtKw(data.powerKwX10 ?? 0) : 'N/A');
-    setText('powerPercent', `Limit: ${data.powerPercent || 0} %`);
+    setText('powerPercent', `Limite: ${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
-    setText('throttleRaw', `Raw: ${data.throttleRaw || 0}`);
+    setText('throttleRaw', `Bruto: ${data.throttleRaw || 0}`);
     setText('motorTemp', fmtC(data.motorTempMc || 0));
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
     setText('escTemp', fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');
-    setText('armed', data.armed ? 'ARMED' : 'DISARMED');
+    setText('armed', data.armed ? 'ARMADO' : 'DESARMADO');
 
     const bmsCard = $('bmsCard');
     if (data.bms && data.bms.available) {

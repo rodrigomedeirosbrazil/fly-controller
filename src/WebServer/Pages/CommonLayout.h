@@ -27,11 +27,11 @@ inline String renderNavLink(const char* route, const char* label, const char* ac
 
 inline String renderTopbar(const char* activeRoute) {
     String html = "<div class=\"topbar\">";
-    html += renderNavLink("/", "Dashboard", activeRoute);
-    html += renderNavLink("/telemetry", "Telemetry", activeRoute);
+    html += renderNavLink("/", "Painel", activeRoute);
+    html += renderNavLink("/telemetry", "Telemetria", activeRoute);
     html += renderNavLink("/firmware", "Firmware", activeRoute);
-    html += renderNavLink("/logs-page", "Logs", activeRoute);
-    html += renderNavLink("/config", "Configuration", activeRoute);
+    html += renderNavLink("/logs-page", "Registros", activeRoute);
+    html += renderNavLink("/config", "Configurações", activeRoute);
     html += "</div>";
     return html;
 }
