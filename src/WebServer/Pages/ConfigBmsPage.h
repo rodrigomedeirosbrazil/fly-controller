@@ -6,7 +6,7 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FlyController - Bluetooth BMS</title>
+    <title>FlyController - BMS Bluetooth</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/config.css">
@@ -14,52 +14,52 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
 <body>
     <div class="page">
         <div class="topbar">
-            <a class="nav-btn" href="/">Dashboard</a>
-            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/">Painel</a>
+            <a class="nav-btn" href="/telemetry">Telemetria</a>
             <a class="nav-btn" href="/firmware">Firmware</a>
-            <a class="nav-btn" href="/logs-page">Logs</a>
-            <a class="nav-btn active" href="/config">Configuration</a>
+            <a class="nav-btn" href="/logs-page">Registros</a>
+            <a class="nav-btn active" href="/config">Configurações</a>
         </div>
 
         <div class="subnav">
-            <a class="nav-btn" href="/config/power">Power</a>
-            <a class="nav-btn" href="/config/thermal">Thermal</a>
+            <a class="nav-btn" href="/config/power">Energia</a>
+            <a class="nav-btn" href="/config/thermal">Térmica</a>
             <a class="nav-btn active" href="/config/bms">BMS</a>
-            <a class="nav-btn" href="/config/system">System</a>
+            <a class="nav-btn" href="/config/system">Sistema</a>
         </div>
 
         <div class="panel">
-            <h1>Bluetooth BMS</h1>
+            <h1>BMS Bluetooth</h1>
 
             <form id="bmsConfigForm">
                 <div class="form-group">
-                    <label for="bmsType">BMS type:</label>
+                    <label for="bmsType">Tipo de BMS:</label>
                     <select id="bmsType" name="bmsType">
-                        <option value="0">Disabled</option>
+                        <option value="0">Desativado</option>
                         <option value="1">JBD</option>
                         <option value="2">Daly (D2 BLE)</option>
                     </select>
-                    <div class="info-text">Select the Bluetooth BMS backend used by the controller.</div>
+                    <div class="info-text">Selecione o backend BMS Bluetooth usado pelo controlador.</div>
                 </div>
 
                 <div class="form-group">
-                    <label for="bmsMac">BMS Bluetooth address (MAC):</label>
+                    <label for="bmsMac">Endereço Bluetooth do BMS (MAC):</label>
                     <input type="text" id="bmsMac" name="bmsMac" maxlength="17" placeholder="A5:C2:39:2B:FC:4E">
-                    <div class="info-text">Format: XX:XX:XX:XX:XX:XX (6 hex bytes with colons).</div>
+                    <div class="info-text">Formato: XX:XX:XX:XX:XX:XX (6 bytes hex com dois-pontos).</div>
                 </div>
 
                 <div class="form-group">
-                    <button type="button" id="scanBmsButton">Scan for BMS</button>
-                    <div class="info-text" id="bmsScanStatus">Press "Scan for BMS" to search nearby JBD and Daly devices.</div>
+                    <button type="button" id="scanBmsButton">Buscar BMS</button>
+                    <div class="info-text" id="bmsScanStatus">Pressione "Buscar BMS" para procurar dispositivos JBD e Daly próximos.</div>
                     <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="configPin">PIN</label>
-                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                    <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
                 </div>
 
-                <button type="submit" id="saveButton">Save BMS Settings</button>
+                <button type="submit" id="saveButton">Salvar Configurações do BMS</button>
                 <div class="message" id="message"></div>
             </form>
         </div>
@@ -75,7 +75,7 @@ const $ = (id) => document.getElementById(id);
 const getPin = () => sessionStorage.getItem('cfgPin') || '';
 const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 const BMS_TYPE_LABELS = {
-    0: 'Unknown',
+    0: 'Desconhecido',
     1: 'JBD',
     2: 'Daly (D2 BLE)'
 };
@@ -131,11 +131,11 @@ const renderBmsScanResults = (results) => {
         row.style.gap = '8px';
         row.innerHTML = `
             <div><strong>${escapeHtml(BMS_TYPE_LABELS[entry.detectedType] || 'Unknown')}</strong></div>
-            <div>${escapeHtml(entry.name || 'Unnamed device')}</div>
+            <div>${escapeHtml(entry.name || 'Dispositivo sem nome')}</div>
             <div>MAC: <code>${escapeHtml(entry.mac || '')}</code></div>
             <div>RSSI: ${typeof entry.rssi === 'number' ? entry.rssi + ' dBm' : 'N/A'}</div>
             <div>Services: <code>${escapeHtml(entry.advertisedServices || 'none')}</code></div>
-            <div><button type="button" class="use-bms-result" data-mac="${escapeHtml(entry.mac || '')}" data-type="${escapeHtml(entry.detectedType || 0)}">Use this BMS</button></div>
+            <div><button type="button" class="use-bms-result" data-mac="${escapeHtml(entry.mac || '')}" data-type="${escapeHtml(entry.detectedType || 0)}">Usar este BMS</button></div>
         `;
         container.appendChild(row);
     });
@@ -148,24 +148,24 @@ const renderBmsScanResults = (results) => {
             $('bmsMac').value = selectedMac;
             if (detectedType !== '0') {
                 $('bmsType').value = detectedType;
-                setBmsScanStatus('Selected scanned BMS. Review the detected type and save the configuration.');
+                setBmsScanStatus('BMS escaneado selecionado. Revise o tipo detectado e salve a configuração.');
             } else {
                 $('scanBmsButton').disabled = true;
-                setBmsScanStatus('Trying to detect the BMS type by connecting to the selected device...');
+                setBmsScanStatus('Tentando detectar o tipo de BMS conectando ao dispositivo selecionado...');
                 detectBmsType(selectedMac)
                     .then((data) => {
                         $('scanBmsButton').disabled = false;
                         if (data && Number(data.detectedType) > 0) {
                             $('bmsType').value = String(data.detectedType);
-                            setBmsScanStatus('BMS type detected after connection. Review the fields and save the configuration.');
+                            setBmsScanStatus('Tipo de BMS detectado após conexão. Revise os campos e salve a configuração.');
                         } else {
-                            setBmsScanStatus('Selected BLE device MAC. Type is still unknown after the connection test.');
+                            setBmsScanStatus('MAC do dispositivo BLE selecionado. Tipo ainda desconhecido após o teste de conexão.');
                         }
                     })
                     .catch((error) => {
                         console.error('Error detecting BMS type:', error);
                         $('scanBmsButton').disabled = false;
-                        setBmsScanStatus('Could not detect the BMS type after the connection test.');
+                        setBmsScanStatus('Não foi possível detectar o tipo de BMS após o teste de conexão.');
                     });
             }
         });
@@ -178,7 +178,7 @@ const applyBmsScanState = (data) => {
     $('scanBmsButton').disabled = isBusy;
 
     if (status === 'scanning') {
-        setBmsScanStatus('Scanning nearby BLE devices...');
+        setBmsScanStatus('Buscando dispositivos BLE próximos...');
         renderBmsScanResults(Array.isArray(data.results) ? data.results : []);
         scheduleBmsScanPolling();
         return;
@@ -187,7 +187,7 @@ const applyBmsScanState = (data) => {
     stopBmsScanPolling();
 
     if (status === 'error') {
-        setBmsScanStatus(data && data.error ? `Scan failed: ${data.error}` : 'Scan failed.');
+        setBmsScanStatus(data && data.error ? `Busca falhou: ${data.error}` : 'Busca falhou.');
         renderBmsScanResults([]);
         return;
     }
@@ -196,15 +196,15 @@ const applyBmsScanState = (data) => {
         const results = Array.isArray(data.results) ? data.results : [];
         renderBmsScanResults(results);
         if (results.length === 0) {
-            setBmsScanStatus('No BLE devices were found nearby.');
+            setBmsScanStatus('Nenhum dispositivo BLE encontrado nas proximidades.');
         } else {
-            setBmsScanStatus('Showing all BLE devices. Recognized JBD/Daly entries are labeled automatically.');
+            setBmsScanStatus('Exibindo todos os dispositivos BLE. Entradas JBD/Daly reconhecidas são rotuladas automaticamente.');
         }
         return;
     }
 
     renderBmsScanResults(Array.isArray(data && data.results) ? data.results : []);
-    setBmsScanStatus('Press "Scan for BMS" to search nearby BLE devices and inspect advertised services.');
+    setBmsScanStatus('Pressione "Buscar BMS" para procurar dispositivos BLE próximos e inspecionar os serviços anunciados.');
 };
 
 function loadBmsScanStatus() {
@@ -215,20 +215,20 @@ function loadBmsScanStatus() {
             console.error('Error loading BMS scan status:', error);
             stopBmsScanPolling();
             $('scanBmsButton').disabled = false;
-            setBmsScanStatus('Unable to read BLE scan status.');
+            setBmsScanStatus('Não foi possível ler o status da busca BLE.');
         });
 }
 
 const startBmsScan = () => {
     $('scanBmsButton').disabled = true;
-    setBmsScanStatus('Starting BLE scan...');
+    setBmsScanStatus('Iniciando busca BLE...');
     fetch('/api/bms/scan/start', { method: 'POST', headers: { 'X-Config-Pin': getPin() } })
         .then((response) => response.json())
         .then(applyBmsScanState)
         .catch((error) => {
             console.error('Error starting BMS scan:', error);
             $('scanBmsButton').disabled = false;
-            setBmsScanStatus('Unable to start BLE scan.');
+            setBmsScanStatus('Não foi possível iniciar a busca BLE.');
         });
 };
 
@@ -249,7 +249,7 @@ const loadCurrentValues = () => {
         })
         .catch((error) => {
             console.error('Error loading BMS settings:', error);
-            showMessage('Error loading current configuration', 'err');
+            showMessage('Erro ao carregar a configuração atual', 'err');
         });
 };
 
@@ -266,7 +266,7 @@ $('bmsConfigForm').addEventListener('submit', function(e) {
     const bmsMac = $('bmsMac').value.trim();
 
     if (bmsType !== 0 && !/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(bmsMac)) {
-        showMessage('BMS MAC must be in format XX:XX:XX:XX:XX:XX', 'err');
+        showMessage('O MAC do BMS deve estar no formato XX:XX:XX:XX:XX:XX', 'err');
         saveButton.disabled = false;
         return;
     }
@@ -284,11 +284,11 @@ $('bmsConfigForm').addEventListener('submit', function(e) {
     })
         .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
         .then(({ ok, text }) => {
-            showMessage(ok ? 'BMS settings saved successfully!' : 'Error saving configuration: ' + text, ok ? 'ok' : 'err');
+            showMessage(ok ? 'Configurações do BMS salvas com sucesso!' : 'Erro ao salvar a configuração: ' + text, ok ? 'ok' : 'err');
             saveButton.disabled = false;
         })
         .catch((error) => {
-            showMessage('Error saving configuration: ' + error, 'err');
+            showMessage('Erro ao salvar a configuração: ' + error, 'err');
             saveButton.disabled = false;
         });
 });
