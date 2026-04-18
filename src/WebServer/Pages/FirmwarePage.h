@@ -28,7 +28,7 @@ $('fwForm').addEventListener('submit', function(e) {
         .then((r) => r.text())
         .then((text) => {
             responseDiv.textContent = text;
-            responseDiv.classList.add(text.includes('Success') || text.includes('progress') ? 'ok' : 'err');
+            responseDiv.classList.add(text.includes('Sucesso') || text.includes('andamento') ? 'ok' : 'err');
         })
         .catch((err) => {
             responseDiv.textContent = `Erro: ${err}`;

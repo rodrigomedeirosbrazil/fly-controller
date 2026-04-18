@@ -57,7 +57,7 @@ template <typename TJson>
 void sendJsonResponse(AsyncWebServerRequest* request, int httpStatus, const TJson& json) {
     AsyncResponseStream* response = request->beginResponseStream("application/json");
     if (response == nullptr) {
-        request->send(500, "text/plain", "Out of memory");
+        request->send(500, "text/plain", "Sem memória");
         return;
     }
     response->setCode(httpStatus);
@@ -103,7 +103,7 @@ void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 
     }
 
     if (doc.overflowed()) {
-        request->send(500, "text/plain", "JSON buffer overflow");
+        request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
     }
 
@@ -118,7 +118,7 @@ void sendPowerConfigResponse(AsyncWebServerRequest* request) {
     doc["powerControlEnabled"] = settings.getPowerControlEnabled();
     doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
     if (doc.overflowed()) {
-        request->send(500, "text/plain", "JSON buffer overflow");
+        request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
     }
     sendJsonResponse(request, 200, doc);
@@ -131,7 +131,7 @@ void sendThermalConfigResponse(AsyncWebServerRequest* request) {
     doc["escMaxTemp"] = settings.getEscMaxTemp();
     doc["escTempReductionStart"] = settings.getEscTempReductionStart();
     if (doc.overflowed()) {
-        request->send(500, "text/plain", "JSON buffer overflow");
+        request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
     }
     sendJsonResponse(request, 200, doc);
@@ -142,7 +142,7 @@ void sendBmsConfigResponse(AsyncWebServerRequest* request) {
     doc["bmsType"] = settings.getBmsType();
     doc["bmsMac"] = settings.getBmsMac();
     if (doc.overflowed()) {
-        request->send(500, "text/plain", "JSON buffer overflow");
+        request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
     }
     sendJsonResponse(request, 200, doc);
@@ -152,7 +152,7 @@ void sendSystemConfigResponse(AsyncWebServerRequest* request) {
     StaticJsonDocument<128> doc;
     doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
     if (doc.overflowed()) {
-        request->send(500, "text/plain", "JSON buffer overflow");
+        request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
     }
     sendJsonResponse(request, 200, doc);
@@ -222,7 +222,7 @@ void ControllerWebServer::startAP() {
 
     server.on("/api/bms/scan/start", HTTP_POST, [](AsyncWebServerRequest *request) {
         logWebHeap("/api/bms/scan/start");
-        if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
         const bool started = bluetoothBms.startWebScan();
         const int httpStatus = started ? 200 : 500;
         sendBmsScanStatusResponse(request, httpStatus);
@@ -233,7 +233,7 @@ void ControllerWebServer::startAP() {
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/bms/detect");
             if (!json.is<JsonObject>()) {
-                request->send(400, "application/json", "{\"ok\":false,\"error\":\"Invalid JSON\"}");
+                request->send(400, "application/json", "{\"ok\":false,\"error\":\"JSON inválido\"}");
                 return;
             }
 
@@ -246,7 +246,7 @@ void ControllerWebServer::startAP() {
             responseDoc["mac"] = mac;
             responseDoc["detectedType"] = detectedType;
             if (responseDoc.overflowed()) {
-                request->send(500, "text/plain", "JSON buffer overflow");
+                request->send(500, "text/plain", "Estouro do buffer JSON");
                 return;
             }
             sendJsonResponse(request, 200, responseDoc);
@@ -261,9 +261,9 @@ void ControllerWebServer::startAP() {
         "/api/config/power",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/power POST");
-            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
+            if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
             if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                request->send(400, "text/plain", "JSON inválido: o corpo deve ser um objeto");
                 return;
             }
 
@@ -274,7 +274,7 @@ void ControllerWebServer::startAP() {
                 || !doc.containsKey("batteryMaxVoltage")
                 || !doc.containsKey("powerControlEnabled")
                 || !doc.containsKey("throttleCurveGamma")) {
-                request->send(400, "text/plain", "Missing required power configuration fields");
+                request->send(400, "text/plain", "Campos obrigatórios de configuração de energia ausentes");
                 return;
             }
 
@@ -282,26 +282,26 @@ void ControllerWebServer::startAP() {
             // uint16_t max is 65535, so "> 65000" would otherwise always be false.
             uint32_t capacityRaw = doc["batteryCapacity"].as<uint32_t>();
             if (capacityRaw < 1000 || capacityRaw > 65000) {
-                request->send(400, "text/plain", "Battery capacity out of range (1000-65000 mAh)");
+                request->send(400, "text/plain", "Capacidade da bateria fora do intervalo (1000-65000 mAh)");
                 return;
             }
             uint16_t capacity = static_cast<uint16_t>(capacityRaw);
 
             uint16_t minV = doc["batteryMinVoltage"];
             if (minV < 2500 || minV > 63000) {
-                request->send(400, "text/plain", "Battery min voltage out of range");
+                request->send(400, "text/plain", "Tensão mínima da bateria fora do intervalo");
                 return;
             }
 
             uint16_t maxV = doc["batteryMaxVoltage"];
             if (maxV < 2500 || maxV > 63000) {
-                request->send(400, "text/plain", "Battery max voltage out of range");
+                request->send(400, "text/plain", "Tensão máxima da bateria fora do intervalo");
                 return;
             }
 
             float gamma = doc["throttleCurveGamma"].as<float>();
             if (gamma < 1.0f || gamma > 3.0f) {
-                request->send(400, "text/plain", "Throttle curve gamma must be between 1.0 and 3.0");
+                request->send(400, "text/plain", "O gamma da curva do acelerador deve ser entre 1,0 e 3,0");
                 return;
             }
 
@@ -315,7 +315,7 @@ void ControllerWebServer::startAP() {
             // setting — without this, Coulomb counting uses the old value until reboot.
             batteryMonitor.setCapacity(settings.getBatteryCapacityMah());
 
-            request->send(200, "text/plain", "Success: Power configuration saved");
+            request->send(200, "text/plain", "Sucesso: Configurações de energia salvas");
         },
         512
     );
@@ -327,9 +327,9 @@ void ControllerWebServer::startAP() {
         "/api/config/thermal",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/thermal POST");
-            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
+            if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
             if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                request->send(400, "text/plain", "JSON inválido: o corpo deve ser um objeto");
                 return;
             }
 
@@ -339,7 +339,7 @@ void ControllerWebServer::startAP() {
                 || !doc.containsKey("motorTempReductionStart")
                 || !doc.containsKey("escMaxTemp")
                 || !doc.containsKey("escTempReductionStart")) {
-                request->send(400, "text/plain", "Missing required thermal configuration fields");
+                request->send(400, "text/plain", "Campos obrigatórios de configuração térmica ausentes");
                 return;
             }
 
@@ -349,22 +349,22 @@ void ControllerWebServer::startAP() {
             int32_t escReductionStart = doc["escTempReductionStart"];
 
             if (motorMaxTemp < 0 || motorMaxTemp > 150000) {
-                request->send(400, "text/plain", "Motor max temp out of range (0-150000 millicelsius)");
+                request->send(400, "text/plain", "Temperatura máxima do motor fora do intervalo (0-150000 millicelsius)");
                 return;
             }
 
             if (motorReductionStart < 0 || motorReductionStart > 150000) {
-                request->send(400, "text/plain", "Motor temp reduction start out of range");
+                request->send(400, "text/plain", "Início de redução de temperatura do motor fora do intervalo");
                 return;
             }
 
             if (escMaxTemp < 0 || escMaxTemp > 150000) {
-                request->send(400, "text/plain", "ESC max temp out of range");
+                request->send(400, "text/plain", "Temperatura máxima do ESC fora do intervalo");
                 return;
             }
 
             if (escReductionStart < 0 || escReductionStart > 150000) {
-                request->send(400, "text/plain", "ESC temp reduction start out of range");
+                request->send(400, "text/plain", "Início de redução de temperatura do ESC fora do intervalo");
                 return;
             }
 
@@ -374,7 +374,7 @@ void ControllerWebServer::startAP() {
             settings.setEscTempReductionStart(escReductionStart);
             settings.save();
 
-            request->send(200, "text/plain", "Success: Thermal configuration saved");
+            request->send(200, "text/plain", "Sucesso: Configurações térmicas salvas");
         },
         512
     );
@@ -386,21 +386,21 @@ void ControllerWebServer::startAP() {
         "/api/config/bms",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/bms POST");
-            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
+            if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
             if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                request->send(400, "text/plain", "JSON inválido: o corpo deve ser um objeto");
                 return;
             }
 
             JsonObject doc = json.as<JsonObject>();
             if (!doc.containsKey("bmsType") || !doc.containsKey("bmsMac")) {
-                request->send(400, "text/plain", "Missing required BMS configuration fields");
+                request->send(400, "text/plain", "Campos obrigatórios de configuração do BMS ausentes");
                 return;
             }
 
             const uint8_t bmsType = doc["bmsType"].as<uint8_t>();
             if (bmsType > BmsTypeDaly) {
-                request->send(400, "text/plain", "BMS type is invalid");
+                request->send(400, "text/plain", "Tipo de BMS inválido");
                 return;
             }
 
@@ -409,20 +409,20 @@ void ControllerWebServer::startAP() {
 
             if (s.length() > 0) {
                 if (s.length() != 17) {
-                    request->send(400, "text/plain", "BMS MAC must be 17 characters (XX:XX:XX:XX:XX:XX)");
+                    request->send(400, "text/plain", "O MAC do BMS deve ter 17 caracteres (XX:XX:XX:XX:XX:XX)");
                     return;
                 }
                 for (int i = 0; i < 17; i++) {
                     if (i == 2 || i == 5 || i == 8 || i == 11 || i == 14) {
                         if (s[i] != ':') {
-                            request->send(400, "text/plain", "BMS MAC format: XX:XX:XX:XX:XX:XX");
+                            request->send(400, "text/plain", "Formato do MAC do BMS: XX:XX:XX:XX:XX:XX");
                             return;
                         }
                     } else {
                         const char c = s[i];
                         const bool hex = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
                         if (!hex) {
-                            request->send(400, "text/plain", "BMS MAC must use hex digits (0-9, A-F)");
+                            request->send(400, "text/plain", "O MAC do BMS deve usar dígitos hexadecimais (0-9, A-F)");
                             return;
                         }
                     }
@@ -430,7 +430,7 @@ void ControllerWebServer::startAP() {
             }
 
             if (bmsType != BmsTypeNone && s.length() != 17) {
-                request->send(400, "text/plain", "BMS MAC must be configured for the selected BMS type");
+                request->send(400, "text/plain", "O MAC do BMS deve ser configurado para o tipo de BMS selecionado");
                 return;
             }
 
@@ -438,7 +438,7 @@ void ControllerWebServer::startAP() {
             settings.setBmsMac(s.c_str());
             settings.save();
 
-            request->send(200, "text/plain", "Success: BMS configuration saved");
+            request->send(200, "text/plain", "Sucesso: Configurações do BMS salvas");
         },
         256
     );
@@ -450,21 +450,21 @@ void ControllerWebServer::startAP() {
         "/api/config/system",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             logWebHeap("/api/config/system POST");
-            if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
+            if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
             if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON: body must be an object");
+                request->send(400, "text/plain", "JSON inválido: o corpo deve ser um objeto");
                 return;
             }
 
             JsonObject doc = json.as<JsonObject>();
             if (!doc.containsKey("wifiAutoDisableAfterCalibration")) {
-                request->send(400, "text/plain", "Missing required system configuration fields");
+                request->send(400, "text/plain", "Campos obrigatórios de configuração do sistema ausentes");
                 return;
             }
 
             settings.setWifiAutoDisableAfterCalibration(doc["wifiAutoDisableAfterCalibration"].as<bool>());
             settings.save();
-            request->send(200, "text/plain", "Success: System configuration saved");
+            request->send(200, "text/plain", "Sucesso: Configurações do sistema salvas");
         },
         128
     );
@@ -479,7 +479,7 @@ void ControllerWebServer::startAP() {
         StaticJsonDocument<64> doc;
         doc["isDefault"] = (settings.getConfigPin() == "0000");
         if (doc.overflowed()) {
-            request->send(500, "text/plain", "JSON buffer overflow");
+            request->send(500, "text/plain", "Estouro do buffer JSON");
             return;
         }
         sendJsonResponse(request, 200, doc);
@@ -489,28 +489,28 @@ void ControllerWebServer::startAP() {
         "/api/config/pin",
         [](AsyncWebServerRequest *request, JsonVariant &json) {
             if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "Invalid JSON");
+                request->send(400, "text/plain", "JSON inválido");
                 return;
             }
             JsonObject doc = json.as<JsonObject>();
             if (!doc.containsKey("currentPin") || !doc.containsKey("newPin")) {
-                request->send(400, "text/plain", "Missing currentPin or newPin");
+                request->send(400, "text/plain", "currentPin ou newPin ausente");
                 return;
             }
             const String currentPin = doc["currentPin"].as<const char*>();
             const String newPin     = doc["newPin"].as<const char*>();
             if (currentPin != settings.getConfigPin()) {
-                request->send(403, "text/plain", "Current PIN is incorrect");
+                request->send(403, "text/plain", "O PIN atual está incorreto");
                 return;
             }
             if (newPin.length() < 4 || newPin.length() > 8) {
-                request->send(400, "text/plain", "New PIN must be 4-8 characters");
+                request->send(400, "text/plain", "O novo PIN deve ter 4 a 8 caracteres");
                 return;
             }
             settings.setConfigPin(newPin);
             settings.save();
             ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
-            request->send(200, "text/plain", "PIN updated successfully");
+            request->send(200, "text/plain", "PIN atualizado com sucesso");
         },
         128
     );
@@ -584,7 +584,7 @@ void ControllerWebServer::startAP() {
         }
 
         if (doc.overflowed()) {
-            request->send(500, "text/plain", "JSON buffer overflow");
+            request->send(500, "text/plain", "Estouro do buffer JSON");
             return;
         }
 
@@ -702,19 +702,19 @@ void ControllerWebServer::startAP() {
             String filename = request->getParam("file")->value();
             // Security: reject path traversal and ensure absolute path
             if (filename.indexOf("..") >= 0) {
-                request->send(400, "text/plain", "Invalid path");
+                request->send(400, "text/plain", "Caminho inválido");
                 return;
             }
             if(!filename.startsWith("/")) filename = "/" + filename;
 
             if(LittleFS.exists(filename)){
                 LittleFS.remove(filename);
-                request->send(200, "text/plain", "Deleted");
+                request->send(200, "text/plain", "Excluído");
             } else {
-                request->send(404, "text/plain", "File not found");
+                request->send(404, "text/plain", "Arquivo não encontrado");
             }
         } else {
-            request->send(400, "text/plain", "Missing file param");
+            request->send(400, "text/plain", "Parâmetro de arquivo ausente");
         }
     });
 
@@ -722,7 +722,7 @@ void ControllerWebServer::startAP() {
         if (!checkPin(request)) { request->send(403, "text/plain", "Invalid PIN"); return; }
         File root = LittleFS.open("/");
         if (!root) {
-            request->send(500, "text/plain", "Filesystem error");
+            request->send(500, "text/plain", "Erro no sistema de arquivos");
             return;
         }
         std::vector<String> toDelete;
@@ -751,7 +751,7 @@ void ControllerWebServer::startAP() {
         HTTP_POST,
         [](AsyncWebServerRequest *request) {
             // This is the 'final' callback for the POST request, after file upload is complete.
-            request->send(200, "text/plain", (Update.hasError()) ? "Update failed!" : "Firmware update in progress. The device will reboot.");
+            request->send(200, "text/plain", (Update.hasError()) ? "Falha na atualização!" : "Atualização de firmware em andamento. O dispositivo será reiniciado.");
             if (!Update.hasError()) {
                 // If update was successful, ElegantOTA usually triggers reboot internally.
                 // If not, we explicitly restart here.
