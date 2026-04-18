@@ -6,7 +6,7 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FlyController - System</title>
+    <title>FlyController - Sistema</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/config.css">
@@ -14,38 +14,38 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
 <body>
     <div class="page">
         <div class="topbar">
-            <a class="nav-btn" href="/">Dashboard</a>
-            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/">Painel</a>
+            <a class="nav-btn" href="/telemetry">Telemetria</a>
             <a class="nav-btn" href="/firmware">Firmware</a>
-            <a class="nav-btn" href="/logs-page">Logs</a>
-            <a class="nav-btn active" href="/config">Configuration</a>
+            <a class="nav-btn" href="/logs-page">Registros</a>
+            <a class="nav-btn active" href="/config">Configurações</a>
         </div>
 
         <div class="subnav">
-            <a class="nav-btn" href="/config/power">Power</a>
-            <a class="nav-btn" href="/config/thermal">Thermal</a>
+            <a class="nav-btn" href="/config/power">Energia</a>
+            <a class="nav-btn" href="/config/thermal">Térmica</a>
             <a class="nav-btn" href="/config/bms">BMS</a>
-            <a class="nav-btn active" href="/config/system">System</a>
+            <a class="nav-btn active" href="/config/system">Sistema</a>
         </div>
 
         <div class="panel">
-            <h1>System</h1>
+            <h1>Sistema</h1>
 
             <form id="systemConfigForm">
                 <div class="form-group">
                     <label for="wifiAutoDisableAfterCalibration" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                         <input type="checkbox" id="wifiAutoDisableAfterCalibration" name="wifiAutoDisableAfterCalibration" style="width: auto;">
-                        <span>Disable Wi-Fi after throttle calibration</span>
+                        <span>Desativar Wi-Fi após calibração do acelerador</span>
                     </label>
-                    <div class="info-text">When enabled, access point and web server are stopped automatically after throttle calibration completes.</div>
+                    <div class="info-text">Quando ativado, o ponto de acesso e o servidor web são encerrados automaticamente após a conclusão da calibração do acelerador.</div>
                 </div>
 
                 <div class="form-group">
                     <label for="configPin">PIN</label>
-                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                    <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
                 </div>
 
-                <button type="submit" id="saveButton">Save System Settings</button>
+                <button type="submit" id="saveButton">Salvar Configurações do Sistema</button>
                 <div class="message" id="message"></div>
             </form>
         </div>
@@ -77,7 +77,7 @@ const loadCurrentValues = () => {
         })
         .catch((error) => {
             console.error('Error loading system settings:', error);
-            showMessage('Error loading current configuration', 'err');
+            showMessage('Erro ao carregar a configuração atual', 'err');
         });
 };
 
@@ -100,11 +100,11 @@ $('systemConfigForm').addEventListener('submit', function(e) {
     })
         .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
         .then(({ ok, text }) => {
-            showMessage(ok ? 'System settings saved successfully!' : 'Error saving configuration: ' + text, ok ? 'ok' : 'err');
+            showMessage(ok ? 'Configurações do sistema salvas com sucesso!' : 'Erro ao salvar a configuração: ' + text, ok ? 'ok' : 'err');
             saveButton.disabled = false;
         })
         .catch((error) => {
-            showMessage('Error saving configuration: ' + error, 'err');
+            showMessage('Erro ao salvar a configuração: ' + error, 'err');
             saveButton.disabled = false;
         });
 });
