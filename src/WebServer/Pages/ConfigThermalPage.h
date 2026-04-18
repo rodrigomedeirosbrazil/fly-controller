@@ -6,7 +6,7 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FlyController - Thermal Protection</title>
+    <title>FlyController - Proteção Térmica</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/config.css">
@@ -14,58 +14,58 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
 <body>
     <div class="page">
         <div class="topbar">
-            <a class="nav-btn" href="/">Dashboard</a>
-            <a class="nav-btn" href="/telemetry">Telemetry</a>
+            <a class="nav-btn" href="/">Painel</a>
+            <a class="nav-btn" href="/telemetry">Telemetria</a>
             <a class="nav-btn" href="/firmware">Firmware</a>
-            <a class="nav-btn" href="/logs-page">Logs</a>
-            <a class="nav-btn active" href="/config">Configuration</a>
+            <a class="nav-btn" href="/logs-page">Registros</a>
+            <a class="nav-btn active" href="/config">Configurações</a>
         </div>
 
         <div class="subnav">
-            <a class="nav-btn" href="/config/power">Power</a>
-            <a class="nav-btn active" href="/config/thermal">Thermal</a>
+            <a class="nav-btn" href="/config/power">Energia</a>
+            <a class="nav-btn active" href="/config/thermal">Térmica</a>
             <a class="nav-btn" href="/config/bms">BMS</a>
-            <a class="nav-btn" href="/config/system">System</a>
+            <a class="nav-btn" href="/config/system">Sistema</a>
         </div>
 
         <div class="panel">
-            <h1>Thermal Protection</h1>
+            <h1>Proteção Térmica</h1>
 
             <form id="thermalConfigForm">
-                <h2>Motor Temperature Settings</h2>
+                <h2>Configurações de Temperatura do Motor</h2>
 
                 <div class="form-group">
-                    <label for="motorMaxTemp">Maximum Motor Temperature (C):</label>
+                    <label for="motorMaxTemp">Temperatura Máxima do Motor (C):</label>
                     <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
-                    <div class="info-text">Motor will be completely disabled at this temperature.</div>
+                    <div class="info-text">O motor será completamente desligado nesta temperatura.</div>
                 </div>
 
                 <div class="form-group">
-                    <label for="motorTempReductionStart">Motor Temperature Reduction Start (C):</label>
+                    <label for="motorTempReductionStart">Início da Redução de Temperatura do Motor (C):</label>
                     <input type="number" id="motorTempReductionStart" name="motorTempReductionStart" min="0" max="150" step="1" required>
-                    <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+                    <div class="info-text">A redução de energia começa nesta temperatura e aumenta linearmente até a temperatura máxima.</div>
                 </div>
 
-                <h2>ESC Temperature Settings</h2>
+                <h2>Configurações de Temperatura do ESC</h2>
 
                 <div class="form-group">
-                    <label for="escMaxTemp">Maximum ESC Temperature (C):</label>
+                    <label for="escMaxTemp">Temperatura Máxima do ESC (C):</label>
                     <input type="number" id="escMaxTemp" name="escMaxTemp" min="0" max="150" step="1" required>
-                    <div class="info-text">ESC will be completely disabled at this temperature.</div>
+                    <div class="info-text">O ESC será completamente desligado nesta temperatura.</div>
                 </div>
 
                 <div class="form-group">
-                    <label for="escTempReductionStart">ESC Temperature Reduction Start (C):</label>
+                    <label for="escTempReductionStart">Início da Redução de Temperatura do ESC (C):</label>
                     <input type="number" id="escTempReductionStart" name="escTempReductionStart" min="0" max="150" step="1" required>
-                    <div class="info-text">Power reduction begins at this temperature and increases linearly until maximum temperature.</div>
+                    <div class="info-text">A redução de energia começa nesta temperatura e aumenta linearmente até a temperatura máxima.</div>
                 </div>
 
                 <div class="form-group">
                     <label for="configPin">PIN</label>
-                    <input type="password" id="configPin" maxlength="8" placeholder="Required to save">
+                    <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
                 </div>
 
-                <button type="submit" id="saveButton">Save Thermal Settings</button>
+                <button type="submit" id="saveButton">Salvar Configurações Térmicas</button>
                 <div class="message" id="message"></div>
             </form>
         </div>
@@ -100,7 +100,7 @@ const loadCurrentValues = () => {
         })
         .catch((error) => {
             console.error('Error loading thermal settings:', error);
-            showMessage('Error loading current configuration', 'err');
+            showMessage('Erro ao carregar a configuração atual', 'err');
         });
 };
 
@@ -128,11 +128,11 @@ $('thermalConfigForm').addEventListener('submit', function(e) {
     })
         .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
         .then(({ ok, text }) => {
-            showMessage(ok ? 'Thermal settings saved successfully!' : 'Error saving configuration: ' + text, ok ? 'ok' : 'err');
+            showMessage(ok ? 'Configurações térmicas salvas com sucesso!' : 'Erro ao salvar a configuração: ' + text, ok ? 'ok' : 'err');
             saveButton.disabled = false;
         })
         .catch((error) => {
-            showMessage('Error saving configuration: ' + error, 'err');
+            showMessage('Erro ao salvar a configuração: ' + error, 'err');
             saveButton.disabled = false;
         });
 });
