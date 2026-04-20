@@ -427,12 +427,12 @@ async function reacquireWakeIfNeeded() {
 const initTelemetryWake = () => {
     syncWakeUi('idle', 'Preparando controles de manter ativo.');
 
-    const helpToggle = $('wakeHelpToggle');
-    const helpPanel = $('wakeHelp');
-    if (helpToggle && helpPanel) {
-        helpToggle.addEventListener('click', () => {
-            const isOpen = helpPanel.classList.toggle('open');
-            helpToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    const wakeIconBtn = $('wakeIconBtn');
+    const wakePanel = $('wakePanel');
+    if (wakeIconBtn && wakePanel) {
+        wakeIconBtn.addEventListener('click', () => {
+            const isOpen = wakePanel.classList.toggle('open');
+            wakeIconBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         });
     }
 
