@@ -36,4 +36,6 @@ const showMessage = (id, text, kind) => {
     el.className = `message ${kind}`;
     el.style.display = 'block';
 };
+
+fetch('/api/settime', { method: 'POST', body: String(Date.now()) }).catch(() => {});
 )rawliteral";

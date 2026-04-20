@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
 #include <esp_heap_caps.h>
+#include <sys/time.h>
 #include "Pages/CommonLayout.h"
 #include "Pages/ConfigPowerPage.h"
 #include "Pages/ConfigThermalPage.h"
@@ -214,6 +215,27 @@ void ControllerWebServer::startAP() {
         logWebHeap("/api/config/system GET");
         sendSystemConfigResponse(request);
     });
+
+    server.on("/api/settime", HTTP_POST,
+        [](AsyncWebServerRequest *request) {},
+        nullptr,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+            if (index + len < total) return; // wait for full body
+            char buf[24] = {0};
+            size_t copyLen = len < sizeof(buf) - 1 ? len : sizeof(buf) - 1;
+            memcpy(buf, data, copyLen);
+            const int64_t epochMs = atoll(buf);
+            if (epochMs > 1577836800000LL) { // sanity: > 2020-01-01
+                struct timeval tv;
+                tv.tv_sec  = (time_t)(epochMs / 1000);
+                tv.tv_usec = (suseconds_t)((epochMs % 1000) * 1000);
+                settimeofday(&tv, nullptr);
+                request->send(200, "text/plain", "OK");
+            } else {
+                request->send(400, "text/plain", "Epoch inválido");
+            }
+        }
+    );
 
     server.on("/api/bms/scan/status", HTTP_GET, [](AsyncWebServerRequest *request) {
         logWebHeap("/api/bms/scan/status");

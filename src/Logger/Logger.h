@@ -17,6 +17,9 @@ public:
     void afterLogFilesClearedFromStorage();
     ~Logger();
 
+    /** Returns true if the system clock has been set (epoch > 2020). */
+    static bool isTimeSynced();
+
 private:
     String currentFileName;
     File logFile;
@@ -29,6 +32,9 @@ private:
     void openLogFile();
     void closeLogFile();
     void stopLogging();
+
+    /** Writes current time as YYYY-MM-DDTHH:MM:SS into buf, or "ms:NNNNNNN" if not synced. */
+    static void formatTimestamp(char* buf, size_t len);
 };
 
 #endif
