@@ -496,32 +496,36 @@ const renderTelemetry = (data) => {
 
     if (!data.hasTelemetry) {
         setStatus('nodata');
-        setText('freshness', 'Aguardando telemetria');
     } else {
         const age = data.uptimeMs - data.lastTelemetryUpdateMs;
         setStatus(age > 3000 ? 'stale' : 'live');
-        setText('freshness', `Última atualização há ${Math.max(0, age)} ms`);
     }
 
     setText('batteryVoltage', fmtV(data.batteryVoltageMv || 0));
-    setText('soc', `${data.batteryPercentVoltage || 0} %`);
-    setText('socCc', `CC: ${data.batteryPercentCc ?? 0} %`);
+    setText('soc', `${data.batteryPercentCc ?? 0} %`);
+    setText('socVoltage', `${data.batteryPercentVoltage || 0} %`);
     setText('powerKw', av.powerKw ? fmtKw(data.powerKwX10 ?? 0) : 'N/A');
-    setText('powerPercent', `Limite: ${data.powerPercent || 0} %`);
+    setText('powerPercent', `${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
-    setText('throttleRaw', `Bruto: ${data.throttleRaw || 0}`);
+    setText('throttleRaw', `${data.throttleRaw || 0}`);
     setText('motorTemp', fmtC(data.motorTempMc || 0));
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
     setText('escTemp', fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');
-    setText('armed', data.armed ? 'ARMADO' : 'DESARMADO');
+
+    const armedPill = $('armedPill');
+    if (armedPill) {
+        armedPill.className = `armed-pill ${data.armed ? 'armed' : 'disarmed'}`;
+    }
+    setText('armedLabel', data.armed ? 'ARMADO' : 'DESARMADO');
 
     const bmsCard = $('bmsCard');
     if (data.bms && data.bms.available) {
         bmsCard.style.display = '';
         setText('bmsTempMax', data.bms.tempMaxC != null ? `${data.bms.tempMaxC} C` : '--');
+        setText('bmsDelta', data.bms.cellDeltaMv != null ? `Delta: ${data.bms.cellDeltaMv} mV` : '--');
         if (data.bms.cellMinMv != null && data.bms.cellMaxMv != null) {
-            setHtml('bmsCells', `Cell: ${data.bms.cellMinMv}-${data.bms.cellMaxMv} mV<br>Delta: ${data.bms.cellDeltaMv ?? '--'} mV`);
+            setText('bmsCells', `${data.bms.cellMinMv} \u2013 ${data.bms.cellMaxMv} mV`);
         } else {
             setText('bmsCells', '--');
         }
