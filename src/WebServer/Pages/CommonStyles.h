@@ -127,7 +127,11 @@ body {
     }
 
     .page-telemetry .telemetry-grid .sub {
-        font-size: 15px;
+        font-size: 17px;
+    }
+
+    .page-telemetry .telemetry-grid .sub2-value {
+        font-size: 17px;
     }
 }
 
@@ -440,9 +444,17 @@ th {
 
     body.telemetry-page .page.page-telemetry .topbar {
         flex-shrink: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
         margin-bottom: 6px;
         padding-top: 4px;
         padding-bottom: 6px;
+    }
+
+    body.telemetry-page .page.page-telemetry .topbar::-webkit-scrollbar {
+        display: none;
     }
 
     body.telemetry-page .page.page-telemetry .topbar .nav-btn {
@@ -459,6 +471,17 @@ th {
         overflow: hidden;
     }
 
+    .telemetry-status-bar {
+        height: 34px;
+        padding: 0 10px;
+    }
+
+    .wake-icon-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 13px;
+    }
+
     .telemetry-grid.grid {
         flex: 1;
         min-height: 0;
@@ -468,18 +491,6 @@ th {
         align-content: stretch;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: minmax(0, 1fr);
-    }
-
-    @media (orientation: landscape) and (min-width: 480px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
-
-    @media (orientation: landscape) and (min-width: 700px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
     }
 
     .telemetry-grid .card {
@@ -494,12 +505,13 @@ th {
 
     .telemetry-grid .label {
         font-size: 11px;
+        font-weight: 600;
         line-height: 1.05;
     }
 
     .telemetry-grid .value {
         margin-top: 6px;
-        font-size: clamp(27px, 4.4vw, 36px);
+        font-size: clamp(22px, 6vw, 34px);
         line-height: 1.02;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -507,16 +519,49 @@ th {
     }
 
     .telemetry-grid .sub {
-        margin-top: 6px;
-        font-size: clamp(14px, 2.3vw, 19px);
+        margin-top: 4px;
+        font-size: 17px;
+        font-weight: 500;
         line-height: 1.12;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
-    .telemetry-grid .sub.multiline {
-        white-space: normal;
+    .telemetry-grid .sub + .sub {
+        margin-top: 2px;
+    }
+
+    .telemetry-grid .sub2-value {
+        font-size: 17px;
+    }
+
+    .telemetry-grid .card.bms-card {
+        grid-column: 1 / -1;
+    }
+
+    @media (orientation: landscape) and (min-width: 480px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .telemetry-grid .sub {
+            font-size: 14px;
+        }
+
+        .telemetry-grid .sub2-value {
+            font-size: 14px;
+        }
+
+        .telemetry-grid .card.bms-card {
+            grid-column: span 2;
+        }
+    }
+
+    @media (orientation: landscape) and (min-width: 700px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
     }
 }
 )rawliteral";
