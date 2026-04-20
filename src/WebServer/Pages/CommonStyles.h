@@ -127,7 +127,11 @@ body {
     }
 
     .page-telemetry .telemetry-grid .sub {
-        font-size: 15px;
+        font-size: 17px;
+    }
+
+    .page-telemetry .telemetry-grid .sub2-value {
+        font-size: 17px;
     }
 }
 
@@ -264,108 +268,145 @@ th {
 .status.status-warning { background: #fef3c7; color: #92400e; }
 .status.status-inactive { background: #fee2e2; color: #991b1b; }
 
-.telemetry-header-copy {
-    min-width: 0;
-}
-
-.telemetry-hero-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.hero-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 112px;
-}
-
-.hero-main {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.hero-actions {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.telemetry-header h2,
-.wake-card h2 {
-    margin: 0;
-    font-size: 13px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-
-.wake-button {
-    flex-shrink: 0;
-    min-height: 34px;
-    min-width: 0;
-    padding: 0 12px;
-    border-radius: 10px;
-    font-size: 13px;
-}
-
-.help-button {
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: #f8fafc;
-    color: var(--muted);
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0;
-}
-
-.telemetry-header .status,
-.wake-card .status {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 11px;
-}
-
-.help-panel {
-    display: none;
-    margin-top: 12px;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.35;
-}
-
-.help-panel.open {
-    display: block;
-}
 
 .telemetry-grid .card.bms-card {
     justify-content: flex-start;
 }
 
-.telemetry-grid .sub.multiline {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-}
-
-.telemetry-grid .sub.bms-meta {
-    margin-top: 6px;
-    font-size: clamp(12px, 1.8vw, 15px);
-    line-height: 1.18;
-}
-
-.telemetry-grid .value.bms-value {
-    margin-top: 8px;
+.telemetry-status-bar {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 0 12px;
+    height: 38px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    gap: 8px;
     margin-bottom: 0;
-    position: relative;
-    z-index: 2;
+}
+
+.telemetry-status-bar .tsb-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.telemetry-status-bar .tsb-mid {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.telemetry-status-bar .tsb-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.wake-icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wake-panel {
+    display: none;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.wake-panel.open {
+    display: block;
+}
+
+.wake-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.armed-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+.armed-pill .armed-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.armed-pill.armed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.armed-pill.armed .armed-dot {
+    background: #b91c1c;
+}
+
+.armed-pill.disarmed {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.armed-pill.disarmed .armed-dot {
+    background: #9ca3af;
+}
+
+.sub2 {
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.sub2-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1.1;
+}
+
+.sub2-value {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 600;
+    line-height: 1.15;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 600px) {
@@ -403,9 +444,17 @@ th {
 
     body.telemetry-page .page.page-telemetry .topbar {
         flex-shrink: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
         margin-bottom: 6px;
         padding-top: 4px;
         padding-bottom: 6px;
+    }
+
+    body.telemetry-page .page.page-telemetry .topbar::-webkit-scrollbar {
+        display: none;
     }
 
     body.telemetry-page .page.page-telemetry .topbar .nav-btn {
@@ -422,65 +471,15 @@ th {
         overflow: hidden;
     }
 
-    .telemetry-hero-grid {
-        gap: 8px;
-    }
-
-    .telemetry-header.panel {
-        flex-shrink: 0;
-        margin-bottom: 0;
-        padding: 8px 10px;
-    }
-
-    .wake-card.panel {
-        flex-shrink: 0;
-        margin-bottom: 0;
-        padding: 8px 10px;
-    }
-
-    .telemetry-header.panel h1 {
-        font-size: 18px;
-        margin-bottom: 0;
-        line-height: 1.05;
-    }
-
-    .hero-card {
-        min-height: 96px;
-    }
-
-    .hero-main {
-        margin-top: 8px;
-        gap: 5px;
-    }
-
-    .hero-actions {
-        margin-top: 8px;
-        gap: 5px;
-    }
-
-    .telemetry-header .status,
-    .wake-card .status {
-        min-height: 24px;
-        padding: 0 8px;
-        font-size: 10px;
-    }
-
-    .wake-button {
-        min-height: 30px;
+    .telemetry-status-bar {
+        height: 34px;
         padding: 0 10px;
-        font-size: 12px;
     }
 
-    .help-button {
-        width: 24px;
-        height: 24px;
-        font-size: 14px;
-    }
-
-    .help-panel {
-        margin-top: 8px;
-        font-size: 12px;
-        line-height: 1.25;
+    .wake-icon-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 13px;
     }
 
     .telemetry-grid.grid {
@@ -492,18 +491,6 @@ th {
         align-content: stretch;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-auto-rows: minmax(0, 1fr);
-    }
-
-    @media (orientation: landscape) and (min-width: 480px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
-
-    @media (orientation: landscape) and (min-width: 700px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
     }
 
     .telemetry-grid .card {
@@ -518,12 +505,13 @@ th {
 
     .telemetry-grid .label {
         font-size: 11px;
+        font-weight: 600;
         line-height: 1.05;
     }
 
     .telemetry-grid .value {
         margin-top: 6px;
-        font-size: clamp(27px, 4.4vw, 36px);
+        font-size: clamp(22px, 6vw, 34px);
         line-height: 1.02;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -531,16 +519,49 @@ th {
     }
 
     .telemetry-grid .sub {
-        margin-top: 6px;
-        font-size: clamp(14px, 2.3vw, 19px);
+        margin-top: 4px;
+        font-size: 17px;
+        font-weight: 500;
         line-height: 1.12;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
     }
 
-    .telemetry-grid .sub.multiline {
-        white-space: normal;
+    .telemetry-grid .sub + .sub {
+        margin-top: 2px;
+    }
+
+    .telemetry-grid .sub2-value {
+        font-size: 17px;
+    }
+
+    .telemetry-grid .card.bms-card {
+        grid-column: 1 / -1;
+    }
+
+    @media (orientation: landscape) and (min-width: 480px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .telemetry-grid .sub {
+            font-size: 14px;
+        }
+
+        .telemetry-grid .sub2-value {
+            font-size: 14px;
+        }
+
+        .telemetry-grid .card.bms-card {
+            grid-column: span 2;
+        }
+    }
+
+    @media (orientation: landscape) and (min-width: 700px) {
+        .telemetry-grid.grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
     }
 }
 )rawliteral";

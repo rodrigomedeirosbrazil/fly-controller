@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup – Sub-texto tamanho</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+  h1 { font-size: 18px; margin-bottom: 6px; color: #fff; }
+  .desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.4; }
+
+  :root {
+    --bg: #eef2f6; --text: #1f2937; --muted: #6b7280;
+    --primary: #0b74de; --card: #ffffff; --border: #e5e7eb; --radius: 8px;
+  }
+
+  .row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .col-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; margin-bottom: 8px; padding: 4px 14px;
+    border-radius: 4px; text-align: center;
+  }
+
+  .phone {
+    width: 270px; background: #111; border-radius: 28px;
+    border: 3px solid #555; padding: 10px 7px;
+    display: flex; flex-direction: column; min-height: 560px;
+  }
+  .screen {
+    background: var(--bg); border-radius: 20px; flex: 1;
+    display: flex; flex-direction: column;
+    overflow: hidden; color: var(--text);
+    padding: 6px 7px 7px; gap: 5px; font-family: Arial, sans-serif;
+  }
+
+  .topbar {
+    display: flex; flex-wrap: nowrap; gap: 3px;
+    flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    background: var(--primary); color: white; border-radius: 5px;
+    padding: 5px 7px; font-size: 9px; font-weight: 600;
+    flex: 0 0 auto; white-space: nowrap;
+  }
+  .nav-btn.active { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+
+  .status-bar {
+    display: flex; align-items: center; background: var(--card);
+    border-radius: var(--radius); padding: 0 9px; height: 32px;
+    flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.08); gap: 6px;
+  }
+  .sb-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .sb-mid { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .badge-live { background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 999px; font-size: 8px; font-weight: bold; }
+  .icon-btn {
+    width: 23px; height: 23px; border-radius: 5px;
+    background: #f3f4f6; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+
+  .data-grid {
+    flex: 1; min-height: 0; display: grid;
+    grid-template-columns: 1fr 1fr; gap: 5px;
+    align-content: stretch; grid-auto-rows: minmax(0, 1fr);
+  }
+  .bms-full { grid-column: 1 / -1; }
+
+  .dp {
+    background: var(--card); border-radius: var(--radius);
+    padding: 8px 9px 7px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .lbl {
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); font-weight: 600; line-height: 1; flex-shrink: 0;
+  }
+  .val {
+    font-weight: bold; margin-top: 4px; line-height: 1.0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+  }
+  .sub {
+    color: var(--muted); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 500; flex-shrink: 0;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 4px; padding: 2px 7px;
+    border-radius: 999px; font-weight: 700; width: fit-content;
+  }
+  .dot { border-radius: 50%; flex-shrink: 0; }
+  .disarmed { background: #f3f4f6; color: #6b7280; }
+  .disarmed .dot { background: #9ca3af; }
+
+  /* ── SIZE VARIANTS ── */
+
+  /* A: 13px sub (atual) */
+  .size-a .lbl  { font-size: 10px; }
+  .size-a .val  { font-size: 22px; }
+  .size-a .sub  { font-size: 13px; }
+  .size-a .pill { font-size: 9px; }
+  .size-a .dot  { width: 5px; height: 5px; }
+
+  /* B: 15px sub */
+  .size-b .lbl  { font-size: 11px; }
+  .size-b .val  { font-size: 21px; }
+  .size-b .sub  { font-size: 15px; }
+  .size-b .pill { font-size: 10px; }
+  .size-b .dot  { width: 6px; height: 6px; }
+
+  /* C: 17px sub — val ligeiramente menor para caber */
+  .size-c .lbl  { font-size: 11px; }
+  .size-c .val  { font-size: 19px; }
+  .size-c .sub  { font-size: 17px; }
+  .size-c .pill { font-size: 11px; }
+  .size-c .dot  { width: 6px; height: 6px; }
+
+  .note {
+    margin-top: 8px; font-size: 11px; color: #aaa;
+    line-height: 1.5; text-align: center; max-width: 270px;
+  }
+  .note .g { color: #4ade80; }
+  .note .y { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<h1>Sub-texto — qual tamanho fica bom?</h1>
+<p class="desc">O valor principal fica ligeiramente menor conforme o sub cresce — é o tradeoff para caber no card sem scroll.</p>
+
+<div class="row">
+
+  <!-- ── A: 13px ── -->
+  <div class="col">
+    <div class="col-label" style="background:#2a2a2a;color:#9ca3af">A — 13px (atual)</div>
+    <div class="phone">
+      <div class="screen size-a">
+        <div class="topbar">
+          <div class="nav-btn">Painel</div><div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div><div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-label">Telemetria</span>
+          <div class="sb-mid"><span class="badge-live">AO VIVO</span></div>
+          <div class="icon-btn">🔒</div>
+        </div>
+        <div class="data-grid">
+          <div class="dp"><div class="lbl">Tensão</div><div class="val">49.65 V</div><div class="pill disarmed"><span class="dot"></span>DESARMADO</div></div>
+          <div class="dp"><div class="lbl">SoC Bateria</div><div class="val">17 %</div><div class="sub">CC: 17 %</div></div>
+          <div class="dp"><div class="lbl">Energia</div><div class="val">3.8 kW</div><div class="sub">Limite: 95 %</div></div>
+          <div class="dp"><div class="lbl">Acelerador</div><div class="val">67 %</div><div class="sub">Bruto: 1840</div></div>
+          <div class="dp"><div class="lbl">Motor</div><div class="val">42.5 C</div><div class="sub">4 200 rpm</div></div>
+          <div class="dp"><div class="lbl">ESC</div><div class="val">58.0 C</div><div class="sub">48.3 A</div></div>
+          <div class="dp bms-full"><div class="lbl">BMS</div><div class="val">31.2 C</div><div class="sub">Cell: 3800–3850 mV · Delta: 50 mV</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Sub: 13px · Val: 22px<br>Ruim de ler ao sol</div>
+  </div>
+
+  <!-- ── B: 15px ── -->
+  <div class="col">
+    <div class="col-label" style="background:#1a3a2a;color:#4ade80">B — 15px</div>
+    <div class="phone">
+      <div class="screen size-b">
+        <div class="topbar">
+          <div class="nav-btn">Painel</div><div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div><div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-label">Telemetria</span>
+          <div class="sb-mid"><span class="badge-live">AO VIVO</span></div>
+          <div class="icon-btn">🔒</div>
+        </div>
+        <div class="data-grid">
+          <div class="dp"><div class="lbl">Tensão</div><div class="val">49.65 V</div><div class="pill disarmed"><span class="dot"></span>DESARMADO</div></div>
+          <div class="dp"><div class="lbl">SoC Bateria</div><div class="val">17 %</div><div class="sub">CC: 17 %</div></div>
+          <div class="dp"><div class="lbl">Energia</div><div class="val">3.8 kW</div><div class="sub">Limite: 95 %</div></div>
+          <div class="dp"><div class="lbl">Acelerador</div><div class="val">67 %</div><div class="sub">Bruto: 1840</div></div>
+          <div class="dp"><div class="lbl">Motor</div><div class="val">42.5 C</div><div class="sub">4 200 rpm</div></div>
+          <div class="dp"><div class="lbl">ESC</div><div class="val">58.0 C</div><div class="sub">48.3 A</div></div>
+          <div class="dp bms-full"><div class="lbl">BMS</div><div class="val">31.2 C</div><div class="sub">Cell: 3800–3850 mV · Delta: 50 mV</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="note"><span class="g">Sub: 15px · Val: 21px</span><br>Bom equilíbrio</div>
+  </div>
+
+  <!-- ── C: 17px ── -->
+  <div class="col">
+    <div class="col-label" style="background:#2a1a3a;color:#c4b5fd">C — 17px</div>
+    <div class="phone">
+      <div class="screen size-c">
+        <div class="topbar">
+          <div class="nav-btn">Painel</div><div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div><div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-label">Telemetria</span>
+          <div class="sb-mid"><span class="badge-live">AO VIVO</span></div>
+          <div class="icon-btn">🔒</div>
+        </div>
+        <div class="data-grid">
+          <div class="dp"><div class="lbl">Tensão</div><div class="val">49.65 V</div><div class="pill disarmed"><span class="dot"></span>DESARMADO</div></div>
+          <div class="dp"><div class="lbl">SoC Bateria</div><div class="val">17 %</div><div class="sub">CC: 17 %</div></div>
+          <div class="dp"><div class="lbl">Energia</div><div class="val">3.8 kW</div><div class="sub">Limite: 95 %</div></div>
+          <div class="dp"><div class="lbl">Acelerador</div><div class="val">67 %</div><div class="sub">Bruto: 1840</div></div>
+          <div class="dp"><div class="lbl">Motor</div><div class="val">42.5 C</div><div class="sub">4 200 rpm</div></div>
+          <div class="dp"><div class="lbl">ESC</div><div class="val">58.0 C</div><div class="sub">48.3 A</div></div>
+          <div class="dp bms-full"><div class="lbl">BMS</div><div class="val">31.2 C</div><div class="sub">Cell: 3800–3850 mV · Delta: 50 mV</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="note"><span class="y">Sub: 17px · Val: 19px</span><br>Sub bem legível, val menor</div>
+  </div>
+
+</div>
+</body>
+</html>

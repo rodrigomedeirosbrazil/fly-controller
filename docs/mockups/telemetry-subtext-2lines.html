@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup – Sub 2 linhas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+  h1 { font-size: 18px; margin-bottom: 6px; color: #fff; }
+  .desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.4; }
+
+  :root {
+    --bg: #eef2f6; --text: #1f2937; --muted: #6b7280;
+    --primary: #0b74de; --card: #ffffff; --border: #e5e7eb; --radius: 8px;
+  }
+
+  .row { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .col-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; margin-bottom: 8px; padding: 4px 14px;
+    border-radius: 4px; text-align: center;
+  }
+
+  .phone {
+    width: 280px; background: #111; border-radius: 28px;
+    border: 3px solid #555; padding: 10px 7px;
+    display: flex; flex-direction: column; min-height: 570px;
+  }
+  .screen {
+    background: var(--bg); border-radius: 20px; flex: 1;
+    display: flex; flex-direction: column;
+    overflow: hidden; color: var(--text);
+    padding: 6px 7px 7px; gap: 5px; font-family: Arial, sans-serif;
+  }
+
+  .topbar {
+    display: flex; flex-wrap: nowrap; gap: 3px;
+    flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+  .nav-btn {
+    background: var(--primary); color: white; border-radius: 5px;
+    padding: 5px 7px; font-size: 9px; font-weight: 600;
+    flex: 0 0 auto; white-space: nowrap;
+  }
+  .nav-btn.active { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+
+  .status-bar {
+    display: flex; align-items: center; background: var(--card);
+    border-radius: var(--radius); padding: 0 9px; height: 32px;
+    flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.08); gap: 6px;
+  }
+  .sb-label { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .sb-mid { display: flex; align-items: center; gap: 4px; flex: 1; }
+  .badge-live { background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 999px; font-size: 8px; font-weight: bold; }
+  .icon-btn {
+    width: 23px; height: 23px; border-radius: 5px;
+    background: #f3f4f6; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+
+  .data-grid {
+    flex: 1; min-height: 0; display: grid;
+    grid-template-columns: 1fr 1fr; gap: 5px;
+    align-content: stretch; grid-auto-rows: minmax(0, 1fr);
+  }
+  .bms-full { grid-column: 1 / -1; }
+
+  .dp {
+    background: var(--card); border-radius: var(--radius);
+    padding: 8px 9px 7px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .lbl {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); font-weight: 600; line-height: 1; flex-shrink: 0;
+  }
+  .val {
+    font-size: 19px; font-weight: bold; margin-top: 4px; line-height: 1.0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0;
+  }
+
+  /* sub linha única */
+  .sub {
+    font-size: 17px; color: var(--muted); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 500; flex-shrink: 0;
+  }
+
+  /* sub 2 linhas: label muted pequeno + valor maior */
+  .sub2 { margin-top: 4px; flex-shrink: 0; }
+  .sub2-label {
+    font-size: 10px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sub2-value {
+    font-size: 17px; color: var(--muted); font-weight: 600;
+    line-height: 1.15; margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* bms tem 2 blocos de sub2 */
+  .sub2 + .sub2 { margin-top: 3px; }
+
+  /* pill */
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 5px; padding: 2px 7px;
+    border-radius: 999px; font-size: 10px; font-weight: 700; width: fit-content; flex-shrink: 0;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .disarmed { background: #f3f4f6; color: #6b7280; }
+  .disarmed .dot { background: #9ca3af; }
+
+  .note {
+    margin-top: 8px; font-size: 11px; color: #aaa;
+    line-height: 1.5; text-align: center; max-width: 280px;
+  }
+  .note .g { color: #4ade80; }
+
+  /* zoom panel */
+  .zoom-row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    justify-content: center; max-width: 640px; margin: 24px auto 0;
+  }
+  .zoom-card {
+    background: var(--bg); border-radius: 12px; padding: 10px;
+    width: 160px;
+  }
+  .zoom-card .dp { height: 110px; }
+  .zoom-card-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #888; margin-bottom: 6px; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Sub-texto em 2 linhas — comparação</h1>
+<p class="desc">Esquerda: sub linha única (17px). Direita: sub em 2 linhas — label pequeno + valor 17px. Todos os cards com dado composto ganham 2 linhas; Motor e ESC ficam em 1 linha (só têm um valor).</p>
+
+<div class="row">
+
+  <!-- ── 1 LINHA ── -->
+  <div class="col">
+    <div class="col-label" style="background:#2a2a2a;color:#9ca3af">1 linha (C anterior)</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="topbar">
+          <div class="nav-btn">Painel</div><div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div><div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-label">Telemetria</span>
+          <div class="sb-mid"><span class="badge-live">AO VIVO</span></div>
+          <div class="icon-btn">🔒</div>
+        </div>
+        <div class="data-grid">
+          <div class="dp">
+            <div class="lbl">Tensão</div>
+            <div class="val">49.65 V</div>
+            <div class="pill disarmed"><span class="dot"></span>DESARMADO</div>
+          </div>
+          <div class="dp">
+            <div class="lbl">SoC Bateria</div>
+            <div class="val">17 %</div>
+            <div class="sub">CC: 17 %</div>
+          </div>
+          <div class="dp">
+            <div class="lbl">Energia</div>
+            <div class="val">3.8 kW</div>
+            <div class="sub">Limite: 95 %</div>
+          </div>
+          <div class="dp">
+            <div class="lbl">Acelerador</div>
+            <div class="val">67 %</div>
+            <div class="sub">Bruto: 1840</div>
+          </div>
+          <div class="dp">
+            <div class="lbl">Motor</div>
+            <div class="val">42.5 C</div>
+            <div class="sub">4 200 rpm</div>
+          </div>
+          <div class="dp">
+            <div class="lbl">ESC</div>
+            <div class="val">58.0 C</div>
+            <div class="sub">48.3 A</div>
+          </div>
+          <div class="dp bms-full">
+            <div class="lbl">BMS</div>
+            <div class="val">31.2 C</div>
+            <div class="sub" style="font-size:13px">Cell: 3800–3850 mV · Delta: 50 mV</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">Sub composto numa linha só — BMS ainda aperta</div>
+  </div>
+
+  <!-- ── 2 LINHAS ── -->
+  <div class="col">
+    <div class="col-label" style="background:#1a3a2a;color:#4ade80">2 linhas (proposta)</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="topbar">
+          <div class="nav-btn">Painel</div><div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div><div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+        <div class="status-bar">
+          <span class="sb-label">Telemetria</span>
+          <div class="sb-mid"><span class="badge-live">AO VIVO</span></div>
+          <div class="icon-btn">🔒</div>
+        </div>
+        <div class="data-grid">
+          <!-- Tensão + pill (sem sub composto) -->
+          <div class="dp">
+            <div class="lbl">Tensão</div>
+            <div class="val">49.65 V</div>
+            <div class="pill disarmed"><span class="dot"></span>DESARMADO</div>
+          </div>
+          <!-- SoC: CC em 2 linhas -->
+          <div class="dp">
+            <div class="lbl">SoC Bateria</div>
+            <div class="val">17 %</div>
+            <div class="sub2">
+              <div class="sub2-label">Coulomb</div>
+              <div class="sub2-value">17 %</div>
+            </div>
+          </div>
+          <!-- Energia: Limite em 2 linhas -->
+          <div class="dp">
+            <div class="lbl">Energia</div>
+            <div class="val">3.8 kW</div>
+            <div class="sub2">
+              <div class="sub2-label">Limite</div>
+              <div class="sub2-value">95 %</div>
+            </div>
+          </div>
+          <!-- Acelerador: Bruto em 2 linhas -->
+          <div class="dp">
+            <div class="lbl">Acelerador</div>
+            <div class="val">67 %</div>
+            <div class="sub2">
+              <div class="sub2-label">Bruto</div>
+              <div class="sub2-value">1840</div>
+            </div>
+          </div>
+          <!-- Motor: 1 linha (só RPM) -->
+          <div class="dp">
+            <div class="lbl">Motor</div>
+            <div class="val">42.5 C</div>
+            <div class="sub">4 200 rpm</div>
+          </div>
+          <!-- ESC: 1 linha (só corrente) -->
+          <div class="dp">
+            <div class="lbl">ESC</div>
+            <div class="val">58.0 C</div>
+            <div class="sub">48.3 A</div>
+          </div>
+          <!-- BMS: 2 sub2 blocos -->
+          <div class="dp bms-full">
+            <div class="lbl">BMS</div>
+            <div class="val">31.2 C</div>
+            <div class="sub2">
+              <div class="sub2-label">Células</div>
+              <div class="sub2-value">3800 – 3850 mV</div>
+            </div>
+            <div class="sub2">
+              <div class="sub2-label">Delta</div>
+              <div class="sub2-value">50 mV</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note"><span class="g">Cada dado secundário com seu label</span><br>BMS mostra células e delta sem cortar</div>
+  </div>
+
+</div>
+
+<!-- zoom nos cards mais afetados -->
+<div style="max-width:660px;margin:28px auto 0">
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:12px;text-align:center">Zoom — cards com maior diferença</div>
+  <div class="zoom-row">
+
+    <div>
+      <div class="zoom-card-label">Acelerador — antes</div>
+      <div class="zoom-card">
+        <div class="dp">
+          <div class="lbl">Acelerador</div>
+          <div class="val">67 %</div>
+          <div class="sub">Bruto: 1840</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="zoom-card-label">Acelerador — depois</div>
+      <div class="zoom-card">
+        <div class="dp">
+          <div class="lbl">Acelerador</div>
+          <div class="val">67 %</div>
+          <div class="sub2">
+            <div class="sub2-label">Bruto</div>
+            <div class="sub2-value">1840</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="zoom-card-label">BMS — antes</div>
+      <div class="zoom-card">
+        <div class="dp" style="height:auto">
+          <div class="lbl">BMS</div>
+          <div class="val">31.2 C</div>
+          <div class="sub" style="font-size:12px">Cell: 3800–3850 mV · Delta: 50 mV</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="zoom-card-label">BMS — depois</div>
+      <div class="zoom-card">
+        <div class="dp" style="height:auto">
+          <div class="lbl">BMS</div>
+          <div class="val">31.2 C</div>
+          <div class="sub2">
+            <div class="sub2-label">Células</div>
+            <div class="sub2-value">3800–3850 mV</div>
+          </div>
+          <div class="sub2">
+            <div class="sub2-label">Delta</div>
+            <div class="sub2-value">50 mV</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

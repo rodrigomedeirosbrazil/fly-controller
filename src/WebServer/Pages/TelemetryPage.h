@@ -25,46 +25,56 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="telemetry-shell">
-            <div class="telemetry-hero-grid">
-                <div class="panel telemetry-header hero-card">
-                    <div class="telemetry-header-copy">
-                        <h1>Telemetria ao Vivo</h1>
-                        <div class="hero-main">Status dos dados: <span id="statusBadge" class="status nodata">SEM DADOS</span></div>
-                    </div>
+            <div class="telemetry-status-bar">
+                <span class="tsb-label">Telemetria</span>
+                <div class="tsb-mid">
+                    <span id="statusBadge" class="status nodata">SEM DADOS</span>
                 </div>
+                <div class="tsb-right">
+                    <button type="button" id="wakeIconBtn" class="wake-icon-btn" aria-expanded="false" aria-controls="wakePanel">&#x1F512;</button>
+                </div>
+            </div>
 
-                <div class="panel wake-card hero-card">
-                    <h2>Manter Tela Ligada</h2>
-                    <div class="hero-actions">
-                        <span id="wakeStatusBadge" class="status status-secondary">INATIVO</span>
-                        <button type="button" id="wakeHelpToggle" class="help-button" aria-expanded="false" aria-controls="wakeHelp">?</button>
-                    </div>
-                    <div class="hero-actions">
-                        <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Manter Ativo</button>
-                    </div>
-                    <div class="help-panel" id="wakeHelp">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
+            <div class="wake-panel" id="wakePanel">
+                <span id="wakeStatusBadge" class="status status-secondary">INATIVO</span>
+                <div class="wake-panel-row">
+                    <button type="button" id="wakeToggleButton" class="btn btn-sm">Manter Ativo</button>
                 </div>
+                <div id="wakeHelp" style="margin-top:8px;font-size:12px;line-height:1.35;">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
             </div>
 
             <div class="grid telemetry-grid">
                 <div class="card">
-                    <div class="label">Tensão da Bateria</div>
+                    <div class="label">Tens&#xE3;o</div>
                     <div class="value" id="batteryVoltage">--</div>
+                    <div class="armed-pill disarmed" id="armedPill">
+                        <span class="armed-dot"></span>
+                        <span id="armedLabel">DESARMADO</span>
+                    </div>
                 </div>
                 <div class="card">
-                    <div class="label">SoC da Bateria</div>
+                    <div class="label">Bateria</div>
                     <div class="value" id="soc">--</div>
-                    <div class="sub" id="socCc">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Tens&#xE3;o</div>
+                        <div class="sub2-value" id="socVoltage">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Energia</div>
                     <div class="value" id="powerKw">--</div>
-                    <div class="sub" id="powerPercent">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Limite</div>
+                        <div class="sub2-value" id="powerPercent">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Acelerador</div>
                     <div class="value" id="throttlePercent">--</div>
-                    <div class="sub" id="throttleRaw">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Bruto</div>
+                        <div class="sub2-value" id="throttleRaw">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Motor</div>
@@ -76,15 +86,11 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="value" id="escTemp">--</div>
                     <div class="sub" id="escCurrent">--</div>
                 </div>
-                <div class="card">
-                    <div class="label">Sistema</div>
-                    <div class="value" id="armed">--</div>
-                    <div class="sub" id="freshness">--</div>
-                </div>
                 <div class="card bms-card" id="bmsCard" style="display: none;">
                     <div class="label">BMS</div>
-                    <div class="value bms-value" id="bmsTempMax">--</div>
-                    <div class="sub multiline bms-meta" id="bmsCells">--</div>
+                    <div class="value" id="bmsTempMax">--</div>
+                    <div class="sub" id="bmsDelta">--</div>
+                    <div class="sub" id="bmsCells">--</div>
                 </div>
             </div>
         </div>
@@ -421,12 +427,12 @@ async function reacquireWakeIfNeeded() {
 const initTelemetryWake = () => {
     syncWakeUi('idle', 'Preparando controles de manter ativo.');
 
-    const helpToggle = $('wakeHelpToggle');
-    const helpPanel = $('wakeHelp');
-    if (helpToggle && helpPanel) {
-        helpToggle.addEventListener('click', () => {
-            const isOpen = helpPanel.classList.toggle('open');
-            helpToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    const wakeIconBtn = $('wakeIconBtn');
+    const wakePanel = $('wakePanel');
+    if (wakeIconBtn && wakePanel) {
+        wakeIconBtn.addEventListener('click', () => {
+            const isOpen = wakePanel.classList.toggle('open');
+            wakeIconBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         });
     }
 
@@ -490,32 +496,36 @@ const renderTelemetry = (data) => {
 
     if (!data.hasTelemetry) {
         setStatus('nodata');
-        setText('freshness', 'Aguardando telemetria');
     } else {
         const age = data.uptimeMs - data.lastTelemetryUpdateMs;
         setStatus(age > 3000 ? 'stale' : 'live');
-        setText('freshness', `Última atualização há ${Math.max(0, age)} ms`);
     }
 
     setText('batteryVoltage', fmtV(data.batteryVoltageMv || 0));
-    setText('soc', `${data.batteryPercentVoltage || 0} %`);
-    setText('socCc', `CC: ${data.batteryPercentCc ?? 0} %`);
+    setText('soc', `${data.batteryPercentCc ?? 0} %`);
+    setText('socVoltage', `${data.batteryPercentVoltage || 0} %`);
     setText('powerKw', av.powerKw ? fmtKw(data.powerKwX10 ?? 0) : 'N/A');
-    setText('powerPercent', `Limite: ${data.powerPercent || 0} %`);
+    setText('powerPercent', `${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
-    setText('throttleRaw', `Bruto: ${data.throttleRaw || 0}`);
+    setText('throttleRaw', `${data.throttleRaw || 0}`);
     setText('motorTemp', fmtC(data.motorTempMc || 0));
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
     setText('escTemp', fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');
-    setText('armed', data.armed ? 'ARMADO' : 'DESARMADO');
+
+    const armedPill = $('armedPill');
+    if (armedPill) {
+        armedPill.className = `armed-pill ${data.armed ? 'armed' : 'disarmed'}`;
+    }
+    setText('armedLabel', data.armed ? 'ARMADO' : 'DESARMADO');
 
     const bmsCard = $('bmsCard');
     if (data.bms && data.bms.available) {
         bmsCard.style.display = '';
         setText('bmsTempMax', data.bms.tempMaxC != null ? `${data.bms.tempMaxC} C` : '--');
+        setText('bmsDelta', data.bms.cellDeltaMv != null ? `Delta: ${data.bms.cellDeltaMv} mV` : '--');
         if (data.bms.cellMinMv != null && data.bms.cellMaxMv != null) {
-            setHtml('bmsCells', `Cell: ${data.bms.cellMinMv}-${data.bms.cellMaxMv} mV<br>Delta: ${data.bms.cellDeltaMv ?? '--'} mV`);
+            setText('bmsCells', `${data.bms.cellMinMv} \u2013 ${data.bms.cellMaxMv} mV`);
         } else {
             setText('bmsCells', '--');
         }
