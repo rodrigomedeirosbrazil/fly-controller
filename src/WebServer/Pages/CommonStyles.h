@@ -269,23 +269,140 @@ th {
     justify-content: flex-start;
 }
 
-.telemetry-grid .sub.multiline {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-}
-
-.telemetry-grid .sub.bms-meta {
-    margin-top: 6px;
-    font-size: clamp(12px, 1.8vw, 15px);
-    line-height: 1.18;
-}
-
-.telemetry-grid .value.bms-value {
-    margin-top: 8px;
+.telemetry-status-bar {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 0 12px;
+    height: 38px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    gap: 8px;
     margin-bottom: 0;
-    position: relative;
-    z-index: 2;
+}
+
+.telemetry-status-bar .tsb-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.telemetry-status-bar .tsb-mid {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+}
+
+.telemetry-status-bar .tsb-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.wake-icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wake-panel {
+    display: none;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.wake-panel.open {
+    display: block;
+}
+
+.wake-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.armed-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+.armed-pill .armed-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.armed-pill.armed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.armed-pill.armed .armed-dot {
+    background: #b91c1c;
+}
+
+.armed-pill.disarmed {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.armed-pill.disarmed .armed-dot {
+    background: #9ca3af;
+}
+
+.sub2 {
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.sub2-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1.1;
+}
+
+.sub2-value {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 600;
+    line-height: 1.15;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 @media (max-width: 600px) {
