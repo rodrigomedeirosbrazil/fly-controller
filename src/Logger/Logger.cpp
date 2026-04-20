@@ -1,7 +1,28 @@
 #include "Logger.h"
 #include "../Throttle/Throttle.h"
+#include <time.h>
+#include <sys/time.h>
 
 extern Throttle throttle;
+
+static const time_t MIN_VALID_EPOCH = 1577836800; // 2020-01-01 UTC
+
+bool Logger::isTimeSynced() {
+    return time(nullptr) > MIN_VALID_EPOCH;
+}
+
+void Logger::formatTimestamp(char* buf, size_t len) {
+    if (isTimeSynced()) {
+        time_t now = time(nullptr);
+        struct tm t;
+        gmtime_r(&now, &t);
+        snprintf(buf, len, "%04d-%02d-%02dT%02d:%02d:%02d",
+                 t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
+                 t.tm_hour, t.tm_min, t.tm_sec);
+    } else {
+        snprintf(buf, len, "ms:%lu", millis());
+    }
+}
 
 Logger::Logger() {
     currentFileName = "";
@@ -34,6 +55,17 @@ Logger::~Logger() {
 }
 
 void Logger::createNewFile() {
+    // Build date prefix when clock is synced (e.g. "20250419"), else empty.
+    char datePrefix[12] = "";
+    if (isTimeSynced()) {
+        time_t now = time(nullptr);
+        struct tm t;
+        gmtime_r(&now, &t);
+        snprintf(datePrefix, sizeof(datePrefix), "%04d%02d%02d",
+                 t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+    }
+    const bool useDate = (datePrefix[0] != '\0');
+
     File root = LittleFS.open("/");
     if (!root) {
         Serial.println("Failed to open directory");
@@ -42,58 +74,67 @@ void Logger::createNewFile() {
 
     root.rewindDirectory();
 
-    int maxFileNum = 0;
-    int minEmptyFileNum = -1;
+    int maxSeqNum = 0;       // highest NNN seen for the date prefix (or overall)
+    int minEmptySeqNum = -1; // lowest NNN of an empty file for this prefix
 
     File file = root.openNextFile();
     while (file) {
         String fileName = file.name();
-        // Assuming format /00001.csv - remove leading / if present
-        if (fileName.startsWith("/")) {
-            fileName = fileName.substring(1);
+        if (fileName.startsWith("/")) fileName = fileName.substring(1);
+
+        // Accept both YYYYMMDD_NNN.csv (date) and NNNNN.csv (legacy).
+        String seqPart;
+        if (useDate) {
+            String expectedPrefix = String(datePrefix) + "_";
+            if (fileName.startsWith(expectedPrefix) && fileName.endsWith(".csv")) {
+                seqPart = fileName.substring(expectedPrefix.length(),
+                                             fileName.length() - 4);
+            }
+        } else {
+            int dotIndex = fileName.indexOf('.');
+            if (dotIndex > 0) {
+                seqPart = fileName.substring(0, dotIndex);
+            }
         }
 
-        // Check if it matches pattern digit+.<ext>
-        int dotIndex = fileName.indexOf('.');
-        if (dotIndex > 0) {
-            String numPart = fileName.substring(0, dotIndex);
-            bool isDigit = true;
-            for (unsigned int i = 0; i < numPart.length(); i++) {
-                if (!isdigit(numPart.charAt(i))) {
-                    isDigit = false;
-                    break;
-                }
+        if (seqPart.length() > 0) {
+            bool allDigits = true;
+            for (unsigned int i = 0; i < seqPart.length(); i++) {
+                if (!isdigit(seqPart.charAt(i))) { allDigits = false; break; }
             }
-            if (isDigit) {
-                int num = numPart.toInt();
-                if (num > maxFileNum) {
-                    maxFileNum = num;
-                }
-                if (file.size() == 0) {
-                    if (minEmptyFileNum < 0 || num < minEmptyFileNum) {
-                        minEmptyFileNum = num;
-                    }
+            if (allDigits) {
+                int num = seqPart.toInt();
+                if (num > maxSeqNum) maxSeqNum = num;
+                if (file.size() == 0 && (minEmptySeqNum < 0 || num < minEmptySeqNum)) {
+                    minEmptySeqNum = num;
                 }
             }
         }
         file.close();
         file = root.openNextFile();
     }
-
     root.close();
 
-    char fileNameBuf[16];
+    char fileNameBuf[32];
 
-    if (minEmptyFileNum >= 0) {
-        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", minEmptyFileNum);
+    if (minEmptySeqNum >= 0) {
+        if (useDate) {
+            snprintf(fileNameBuf, sizeof(fileNameBuf), "/%s_%03d.csv", datePrefix, minEmptySeqNum);
+        } else {
+            snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", minEmptySeqNum);
+        }
         currentFileName = String(fileNameBuf);
         Serial.print("Reusing empty log file: ");
         Serial.println(currentFileName);
         return;
     }
 
-    int nextFileNum = maxFileNum + 1;
-    snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", nextFileNum);
+    int nextSeqNum = maxSeqNum + 1;
+    if (useDate) {
+        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%s_%03d.csv", datePrefix, nextSeqNum);
+    } else {
+        snprintf(fileNameBuf, sizeof(fileNameBuf), "/%05d.csv", nextSeqNum);
+    }
     currentFileName = String(fileNameBuf);
 
     // POWER LOSS SAFETY
@@ -125,6 +166,7 @@ void Logger::openLogFile() {
     fileOpen = true;
 
     if (logFile.size() == 0 && csvHeader.length() > 0) {
+        logFile.print("timestamp,");
         logFile.print(csvHeader);
         logFile.print("\r\n");
         logFile.flush();
@@ -195,6 +237,10 @@ void Logger::log(const char* data) {
         }
     }
 
+    char tsBuf[24];
+    formatTimestamp(tsBuf, sizeof(tsBuf));
+    logFile.print(tsBuf);
+    logFile.print(",");
     logFile.print(data);
     logFile.flush(); // Force data to be written to storage immediately
 }
