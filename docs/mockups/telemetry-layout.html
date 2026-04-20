@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup – Telemetria Layout</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+
+  h1 { font-size: 18px; margin-bottom: 6px; color: #fff; }
+  .desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.4; }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 640px) {
+    .comparison { grid-template-columns: 1fr; }
+  }
+
+  .variant-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .variant-title.current { background: #3a2a2a; color: #f87171; }
+  .variant-title.proposed { background: #1a3a2a; color: #4ade80; }
+
+  /* ── Phone frame ── */
+  .phone {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    background: #111;
+    border-radius: 32px;
+    border: 3px solid #444;
+    padding: 12px 8px;
+    min-height: 580px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ── CURRENT layout ── */
+  :root {
+    --bg: #eef2f6;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #0b74de;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --radius: 10px;
+  }
+
+  .screen {
+    background: var(--bg);
+    border-radius: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--text);
+    padding: 7px 8px 8px;
+    font-family: Arial, sans-serif;
+  }
+
+  /* topbar */
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    background: var(--primary);
+    color: white;
+    border-radius: 6px;
+    padding: 6px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+  .nav-btn.active { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5); }
+
+  /* hero grid */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  .hero-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 8px 9px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    min-height: 82px;
+    display: flex;
+    flex-direction: column;
+  }
+  .hero-card-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .hero-card h1 {
+    font-size: 14px;
+    margin-top: 4px;
+    color: var(--text);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: bold;
+    margin-top: 5px;
+  }
+  .badge.live { background: #dcfce7; color: #166534; }
+  .badge.secondary { background: #e5e7eb; color: #374151; }
+  .wake-btn {
+    margin-top: 5px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border: none;
+    width: fit-content;
+  }
+
+  /* data grid */
+  .data-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    align-content: stretch;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  .data-card {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 8px 9px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .data-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    line-height: 1;
+  }
+  .data-value {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 4px;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .data-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── PROPOSED layout ── */
+
+  /* status bar replacing hero cards */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    gap: 6px;
+  }
+  .status-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .status-bar-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .status-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .icon-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* proposed data grid — bigger values & subs */
+  .data-grid-p {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    align-content: stretch;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+  .data-card-p {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 9px 10px 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .data-label-p {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    line-height: 1;
+    font-weight: 600;
+  }
+  .data-value-p {
+    font-size: 26px;
+    font-weight: bold;
+    margin-top: 5px;
+    line-height: 1.0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .data-sub-p {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  /* annotation */
+  .annotation {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.5;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .annotation li { margin-left: 16px; margin-bottom: 4px; }
+  .annotation .good { color: #4ade80; }
+  .annotation .bad { color: #f87171; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin-bottom: 10px;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Telemetria — Comparação de Layout (Portrait)</h1>
+<p class="desc">Simulação em resolução de celular (~320×580px). Analise o espaço ocupado pelos cards de status vs. área disponível para dados.</p>
+
+<div class="comparison">
+
+  <!-- ══ CURRENT ══ -->
+  <div>
+    <div class="variant-title current">❌ Atual — problema</div>
+    <div class="phone">
+      <div class="screen">
+        <!-- topbar -->
+        <div class="topbar">
+          <div class="nav-btn">Painel</div>
+          <div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div>
+          <div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+
+        <!-- hero cards consuming ~30% of screen -->
+        <div class="hero-grid">
+          <div class="hero-card">
+            <div class="hero-card-title">Telemetria</div>
+            <div class="hero-card h1" style="font-size:14px;margin-top:4px">Ao Vivo</div>
+            <div class="badge live">AO VIVO</div>
+          </div>
+          <div class="hero-card">
+            <div class="hero-card-title">Manter Tela Ligada</div>
+            <div class="badge secondary" style="margin-top:4px">INATIVO</div>
+            <button class="wake-btn">Manter Ativo</button>
+          </div>
+        </div>
+
+        <!-- data grid — cramped -->
+        <div class="data-grid">
+          <div class="data-card">
+            <div class="data-label">Tensão</div>
+            <div class="data-value">44.20 V</div>
+            <!-- no sub -->
+          </div>
+          <div class="data-card">
+            <div class="data-label">SoC Bateria</div>
+            <div class="data-value">83 %</div>
+            <div class="data-sub">CC: 82 %</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">Energia</div>
+            <div class="data-value">3.8 kW</div>
+            <div class="data-sub">Limite: 95 %</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">Acelerador</div>
+            <div class="data-value">67 %</div>
+            <div class="data-sub">Bruto: 1840</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">Motor</div>
+            <div class="data-value">42.5 C</div>
+            <div class="data-sub" style="overflow:hidden;text-overflow:ellipsis">4 200 rpm</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">ESC</div>
+            <div class="data-value">58.0 C</div>
+            <div class="data-sub">48.3 A</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">Sistema</div>
+            <div class="data-value" style="font-size:17px">ARMADO</div>
+            <div class="data-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Atualiz. há 200 ms</div>
+          </div>
+          <div class="data-card">
+            <div class="data-label">BMS</div>
+            <div class="data-value">31.2 C</div>
+            <div class="data-sub">3800–3850 mV</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annotation">
+      <ul>
+        <li class="bad">~30% da tela usada por header/wake card</li>
+        <li class="bad">Sub-texto (11px) ilegível ao sol</li>
+        <li class="bad">Valor principal pequeno nos cards espremidos</li>
+        <li class="bad">"Atualiz. há 200 ms" cortado</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══ PROPOSED ══ -->
+  <div>
+    <div class="variant-title proposed">✅ Proposta — mais dados</div>
+    <div class="phone">
+      <div class="screen">
+        <!-- topbar -->
+        <div class="topbar">
+          <div class="nav-btn">Painel</div>
+          <div class="nav-btn active">Telemetria</div>
+          <div class="nav-btn">Firmware</div>
+          <div class="nav-btn">Registros</div>
+          <div class="nav-btn">Config.</div>
+        </div>
+
+        <!-- status bar — thin strip -->
+        <div class="status-bar">
+          <div class="status-bar-left">
+            <span class="status-bar-title">Telemetria</span>
+            <span class="badge live" style="font-size:9px;padding:2px 7px">AO VIVO</span>
+          </div>
+          <div class="status-bar-right">
+            <!-- wake lock icon: screen with lock -->
+            <div class="icon-btn" title="Manter tela ativa (ativo)">🔒</div>
+          </div>
+        </div>
+
+        <!-- data grid — more space, bigger fonts -->
+        <div class="data-grid-p">
+          <div class="data-card-p">
+            <div class="data-label-p">Tensão</div>
+            <div class="data-value-p">44.20 V</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">SoC Bateria</div>
+            <div class="data-value-p">83 %</div>
+            <div class="data-sub-p">CC: 82 %</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">Energia</div>
+            <div class="data-value-p">3.8 kW</div>
+            <div class="data-sub-p">Limite: 95 %</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">Acelerador</div>
+            <div class="data-value-p">67 %</div>
+            <div class="data-sub-p">Bruto: 1840</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">Motor</div>
+            <div class="data-value-p">42.5 C</div>
+            <div class="data-sub-p">4 200 rpm</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">ESC</div>
+            <div class="data-value-p">58.0 C</div>
+            <div class="data-sub-p">48.3 A</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">Sistema</div>
+            <div class="data-value-p" style="font-size:20px">ARMADO</div>
+            <div class="data-sub-p">há 200 ms</div>
+          </div>
+          <div class="data-card-p">
+            <div class="data-label-p">BMS</div>
+            <div class="data-value-p">31.2 C</div>
+            <div class="data-sub-p">3800–3850 mV</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annotation">
+      <ul>
+        <li class="good">Barra de status fina (~36px) — libera ~25% da tela</li>
+        <li class="good">Sub-texto 14px — legível ao sol</li>
+        <li class="good">Valor principal maior (26px vs 22px)</li>
+        <li class="good">Wake lock como ícone: toca para expandir controles</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:900px;margin:32px auto 0">
+  <div class="section-label">O que muda na proposta</div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;color:#ccc">
+    <thead>
+      <tr style="border-bottom:1px solid #333">
+        <th style="text-align:left;padding:8px 12px;color:#888">Elemento</th>
+        <th style="text-align:left;padding:8px 12px;color:#f87171">Atual</th>
+        <th style="text-align:left;padding:8px 12px;color:#4ade80">Proposta</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #222">
+        <td style="padding:8px 12px">Header + Wake card</td>
+        <td style="padding:8px 12px;color:#f87171">2 cards (~82px cada)</td>
+        <td style="padding:8px 12px;color:#4ade80">1 barra fina (~36px)</td>
+      </tr>
+      <tr style="border-bottom:1px solid #222">
+        <td style="padding:8px 12px">Sub-texto (.sub)</td>
+        <td style="padding:8px 12px;color:#f87171">11px</td>
+        <td style="padding:8px 12px;color:#4ade80">14px (mín) via clamp</td>
+      </tr>
+      <tr style="border-bottom:1px solid #222">
+        <td style="padding:8px 12px">Valor principal (.value)</td>
+        <td style="padding:8px 12px;color:#f87171">clamp(27px, 4.4vw, 36px)</td>
+        <td style="padding:8px 12px;color:#4ade80">clamp(22px, 6vw, 34px) — cresce mais</td>
+      </tr>
+      <tr style="border-bottom:1px solid #222">
+        <td style="padding:8px 12px">Label (.label)</td>
+        <td style="padding:8px 12px;color:#f87171">10–11px</td>
+        <td style="padding:8px 12px;color:#4ade80">11–12px + font-weight 600</div></td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px">Controle wake lock</td>
+        <td style="padding:8px 12px;color:#f87171">Card com botão sempre visível</td>
+        <td style="padding:8px 12px;color:#4ade80">Ícone na barra; painel expande ao toque</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

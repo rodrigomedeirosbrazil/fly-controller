@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup – Armed colors</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+  h1 { font-size: 18px; margin-bottom: 6px; color: #fff; }
+  .desc { font-size: 13px; color: #aaa; margin-bottom: 20px; line-height: 1.4; }
+
+  :root {
+    --bg: #eef2f6; --text: #1f2937; --muted: #6b7280;
+    --primary: #0b74de; --card: #ffffff; --border: #e5e7eb; --radius: 8px;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  @media (max-width: 600px) { .comparison { grid-template-columns: 1fr; } }
+
+  .variant-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; margin-bottom: 8px;
+    padding: 4px 8px; border-radius: 4px; text-align: center;
+  }
+
+  /* card preview — no full phone frame, just the card pair */
+  .card-demo {
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .dp {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 11px 12px 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column;
+    min-height: 100px;
+  }
+  .dp .lbl {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--muted);
+    font-weight: 600; line-height: 1;
+  }
+  .dp .val {
+    font-size: 22px; font-weight: bold;
+    margin-top: 5px; line-height: 1.0;
+  }
+  .dp .sub {
+    font-size: 12px; color: var(--muted);
+    margin-top: 3px; font-weight: 500;
+  }
+
+  /* pill */
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 6px; padding: 3px 9px;
+    border-radius: 999px; font-size: 11px; font-weight: 700;
+    width: fit-content;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ARMADO — sempre vermelho */
+  .armed   { background: #fee2e2; color: #b91c1c; }
+  .armed .dot { background: #b91c1c; }
+
+  /* DESARMADO — variações */
+  .dis-green  { background: #dcfce7; color: #15803d; }
+  .dis-green .dot { background: #15803d; }
+
+  .dis-gray   { background: #f3f4f6; color: #6b7280; }
+  .dis-gray .dot { background: #9ca3af; }
+
+  .dis-blue   { background: #dbeafe; color: #1d4ed8; }
+  .dis-blue .dot { background: #1d4ed8; }
+
+  .caption {
+    margin-top: 10px; font-size: 12px; color: #aaa;
+    line-height: 1.5; text-align: center;
+  }
+  .caption .rec { color: #4ade80; font-weight: 600; }
+  .caption .neu { color: #93c5fd; }
+
+  .section-title {
+    font-size: 13px; font-weight: 700; color: #ccc;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 14px; text-align: center;
+  }
+
+  /* context: status bar strip above card demo */
+  .status-strip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border-radius: var(--radius);
+    padding: 0 10px; height: 30px; margin-bottom: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    font-size: 9px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .badge-live {
+    background: #dcfce7; color: #166534;
+    padding: 1px 6px; border-radius: 999px;
+    font-size: 8px; font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Estado do sistema — cores do pill badge</h1>
+<p class="desc">ARMADO = vermelho em todas as opções. A diferença está na cor de DESARMADO. Cada coluna mostra os dois estados do mesmo card.</p>
+
+<div class="comparison">
+
+  <!-- ── Opção 1: vermelho / verde ── -->
+  <div>
+    <div class="variant-title" style="background:#2a1a1a;color:#f87171">Vermelho / Verde</div>
+    <div class="status-strip">Telemetria <span class="badge-live">AO VIVO</span></div>
+    <div class="card-demo">
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill armed"><span class="dot"></span>ARMADO</div>
+      </div>
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill dis-green"><span class="dot"></span>DESARMADO</div>
+      </div>
+    </div>
+    <div class="caption">
+      <span class="rec">Recomendado.</span><br>
+      Vermelho = perigo · Verde = seguro.<br>
+      Linguagem universal de segurança.
+    </div>
+  </div>
+
+  <!-- ── Opção 2: vermelho / cinza ── -->
+  <div>
+    <div class="variant-title" style="background:#2a2a2a;color:#9ca3af">Vermelho / Cinza</div>
+    <div class="status-strip">Telemetria <span class="badge-live">AO VIVO</span></div>
+    <div class="card-demo">
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill armed"><span class="dot"></span>ARMADO</div>
+      </div>
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill dis-gray"><span class="dot"></span>DESARMADO</div>
+      </div>
+    </div>
+    <div class="caption">
+      <span class="neu">Neutro.</span><br>
+      Cinza = inativo/sem estado.<br>
+      Menos impacto visual que o verde.
+    </div>
+  </div>
+
+  <!-- ── Opção 3: vermelho / azul ── -->
+  <div>
+    <div class="variant-title" style="background:#1a1a3a;color:#93c5fd">Vermelho / Azul</div>
+    <div class="status-strip">Telemetria <span class="badge-live">AO VIVO</span></div>
+    <div class="card-demo">
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill armed"><span class="dot"></span>ARMADO</div>
+      </div>
+      <div class="dp">
+        <div class="lbl">Tensão</div>
+        <div class="val">49.65 V</div>
+        <div class="pill dis-blue"><span class="dot"></span>DESARMADO</div>
+      </div>
+    </div>
+    <div class="caption">
+      <span class="neu">Alternativo.</span><br>
+      Azul = estado de espera/standby.<br>
+      Não conflita com verde do "AO VIVO".
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
