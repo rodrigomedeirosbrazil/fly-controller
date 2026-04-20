@@ -45,23 +45,36 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
 
             <div class="grid telemetry-grid">
                 <div class="card">
-                    <div class="label">Tensão da Bateria</div>
+                    <div class="label">Tens&#xE3;o</div>
                     <div class="value" id="batteryVoltage">--</div>
+                    <div class="armed-pill disarmed" id="armedPill">
+                        <span class="armed-dot"></span>
+                        <span id="armedLabel">DESARMADO</span>
+                    </div>
                 </div>
                 <div class="card">
-                    <div class="label">SoC da Bateria</div>
+                    <div class="label">Bateria</div>
                     <div class="value" id="soc">--</div>
-                    <div class="sub" id="socCc">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Tens&#xE3;o</div>
+                        <div class="sub2-value" id="socVoltage">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Energia</div>
                     <div class="value" id="powerKw">--</div>
-                    <div class="sub" id="powerPercent">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Limite</div>
+                        <div class="sub2-value" id="powerPercent">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Acelerador</div>
                     <div class="value" id="throttlePercent">--</div>
-                    <div class="sub" id="throttleRaw">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">Bruto</div>
+                        <div class="sub2-value" id="throttleRaw">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Motor</div>
@@ -73,15 +86,11 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="value" id="escTemp">--</div>
                     <div class="sub" id="escCurrent">--</div>
                 </div>
-                <div class="card">
-                    <div class="label">Sistema</div>
-                    <div class="value" id="armed">--</div>
-                    <div class="sub" id="freshness">--</div>
-                </div>
                 <div class="card bms-card" id="bmsCard" style="display: none;">
                     <div class="label">BMS</div>
-                    <div class="value bms-value" id="bmsTempMax">--</div>
-                    <div class="sub multiline bms-meta" id="bmsCells">--</div>
+                    <div class="value" id="bmsTempMax">--</div>
+                    <div class="sub" id="bmsDelta">--</div>
+                    <div class="sub" id="bmsCells">--</div>
                 </div>
             </div>
         </div>
