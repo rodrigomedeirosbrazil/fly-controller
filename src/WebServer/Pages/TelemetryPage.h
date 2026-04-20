@@ -25,25 +25,22 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="telemetry-shell">
-            <div class="telemetry-hero-grid">
-                <div class="panel telemetry-header hero-card">
-                    <div class="telemetry-header-copy">
-                        <h1>Telemetria ao Vivo</h1>
-                        <div class="hero-main">Status dos dados: <span id="statusBadge" class="status nodata">SEM DADOS</span></div>
-                    </div>
+            <div class="telemetry-status-bar">
+                <span class="tsb-label">Telemetria</span>
+                <div class="tsb-mid">
+                    <span id="statusBadge" class="status nodata">SEM DADOS</span>
                 </div>
+                <div class="tsb-right">
+                    <button type="button" id="wakeIconBtn" class="wake-icon-btn" aria-expanded="false" aria-controls="wakePanel">&#x1F512;</button>
+                </div>
+            </div>
 
-                <div class="panel wake-card hero-card">
-                    <h2>Manter Tela Ligada</h2>
-                    <div class="hero-actions">
-                        <span id="wakeStatusBadge" class="status status-secondary">INATIVO</span>
-                        <button type="button" id="wakeHelpToggle" class="help-button" aria-expanded="false" aria-controls="wakeHelp">?</button>
-                    </div>
-                    <div class="hero-actions">
-                        <button type="button" id="wakeToggleButton" class="btn btn-sm wake-button">Manter Ativo</button>
-                    </div>
-                    <div class="help-panel" id="wakeHelp">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
+            <div class="wake-panel" id="wakePanel">
+                <span id="wakeStatusBadge" class="status status-secondary">INATIVO</span>
+                <div class="wake-panel-row">
+                    <button type="button" id="wakeToggleButton" class="btn btn-sm">Manter Ativo</button>
                 </div>
+                <div id="wakeHelp" style="margin-top:8px;font-size:12px;line-height:1.35;">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
             </div>
 
             <div class="grid telemetry-grid">
