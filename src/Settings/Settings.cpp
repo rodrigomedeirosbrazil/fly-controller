@@ -56,7 +56,6 @@ Settings::Settings() {
     escMaxTemp = 0;
     escTempReductionStart = 0;
     powerControlEnabled = true;
-    wifiAutoDisableAfterCalibration = true;
     bmsType = BmsTypeNone;
     throttleCurveGamma = 1.0f;
     mutex_ = nullptr;
@@ -86,9 +85,6 @@ void Settings::load() {
 
     // Load power control enabled (default: true)
     powerControlEnabled = preferences.getBool("pwrCtrl", getDefaultPowerControlEnabled());
-
-    // Load Wi-Fi auto-disable after throttle calibration (default: enabled)
-    wifiAutoDisableAfterCalibration = preferences.getBool("wifiAutoOffCal", getDefaultWifiAutoDisableAfterCalibration());
 
     // Load generic Bluetooth BMS settings, falling back to legacy JBD keys.
     if (preferences.isKey("bmsType") || preferences.isKey("bmsMac")) {
@@ -163,7 +159,6 @@ void Settings::save() {
     preferences.putInt("escMaxT", escMaxTemp);
     preferences.putInt("escRedT", escTempReductionStart);
     preferences.putBool("pwrCtrl", powerControlEnabled);
-    preferences.putBool("wifiAutoOffCal", wifiAutoDisableAfterCalibration);
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
     preferences.putFloat("thrCurveG", throttleCurveGamma);
@@ -242,14 +237,6 @@ void Settings::setThrottleCurveGamma(float gamma) {
     throttleCurveGamma = constrain(gamma, THROTTLE_CURVE_GAMMA_MIN, THROTTLE_CURVE_GAMMA_MAX);
 }
 
-bool Settings::getWifiAutoDisableAfterCalibration() const {
-    return wifiAutoDisableAfterCalibration;
-}
-
-void Settings::setWifiAutoDisableAfterCalibration(bool enabled) {
-    wifiAutoDisableAfterCalibration = enabled;
-}
-
 uint16_t Settings::getDefaultBatteryCapacity() const {
     return getBoardConfig().defaultBatteryCapacity;
 }
@@ -280,10 +267,6 @@ int32_t Settings::getDefaultEscTempReductionStart() const {
 
 bool Settings::getDefaultPowerControlEnabled() const {
     return true;  // Power control enabled by default
-}
-
-bool Settings::getDefaultWifiAutoDisableAfterCalibration() const {
-    return true;  // Keep current behavior by default
 }
 
 uint8_t Settings::getBmsType() const {

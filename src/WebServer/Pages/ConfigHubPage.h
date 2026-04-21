@@ -25,11 +25,6 @@ inline String renderConfigHubPage() {
         <div class="value">BMS</div>
         <div class="sub">Tipo de BMS, endereço Bluetooth e ferramentas de dispositivo BLE.</div>
     </a>
-    <a class="card link-card" href="/config/system">
-        <div class="label">Comportamento do Dispositivo</div>
-        <div class="value">Sistema</div>
-        <div class="sub">Comportamento do Wi-Fi e opções gerais do sistema.</div>
-    </a>
 </div>
 )rawliteral";
 

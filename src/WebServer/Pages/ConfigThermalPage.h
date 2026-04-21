@@ -25,7 +25,6 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
             <a class="nav-btn" href="/config/power">Energia</a>
             <a class="nav-btn active" href="/config/thermal">Térmica</a>
             <a class="nav-btn" href="/config/bms">BMS</a>
-            <a class="nav-btn" href="/config/system">Sistema</a>
         </div>
 
         <div class="panel">
