@@ -15,7 +15,6 @@
 #include "Pages/ConfigPowerPage.h"
 #include "Pages/ConfigThermalPage.h"
 #include "Pages/ConfigBmsPage.h"
-#include "Pages/ConfigSystemPage.h"
 #include "Pages/ConfigHubPage.h"
 #include "Pages/DashboardPage.h"
 #include "Pages/FirmwarePage.h"
@@ -149,16 +148,6 @@ void sendBmsConfigResponse(AsyncWebServerRequest* request) {
     sendJsonResponse(request, 200, doc);
 }
 
-void sendSystemConfigResponse(AsyncWebServerRequest* request) {
-    StaticJsonDocument<128> doc;
-    doc["wifiAutoDisableAfterCalibration"] = settings.getWifiAutoDisableAfterCalibration();
-    if (doc.overflowed()) {
-        request->send(500, "text/plain", "Estouro do buffer JSON");
-        return;
-    }
-    sendJsonResponse(request, 200, doc);
-}
-
 // Returns true when the request carries the correct X-Config-Pin header.
 // All write endpoints (config save, delete, OTA) must call this first.
 bool checkPin(AsyncWebServerRequest* request) {
@@ -209,11 +198,6 @@ void ControllerWebServer::startAP() {
     server.on("/api/config/bms", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/api/config/bms GET");
         sendBmsConfigResponse(request);
-    });
-
-    server.on("/api/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
-        logWebHeap("/api/config/system GET");
-        sendSystemConfigResponse(request);
     });
 
     server.on("/api/settime", HTTP_POST,
@@ -468,32 +452,6 @@ void ControllerWebServer::startAP() {
     saveBmsHandler->setMaxContentLength(256);
     server.addHandler(saveBmsHandler);
 
-    AsyncCallbackJsonWebHandler* saveSystemHandler = new AsyncCallbackJsonWebHandler(
-        "/api/config/system",
-        [](AsyncWebServerRequest *request, JsonVariant &json) {
-            logWebHeap("/api/config/system POST");
-            if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
-            if (!json.is<JsonObject>()) {
-                request->send(400, "text/plain", "JSON inválido: o corpo deve ser um objeto");
-                return;
-            }
-
-            JsonObject doc = json.as<JsonObject>();
-            if (!doc.containsKey("wifiAutoDisableAfterCalibration")) {
-                request->send(400, "text/plain", "Campos obrigatórios de configuração do sistema ausentes");
-                return;
-            }
-
-            settings.setWifiAutoDisableAfterCalibration(doc["wifiAutoDisableAfterCalibration"].as<bool>());
-            settings.save();
-            request->send(200, "text/plain", "Sucesso: Configurações do sistema salvas");
-        },
-        128
-    );
-    saveSystemHandler->setMethod(HTTP_POST);
-    saveSystemHandler->setMaxContentLength(128);
-    server.addHandler(saveSystemHandler);
-
     // PIN management — GET: check if pin is "0000" (default); POST: change pin.
     // The POST body must be { "currentPin": "xxxx", "newPin": "yyyy" }.
     // newPin must be 4-8 characters. Current PIN is validated before applying.
@@ -635,11 +593,6 @@ void ControllerWebServer::startAP() {
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_JS), strlen_P(CONFIG_BMS_PAGE_JS));
     });
 
-    server.on("/config-system.js", HTTP_GET, [](AsyncWebServerRequest *request){
-        logWebHeap("/config-system.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_JS), strlen_P(CONFIG_SYSTEM_PAGE_JS));
-    });
-
     server.on("/telemetry.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/telemetry.js");
         request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_JS), strlen_P(TELEMETRY_PAGE_JS));
@@ -661,12 +614,6 @@ void ControllerWebServer::startAP() {
         const size_t len = strlen_P(CONFIG_BMS_PAGE_HTML);
         logWebHeap("/config/bms");
         request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_HTML), len);
-    });
-
-    server.on("/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_SYSTEM_PAGE_HTML);
-        logWebHeap("/config/system");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_HTML), len);
     });
 
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
@@ -840,18 +787,6 @@ void ControllerWebServer::stop() {
 }
 
 void ControllerWebServer::handleClient() {
-    extern Settings settings;
-
-    // Only stop the web server if auto-disable is enabled AND throttle is calibrated AND no update is in progress.
-    if (
-        isActive
-        && settings.getWifiAutoDisableAfterCalibration()
-        && throttle.isCalibrated()
-        && !Update.isRunning()
-    ) {
-        stop();
-    }
-
     if (isActive) {
         ElegantOTA.loop(); // Process ElegantOTA events only if the server is active
         dnsServer.processNextRequest(); // Only process DNS when WiFi is active

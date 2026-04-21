@@ -49,10 +49,6 @@ public:
     float getThrottleCurveGamma() const;
     void setThrottleCurveGamma(float gamma);
 
-    // Wi-Fi behavior
-    bool getWifiAutoDisableAfterCalibration() const;
-    void setWifiAutoDisableAfterCalibration(bool enabled);
-
     // Bluetooth BMS
     uint8_t getBmsType() const;
     void setBmsType(uint8_t type);
@@ -76,7 +72,6 @@ private:
     int32_t getDefaultEscMaxTemp() const;
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
-    bool getDefaultWifiAutoDisableAfterCalibration() const;
     uint8_t getDefaultBmsType() const;
     float getDefaultThrottleCurveGamma() const;
 
@@ -90,7 +85,6 @@ private:
     int32_t escMaxTemp;
     int32_t escTempReductionStart;
     bool powerControlEnabled;
-    bool wifiAutoDisableAfterCalibration;
     String bmsMac;
     uint8_t bmsType;
     float throttleCurveGamma;
