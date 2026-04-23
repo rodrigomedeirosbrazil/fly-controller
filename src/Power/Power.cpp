@@ -182,8 +182,7 @@ unsigned int Power::calcMotorTempLimit() {
     if (motorTempMilliCelsius < reductionStart) return 100;
     if (reductionStart == maxTemp) return 0;
 
-    return constrain(map(motorTempMilliCelsius, reductionStart, maxTemp, 100, MOTOR_TEMP_COOLING_FLOOR_PERCENT),
-                     MOTOR_TEMP_COOLING_FLOOR_PERCENT, 100);
+    return constrain(map(motorTempMilliCelsius, reductionStart, maxTemp, 100, 0), 0, 100);
 }
 
 unsigned int Power::calcEscTempLimit() {

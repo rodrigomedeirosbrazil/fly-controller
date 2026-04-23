@@ -117,8 +117,6 @@ extern ADS1115 ads1115;
 // MOTOR_MAX_TEMP and MOTOR_TEMP_REDUCTION_START are now managed by Settings class
 #define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
 #define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
-// Minimum power kept when motor temp limiting is active — keeps motor spinning so forced cooling stays effective
-#define MOTOR_TEMP_COOLING_FLOOR_PERCENT 10
 
 // ========== ESC PARAMETERS ==========
 #if IS_TMOTOR
