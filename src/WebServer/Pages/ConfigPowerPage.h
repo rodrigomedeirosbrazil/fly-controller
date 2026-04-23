@@ -69,14 +69,6 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">Quando ativado, a saída de energia é limitada com base na tensão da bateria, temperatura do motor e temperatura do ESC. Quando desativado, a energia total está disponível sem limitações.</div>
                 </div>
 
-                <h2>Resposta do Acelerador</h2>
-
-                <div class="form-group">
-                    <label for="throttleCurveGamma">Curva do acelerador (gamma):</label>
-                    <input type="number" id="throttleCurveGamma" name="throttleCurveGamma" min="1" max="3" step="0.1" required>
-                    <div class="info-text">Curva de potência: 1,0 = linear; valores maiores = menos sensível em aceleração baixa, mais responsivo em aceleração alta.</div>
-                </div>
-
                 <div class="form-group">
                     <label for="configPin">PIN</label>
                     <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
@@ -131,7 +123,6 @@ const loadCurrentValues = () => {
             $('minVoltagePerCell').value = ((data.batteryMinVoltage / 1000) / CELL_COUNT).toFixed(2);
             $('maxVoltagePerCell').value = ((data.batteryMaxVoltage / 1000) / CELL_COUNT).toFixed(2);
             $('powerControlEnabled').checked = data.powerControlEnabled || false;
-            $('throttleCurveGamma').value = typeof data.throttleCurveGamma === 'number' ? data.throttleCurveGamma : '1.0';
             updateVoltageTotals();
         })
         .catch((error) => {
@@ -171,20 +162,12 @@ $('powerConfigForm').addEventListener('submit', function(e) {
 
     const minVoltagePerCell = parseFloat($('minVoltagePerCell').value);
     const maxVoltagePerCell = parseFloat($('maxVoltagePerCell').value);
-    const throttleCurveGamma = parseFloat($('throttleCurveGamma').value);
-
-    if (isNaN(throttleCurveGamma) || throttleCurveGamma < 1 || throttleCurveGamma > 3) {
-        showMessage('O gamma da curva do acelerador deve ser entre 1,0 e 3,0', 'err');
-        saveButton.disabled = false;
-        return;
-    }
 
     const data = {
         batteryCapacity: Math.round(capacityAh * 1000),
         batteryMinVoltage: Math.round(minVoltagePerCell * CELL_COUNT * 1000),
         batteryMaxVoltage: Math.round(maxVoltagePerCell * CELL_COUNT * 1000),
-        powerControlEnabled: $('powerControlEnabled').checked,
-        throttleCurveGamma: throttleCurveGamma
+        powerControlEnabled: $('powerControlEnabled').checked
     };
 
     const pin = $('configPin').value;

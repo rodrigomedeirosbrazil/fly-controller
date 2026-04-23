@@ -1,7 +1,6 @@
 #include "Settings.h"
 #include "../config.h"
 #include "../BoardConfig.h"
-#include <cmath>
 #include <cstring>
 
 namespace {
@@ -57,7 +56,6 @@ Settings::Settings() {
     escTempReductionStart = 0;
     powerControlEnabled = true;
     bmsType = BmsTypeNone;
-    throttleCurveGamma = 1.0f;
     mutex_ = nullptr;
 }
 
@@ -106,9 +104,6 @@ void Settings::load() {
     configPin = readBoundedPrefString(preferences, "cfgPin");
     if (configPin.length() == 0) configPin = "0000";
 
-    // Load throttle curve gamma (1.0 = linear; higher = less sensitive at low throttle)
-    throttleCurveGamma = preferences.getFloat("thrCurveG", getDefaultThrottleCurveGamma());
-
     bool repaired = false;
 
     bmsMac.trim();
@@ -129,14 +124,6 @@ void Settings::load() {
     if (bmsType != BmsTypeNone && bmsMac.length() != 17) {
         Serial.println("[Settings] BMS type requires a valid MAC; disabling BMS in NVS");
         bmsType = BmsTypeNone;
-        repaired = true;
-    }
-
-    if (std::isnan(throttleCurveGamma)
-        || throttleCurveGamma < THROTTLE_CURVE_GAMMA_MIN
-        || throttleCurveGamma > THROTTLE_CURVE_GAMMA_MAX) {
-        Serial.println("[Settings] Invalid throttle curve gamma in NVS, using default");
-        throttleCurveGamma = getDefaultThrottleCurveGamma();
         repaired = true;
     }
 
@@ -161,7 +148,6 @@ void Settings::save() {
     preferences.putBool("pwrCtrl", powerControlEnabled);
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
-    preferences.putFloat("thrCurveG", throttleCurveGamma);
     if (mutex_) xSemaphoreGive(mutex_);
 }
 
@@ -229,14 +215,6 @@ void Settings::setPowerControlEnabled(bool enabled) {
     powerControlEnabled = enabled;
 }
 
-float Settings::getThrottleCurveGamma() const {
-    return throttleCurveGamma;
-}
-
-void Settings::setThrottleCurveGamma(float gamma) {
-    throttleCurveGamma = constrain(gamma, THROTTLE_CURVE_GAMMA_MIN, THROTTLE_CURVE_GAMMA_MAX);
-}
-
 uint16_t Settings::getDefaultBatteryCapacity() const {
     return getBoardConfig().defaultBatteryCapacity;
 }
@@ -300,10 +278,6 @@ void Settings::setBmsMac(const char* mac) {
 
 uint8_t Settings::getDefaultBmsType() const {
     return BmsTypeNone;
-}
-
-float Settings::getDefaultThrottleCurveGamma() const {
-    return 1.0f;  // Linear response by default
 }
 
 String Settings::getConfigPin() const {

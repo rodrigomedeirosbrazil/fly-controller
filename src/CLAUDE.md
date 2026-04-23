@@ -106,7 +106,7 @@ Computes ESC PWM from throttle position, applying battery voltage limiting, moto
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.
 
 ### Settings — `Settings/`
-Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, throttle curve gamma, WiFi behavior, BMS type and MAC. Initialized first in `setup()`.
+Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, WiFi behavior, BMS type and MAC. Initialized first in `setup()`.
 
 ### Telemetry — `Telemetry/`
 Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `hobbywingTelemetry` directly.
