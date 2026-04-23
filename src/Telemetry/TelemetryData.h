@@ -18,7 +18,8 @@ struct TelemetryData {
 
     // Motor
     uint16_t rpm;
-    int32_t motorTemperatureMilliCelsius;  // m°C (ex: 50000 = 50.000°C)
+    int32_t motorTemperatureMilliCelsius;     // m°C (ex: 50000 = 50.000°C)
+    int32_t motorTemperatureNtcMilliCelsius;  // m°C (ex: 25000 = 25.0°C) — NTC sensor only, no CAN merge
 
     // ESC
     int32_t escTemperatureMilliCelsius;    // m°C (ex: 80000 = 80.000°C)

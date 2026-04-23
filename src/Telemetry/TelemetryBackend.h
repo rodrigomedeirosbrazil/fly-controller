@@ -15,6 +15,7 @@ struct TelemetryBackend {
     uint32_t (*getBatteryCurrentMilliAmps)(void);
     uint16_t (*getRpm)(void);
     int32_t (*getMotorTempMilliCelsius)(void);
+    int32_t (*getMotorTempNtcMilliCelsius)(void);
     int32_t (*getEscTempMilliCelsius)(void);
     unsigned long (*getLastUpdate)(void);
 };
