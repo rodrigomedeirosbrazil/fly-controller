@@ -533,6 +533,7 @@ void ControllerWebServer::startAP() {
         doc["throttleRaw"] = throttle.getThrottleRaw();
         doc["powerPercent"] = power.getPower();
         doc["motorTempMc"] = telemetry.getMotorTempMilliCelsius();
+        doc["motorTempNtcMc"] = telemetry.getMotorTempNtcMilliCelsius();
         if (isRpmAvailable()) {
             doc["rpm"] = telemetry.getRpm();
         }
