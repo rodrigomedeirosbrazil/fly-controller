@@ -116,7 +116,8 @@ void Xctod::init() {
     // 13: battery_temp_max (JBD)
     // 14: cell_voltage_min_mv (JBD)
     // 15: cell_voltage_max_mv (JBD)
-    logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv");
+    // 16: motor_temp_ntc
+    logger.setHeader("$XCTOD,battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,armed,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,motor_temp_ntc");
 }
 
 void Xctod::write() {
@@ -136,6 +137,7 @@ void Xctod::write() {
     writeEscInfo(data, sizeof(data), used);
     writeSystemStatus(data, sizeof(data), used);
     writeBmsInfo(data, sizeof(data), used);
+    writeMotorTempNtc(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.log(data);
@@ -266,4 +268,9 @@ void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
     } else {
         appendToBuffer(data, size, used, ",,");
     }
+}
+
+void Xctod::writeMotorTempNtc(char* data, size_t size, size_t& used) {
+    int32_t ntcCelsius = telemetry.getMotorTempNtcMilliCelsius() / 1000;
+    appendToBuffer(data, size, used, ",%ld", (long)ntcCelsius);
 }
