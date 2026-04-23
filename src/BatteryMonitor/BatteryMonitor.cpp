@@ -53,8 +53,9 @@ void BatteryMonitor::updateCoulombCount() {
             recalibrateFromVoltage();
             coulombRemainderMaMs = 0;
             lastCoulombTs = currentTs;
-            // Restart the stable window; otherwise time since the original low-current
-            zeroCurrentStartMs = currentTs;
+            // Clear the window so recalibration only fires once per stop event.
+            // It will re-arm the next time current rises above the threshold and drops back.
+            zeroCurrentStartMs = 0;
             return;
         }
     } else {
