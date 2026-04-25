@@ -19,6 +19,7 @@
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
 #include "Xctod/Xctod.h"
+#include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/HobbywingCan.h"
@@ -56,6 +57,7 @@ void setup()
   xctod.init();
   bluetoothBms.init();
   logger.init();
+  telemetryLogger.init();
   buzzer.setup();
 
   // Initialize battery monitor (uses settings for capacity)
@@ -127,6 +129,7 @@ void loop()
   button.check();
   bluetoothBms.update();
   xctod.write();
+  telemetryLogger.handle();
 #if USES_CAN_BUS
   checkCanbus();
 #endif

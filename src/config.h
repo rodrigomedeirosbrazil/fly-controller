@@ -46,6 +46,7 @@
 class Power;
 class Xctod;
 class JbdBms;
+class TelemetryLogger;
 
 extern Buzzer buzzer;
 extern Servo esc;
@@ -75,6 +76,7 @@ extern BatteryMonitor batteryMonitor;
 extern BluetoothBms bluetoothBms;
 extern DalyBms dalyBms;
 extern Xctod xctod;
+extern TelemetryLogger telemetryLogger;
 extern JbdBms jbdBms;
 extern Settings settings;
 extern HourMeter hourMeter;

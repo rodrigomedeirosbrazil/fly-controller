@@ -4,6 +4,7 @@
 #include "BluetoothBms/BluetoothBms.h"
 #include "DalyBms/DalyBms.h"
 #include "Xctod/Xctod.h"
+#include "TelemetryLogger/TelemetryLogger.h"
 #include "JbdBms/JbdBms.h"
 #include "Settings/Settings.h"
 
@@ -59,6 +60,7 @@ BatteryMonitor batteryMonitor;
 BluetoothBms bluetoothBms;
 DalyBms dalyBms;
 Xctod xctod;
+TelemetryLogger telemetryLogger;
 JbdBms jbdBms;
 Settings settings;
 HourMeter hourMeter;
