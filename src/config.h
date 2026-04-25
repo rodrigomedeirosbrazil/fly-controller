@@ -23,6 +23,7 @@
 #include "BluetoothBms/BluetoothBms.h"
 #include "DalyBms/DalyBms.h"
 #include "Settings/Settings.h"
+#include "HourMeter/HourMeter.h"
 #include "ADS1115/ADS1115.h"
 #if IS_XAG || IS_TMOTOR
 #include "Sensors/BatteryVoltageSensor.h"
@@ -76,6 +77,7 @@ extern DalyBms dalyBms;
 extern Xctod xctod;
 extern JbdBms jbdBms;
 extern Settings settings;
+extern HourMeter hourMeter;
 extern ADS1115 ads1115;
 #include "Telemetry/Telemetry.h"
 
