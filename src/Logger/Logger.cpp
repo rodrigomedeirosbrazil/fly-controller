@@ -12,15 +12,22 @@ bool Logger::isTimeSynced() {
 }
 
 void Logger::formatTimestamp(char* buf, size_t len) {
-    if (isTimeSynced()) {
-        time_t now = time(nullptr);
-        struct tm t;
-        gmtime_r(&now, &t);
+    if (!isTimeSynced()) {
+        snprintf(buf, len, "ms:%lu", millis());
+        return;
+    }
+
+    time_t now = time(nullptr);
+    struct tm t;
+    gmtime_r(&now, &t);
+
+    if (fileHasDate) {
+        snprintf(buf, len, "%02d:%02d:%02d",
+                 t.tm_hour, t.tm_min, t.tm_sec);
+    } else {
         snprintf(buf, len, "%04d-%02d-%02dT%02d:%02d:%02d",
                  t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
                  t.tm_hour, t.tm_min, t.tm_sec);
-    } else {
-        snprintf(buf, len, "ms:%lu", millis());
     }
 }
 
@@ -29,6 +36,7 @@ Logger::Logger() {
     fileOpen = false;
     loggingEnabled = false;
     wasArmed = false;
+    fileHasDate = false;
     csvHeader = "";
 }
 
@@ -65,6 +73,7 @@ void Logger::createNewFile() {
                  t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
     }
     const bool useDate = (datePrefix[0] != '\0');
+    fileHasDate = useDate;
 
     File root = LittleFS.open("/");
     if (!root) {

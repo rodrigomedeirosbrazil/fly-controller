@@ -32,14 +32,19 @@ private:
     bool fileOpen;
     bool loggingEnabled;
     bool wasArmed;
+    bool fileHasDate;
     String csvHeader;
 
     void createNewFile();
     void openLogFile();
     void stopLogging();
 
-    /** Writes current time as YYYY-MM-DDTHH:MM:SS into buf, or "ms:NNNNNNN" if not synced. */
-    static void formatTimestamp(char* buf, size_t len);
+    /**
+     * Writes current time. If the log filename already encodes the date,
+     * emits "HH:MM:SS"; otherwise emits the full "YYYY-MM-DDTHH:MM:SS" so the
+     * date is preserved. Falls back to "ms:NNNNNNN" if the clock is not synced.
+     */
+    void formatTimestamp(char* buf, size_t len);
 };
 
 #endif
