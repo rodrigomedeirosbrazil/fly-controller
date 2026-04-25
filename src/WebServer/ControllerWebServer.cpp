@@ -534,6 +534,8 @@ void ControllerWebServer::startAP() {
         doc["armed"] = throttle.isArmed();
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
+        doc["hourMeterSec"] = hourMeter.getHourMeterSec();
+        doc["sessionSec"] = hourMeter.getSessionSec();
 
         // Generic Bluetooth BMS data when available
         if (isBmsDataAvailable()) {

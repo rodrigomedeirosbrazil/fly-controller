@@ -51,6 +51,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <span class="armed-dot"></span>
                         <span id="armedLabel">DESARMADO</span>
                     </div>
+                    <div class="sub" id="sessionTime">0:00:00</div>
                 </div>
                 <div class="card">
                     <div class="label">Bateria</div>
@@ -126,6 +127,12 @@ const fmtC = (mc) => `${(mc / 1000).toFixed(1)} C`;
 const fmtV = (mv) => `${(mv / 1000).toFixed(2)} V`;
 const fmtA = (ma) => `${(ma / 1000).toFixed(1)} A`;
 const fmtKw = (kwx10) => `${(kwx10 / 10).toFixed(1)} kW`;
+const fmtSeconds = s => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+};
 const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -518,6 +525,7 @@ const renderTelemetry = (data) => {
         armedPill.className = `armed-pill ${data.armed ? 'armed' : 'disarmed'}`;
     }
     setText('armedLabel', data.armed ? 'ARMADO' : 'DESARMADO');
+    setText('sessionTime', fmtSeconds(data.sessionSec || 0));
 
     const bmsCard = $('bmsCard');
     if (data.bms && data.bms.available) {

@@ -30,11 +30,22 @@ inline String renderDashboardPage() {
         <div class="value" id="armed">--</div>
         <div class="sub" id="telemetryState">--</div>
     </div>
+    <div class="card">
+        <div class="label">Hor&#xED;metro</div>
+        <div class="value" id="hourMeter">--</div>
+        <div class="sub">Motor acumulado</div>
+    </div>
 </div>
 )rawliteral";
 
     const char* script = R"rawliteral(
 const formatVoltage = (mv) => `${(mv / 1000).toFixed(2)} V`;
+const fmtSeconds = s => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+};
 
 function loadDashboard() {
     fetchJson('/api/telemetry')
@@ -42,6 +53,7 @@ function loadDashboard() {
             setText('batteryVoltage', formatVoltage(d.batteryVoltageMv || 0));
             setText('armed', d.armed ? 'ARMADO' : 'DESARMADO');
             setText('uptime', `${Math.floor((d.uptimeMs || 0) / 1000)} s`);
+            setText('hourMeter', fmtSeconds(d.hourMeterSec || 0));
             if (!d.hasTelemetry) {
                 setText('telemetryState', 'Sem dados de telemetria');
                 setText('freshness', '--');

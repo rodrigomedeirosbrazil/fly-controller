@@ -43,6 +43,8 @@ void setup()
   extern Settings settings;
   settings.init();
 
+  hourMeter.init();
+
   webServer.begin();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
@@ -129,6 +131,7 @@ void loop()
   checkCanbus();
 #endif
   throttle.handle();
+  hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
 #if IS_XAG
   extern Temperature escTemp;
