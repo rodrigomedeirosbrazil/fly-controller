@@ -53,8 +53,9 @@ void BatteryMonitor::updateCoulombCount() {
             recalibrateFromVoltage();
             coulombRemainderMaMs = 0;
             lastCoulombTs = currentTs;
-            // Restart the stable window; otherwise time since the original low-current
-            zeroCurrentStartMs = currentTs;
+            // Clear the window so recalibration only fires once per stop event.
+            // It will re-arm the next time current rises above the threshold and drops back.
+            zeroCurrentStartMs = 0;
             return;
         }
     } else {
@@ -89,24 +90,25 @@ uint8_t BatteryMonitor::estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) c
     // Calculate voltage per cell
     uint16_t cellMilliVolts = batteryMilliVolts / BATTERY_CELL_COUNT;
 
-    // LiPo discharge curve lookup table
+    // NMC (LiNiMnCoO₂) OCV-vs-SoC discharge curve — calibrated for LG P34B cell.
+    // Percentages represent fraction of rated capacity (4.20V → 2.50V at 1C) remaining.
+    // Key differences from LiPo/LCO: rated cutoff is 2.50V (not ~3.0V), and there is
+    // meaningful capacity in the 3.0–3.2V tail that LCO does not have.
     struct VoltToSoC {
         uint16_t mv;
         uint8_t soc;
     };
 
-    // Real LiPo discharge curve: voltage drops quickly from 4.20V to ~4.00V
-    // (surface charge effect) but little actual capacity is consumed in that region.
-    // The main capacity plateau spans 4.00V down to ~3.40V, then drops steeply.
     const VoltToSoC curve[] = {
         {4200, 100}, {4175, 99}, {4150, 97}, {4125, 94},
         {4100, 91},  {4075, 88}, {4050, 87},
-        {4000, 85},  // plateau begins ~4.00V; most capacity lives below this
+        {4000, 85},
         {3950, 79},  {3900, 72}, {3850, 64},
         {3800, 56},  {3750, 48}, {3700, 40},
         {3650, 32},  {3600, 24}, {3550, 17},
-        {3500, 11},  {3450, 6},  {3400, 3},
-        {3300, 1},   {3200, 0}
+        {3500, 11},  {3450, 7},  {3400, 5},
+        {3300, 3},   {3200, 2},  {3150, 1},
+        {3000, 0},   {2500, 0}   // 2500 mV = rated cutoff voltage
     };
 
     const int curveSize = sizeof(curve) / sizeof(VoltToSoC);
@@ -186,7 +188,18 @@ void BatteryMonitor::recalibrateFromVoltage() {
     }
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
-    uint8_t scaledSoc = estimateSoCFromConfiguredVoltageRange(batteryMilliVolts);
+
+    // Scale absolute OCV-based SOC into the CC window [socMin, 100].
+    // Configured max voltage is display-only; the CC always references the native cell range.
+    uint8_t absoluteSoc = estimateSoCFromVoltageLiPo(batteryMilliVolts);
+    uint8_t socMin = estimateSoCFromVoltageLiPo(settings.getBatteryMinVoltage());
+    uint8_t scaledSoc;
+    if (absoluteSoc <= socMin) {
+        scaledSoc = 0;
+    } else {
+        scaledSoc = (uint8_t)(((uint32_t)(absoluteSoc - socMin) * 100) / (100 - socMin));
+    }
+
     uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
 
     if (isCurrentAvailable()) {
@@ -271,9 +284,10 @@ void BatteryMonitor::updateUsableCapacity() {
         return;
     }
 
-    uint8_t socMin = 0;
+    // socMax is always 100%: the CC capacity window uses the native cell range (4.2V→2.5V).
+    // Configured max voltage is display-only (battery_percent_voltage), not used here.
+    uint8_t socMin = estimateSoCFromVoltageLiPo(settings.getBatteryMinVoltage());
     uint8_t socMax = 100;
-    getConfiguredSocWindow(socMin, socMax);
 
     uint32_t reserve = ((uint32_t)batteryCapacityMilliAh * socMin) / 100;
     uint32_t usable = ((uint32_t)batteryCapacityMilliAh * (socMax - socMin)) / 100;

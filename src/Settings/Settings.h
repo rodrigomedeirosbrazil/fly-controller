@@ -45,10 +45,6 @@ public:
     bool getPowerControlEnabled() const;
     void setPowerControlEnabled(bool enabled);
 
-    // Throttle curve (power law: y = x^gamma; 1.0 = linear)
-    float getThrottleCurveGamma() const;
-    void setThrottleCurveGamma(float gamma);
-
     // Bluetooth BMS
     uint8_t getBmsType() const;
     void setBmsType(uint8_t type);
@@ -73,7 +69,6 @@ private:
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
     uint8_t getDefaultBmsType() const;
-    float getDefaultThrottleCurveGamma() const;
 
     // Current values
     String configPin;
@@ -87,7 +82,6 @@ private:
     bool powerControlEnabled;
     String bmsMac;
     uint8_t bmsType;
-    float throttleCurveGamma;
 };
 
 #endif // SETTINGS_H

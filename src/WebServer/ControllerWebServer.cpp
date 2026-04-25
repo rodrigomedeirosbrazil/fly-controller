@@ -116,7 +116,6 @@ void sendPowerConfigResponse(AsyncWebServerRequest* request) {
     doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
     doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
     doc["powerControlEnabled"] = settings.getPowerControlEnabled();
-    doc["throttleCurveGamma"] = settings.getThrottleCurveGamma();
     if (doc.overflowed()) {
         request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
@@ -278,8 +277,7 @@ void ControllerWebServer::startAP() {
             if (!doc.containsKey("batteryCapacity")
                 || !doc.containsKey("batteryMinVoltage")
                 || !doc.containsKey("batteryMaxVoltage")
-                || !doc.containsKey("powerControlEnabled")
-                || !doc.containsKey("throttleCurveGamma")) {
+                || !doc.containsKey("powerControlEnabled")) {
                 request->send(400, "text/plain", "Campos obrigatórios de configuração de energia ausentes");
                 return;
             }
@@ -305,17 +303,10 @@ void ControllerWebServer::startAP() {
                 return;
             }
 
-            float gamma = doc["throttleCurveGamma"].as<float>();
-            if (gamma < 1.0f || gamma > 3.0f) {
-                request->send(400, "text/plain", "O gamma da curva do acelerador deve ser entre 1,0 e 3,0");
-                return;
-            }
-
             settings.setBatteryCapacityMah(capacity);
             settings.setBatteryMinVoltage(minV);
             settings.setBatteryMaxVoltage(maxV);
             settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
-            settings.setThrottleCurveGamma(gamma);
             settings.save();
             // Keep the in-memory BatteryMonitor in sync with the new capacity
             // setting — without this, Coulomb counting uses the old value until reboot.
