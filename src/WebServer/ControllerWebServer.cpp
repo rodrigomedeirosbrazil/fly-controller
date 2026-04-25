@@ -628,8 +628,32 @@ void ControllerWebServer::startAP() {
         request->send(200, "text/html", renderLogsPage());
     });
 
-    // Serve static files from LittleFS under /logs
-    server.serveStatic("/logs", LittleFS, "/");
+    // Stream log files from LittleFS.
+    // We close the logger's write handle first so LittleFS reports the correct
+    // file size (avoiding a truncated Content-Length) and no concurrent handle
+    // is held during the transfer. Logger::log() reopens automatically.
+    server.on("/logs/*", HTTP_GET, [](AsyncWebServerRequest *request){
+        String url = request->url(); // e.g. "/logs/20260425_001.csv"
+        String filePath = url.substring(5); // strip "/logs" -> "/20260425_001.csv"
+
+        if (filePath.indexOf("..") >= 0) {
+            request->send(400, "text/plain", "Caminho inválido");
+            return;
+        }
+        if (!filePath.startsWith("/")) filePath = "/" + filePath;
+
+        logger.closeLogFile();
+
+        if (!LittleFS.exists(filePath)) {
+            request->send(404, "text/plain", "Arquivo não encontrado");
+            return;
+        }
+
+        String fileName = filePath.substring(1); // strip leading '/'
+        AsyncWebServerResponse *response = request->beginResponse(LittleFS, filePath, "text/csv");
+        response->addHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        request->send(response);
+    });
 
     // List files API
     server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request){
