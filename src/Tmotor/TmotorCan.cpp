@@ -100,25 +100,12 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
     }
 
     if (dataTypeId == escStatus5DataTypeId) {  // 1154
-        DEBUG_PRINTLN("[Tmotor] -> Processing ESC_STATUS 5");
         handleEscStatus5(canMsg);
         return;
     }
 
     if (dataTypeId == pushCanDataTypeId) {
-        DEBUG_PRINT("[PUSHCAN] Frame received - DLC=");
-        DEBUG_PRINT(canMsg->data_length_code);
-        DEBUG_PRINT(" Data=[");
-        for (uint8_t i = 0; i < canMsg->data_length_code && i < 8; i++) {
-            if (i > 0) { DEBUG_PRINT(" "); }
-            if (canMsg->data[i] < 0x10) { DEBUG_PRINT("0"); }
-            DEBUG_PRINT_HEX(canMsg->data[i], HEX);
-        }
-        DEBUG_PRINTLN("]");
         handlePushCan(canMsg);
-        DEBUG_PRINT("[PUSHCAN] T_Motor=");
-        DEBUG_PRINT(motorTemperature);
-        DEBUG_PRINTLN("°C");
         return;
     }
 }
