@@ -3,19 +3,33 @@
 Two complementary sources of truth:
 
 1. **Official documentation** — `TMOTOR ESCs CAN Communication Manual V2.2.0.pdf`
-   and `t-motor-uavcan-2.2.pdf`. Defines the DRONECAN-S protocol and the
-   `Enable Reporting` Generic Instruction (msg_id 4670) — the simple way to
-   turn ESC status reports on/off.
-2. **Live captures** — three captures on a 1 Mbps DroneCAN bus between a
-   T-Motor ESC and the CloudBoxOld configurator app, taken with an ESP32-C3 in
-   `TWAI_MODE_LISTEN_ONLY` (`feature/can-monitor`). Show that CloudBoxOld does
-   **not** use the simple Enable Reporting — it uses a proprietary parameter
-   block protocol on the same DataTypeId 1000 (different internal `msg_id`).
+   (covers both DRONECAN-S §3 and CUBECAN §4) and `t-motor-uavcan-2.2.pdf` /
+   `t-motor-uavcan-2.3.pdf`. Defines the protocol, the official
+   `Enable Reporting` Generic Instruction (msg_id 4670), and the parameter
+   read/write commands (rotation direction, throttle priority, etc.).
+2. **Live captures** — sequence of captures on a 1 Mbps bus between a T-Motor
+   ESC and the CloudLink configurator app, taken with an ESP32-C3 sniffer
+   (`feature/can-monitor`). They show that CloudLink:
+   - emits both DRONECAN-S **and** CUBECAN traffic (the ESC broadcasts
+     CUBECAN status frames in parallel with DroneCAN);
+   - does **not** use the official Enable Reporting or the documented
+     CUBECAN `OPE_ID` (`0x10000106`) for either Status upload or direction
+     change. Instead it uses an undocumented multi-frame SET on
+     DroneCAN DataTypeId 1000, internal `msg_id = 0x1247`, with section
+     numbers `0x02`/`0x04`/`0x10`.
 
-These two paths likely produce the same end result ("Status upload: Open" →
-ESC starts emitting Status 5 / DataTypeId 1154 with motor temperature). The
-official path is ~50 lines of code; the CloudBoxOld path is ~17 multi-frames
-across 3 multi-frame transfers.
+Three discovered uses of the proprietary `msg_id = 0x1247` SET:
+
+| Section | Frames | What it sets                                      |
+|---------|-------:|---------------------------------------------------|
+| `0x02`  | 3      | "Begin write" handshake (always sent first)        |
+| `0x04`  | 10     | General ESC config — PWM range, voltage limits, **rotation direction (body[2..3])** |
+| `0x10`  | 8      | Status upload Open/Close (byte 28 of inner data)   |
+
+Sections `0x02`+`0x04` together implement **real-time motor direction switch
+without reboot** — the topic that motivated `feature/tmotor-direction-change`.
+Sections `0x02`+`0x04`+`0x10` together implement the Status upload toggle
+(persistent in NVM) — already in production via `sendStatusUploadSet()`.
 
 ---
 
@@ -23,9 +37,13 @@ across 3 multi-frame transfers.
 
 | Node ID | Role | Evidence |
 |---------|------|----------|
-| `0x01`  | T-Motor ESC | Emits NodeStatus (DataTypeId 341) periodically |
-| `0x65`  | CloudBox configurator | Sends all DataTypeId 1000 commands |
-| `0x02`, `0x42`, `0x45` | Other devices | Periodic status frames only |
+| `0x01`  | T-Motor ESC | Emits NodeStatus (DataTypeId 341) periodically; source of all CUBECAN STAT1–4 broadcasts |
+| `0x65`  | CloudLink configurator | Sends all DataTypeId 1000 commands and the CUBECAN `ENA` enable broadcast |
+
+(Earlier revisions of this doc listed `0x02`, `0x42`, `0x45` as separate nodes
+— that was wrong. Those values were the low byte of CUBECAN extended IDs
+`0x10000002` / `0x10000042` / `0x100000C5`, mistakenly decoded as DroneCAN
+node IDs.)
 
 ---
 
@@ -35,7 +53,7 @@ across 3 multi-frame transfers.
 |-----------|-----------|-------------|
 | 341  | ESC → bus      | NodeStatus heartbeat (standard DroneCAN) |
 | 999  | ESC → 0x65     | ESC response to GET/SET commands (multi-frame, ~3 frames) |
-| 1000 | 0x65 → ESC     | CloudBox command to ESC (GET: 2 frames; SET: 8+ frames) |
+| 1000 | 0x65 → ESC     | CloudLink command to ESC (GET: 2 frames; SET: 3 + 10 + (optional) 8 frames) |
 | 1001 | ESC → bus      | High-frequency ESC telemetry ~10 Hz (multi-frame) |
 | 1131 | ESC → bus      | High-frequency ESC telemetry ~10 Hz — first 2 bytes contain motor temperature |
 
@@ -159,9 +177,41 @@ generates the SET multi-frame transfers in the captures below.
 | Right   | Status frequency   | 10 Hz                |
 | Right   | ADRW               | 6653                 |
 
-`DRONECAN-S` confirms the bus is using the DroneCAN protocol described in
-§3 of the manual (the alternative being CUBECAN, §4, which uses fixed
-`0x10000xxx` extended IDs and is not in use here).
+`DRONECAN-S` is selected for command/response (poll, parameter SET/GET).
+Independently, the ESC also broadcasts CUBECAN status frames (fixed
+`0x10000xxx` IDs) — the two protocols coexist on the same bus. See the
+*CUBECAN ID map* section below.
+
+---
+
+## CUBECAN ID map (V2.2 §4)
+
+The ESC broadcasts a parallel CUBECAN telemetry stream alongside DroneCAN.
+Frames use fixed 29-bit extended IDs in the `0x10000000`–`0x10000146` range.
+The IDs we see on this bus, decoded from the V2.2 spec:
+
+| CAN ID         | Name                       | Direction | Purpose                                              |
+|----------------|----------------------------|-----------|------------------------------------------------------|
+| `0x10000000`   | `CUBECAN_ESC_CMD_ID`       | FC → ESC  | Throttle command (4 ESCs/frame, 10-bit cmd 0–1000)   |
+| `0x10000001`+N | `CUBECAN_ESCN_STAT1_ID`    | ESC → FC  | Status 1: mode, throttle, RPM, MOS temp              |
+| `0x10000041`+N | `CUBECAN_ESCN_STAT2_ID`    | ESC → FC  | Status 2: Vbus (0.1V), Irms (0.1A), Idq (0.1A)       |
+| `0x10000081`+N | `CUBECAN_ESCN_STAT3_ID`    | ESC → FC  | Status 3: alg_err, alg_warn, vdq_duty                |
+| `0x100000C1`   | `CUBECAN_ESC_LED_ID`       | FC → ESC  | LED control                                          |
+| `0x100000C2`   | `CUBECAN_ESC_ENA_ID`       | FC → ESC  | Enable status reporting (sweeps node IDs, 4/frame)   |
+| `0x100000C3`   | `CUBECAN_ANG_SET_ID`       | FC → ESC  | Angle set                                            |
+| `0x100000C4`+N | `CUBECAN_ESCN_STAT4_ID`    | ESC → FC  | Status 4: Idc, cap_temp, motor_temp, resv (0.1°C)    |
+| `0x10000104`   | `CUBECAN_ESC_QUERY_STATE`  | FC → ESC  | Query single ESC                                     |
+| `0x10000106`   | `CUBECAN_OPE_ID`           | FC → ESC  | Read/Write parameters (incl. motor direction*)       |
+| `0x10000107`+N | `CUBECAN_ESCN_ACK_ID`      | ESC → FC  | Response to OPE                                      |
+
+`N` = ESC node ID (0–63). For our single ESC at node 1: STAT1 = `0x10000002`,
+STAT2 = `0x10000042`, STAT3 = `0x10000082`, STAT4 = `0x100000C5`.
+
+\* `CUBECAN_OPE_ID` with `cs = CS_BATCH_SET_MOTOR_DIR_REQ` (`0x12`) and
+`data = 1`/`-1` is the **documented** direction-set channel, but the V2.2
+spec says it requires ESC reboot to take effect. CloudLink instead uses an
+**undocumented real-time path** via the proprietary DroneCAN msg_id `0x1247`
+(see below) that takes effect without reboot.
 
 ---
 
@@ -210,16 +260,34 @@ where `SS` is the section index. Status upload is section `0x10` (16).
 41 00 01 00 02 00 04 00 00 00 00 00
 ```
 
-**Captured Transfer 2 inner data (56 bytes, identical Close vs Open):**
+**Captured Transfer 2 inner data (56 bytes, layout):**
 ```
-41 00 01 00 04 00 30 00 01 00 01 00 4C 04 00 00
-94 07 00 00 76 02 C8 00 01 00 00 00 00 00 A0 0F
-A0 0F 32 00 01 00 00 00 00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00
+41 00 01 00 04 00 30 00      ← section header (sec=0x04, body_len=0x30)
+01 00 DD DD 4C 04 00 00      ← body[0..7] — DD DD = ROTATION DIRECTION (int16)
+94 07 00 00 76 02 C8 00      ← body[8..15]  (94 07 = 1940 PWM max)
+01 00 00 00 00 00 A0 0F      ← body[16..23] (A0 0F = 4000)
+A0 0F 32 00 01 00 00 00      ← body[24..31] (32 00 = 50)
+00 00 00 00 00 00 00 00      ← body[32..39]
+00 00 00 00 00 00 00 00      ← body[40..47]
 ```
+
+**Rotation direction is encoded at body bytes 2-3 (= inner offset [10..11]) as an
+`int16_t` little-endian:**
+
+| Bytes  | int16 LE | Direction |
+|--------|---------:|-----------|
+| `01 00`| `+1`     | **forward** |
+| `FF FF`| `-1`     | **reverse** |
+
+Per V2.2 §4.6.4 the protocol-level value is `1` for forward and `-1` for reverse.
+Empirically tested: each click on the direction toggle in CloudLink emits
+Transfer 1 + Transfer 2 with body[2..3] alternating between `01 00` and `FF FF`,
+and **the motor changes direction immediately** — no reboot needed (despite the
+manual claiming reboot is required for parameter writes via CUBECAN_OPE_ID).
+
 Notable: `94 07` = 0x0794 = 1940 (PWM Width Max from the CloudLink screenshot);
-`4C 04` = 0x044C = 1100 (PWM Width Min). So this block carries the user's
-generic ESC settings — replicating it verbatim will overwrite custom config.
+`4C 04` = 0x044C = 1100 (PWM Width Min). The block carries the user's generic
+ESC settings — **replicating Transfer 2 verbatim will overwrite custom config**.
 
 **Captured Transfer 3 inner data (44 bytes, ONLY byte 28 differs):**
 ```
@@ -246,6 +314,61 @@ F6" — that was wrong on both counts.
   regardless of the ESC's saved state, Path B (this proprietary SET) is needed.
 - **Source node**: captures show `0x65` (CloudLink) but the ESC does not appear
   to filter by source — sending from any node ID works.
+
+---
+
+## Path C — Real-time motor direction switch
+
+Discovered by observing CloudLink's traffic while clicking the direction toggle
+4 times in a row (`can5.log`, ms timestamps 36103 / 42532 / 48233 / 51574).
+Each click emits the same Transfer 1 + Transfer 2 sequence as the Status upload
+SET, but only **two bytes** of Transfer 2 change: the rotation direction at
+inner offset `[10..11]`.
+
+```c
+// Sequence per click (single 8-byte CAN frame each line):
+
+// Transfer 1 — section 0x02 begin write handshake (12-byte inner)
+//   Tail bytes: SOF / toggle / EOF, transfer_id increments per click.
+F1: <CRC_lo> <CRC_hi> CD AB 47 12 0C  | tail
+F2: 00 41 00 01 00 02 00              | tail
+F3: 04 00 00 00 00 00                 | tail (DLC=7)
+
+// Transfer 2 — section 0x04 with rotation direction (56-byte inner)
+F1:  <CRC_lo> <CRC_hi> CD AB 47 12 38 | tail
+F2:  00 41 00 01 00 04 00             | tail   (section header)
+F3:  30 00 01 00 DD DD 4C             | tail   ← DD DD = direction (int16 LE)
+F4:  04 00 00 94 07 00 00             | tail
+F5:  76 02 C8 00 01 00 00             | tail
+F6:  00 00 00 A0 0F A0 0F             | tail
+F7:  32 00 01 00 00 00 00             | tail
+F8:  00 00 00 00 00 00 00             | tail
+F9:  00 00 00 00 00 00 00             | tail
+F10: 00                               | tail (DLC=2)
+```
+
+Direction value at body[2..3]:
+- `01 00` (LE +1) → **forward**
+- `FF FF` (LE -1) → **reverse**
+
+CRC of Transfer 1: deterministic, always `0x2053` (= bytes `53 20`).
+CRC of Transfer 2: depends on direction byte:
+- forward: `0xCEDB` (`DB CE`)
+- reverse: `0x6E9D` (`9D 6E`)
+
+Both CRCs computed CRC16-CCITT seeded with the Generic Instruction signature
+`0x1362ab78cd12f03aULL`, same as `sendEnableReporting` already uses.
+
+ESC ACKs each Transfer on `0x0803E701` with `msg_id = 0x1247`.
+
+**Caveat — same as Path B**: Transfer 2 carries the full general-config block
+(PWM range, voltage limits, etc.) verbatim from the captured CloudLink traffic.
+Replicating it overwrites whatever those settings are on the ESC. If the firmware
+exposes a "switch direction" action, it should either:
+- replay the captured Transfer 2 with only `body[2..3]` patched (assumes the
+  user's PWM/voltage config matches the captured values), **or**
+- first issue a GET to read the current section 0x04, modify only `body[2..3]`,
+  and write it back (safer; protocol of the GET is not yet captured).
 
 ---
 
@@ -286,6 +409,11 @@ alone — our firmware only flips the Status upload bit.
 ## Capture environment
 
 - **Bus speed:** 1 Mbps
-- **Sniffer:** ESP32-C3 (TWAI_MODE_LISTEN_ONLY), GPIO2=TX, GPIO3=RX
+- **Sniffer:** ESP32-C3 (TWAI_MODE_NORMAL — actively ACKs), GPIO2=TX, GPIO3=RX
 - **Firmware:** `feature/can-monitor` branch
-- **Captures:** `can.log`, `can2.log`, `can3.log` (local, not committed)
+- **Serial baud:** 921600 (115200 saturates with full 1 Mbps traffic)
+- **TWAI rx queue:** 256 frames (default 5 is too small for bursts)
+- **Captures:** `can.log`, `can2.log`, `can3.log`, `can4.log`, `can5.log`
+  (local, not committed). `can5.log` is the cleanest — smart filter dropping
+  the 8 known periodic broadcasts plus per-frame `ms=` timestamps and TWAI
+  drop counters, so the 4 direction-toggle SETs surface unambiguously.
