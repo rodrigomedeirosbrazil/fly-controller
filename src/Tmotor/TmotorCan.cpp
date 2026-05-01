@@ -65,6 +65,8 @@ TmotorCan::TmotorCan() {
     lastMotorTempFromCanMs = 0;
     lastPushSci = 0;
     lastThrottleSend = 0;
+    escDetectedAtMs = 0;
+    enableReportingSent = false;
     transferId = 0;
 
     escTemperature = 0;
@@ -98,44 +100,46 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
     }
 
     if (dataTypeId == escStatus5DataTypeId) {  // 1154
-        DEBUG_PRINTLN("[Tmotor] -> Processing ESC_STATUS 5");
         handleEscStatus5(canMsg);
         return;
     }
 
     if (dataTypeId == pushCanDataTypeId) {
-        DEBUG_PRINT("[PUSHCAN] Frame received - DLC=");
-        DEBUG_PRINT(canMsg->data_length_code);
-        DEBUG_PRINT(" Data=[");
-        for (uint8_t i = 0; i < canMsg->data_length_code && i < 8; i++) {
-            if (i > 0) { DEBUG_PRINT(" "); }
-            if (canMsg->data[i] < 0x10) { DEBUG_PRINT("0"); }
-            DEBUG_PRINT_HEX(canMsg->data[i], HEX);
-        }
-        DEBUG_PRINTLN("]");
         handlePushCan(canMsg);
-        DEBUG_PRINT("[PUSHCAN] T_Motor=");
-        DEBUG_PRINT(motorTemperature);
-        DEBUG_PRINTLN("°C");
         return;
     }
 }
 
 void TmotorCan::handle() {
-    // Check if ESC is detected and Enable Reporting not sent yet
     extern Canbus canbus;
     if (canbus.getEscNodeId() == 0) {
         return;
     }
 
-    // CAN throttle period: 2.5ms (400 Hz)
-    // Check if 2ms has elapsed (allowing for some jitter)
+    // Track when ESC was first detected so we can delay the first SET attempt
+    if (escDetectedAtMs == 0) {
+        escDetectedAtMs = millis();
+    }
+
+    // Path B: replicate CloudLink's proprietary parameter SET to enable Status
+    // upload (Status 1–5 reporting) persistently. Path A (Enable Reporting,
+    // msg_id 0x123E) was tested and cannot override CloudLink's saved "Close"
+    // — only the proprietary command on msg_id 0x1247 sticks.
+    //
+    // Sent once, 2 s after ESC detection. The setting persists in the ESC's
+    // non-volatile memory, so this only needs to run once per ESC; we send it
+    // every boot in case the user clicked "Close" via CloudLink in between.
+    if (!enableReportingSent && millis() - escDetectedAtMs >= 2000) {
+        sendStatusUploadSet(true);
+        enableReportingSent = true;
+    }
+
+    // CAN throttle period: 2.5ms (400 Hz); allow some jitter
     if (millis() - lastThrottleSend < 2) {
         return;
     }
 
     setRawThrottle(0);
-
     lastThrottleSend = millis();
 }
 
@@ -360,13 +364,10 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     int16_t idc = parseInt16LE(canMsg->data, STATUS5_IDC_OFFSET);
     int16_t cap_temp_raw = parseInt16LE(canMsg->data, STATUS5_CAP_TEMP_OFFSET);
     int16_t motor_temp_raw = parseInt16LE(canMsg->data, STATUS5_MOTOR_TEMP_OFFSET);
-    (void)idc; // only used in DEBUG_PRINT — suppress unused-variable in release builds
+    (void)idc;  // only used in DEBUG_PRINT
 
-    // Convert from 0.1°C units to Celsius using integer division with rounding
-    // For positive values: (value + 5) / 10 rounds correctly
-    // For negative values: (value - 5) / 10 rounds correctly
     int16_t cap_temp_celsius = (cap_temp_raw >= 0) ? (cap_temp_raw + 5) / 10 : (cap_temp_raw - 5) / 10;
-    (void)cap_temp_celsius; // only used in DEBUG_PRINT — suppress unused-variable in release builds
+    (void)cap_temp_celsius;  // only used in DEBUG_PRINT
     int16_t motor_temp_celsius = (motor_temp_raw >= 0) ? (motor_temp_raw + 5) / 10 : (motor_temp_raw - 5) / 10;
 
     // Store (convert to uint8_t, with range check)
@@ -378,16 +379,15 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
         this->motorTemperature = (uint8_t)motor_temp_celsius;
     }
 
-    DEBUG_PRINT("[Tmotor] Status 5: IDC=");
-    // Format current with 1 decimal: idc is in 0.1A units
+    DEBUG_PRINT("[Tmotor] Status5(1154): IDC=");
     DEBUG_PRINT(idc / 10);
     DEBUG_PRINT(".");
     DEBUG_PRINT(abs(idc % 10));
-    DEBUG_PRINT("A, Cap=");
+    DEBUG_PRINT("A Cap=");
     DEBUG_PRINT(cap_temp_celsius);
-    DEBUG_PRINT("°C, Motor=");
+    DEBUG_PRINT("C Motor=");
     DEBUG_PRINT(motor_temp_celsius);
-    DEBUG_PRINTLN("°C");
+    DEBUG_PRINTLN("C");
 
     lastMotorTempFromCanMs = millis();
     lastReadPushCan = millis();
@@ -551,88 +551,147 @@ void TmotorCan::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool save
     DEBUG_PRINTLN();
 }
 
-void TmotorCan::sendEnableReporting(bool enable) {
-    // Payload: Header (6 bytes) + Data (4 bytes) = 10 bytes
-    uint8_t payload[10];
+void TmotorCan::sendGenericInstructionMultiframe(uint16_t internalMsgId,
+                                                  const uint8_t* innerData,
+                                                  size_t innerLen) {
+    // Build the wrapped Generic Instruction payload:
+    //   [0..1] magic (CD AB)
+    //   [2..3] internal msg_id (little-endian)
+    //   [4..5] inner length (little-endian)
+    //   [6..]  inner data
+    const size_t HEADER_LEN = 6;
+    const size_t MAX_INNER = 64;
+    if (innerLen > MAX_INNER) return;
 
-    // CAN_APP_PROTO_HEAD
-    payload[0] = 0xCD;  // magic[0] (0xABCD little-endian)
-    payload[1] = 0xAB;  // magic[1]
-    payload[2] = 0x3E;  // msg_id[0] (4670 = 0x123E)
-    payload[3] = 0x12;  // msg_id[1]
-    payload[4] = 0x04;  // len[0] (4 bytes)
-    payload[5] = 0x00;  // len[1]
+    uint8_t wrapped[HEADER_LEN + MAX_INNER];
+    wrapped[0] = 0xCD;
+    wrapped[1] = 0xAB;
+    wrapped[2] = (uint8_t)(internalMsgId & 0xFF);
+    wrapped[3] = (uint8_t)((internalMsgId >> 8) & 0xFF);
+    wrapped[4] = (uint8_t)(innerLen & 0xFF);
+    wrapped[5] = (uint8_t)((innerLen >> 8) & 0xFF);
+    memcpy(wrapped + HEADER_LEN, innerData, innerLen);
+    const size_t totalLen = HEADER_LEN + innerLen;
 
-    // ENA_ESC_STAT_REP_T
-    uint32_t enable_val = enable ? 1 : 0;
-    payload[6] = (uint8_t)(enable_val & 0xFF);
-    payload[7] = (uint8_t)((enable_val >> 8) & 0xFF);
-    payload[8] = (uint8_t)((enable_val >> 16) & 0xFF);
-    payload[9] = (uint8_t)((enable_val >> 24) & 0xFF);
-
-    // Calculate CRC
-    uint64_t signature = 0x1362ab78cd12f03aULL;  // Generic instruction signature
+    // Multi-frame DroneCAN CRC seeded with the Generic Instruction signature.
     uint16_t crc = 0xFFFF;
-    crc = crcAddSignature(crc, signature);
-    crc = crcAdd(crc, payload, 10);
+    crc = crcAddSignature(crc, 0x1362ab78cd12f03aULL);
+    crc = crcAdd(crc, wrapped, totalLen);
 
-    // CAN ID para Generic Instruction (1000)
+    // DroneCAN message-frame CAN ID for DataTypeId 1000.
     uint32_t priority = 0x18;  // LOW
-    uint32_t dataTypeId = genericInstructionDataTypeId;  // 1000
-    uint32_t service = 0;
+    uint32_t dataTypeId = genericInstructionDataTypeId;
     uint32_t srcNodeId = canbus.getNodeId();
+    uint32_t canId = (priority << 24) | (dataTypeId << 8) | (srcNodeId & 0x7F);
 
-    uint32_t canId = (priority << 24) |
-                     (dataTypeId << 8) |
-                     (service << 7) |
-                     (srcNodeId & 0x7F);
+    twai_message_t msg;
+    msg.identifier = canId;
+    msg.extd = 1;
+    msg.rtr = 0;
+    msg.ss = 0;
+    msg.self = 0;
+    msg.dlc_non_comp = 0;
 
-    twai_message_t localCanMsg;
-    localCanMsg.identifier = canId;
-    localCanMsg.extd = 1;
-    localCanMsg.rtr = 0;
-    localCanMsg.ss = 0;
-    localCanMsg.self = 0;
-    localCanMsg.dlc_non_comp = 0;
+    const uint8_t tid = transferId & TRANSFER_ID_MASK;
 
-    uint8_t currentTransferId = transferId;
-
-    // Frame 1: CRC (2) + payload[0-4] (5) = 7 bytes
-    localCanMsg.data[0] = (uint8_t)(crc & 0xFF);
-    localCanMsg.data[1] = (uint8_t)((crc >> 8) & 0xFF);
-    localCanMsg.data[2] = payload[0];  // magic[0]
-    localCanMsg.data[3] = payload[1];  // magic[1]
-    localCanMsg.data[4] = payload[2];  // msg_id[0]
-    localCanMsg.data[5] = payload[3];  // msg_id[1]
-    localCanMsg.data[6] = payload[4];  // len[0]
-    localCanMsg.data[7] = 0x80 | (currentTransferId & 0x1F);  // SOF=1, EOF=0, Toggle=0
-    localCanMsg.data_length_code = 8;
-
-    esp_err_t tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
-    if (tx_result != ESP_OK) {
-        DEBUG_PRINTLN("[ERROR] Frame 1 TX failed");
+    // First frame: CRC (2) + up to 5 bytes of wrapped + tail.
+    size_t pos = 0;
+    bool fitsInOne = (totalLen <= 5);
+    {
+        size_t chunk = totalLen < 5 ? totalLen : 5;
+        msg.data[0] = (uint8_t)(crc & 0xFF);
+        msg.data[1] = (uint8_t)((crc >> 8) & 0xFF);
+        for (size_t i = 0; i < chunk; i++) msg.data[2 + i] = wrapped[i];
+        uint8_t tail = (uint8_t)((1U << 7) | tid);   // SOF=1
+        if (fitsInOne) tail |= (uint8_t)(1U << 6);   // also EOF
+        msg.data[2 + chunk] = tail;
+        msg.data_length_code = (uint8_t)(2 + chunk + 1);
+        if (twai_transmit(&msg, pdMS_TO_TICKS(100)) != ESP_OK) return;
+        pos = chunk;
+    }
+    if (fitsInOne) {
+        transferId = (transferId + 1) & TRANSFER_ID_MASK;
         return;
     }
-    delay(2);
 
-    // Frame 2: payload[5-9] (5 bytes) - LAST FRAME
-    localCanMsg.data[0] = payload[5];  // len[1]
-    localCanMsg.data[1] = payload[6];  // enable[0]
-    localCanMsg.data[2] = payload[7];  // enable[1]
-    localCanMsg.data[3] = payload[8];  // enable[2]
-    localCanMsg.data[4] = payload[9];  // enable[3]
-    localCanMsg.data[5] = 0x00;  // padding
-    localCanMsg.data[6] = 0x00;  // padding
-    localCanMsg.data[7] = 0x40 | (currentTransferId & 0x1F);  // SOF=0, EOF=1, Toggle=0
-    localCanMsg.data_length_code = 8;
-
-    tx_result = twai_transmit(&localCanMsg, pdMS_TO_TICKS(100));
-    if (tx_result != ESP_OK) {
-        DEBUG_PRINTLN("[ERROR] Frame 2 TX failed");
-        return;
+    // Subsequent frames: up to 7 bytes payload + tail. Toggle bit alternates
+    // starting at 1 for frame 2 (matches captured CloudLink pattern).
+    bool toggle = true;
+    while (pos < totalLen) {
+        delay(1);
+        size_t remaining = totalLen - pos;
+        size_t chunk = remaining > 7 ? 7 : remaining;
+        bool isLast = (chunk == remaining);
+        for (size_t i = 0; i < chunk; i++) msg.data[i] = wrapped[pos + i];
+        uint8_t tail = tid;
+        if (isLast) tail |= (uint8_t)(1U << 6);
+        if (toggle) tail |= (uint8_t)(1U << 5);
+        msg.data[chunk] = tail;
+        msg.data_length_code = (uint8_t)(chunk + 1);
+        if (twai_transmit(&msg, pdMS_TO_TICKS(100)) != ESP_OK) return;
+        pos += chunk;
+        toggle = !toggle;
     }
 
     transferId = (transferId + 1) & TRANSFER_ID_MASK;
+}
+
+void TmotorCan::sendEnableReporting(bool enable) {
+    Serial.print("[Tmotor] sendEnableReporting(");
+    Serial.print(enable ? "true" : "false");
+    Serial.println(") — Path A: Generic Instruction msg_id=0x123E");
+
+    // ENA_ESC_STAT_REP_T (4 bytes): uint32_t enable. 0=OFF, 1=ON.
+    uint32_t enableVal = enable ? 1U : 0U;
+    uint8_t inner[4] = {
+        (uint8_t)(enableVal & 0xFF),
+        (uint8_t)((enableVal >> 8) & 0xFF),
+        (uint8_t)((enableVal >> 16) & 0xFF),
+        (uint8_t)((enableVal >> 24) & 0xFF),
+    };
+    sendGenericInstructionMultiframe(0x123E, inner, sizeof(inner));
+}
+
+void TmotorCan::sendStatusUploadSet(bool open) {
+    Serial.print("[Tmotor] sendStatusUploadSet(");
+    Serial.print(open ? "open" : "close");
+    Serial.println(") — Path B: proprietary msg_id=0x1247, 3 transfers");
+
+    // Captured verbatim from CloudLink. See docs/tmotor-can-protocol.md.
+    // Transfer 1 (section 0x02 — begin write handshake; 12 bytes inner data).
+    static const uint8_t T1_INNER[12] = {
+        0x41, 0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    // Transfer 2 (section 0x04 — general ESC config: PWM range, voltage limits.
+    // Replicating verbatim will overwrite any custom CloudLink config in this
+    // section; users should set their config in CloudLink before relying on
+    // this firmware path. 56 bytes inner data).
+    static const uint8_t T2_INNER[56] = {
+        0x41, 0x00, 0x01, 0x00, 0x04, 0x00, 0x30, 0x00,
+        0x01, 0x00, 0x01, 0x00, 0x4C, 0x04, 0x00, 0x00,
+        0x94, 0x07, 0x00, 0x00, 0x76, 0x02, 0xC8, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA0, 0x0F,
+        0xA0, 0x0F, 0x32, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    // Transfer 3 (section 0x10 — Status upload toggle; 44 bytes inner data,
+    // byte 28 toggles between 0x00 (Close) and 0x80 (Open)).
+    uint8_t t3_inner[44] = {
+        0x41, 0x00, 0x01, 0x00, 0x10, 0x00, 0x24, 0x00,
+        0x7B, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x40, 0x42, 0x0F, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xFA, 0x00, 0x00, 0x00,
+    };
+    t3_inner[28] = open ? 0x80 : 0x00;
+
+    sendGenericInstructionMultiframe(0x1247, T1_INNER, sizeof(T1_INNER));
+    delay(10);
+    sendGenericInstructionMultiframe(0x1247, T2_INNER, sizeof(T2_INNER));
+    delay(10);
+    sendGenericInstructionMultiframe(0x1247, t3_inner, sizeof(t3_inner));
 }
 
 // Float16 conversion functions (based on PDF section 5.2)

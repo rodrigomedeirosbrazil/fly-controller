@@ -46,7 +46,8 @@ public:
     // Initialization and configuration methods
     void requestParam(uint16_t paramIndex);  // Request parameter value
     void sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate = 50, bool savePermanent = true);  // Send ParamCfg to configure ESC telemetry rate
-    void sendEnableReporting(bool enable);  // Send Enable Reporting command (Message ID 1000) to enable/disable ESC status reporting
+    void sendEnableReporting(bool enable);  // Path A — Generic Instruction msg_id 0x123E. Session-only enable; cannot override CloudLink's persistent "Close".
+    void sendStatusUploadSet(bool open);    // Path B — replicate CloudLink's 3-transfer SET on msg_id 0x1247. Persists across reboots.
 
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
@@ -81,6 +82,9 @@ private:
     unsigned long lastMotorTempFromCanMs;  // Status 5 or PUSHCAN motor temp payload
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
+    unsigned long escDetectedAtMs;        // millis() when ESC was first detected on bus
+
+    bool enableReportingSent;  // true once sendStatusUploadSet(true) has been sent for the current ESC session
 
     // Transfer control
     uint8_t transferId;
@@ -148,6 +152,14 @@ private:
     void handleEscStatus(twai_message_t *canMsg);
     void handleEscStatus5(twai_message_t *canMsg);  // Handle Status 5 (Message ID 1154) for motor temperature
     void handlePushCan(twai_message_t *canMsg);
+
+    // Sends a Generic Instruction (DataTypeId 1000) wrapped payload as a
+    // multi-frame DroneCAN transfer. Computes CRC, splits into 7-byte chunks,
+    // emits SOF/EOF/Toggle bits in the tail byte. Used by both Path A
+    // (sendEnableReporting) and Path B (sendStatusUploadSet).
+    void sendGenericInstructionMultiframe(uint16_t internalMsgId,
+                                          const uint8_t* innerData,
+                                          size_t innerLen);
 
     // Float16 conversion methods
     float convertFloat16ToFloat(uint16_t value);
