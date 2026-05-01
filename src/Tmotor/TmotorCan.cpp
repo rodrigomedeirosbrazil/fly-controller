@@ -65,6 +65,8 @@ TmotorCan::TmotorCan() {
     lastMotorTempFromCanMs = 0;
     lastPushSci = 0;
     lastThrottleSend = 0;
+    escDetectedAtMs = 0;
+    enableReportingSent = false;
     transferId = 0;
 
     escTemperature = 0;
@@ -122,20 +124,30 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
 }
 
 void TmotorCan::handle() {
-    // Check if ESC is detected and Enable Reporting not sent yet
     extern Canbus canbus;
     if (canbus.getEscNodeId() == 0) {
         return;
     }
 
-    // CAN throttle period: 2.5ms (400 Hz)
-    // Check if 2ms has elapsed (allowing for some jitter)
+    // Track when ESC was first detected so we can delay before enabling reporting
+    if (escDetectedAtMs == 0) {
+        escDetectedAtMs = millis();
+    }
+
+    // Send Enable Reporting once, 2 s after ESC detection, so the bus is stable.
+    // Tested result: enable=1 works (Status 5 arrives at 10 Hz); enable=0 is ignored
+    // by the ESC firmware — reporting only stops on power cycle.
+    if (!enableReportingSent && millis() - escDetectedAtMs >= 2000) {
+        sendEnableReporting(true);
+        enableReportingSent = true;
+    }
+
+    // CAN throttle period: 2.5ms (400 Hz); allow some jitter
     if (millis() - lastThrottleSend < 2) {
         return;
     }
 
     setRawThrottle(0);
-
     lastThrottleSend = millis();
 }
 
@@ -360,13 +372,10 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     int16_t idc = parseInt16LE(canMsg->data, STATUS5_IDC_OFFSET);
     int16_t cap_temp_raw = parseInt16LE(canMsg->data, STATUS5_CAP_TEMP_OFFSET);
     int16_t motor_temp_raw = parseInt16LE(canMsg->data, STATUS5_MOTOR_TEMP_OFFSET);
-    (void)idc; // only used in DEBUG_PRINT — suppress unused-variable in release builds
+    (void)idc;  // only used in DEBUG_PRINT
 
-    // Convert from 0.1°C units to Celsius using integer division with rounding
-    // For positive values: (value + 5) / 10 rounds correctly
-    // For negative values: (value - 5) / 10 rounds correctly
     int16_t cap_temp_celsius = (cap_temp_raw >= 0) ? (cap_temp_raw + 5) / 10 : (cap_temp_raw - 5) / 10;
-    (void)cap_temp_celsius; // only used in DEBUG_PRINT — suppress unused-variable in release builds
+    (void)cap_temp_celsius;  // only used in DEBUG_PRINT
     int16_t motor_temp_celsius = (motor_temp_raw >= 0) ? (motor_temp_raw + 5) / 10 : (motor_temp_raw - 5) / 10;
 
     // Store (convert to uint8_t, with range check)
@@ -378,16 +387,15 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
         this->motorTemperature = (uint8_t)motor_temp_celsius;
     }
 
-    DEBUG_PRINT("[Tmotor] Status 5: IDC=");
-    // Format current with 1 decimal: idc is in 0.1A units
+    DEBUG_PRINT("[Tmotor] Status5(1154): IDC=");
     DEBUG_PRINT(idc / 10);
     DEBUG_PRINT(".");
     DEBUG_PRINT(abs(idc % 10));
-    DEBUG_PRINT("A, Cap=");
+    DEBUG_PRINT("A Cap=");
     DEBUG_PRINT(cap_temp_celsius);
-    DEBUG_PRINT("°C, Motor=");
+    DEBUG_PRINT("C Motor=");
     DEBUG_PRINT(motor_temp_celsius);
-    DEBUG_PRINTLN("°C");
+    DEBUG_PRINTLN("C");
 
     lastMotorTempFromCanMs = millis();
     lastReadPushCan = millis();

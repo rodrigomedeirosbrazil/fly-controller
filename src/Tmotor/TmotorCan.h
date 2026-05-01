@@ -81,6 +81,9 @@ private:
     unsigned long lastMotorTempFromCanMs;  // Status 5 or PUSHCAN motor temp payload
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
+    unsigned long escDetectedAtMs;        // millis() when ESC was first detected on bus
+
+    bool enableReportingSent;  // true once sendEnableReporting(true) has been sent
 
     // Transfer control
     uint8_t transferId;
