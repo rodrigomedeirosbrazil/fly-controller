@@ -51,7 +51,6 @@ class ServerCallbacks : public BLEServerCallbacks {
   }
   void onDisconnect(BLEServer* pServer) {
     Serial.println("BLE disconnected");
-    delay(500);
     pServer->getAdvertising()->start();
   }
 };

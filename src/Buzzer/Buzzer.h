@@ -52,6 +52,11 @@ class Buzzer {
     void setup();
     void handle();
 
+    // Re-applies the timer frequency after the global LEDC clock source
+    // changes (e.g. when ESP32Servo's esc.attach() forces XTAL on the
+    // shared low-speed clock, halving previously-configured frequencies).
+    void recalibrate();
+
     // Contextual methods
     void beepSystemStart();
     void beepCalibrationStep();
