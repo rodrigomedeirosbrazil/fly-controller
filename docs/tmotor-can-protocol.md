@@ -165,82 +165,95 @@ generates the SET multi-frame transfers in the captures below.
 
 ---
 
-## Configuration protocol (DataTypeId 1000) — CloudBoxOld proprietary
+## Configuration protocol (DataTypeId 1000) — CloudLink proprietary
 
-All configuration commands originate from node `0x65` (CloudBox) as multi-frame
-DroneCAN transfers on DataTypeId 1000.  The ESC replies on DataTypeId 999.
+All configuration commands originate from node `0x65` (CloudLink) as multi-frame
+DroneCAN transfers on DataTypeId 1000. The ESC replies on DataTypeId 999.
 
-This protocol uses a **different internal `msg_id` (`0x1247`)** than the
-documented `Enable Reporting` (`0x123E`), and a different payload layout
-(parameter blocks rather than a single `uint32_t enable` flag). It is not
-covered by either PDF and was reconstructed from the captures alone.
+The DroneCAN wrapper is the **same** `CAN_APP_PROTO_HEAD` as the official Generic
+Instruction (magic `0xABCD`, then `msg_id`, then `len`). What changes is the
+internal `msg_id` and the payload layout — none of these are documented in
+either PDF.
 
-### Magic header
+### Internal `msg_id` values seen in captures
 
-Every transfer payload begins with a 7-byte header.  Bytes 2–3 are always
-`CD AB` (little-endian magic `0xABCD` — same `CAN_APP_PROTO_MAGIC` as the
-official protocol).  Bytes 4–5 are always `47 12` → internal `msg_id = 0x1247`
-(not documented in either PDF; presumably an internal "set parameter block"
-command).
+| `msg_id` | Hex      | Direction | Purpose                           |
+|---------:|----------|-----------|-----------------------------------|
+| 4667     | `0x123B` | 0x65 → ESC| Periodic poll (4-byte payload)    |
+| 4668     | `0x123C` | ESC → 0x65| Response to 0x123B (8 bytes)      |
+| 4675     | `0x1243` | 0x65 → ESC| Read register/parameter request   |
+| 4676     | `0x1244` | ESC → 0x65| Response to 0x1243                |
+| 4679     | `0x1247` | both      | **Parameter block read/write**    |
+| 4683     | `0x124B` | 0x65 → ESC| Periodic poll (4-byte payload)    |
+| 4684     | `0x124C` | ESC → 0x65| Response to 0x124B (12 bytes)     |
 
+The earlier doc claim that "every transfer uses `msg_id = 0x1247`" was wrong —
+that's only the SET/GET parameter command. The 9-frame periodic bursts
+CloudLink sends every ~200 ms are `0x123B` + `0x124B` polls.
+
+### SET command (clicking "Set" with "Status upload" toggled)
+
+Three back-to-back multi-frame transfers, all on DataTypeId 1000 with
+internal `msg_id = 0x1247`:
+
+| Transfer | `len` | Frames | Inner data starts with     | What it carries |
+|---------:|:-----:|:------:|----------------------------|-----------------|
+| 1        | 0x0C  | 3      | `41 00 01 00 02 00 ...`    | Section 0x02 — likely "begin write" handshake |
+| 2        | 0x38  | 10     | `41 00 01 00 04 00 ...`    | Section 0x04 — general ESC config (PWM range, voltage limits, etc.) |
+| 3        | 0x2C  | 8      | `41 00 01 00 10 00 ...`    | Section 0x10 — **Status upload setting** |
+
+All three transfers begin with the inner-data prefix `41 00 01 00 SS 00`
+where `SS` is the section index. Status upload is section `0x10` (16).
+
+**Captured Transfer 1 inner data (12 bytes, identical Close vs Open):**
 ```
-[0]     sequence counter (increments per command)
-[1]     sequence counter high byte
-[2-3]   CD AB  (magic 0xABCD)
-[4-5]   47 12  (protocol marker)
-[6]     payload length byte (0x0C = GET, 0x38 = SET large block, 0x2C = SET param block)
+41 00 01 00 02 00 04 00 00 00 00 00
 ```
 
-### GET command
-
-Sent as **two back-to-back transfers** on DataTypeId 1000:
-
-**Transfer A** (3 frames, header length 0x0C):
+**Captured Transfer 2 inner data (56 bytes, identical Close vs Open):**
 ```
-E4 31 CD AB 47 12 0C | 00 41 00 01 00 0E 00 | 04 00 00 00 00 00 <tail>
+41 00 01 00 04 00 30 00 01 00 01 00 4C 04 00 00
+94 07 00 00 76 02 C8 00 01 00 00 00 00 00 A0 0F
+A0 0F 32 00 01 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
 ```
+Notable: `94 07` = 0x0794 = 1940 (PWM Width Max from the CloudLink screenshot);
+`4C 04` = 0x044C = 1100 (PWM Width Min). So this block carries the user's
+generic ESC settings — replicating it verbatim will overwrite custom config.
 
-**Transfer B** (3 frames, header length 0x0C):
+**Captured Transfer 3 inner data (44 bytes, ONLY byte 28 differs):**
 ```
-53 20 CD AB 47 12 0C | 00 41 00 01 00 02 00 | 04 00 00 00 00 00 <tail>
+41 00 01 00 10 00 00 24 00 7B 00 00 00 02 00 00
+00 00 00 00 00 40 42 0F 00 00 00 00 XX 00 01 00
+00 00 00 00 00 00 00 00 00 FA 00 00 00
 ```
+- `XX = 0x00` → Status upload **Close** (ESC stops emitting Status 1–5)
+- `XX = 0x80` → Status upload **Open** (ESC emits Status 1–5 at 10 Hz)
 
-The ESC responds on DataTypeId 999 with the current parameter block.
+Byte 28 of the inner data = byte 1 of CAN frame 6 of Transfer 3 (the second
+non-CRC byte of that frame). The earlier doc said "byte 36 / first byte of
+F6" — that was wrong on both counts.
 
-### SET command
+### Notes on protocol behaviour
 
-Sent as **three back-to-back transfers** on DataTypeId 1000:
-
-**Transfer 1** — identical to GET Transfer B above.
-
-**Transfer 2** — large block (header length 0x38, ~8 frames):  
-Contains general ESC parameters.  Content is identical whether enabling or
-disabling "Status upload" — this block carries other settings.
-
-**Transfer 3** — parameter block (header length 0x2C, ~7 frames):  
-Contains the "Status upload" (temperature reporting) setting.
-
-Frame 2 of Transfer 3 always contains:
-```
-00 41 00 01 00 10 00
-```
-This identifies **parameter index `0x10` (16)** = "Status upload".
-
-**Byte 36 of the assembled Transfer 3 payload** (first byte of the 6th CAN frame):
-
-| Value  | Meaning |
-|--------|---------|
-| `0x00` | Status upload: **Close** — ESC stops reporting temperature |
-| `0x80` | Status upload: **Open** — ESC reports temperature at configured frequency |
+- **Persistence**: the Status upload setting is saved in the ESC's non-volatile
+  memory. Power cycling does not reset it. Once CloudLink writes "Close",
+  the ESC stays in Close until something writes "Open" again.
+- **Path A vs Path B**: the official `Enable Reporting` (msg_id `0x123E`) only
+  enables reporting at the *session* level. It works when the ESC's persistent
+  Status upload is `Open`, but it cannot override a persistent `Close` —
+  empirically verified by us. To reliably enable Status 5 from the firmware
+  regardless of the ESC's saved state, Path B (this proprietary SET) is needed.
+- **Source node**: captures show `0x65` (CloudLink) but the ESC does not appear
+  to filter by source — sending from any node ID works.
 
 ---
 
 ## Two paths to enable Status 5
 
-### Path A — Official `Enable Reporting` (try this first)
+### Path A — Official `Enable Reporting` (msg_id 0x123E)
 
-Already implemented at [TmotorCan.cpp:554](../src/Tmotor/TmotorCan.cpp). Send a
-single 2-frame transfer on DataTypeId 1000:
+Single 2-frame transfer on DataTypeId 1000:
 
 ```
 Header:  CD AB 3E 12 04 00              (magic, msg_id=0x123E, len=4)
@@ -248,24 +261,25 @@ Data:    01 00 00 00                    (enable = 1)   or   00 00 00 00 (disable
 CRC:     CRC16-CCITT seeded with signature 0x1362ab78cd12f03aULL
 ```
 
-If after sending this we start seeing periodic Status 5 frames (DataTypeId
-1154, 8 bytes) on the bus, we're done — no need for Path B.
+**Test result:** `enable=1` works — Status 5 (1154) starts arriving at 10 Hz.
+**`enable=0` is ignored** by the ESC. Worse, this command only takes effect
+at the *session* level: if CloudLink has saved "Status upload: Close" in the
+ESC's non-volatile memory, Path A cannot override it. Verified empirically.
 
-### Path B — Replicate CloudBoxOld (fallback)
+### Path B — Replicate CloudLink's parameter SET (msg_id 0x1247)
 
-To replicate "Status upload: Open/Close" the way CloudBoxOld does it:
+Sends three multi-frame transfers verbatim from the captured CloudLink traffic:
+Transfer 1, Transfer 2, Transfer 3. Transfer 3 has byte 28 of its inner data
+patched to `0x80` (Open) or `0x00` (Close).
 
-1. Send **GET** (Transfer A + Transfer B) to confirm current state from the ESC
-   response on DataTypeId 999.
-2. Build **Transfer 3** from a captured reference payload and patch byte 36:
-   - `0x00` → disable temperature reporting
-   - `0x80` → enable temperature reporting
-3. Send **Transfer 1 → Transfer 2 → Transfer 3** in sequence on DataTypeId 1000
-   from source node `0x65` (or whichever node ID we assign to the controller).
+This writes the Status upload setting persistently in the ESC's non-volatile
+memory, so it survives reboots and overrides any earlier CloudLink state.
 
-**Important:** the sequence counter bytes [0–1] increment with each command pair.
-Replaying a fixed sequence counter may be rejected by the ESC; increment it per
-send or mirror the counter from a prior GET response.
+**Caveat:** Transfer 2 carries general ESC config (PWM range, voltage limits)
+and is replayed verbatim from the capture. If the user changes those settings
+via CloudLink later, replaying our hardcoded Transfer 2 will revert them.
+The user should configure the ESC fully in CloudLink first, then leave it
+alone — our firmware only flips the Status upload bit.
 
 ---
 

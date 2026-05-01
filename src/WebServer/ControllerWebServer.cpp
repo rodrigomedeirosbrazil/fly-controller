@@ -493,16 +493,17 @@ void ControllerWebServer::startAP() {
     server.addHandler(savePinHandler);
 
 #if IS_TMOTOR
-    // T-Motor test endpoints — turn ESC Status 1–5 reporting on/off via the
-    // documented Generic Instruction (msg_id 0x123E). Bypasses the CloudBoxOld
-    // proprietary parameter block protocol. See docs/tmotor-can-protocol.md.
+    // T-Motor Status upload control — Path B (proprietary msg_id 0x1247).
+    // Replicates CloudLink's parameter SET, which writes the "Status upload"
+    // toggle persistently in the ESC's non-volatile memory. See
+    // docs/tmotor-can-protocol.md.
     server.on("/api/tmotor/reporting/enable", HTTP_POST, [](AsyncWebServerRequest *request) {
         if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
         if (canbus.getEscNodeId() == 0) {
             request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
             return;
         }
-        tmotorCan.sendEnableReporting(true);
+        tmotorCan.sendStatusUploadSet(true);
         request->send(200, "application/json", "{\"ok\":true,\"enabled\":true}");
     });
 
@@ -512,7 +513,7 @@ void ControllerWebServer::startAP() {
             request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
             return;
         }
-        tmotorCan.sendEnableReporting(false);
+        tmotorCan.sendStatusUploadSet(false);
         request->send(200, "application/json", "{\"ok\":true,\"enabled\":false}");
     });
 #endif
