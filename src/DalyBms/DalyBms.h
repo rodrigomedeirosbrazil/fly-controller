@@ -44,10 +44,15 @@ public:
     void onNotify(uint8_t* data, size_t len);
 
 private:
+    // State machine: Idle → Connecting → Subscribed.
+    // The connectTask now performs BLEClient::connect() AND service discovery
+    // (getService / getCharacteristic / registerForNotify / CCCD writeValue),
+    // all of which can block for several seconds. The main loop never sees a
+    // "Connected, awaiting discovery" state — it only sees Subscribed once
+    // the worker has fully wired the characteristics.
     enum State {
         Idle,
         Connecting,
-        Connected,
         Subscribed
     };
 

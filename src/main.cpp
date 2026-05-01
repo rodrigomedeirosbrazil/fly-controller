@@ -36,6 +36,14 @@ Logger logger;
 
 void setup()
 {
+  // Silence the buzzer immediately. On warm reset the GPIO matrix can keep
+  // GPIO6 routed to a still-running LEDC channel from the previous session,
+  // and on cold boot the LEDC channel-1 duty register has a non-zero hardware
+  // default. Driving the pin LOW as a plain GPIO breaks any retained route
+  // before any other init runs, so the piezo stays silent until buzzer.setup().
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
   Serial.begin(115200);
   // After a crash/reboot (e.g. stack overflow), reason is visible on next boot. ESP_RST_PANIC=4, ESP_RST_INT_WDT=5, ESP_RST_TASK_WDT=6.
   Serial.printf("[Main] esp_reset_reason=%d\n", static_cast<int>(esp_reset_reason()));
@@ -112,10 +120,14 @@ void setup()
   #endif
 #endif
 
-  buzzer.beepSystemStart();
-
+  // ESP32Servo's attach() can force the LEDC low-speed clock to XTAL so the ESC
+  // can hit 50 Hz at 16-bit. That retroactively changes the divider for our
+  // buzzer timer (Timer 1), so we attach the ESC first, then re-apply the
+  // buzzer frequency, and only then start the system-start beep.
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
+  buzzer.recalibrate();
+  buzzer.beepSystemStart();
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
   // WDT_TIMEOUT_S seconds (e.g. a blocking BLE call or infinite loop), the
@@ -126,6 +138,10 @@ void setup()
 
 void loop()
 {
+  // buzzer.handle() runs first so a beep that finished during the previous
+  // iteration is silenced before any potentially slow component runs.
+  buzzer.handle();
+
   button.check();
   bluetoothBms.update();
   xctod.write();
@@ -143,7 +159,6 @@ void loop()
 #if IS_XAG || IS_TMOTOR
   batterySensor.handle();
 #endif
-  buzzer.handle();
 
   // Update telemetry data
   telemetry.update();

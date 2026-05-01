@@ -22,7 +22,7 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
 }
 
 void Buzzer::setup() {
-  ledc_timer_config_t ledc_timer;
+  ledc_timer_config_t ledc_timer = {};
   ledc_timer.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_timer.duty_resolution = LEDC_TIMER_8_BIT;
   ledc_timer.timer_num = LEDC_TIMER_1;  // Changed from LEDC_TIMER_0 to avoid ESP32Servo conflict
@@ -30,7 +30,7 @@ void Buzzer::setup() {
   ledc_timer.clk_cfg = LEDC_AUTO_CLK;
   ledc_timer_config(&ledc_timer);
 
-  ledc_channel_config_t ledc_channel;
+  ledc_channel_config_t ledc_channel = {};
   ledc_channel.gpio_num = (gpio_num_t)pin;
   ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_channel.channel = (ledc_channel_t)pwmChannel;
@@ -38,9 +38,19 @@ void Buzzer::setup() {
   ledc_channel.intr_type = LEDC_INTR_DISABLE;
   ledc_channel.duty = 0;
   ledc_channel.hpoint = 0;
+  ledc_channel.flags.output_invert = 0;
   ledc_channel_config(&ledc_channel);
 
   setPwmOff();
+}
+
+void Buzzer::recalibrate() {
+  // ESP32Servo's esc.attach() can force the LEDC low-speed clock to XTAL
+  // (40 MHz) so it can hit 50 Hz at 16-bit. Our timer was configured under
+  // the previous clock source, so its divider now produces a different
+  // frequency. Re-apply pwmFrequency so the divider is recomputed against
+  // the current clock.
+  ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, pwmFrequency);
 }
 
 void Buzzer::handle() {

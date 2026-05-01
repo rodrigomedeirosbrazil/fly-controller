@@ -104,42 +104,9 @@ void DalyBms::update() {
                 resetConnection();
                 break;
             }
-            // BLE connect runs in connectTask; main loop stays responsive
+            // BLE connect AND service discovery run in connectTask;
+            // main loop stays responsive.
             break;
-
-        case Connected: {
-            BLERemoteService* pService = pClient_->getService(DALY_SERVICE_UUID);
-            if (pService == nullptr) {
-                DEBUG_PRINTLN("[Daly] Service FFF0 not found");
-                resetConnection();
-                break;
-            }
-            DEBUG_PRINTLN("[Daly] Service FFF0 found");
-
-            pCharRx_ = pService->getCharacteristic(DALY_CHAR_UUID_RX);
-            pCharTx_ = pService->getCharacteristic(DALY_CHAR_UUID_TX);
-            if (pCharRx_ == nullptr || pCharTx_ == nullptr) {
-                DEBUG_PRINTLN("[Daly] Characteristics FFF1/FFF2 not found");
-                resetConnection();
-                break;
-            }
-            DEBUG_PRINTLN("[Daly] Characteristics FFF1/FFF2 found");
-
-            pCharRx_->registerForNotify(onDalyNotifyCallback);
-            BLERemoteDescriptor* pCccd = pCharRx_->getDescriptor(BLEUUID((uint16_t)0x2902));
-            if (pCccd != nullptr) {
-                uint8_t notifyOn[2] = {0x01, 0x00};
-                pCccd->writeValue(notifyOn, 2, true);
-                DEBUG_PRINTLN("[Daly] CCCD written manually (0x0100)");
-            } else {
-                DEBUG_PRINTLN("[Daly] WARNING: descriptor 0x2902 not found — notify may not work");
-            }
-
-            state_ = Subscribed;
-            lastRequestMillis_ = 0;
-            DEBUG_PRINTLN("[Daly] Subscribed to FFF1, ready for reads");
-            break;
-        }
 
         case Subscribed:
             if (pClient_ == nullptr || !pClient_->isConnected()) {
@@ -227,6 +194,10 @@ void DalyBms::applyResetConnectionLocked() {
     state_ = Idle;
 }
 
+// connectTask — runs BLEClient::connect AND service discovery off the main loop.
+// Both phases block for several seconds when the BMS is far/absent or when the
+// ATT layer is busy; running them here keeps the main loop responsive (and the
+// system-start beep can complete on time).
 void DalyBms::connectTask(void* arg) {
     DalyBms* self = static_cast<DalyBms*>(arg);
     uint8_t cmd = 0;
@@ -259,40 +230,107 @@ void DalyBms::connectTask(void* arg) {
             continue;
         }
 
+        // ----- Phase 1: BLE connect (slow, off main loop) -----
         BLEAddress addr(mac);
         bool connectedOk = self->pClient_ != nullptr
             && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);
 
-        xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
-        if (session != self->connectSessionId_) {
-            if (self->pClient_ != nullptr && self->pClient_->isConnected()) {
-                self->pClient_->disconnect();
-            }
-            self->applyResetConnectionLocked();
-            self->lastConnectAttempt_ = millis();
-            xSemaphoreGive(self->stateMutex_);
-            continue;
-        }
-        if (!self->enabled_ || throttle.isArmed()) {
-            if (self->pClient_ != nullptr && self->pClient_->isConnected()) {
-                self->pClient_->disconnect();
-            }
-            self->applyResetConnectionLocked();
-            self->lastConnectAttempt_ = millis();
-            xSemaphoreGive(self->stateMutex_);
-            continue;
-        }
-        if (connectedOk) {
-            self->connected_ = true;
-            self->rxLen_ = 0;
-            self->state_ = Connected;
-            DEBUG_PRINTLN("[Daly] Connected");
-        } else {
+        if (!connectedOk) {
             DEBUG_PRINTLN("[Daly] Connection failed, retrying...");
-            self->applyResetConnectionLocked();
-            self->lastConnectAttempt_ = millis();
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
         }
+
+        // Re-validate before slow ATT operations: the user may have disabled the
+        // BMS or armed the motor while we were connecting.
+        xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+        bool stillValid = (session == self->connectSessionId_)
+            && self->enabled_ && !throttle.isArmed();
         xSemaphoreGive(self->stateMutex_);
+
+        if (!stillValid) {
+            if (self->pClient_->isConnected()) {
+                self->pClient_->disconnect();
+            }
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+
+        // ----- Phase 2: ATT service discovery (also slow, also off main loop) -----
+        BLERemoteService* pService = self->pClient_->getService(DALY_SERVICE_UUID);
+        if (pService == nullptr) {
+            DEBUG_PRINTLN("[Daly] Service FFF0 not found");
+            self->pClient_->disconnect();
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+        DEBUG_PRINTLN("[Daly] Service FFF0 found");
+
+        BLERemoteCharacteristic* charRx = pService->getCharacteristic(DALY_CHAR_UUID_RX);
+        BLERemoteCharacteristic* charTx = pService->getCharacteristic(DALY_CHAR_UUID_TX);
+        if (charRx == nullptr || charTx == nullptr) {
+            DEBUG_PRINTLN("[Daly] Characteristics FFF1/FFF2 not found");
+            self->pClient_->disconnect();
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+        DEBUG_PRINTLN("[Daly] Characteristics FFF1/FFF2 found");
+
+        charRx->registerForNotify(onDalyNotifyCallback);
+        BLERemoteDescriptor* pCccd = charRx->getDescriptor(BLEUUID((uint16_t)0x2902));
+        if (pCccd != nullptr) {
+            uint8_t notifyOn[2] = {0x01, 0x00};
+            pCccd->writeValue(notifyOn, 2, true);
+            DEBUG_PRINTLN("[Daly] CCCD written manually (0x0100)");
+        } else {
+            DEBUG_PRINTLN("[Daly] WARNING: descriptor 0x2902 not found — notify may not work");
+        }
+
+        // ----- Phase 3: commit shared state under mutex -----
+        xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+        bool sessionStillCurrent = (session == self->connectSessionId_)
+            && self->enabled_ && !throttle.isArmed();
+        if (!sessionStillCurrent) {
+            xSemaphoreGive(self->stateMutex_);
+            if (self->pClient_->isConnected()) {
+                self->pClient_->disconnect();
+            }
+            xSemaphoreTake(self->stateMutex_, portMAX_DELAY);
+            if (session == self->connectSessionId_) {
+                self->applyResetConnectionLocked();
+                self->lastConnectAttempt_ = millis();
+            }
+            xSemaphoreGive(self->stateMutex_);
+            continue;
+        }
+        self->pCharRx_           = charRx;
+        self->pCharTx_           = charTx;
+        self->connected_         = true;
+        self->rxLen_             = 0;
+        self->lastRequestMillis_ = 0; // force immediate request
+        self->state_             = Subscribed;
+        xSemaphoreGive(self->stateMutex_);
+        DEBUG_PRINTLN("[Daly] Subscribed, ready for reads");
     }
 }
 
