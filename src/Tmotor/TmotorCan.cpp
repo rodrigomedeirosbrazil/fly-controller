@@ -552,6 +552,10 @@ void TmotorCan::sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate, bool save
 }
 
 void TmotorCan::sendEnableReporting(bool enable) {
+    Serial.print("[Tmotor] sendEnableReporting(");
+    Serial.print(enable ? "true" : "false");
+    Serial.println(") — DroneCAN Generic Instruction msg_id=0x123E");
+
     // Payload: Header (6 bytes) + Data (4 bytes) = 10 bytes
     uint8_t payload[10];
 

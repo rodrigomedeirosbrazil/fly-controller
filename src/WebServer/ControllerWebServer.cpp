@@ -23,6 +23,9 @@
 #include "Pages/LegacyIndexPage.h"
 #include "../Version.h"
 #include "../Logger/Logger.h"
+#if IS_TMOTOR
+#include "../Tmotor/TmotorCan.h"
+#endif
 #include <vector>
 
 extern Logger logger;
@@ -488,6 +491,31 @@ void ControllerWebServer::startAP() {
     savePinHandler->setMethod(HTTP_POST);
     savePinHandler->setMaxContentLength(128);
     server.addHandler(savePinHandler);
+
+#if IS_TMOTOR
+    // T-Motor test endpoints — turn ESC Status 1–5 reporting on/off via the
+    // documented Generic Instruction (msg_id 0x123E). Bypasses the CloudBoxOld
+    // proprietary parameter block protocol. See docs/tmotor-can-protocol.md.
+    server.on("/api/tmotor/reporting/enable", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
+        if (canbus.getEscNodeId() == 0) {
+            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
+            return;
+        }
+        tmotorCan.sendEnableReporting(true);
+        request->send(200, "application/json", "{\"ok\":true,\"enabled\":true}");
+    });
+
+    server.on("/api/tmotor/reporting/disable", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
+        if (canbus.getEscNodeId() == 0) {
+            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
+            return;
+        }
+        tmotorCan.sendEnableReporting(false);
+        request->send(200, "application/json", "{\"ok\":true,\"enabled\":false}");
+    });
+#endif
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){

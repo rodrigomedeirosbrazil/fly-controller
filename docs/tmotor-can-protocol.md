@@ -1,8 +1,21 @@
 # T-Motor ESC — CAN Bus Protocol Analysis
 
-Reverse-engineered from three live captures on a 1 Mbps DroneCAN bus between a
-T-Motor ESC and the CloudBoxOld configurator app.  
-Capture tool: ESP32-C3 in TWAI_MODE_LISTEN_ONLY (`feature/can-monitor`).
+Two complementary sources of truth:
+
+1. **Official documentation** — `TMOTOR ESCs CAN Communication Manual V2.2.0.pdf`
+   and `t-motor-uavcan-2.2.pdf`. Defines the DRONECAN-S protocol and the
+   `Enable Reporting` Generic Instruction (msg_id 4670) — the simple way to
+   turn ESC status reports on/off.
+2. **Live captures** — three captures on a 1 Mbps DroneCAN bus between a
+   T-Motor ESC and the CloudBoxOld configurator app, taken with an ESP32-C3 in
+   `TWAI_MODE_LISTEN_ONLY` (`feature/can-monitor`). Show that CloudBoxOld does
+   **not** use the simple Enable Reporting — it uses a proprietary parameter
+   block protocol on the same DataTypeId 1000 (different internal `msg_id`).
+
+These two paths likely produce the same end result ("Status upload: Open" →
+ESC starts emitting Status 5 / DataTypeId 1154 with motor temperature). The
+official path is ~50 lines of code; the CloudBoxOld path is ~17 multi-frames
+across 3 multi-frame transfers.
 
 ---
 
@@ -63,15 +76,112 @@ All frames use 29-bit extended CAN IDs.
 
 ---
 
-## Configuration protocol (DataTypeId 1000)
+## Generic Instruction (DataTypeId 1000) — official protocol
+
+Per `TMOTOR ESCs CAN Communication Manual V2.2.0` §3.2, DataTypeId 1000 carries
+a "Generic Instruction" wrapper. The wrapper has a 6-byte header followed by a
+variable-length payload, all CRC-protected by the standard DroneCAN multi-frame
+mechanism.
+
+### `CAN_APP_PROTO_HEAD` (6 bytes)
+
+```c
+#define CAN_APP_PROTO_MAGIC 0xabcd
+
+typedef struct {
+    uint16_t magic;    // Always 0xABCD (little-endian: CD AB)
+    uint16_t msg_id;   // Internal protocol message ID
+    uint16_t len;      // Length of the payload that follows
+} CAN_APP_PROTO_HEAD;
+```
+
+### Documented internal `msg_id` values
+
+| `msg_id` | Hex     | Name                       | Payload                           |
+|---------:|---------|----------------------------|-----------------------------------|
+| 4670     | `0x123E`| `ENA_ESC_STAT_REP_MSG_ID`  | `uint32_t enable` — 0=OFF, 1=ON   |
+| 4669     | `0x123D`| `ARM_LED_CTRL_MSG_ID`      | LED control (8× ESCs)             |
+
+### Enable Reporting — the test we want to run first
+
+**`ENA_ESC_STAT_REP_T`** (4 bytes): `uint32_t enable` (0 turns reporting OFF,
+1 turns reporting ON). When ON, the ESC begins emitting Status 1–5 (DataTypeId
+1150–1154) at 10 Hz. Status 5 (1154) is the one we care about — it carries
+motor temperature.
+
+Total payload sent on DataTypeId 1000 = **6-byte header + 4-byte data = 10 bytes**.
+With 2-byte multi-frame CRC prefix = 12 bytes → 2 CAN frames.
+
+**Digital signature** (for the multi-frame CRC):
+`0x1362ab78cd12f03aULL` (Generic Instruction ID 999/1000).
+
+This is exactly what `TmotorCan::sendEnableReporting(bool enable)` already
+implements at [TmotorCan.cpp:554](../src/Tmotor/TmotorCan.cpp). It is currently
+defined but **not yet wired up** in `main.cpp`.
+
+---
+
+## Status 5 (DataTypeId 1154) — motor temperature frame
+
+Single-frame, 7 bytes data + 1 tail byte. Reported at 10 Hz once Enable
+Reporting is ON. Already parsed by `TmotorCan::handleEscStatus5()`.
+
+```c
+typedef struct {
+    int16_t idc;        // Estimated busbar current (0.1 A units)
+    int16_t cap_temp;   // Capacitor temperature (0.1 °C units)
+    int16_t motor_temp; // Motor temperature (0.1 °C units)  ← what we want
+    uint16_t resv: 8;   // Reserved
+    uint16_t tail: 8;   // DroneCAN tail byte
+} S_CAN_MSG_ESC_STAT5;
+```
+
+Signature for Status 1–5: `0x2362ab78cd12f03aULL`.
+
+---
+
+## CloudBoxOld "ESC Advanced Config" UI (observed)
+
+Screenshot of the configurator window during the capture sessions. The
+interesting toggle is **Status upload: Open / Close** — flipping it is what
+generates the SET multi-frame transfers in the captures below.
+
+| Section | Field              | Value observed       |
+|---------|--------------------|----------------------|
+| Left    | Throttle holding time | 0.25 s            |
+| Left    | Dual throttle priority| PWM First         |
+| Left    | CAN Baud Rate      | 1 M                  |
+| Left    | Over Volt (V)      | 63                   |
+| Left    | Under Volt (V)     | 20                   |
+| Left    | PWM Width Max / Min| 1940 / 1100          |
+| Right   | **Status upload**  | **Open / Close**     |
+| Right   | Status protocol    | DRONECAN-S           |
+| Right   | Status frequency   | 10 Hz                |
+| Right   | ADRW               | 6653                 |
+
+`DRONECAN-S` confirms the bus is using the DroneCAN protocol described in
+§3 of the manual (the alternative being CUBECAN, §4, which uses fixed
+`0x10000xxx` extended IDs and is not in use here).
+
+---
+
+## Configuration protocol (DataTypeId 1000) — CloudBoxOld proprietary
 
 All configuration commands originate from node `0x65` (CloudBox) as multi-frame
 DroneCAN transfers on DataTypeId 1000.  The ESC replies on DataTypeId 999.
 
+This protocol uses a **different internal `msg_id` (`0x1247`)** than the
+documented `Enable Reporting` (`0x123E`), and a different payload layout
+(parameter blocks rather than a single `uint32_t enable` flag). It is not
+covered by either PDF and was reconstructed from the captures alone.
+
 ### Magic header
 
 Every transfer payload begins with a 7-byte header.  Bytes 2–3 are always
-`CD AB` (little-endian magic `0xABCD`).  Bytes 4–5 are always `47 12`.
+`CD AB` (little-endian magic `0xABCD` — same `CAN_APP_PROTO_MAGIC` as the
+official protocol).  Bytes 4–5 are always `47 12` → internal `msg_id = 0x1247`
+(not documented in either PDF; presumably an internal "set parameter block"
+command).
 
 ```
 [0]     sequence counter (increments per command)
@@ -125,9 +235,25 @@ This identifies **parameter index `0x10` (16)** = "Status upload".
 
 ---
 
-## Implementing the toggle
+## Two paths to enable Status 5
 
-To replicate "Status upload: Open/Close" programmatically:
+### Path A — Official `Enable Reporting` (try this first)
+
+Already implemented at [TmotorCan.cpp:554](../src/Tmotor/TmotorCan.cpp). Send a
+single 2-frame transfer on DataTypeId 1000:
+
+```
+Header:  CD AB 3E 12 04 00              (magic, msg_id=0x123E, len=4)
+Data:    01 00 00 00                    (enable = 1)   or   00 00 00 00 (disable)
+CRC:     CRC16-CCITT seeded with signature 0x1362ab78cd12f03aULL
+```
+
+If after sending this we start seeing periodic Status 5 frames (DataTypeId
+1154, 8 bytes) on the bus, we're done — no need for Path B.
+
+### Path B — Replicate CloudBoxOld (fallback)
+
+To replicate "Status upload: Open/Close" the way CloudBoxOld does it:
 
 1. Send **GET** (Transfer A + Transfer B) to confirm current state from the ESC
    response on DataTypeId 999.
@@ -140,21 +266,6 @@ To replicate "Status upload: Open/Close" programmatically:
 **Important:** the sequence counter bytes [0–1] increment with each command pair.
 Replaying a fixed sequence counter may be rejected by the ESC; increment it per
 send or mirror the counter from a prior GET response.
-
----
-
-## Related ESC parameters (observed from screen captures)
-
-From the CloudBoxOld UI during the capture sessions:
-
-| Parameter | Value observed |
-|-----------|---------------|
-| Status upload | Open / Close (toggled during captures) |
-| Status protocol | DRONECAN-S |
-| Status frequency | 10 Hz |
-
-Temperature data appears in the first 2 bytes of DataTypeId 1131 frames when
-"Status upload: Open" is active.
 
 ---
 
