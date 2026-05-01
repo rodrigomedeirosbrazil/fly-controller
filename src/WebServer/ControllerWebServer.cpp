@@ -493,28 +493,26 @@ void ControllerWebServer::startAP() {
     server.addHandler(savePinHandler);
 
 #if IS_TMOTOR
-    // T-Motor Status upload control — Path B (proprietary msg_id 0x1247).
-    // Replicates CloudLink's parameter SET, which writes the "Status upload"
-    // toggle persistently in the ESC's non-volatile memory. See
-    // docs/tmotor-can-protocol.md.
-    server.on("/api/tmotor/reporting/enable", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
-        if (canbus.getEscNodeId() == 0) {
-            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
-            return;
+    server.on("/api/tmotor/direction/forward", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (!request->hasParam("pin") || request->getParam("pin")->value() != settings.getConfigPin()) {
+            request->send(403, "text/plain", "PIN inválido"); return;
         }
-        tmotorCan.sendStatusUploadSet(true);
-        request->send(200, "application/json", "{\"ok\":true,\"enabled\":true}");
+        if (canbus.getEscNodeId() == 0) {
+            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}"); return;
+        }
+        tmotorCan.sendDirectionSet(true);
+        request->send(200, "application/json", "{\"ok\":true,\"direction\":\"forward\"}");
     });
 
-    server.on("/api/tmotor/reporting/disable", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
-        if (canbus.getEscNodeId() == 0) {
-            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}");
-            return;
+    server.on("/api/tmotor/direction/reverse", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (!request->hasParam("pin") || request->getParam("pin")->value() != settings.getConfigPin()) {
+            request->send(403, "text/plain", "PIN inválido"); return;
         }
-        tmotorCan.sendStatusUploadSet(false);
-        request->send(200, "application/json", "{\"ok\":true,\"enabled\":false}");
+        if (canbus.getEscNodeId() == 0) {
+            request->send(503, "application/json", "{\"ok\":false,\"error\":\"ESC not detected on bus\"}"); return;
+        }
+        tmotorCan.sendDirectionSet(false);
+        request->send(200, "application/json", "{\"ok\":true,\"direction\":\"reverse\"}");
     });
 #endif
 

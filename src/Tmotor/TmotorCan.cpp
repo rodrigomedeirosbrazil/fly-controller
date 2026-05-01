@@ -652,29 +652,29 @@ void TmotorCan::sendEnableReporting(bool enable) {
     sendGenericInstructionMultiframe(0x123E, inner, sizeof(inner));
 }
 
+// Captured verbatim from CloudLink. Shared by sendStatusUploadSet (Path B)
+// and sendDirectionSet (Path C). See docs/tmotor-can-protocol.md.
+static const uint8_t TMOTOR_T1_INNER[12] = {
+    0x41, 0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+// Section 0x04 baseline: direction = forward (inner[10..11] = 0x01 0x00).
+// Replicating verbatim overwrites any custom CloudLink config in this section;
+// users should configure the ESC in CloudLink before using this firmware path.
+static const uint8_t TMOTOR_T2_INNER[56] = {
+    0x41, 0x00, 0x01, 0x00, 0x04, 0x00, 0x30, 0x00,
+    0x01, 0x00, 0x01, 0x00, 0x4C, 0x04, 0x00, 0x00,
+    0x94, 0x07, 0x00, 0x00, 0x76, 0x02, 0xC8, 0x00,
+    0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA0, 0x0F,
+    0xA0, 0x0F, 0x32, 0x00, 0x01, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
 void TmotorCan::sendStatusUploadSet(bool open) {
     Serial.print("[Tmotor] sendStatusUploadSet(");
     Serial.print(open ? "open" : "close");
     Serial.println(") — Path B: proprietary msg_id=0x1247, 3 transfers");
 
-    // Captured verbatim from CloudLink. See docs/tmotor-can-protocol.md.
-    // Transfer 1 (section 0x02 — begin write handshake; 12 bytes inner data).
-    static const uint8_t T1_INNER[12] = {
-        0x41, 0x00, 0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
-    };
-    // Transfer 2 (section 0x04 — general ESC config: PWM range, voltage limits.
-    // Replicating verbatim will overwrite any custom CloudLink config in this
-    // section; users should set their config in CloudLink before relying on
-    // this firmware path. 56 bytes inner data).
-    static const uint8_t T2_INNER[56] = {
-        0x41, 0x00, 0x01, 0x00, 0x04, 0x00, 0x30, 0x00,
-        0x01, 0x00, 0x01, 0x00, 0x4C, 0x04, 0x00, 0x00,
-        0x94, 0x07, 0x00, 0x00, 0x76, 0x02, 0xC8, 0x00,
-        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA0, 0x0F,
-        0xA0, 0x0F, 0x32, 0x00, 0x01, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    };
     // Transfer 3 (section 0x10 — Status upload toggle; 44 bytes inner data,
     // byte 28 toggles between 0x00 (Close) and 0x80 (Open)).
     uint8_t t3_inner[44] = {
@@ -687,11 +687,28 @@ void TmotorCan::sendStatusUploadSet(bool open) {
     };
     t3_inner[28] = open ? 0x80 : 0x00;
 
-    sendGenericInstructionMultiframe(0x1247, T1_INNER, sizeof(T1_INNER));
+    sendGenericInstructionMultiframe(0x1247, TMOTOR_T1_INNER, sizeof(TMOTOR_T1_INNER));
     delay(10);
-    sendGenericInstructionMultiframe(0x1247, T2_INNER, sizeof(T2_INNER));
+    sendGenericInstructionMultiframe(0x1247, TMOTOR_T2_INNER, sizeof(TMOTOR_T2_INNER));
     delay(10);
     sendGenericInstructionMultiframe(0x1247, t3_inner, sizeof(t3_inner));
+}
+
+void TmotorCan::sendDirectionSet(bool forward) {
+    Serial.print("[Tmotor] sendDirectionSet(");
+    Serial.print(forward ? "forward" : "reverse");
+    Serial.println(") — Path C: proprietary msg_id=0x1247, sections 0x02+0x04");
+
+    // Patch inner[10..11] (body[2..3]) for rotation direction:
+    //   +1 (0x01 0x00) = forward,  -1 (0xFF 0xFF) = reverse.
+    uint8_t t2[56];
+    memcpy(t2, TMOTOR_T2_INNER, sizeof(t2));
+    t2[10] = forward ? 0x01 : 0xFF;
+    t2[11] = forward ? 0x00 : 0xFF;
+
+    sendGenericInstructionMultiframe(0x1247, TMOTOR_T1_INNER, sizeof(TMOTOR_T1_INNER));
+    delay(10);
+    sendGenericInstructionMultiframe(0x1247, t2, sizeof(t2));
 }
 
 // Float16 conversion functions (based on PDF section 5.2)

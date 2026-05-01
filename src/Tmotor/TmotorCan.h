@@ -48,6 +48,7 @@ public:
     void sendParamCfg(uint8_t escNodeId, uint16_t feedbackRate = 50, bool savePermanent = true);  // Send ParamCfg to configure ESC telemetry rate
     void sendEnableReporting(bool enable);  // Path A — Generic Instruction msg_id 0x123E. Session-only enable; cannot override CloudLink's persistent "Close".
     void sendStatusUploadSet(bool open);    // Path B — replicate CloudLink's 3-transfer SET on msg_id 0x1247. Persists across reboots.
+    void sendDirectionSet(bool forward);    // Path C — real-time direction switch via msg_id 0x1247 sections 0x02+0x04. No reboot needed.
 
     // Getters for ESC data
     uint16_t getRpm() { return rpm; }
