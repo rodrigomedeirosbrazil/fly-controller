@@ -132,6 +132,9 @@ void sendThermalConfigResponse(AsyncWebServerRequest* request) {
     doc["motorTempReductionStart"] = settings.getMotorTempReductionStart();
     doc["escMaxTemp"] = settings.getEscMaxTemp();
     doc["escTempReductionStart"] = settings.getEscTempReductionStart();
+#if IS_TMOTOR
+    doc["motorTempSource"] = (uint8_t)settings.getMotorTempSource();
+#endif
     if (doc.overflowed()) {
         request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
@@ -372,6 +375,16 @@ void ControllerWebServer::startAP() {
             settings.setMotorTempReductionStart(motorReductionStart);
             settings.setEscMaxTemp(escMaxTemp);
             settings.setEscTempReductionStart(escReductionStart);
+#if IS_TMOTOR
+            if (doc.containsKey("motorTempSource")) {
+                uint8_t src = doc["motorTempSource"].as<uint8_t>();
+                if (src > (uint8_t)MotorTempSourceAds1115) {
+                    request->send(400, "text/plain", "Fonte de temperatura do motor inválida");
+                    return;
+                }
+                settings.setMotorTempSource((MotorTempSource)src);
+            }
+#endif
             settings.save();
 
             request->send(200, "text/plain", "Sucesso: Configurações térmicas salvas");

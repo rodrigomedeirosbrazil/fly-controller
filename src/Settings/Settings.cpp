@@ -57,6 +57,9 @@ Settings::Settings() {
     powerControlEnabled = true;
     bmsType = BmsTypeNone;
     mutex_ = nullptr;
+#if IS_TMOTOR
+    motorTempSource = MotorTempSourceCan;
+#endif
 }
 
 void Settings::init() {
@@ -104,6 +107,11 @@ void Settings::load() {
     configPin = readBoundedPrefString(preferences, "cfgPin");
     if (configPin.length() == 0) configPin = "0000";
 
+#if IS_TMOTOR
+    motorTempSource = (MotorTempSource)preferences.getUChar("motTmpSrc", MotorTempSourceCan);
+    if (motorTempSource > MotorTempSourceAds1115) motorTempSource = MotorTempSourceCan;
+#endif
+
     bool repaired = false;
 
     bmsMac.trim();
@@ -148,6 +156,9 @@ void Settings::save() {
     preferences.putBool("pwrCtrl", powerControlEnabled);
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
+#if IS_TMOTOR
+    preferences.putUChar("motTmpSrc", (uint8_t)motorTempSource);
+#endif
     if (mutex_) xSemaphoreGive(mutex_);
 }
 
@@ -292,3 +303,13 @@ void Settings::setConfigPin(const String& pin) {
     configPin = pin;
     if (mutex_) xSemaphoreGive(mutex_);
 }
+
+#if IS_TMOTOR
+MotorTempSource Settings::getMotorTempSource() const {
+    return motorTempSource;
+}
+
+void Settings::setMotorTempSource(MotorTempSource source) {
+    motorTempSource = source;
+}
+#endif

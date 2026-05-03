@@ -5,12 +5,20 @@
 #include <Preferences.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include "../config_controller.h"
 
 enum BmsType : uint8_t {
     BmsTypeNone = 0,
     BmsTypeJbd = 1,
     BmsTypeDaly = 2
 };
+
+#if IS_TMOTOR
+enum MotorTempSource : uint8_t {
+    MotorTempSourceCan = 0,
+    MotorTempSourceAds1115 = 1
+};
+#endif
 
 class Settings {
 public:
@@ -55,6 +63,12 @@ public:
     String getConfigPin() const;
     void setConfigPin(const String& pin);
 
+#if IS_TMOTOR
+    // Motor temperature sensor source (T-Motor only)
+    MotorTempSource getMotorTempSource() const;
+    void setMotorTempSource(MotorTempSource source);
+#endif
+
 private:
     Preferences preferences;
     SemaphoreHandle_t mutex_;
@@ -73,6 +87,9 @@ private:
     // Current values
     String configPin;
     uint16_t batteryCapacityMah;
+#if IS_TMOTOR
+    MotorTempSource motorTempSource;
+#endif
     uint16_t batteryMinVoltage;
     uint16_t batteryMaxVoltage;
     int32_t motorMaxTemp;

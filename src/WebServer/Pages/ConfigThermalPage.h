@@ -33,6 +33,15 @@ static const char CONFIG_THERMAL_PAGE_HTML[] PROGMEM = R"rawliteral(
             <form id="thermalConfigForm">
                 <h2>Configurações de Temperatura do Motor</h2>
 
+                <div class="form-group" id="motorTempSourceGroup" style="display:none">
+                    <label for="motorTempSource">Fonte do Sensor de Temperatura do Motor:</label>
+                    <select id="motorTempSource" name="motorTempSource">
+                        <option value="0">CAN (ESC)</option>
+                        <option value="1">ADS1115 (NTC externo)</option>
+                    </select>
+                    <div class="info-text">Selecione se a temperatura do motor vem do CAN bus do ESC ou do sensor NTC externo via ADS1115.</div>
+                </div>
+
                 <div class="form-group">
                     <label for="motorMaxTemp">Temperatura Máxima do Motor (C):</label>
                     <input type="number" id="motorMaxTemp" name="motorMaxTemp" min="0" max="150" step="1" required>
@@ -96,6 +105,10 @@ const loadCurrentValues = () => {
             $('motorTempReductionStart').value = data.motorTempReductionStart / 1000;
             $('escMaxTemp').value = data.escMaxTemp / 1000;
             $('escTempReductionStart').value = data.escTempReductionStart / 1000;
+            if (data.motorTempSource !== undefined) {
+                $('motorTempSource').value = data.motorTempSource;
+                $('motorTempSourceGroup').style.display = '';
+            }
         })
         .catch((error) => {
             console.error('Error loading thermal settings:', error);
@@ -116,6 +129,9 @@ $('thermalConfigForm').addEventListener('submit', function(e) {
         escMaxTemp: Math.round(parseFloat($('escMaxTemp').value) * 1000),
         escTempReductionStart: Math.round(parseFloat($('escTempReductionStart').value) * 1000)
     };
+    if ($('motorTempSourceGroup').style.display !== 'none') {
+        data.motorTempSource = parseInt($('motorTempSource').value, 10);
+    }
 
     const pin = $('configPin').value;
     setPin(pin);

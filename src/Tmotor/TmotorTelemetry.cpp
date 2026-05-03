@@ -8,6 +8,10 @@ extern Temperature motorTemp;
 extern BatteryVoltageSensor batterySensor;
 
 static int32_t motorTempMilliCelsiusForDisplay() {
+    if (settings.getMotorTempSource() == MotorTempSourceAds1115) {
+        return (int32_t)(motorTemp.getTemperature() * 1000.0);
+    }
+    // CAN (default): prefer CAN if recent, fall back to ADS1115
     if (tmotorCan.hasRecentMotorTempFromCan()) {
         return (int32_t)tmotorCan.getMotorTemperature() * 1000;
     }
