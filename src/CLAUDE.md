@@ -98,6 +98,10 @@ NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adc
 
 ### Buzzer — `Buzzer/`
 Passive buzzer via LEDC PWM. Non-blocking: `setup()` once, then `handle()` every loop tick. Named methods: `beepSystemStart()`, `beepCalibrationStep()`, `beepArmedAlert()`, etc. Supports melodies (sequences of `Note` structs).
+Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and passive piezo buzzer:
+- Duty-cycle sweep found the highest perceived volume at about 85% (`217/255`).
+- Frequency sweep found the loudest useful range between `2000 Hz` and `2500 Hz`.
+- Current defaults use `2300 Hz` for general beeps and `2000 Hz` for the armed alert.
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, ESC temp limiting, and ramp rate control. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`.

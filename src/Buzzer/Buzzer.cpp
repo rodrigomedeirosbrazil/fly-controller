@@ -1,11 +1,27 @@
+#include <stdint.h>
+
 #include "Buzzer.h"
+
+namespace {
+// Empirical tuning notes for the current hardware:
+// - Supply: 3.3 V
+// - Transistor stage: BC337
+// - Sounder: passive piezo buzzer
+// Device testing showed the strongest output near 85% duty cycle. A sweep also
+// showed that 2000-2500 Hz stays in the loudest range, while higher
+// frequencies lose volume. We use 2300 Hz for general UX beeps and 2000 Hz for
+// the armed alert so it remains distinct while staying in the loud range.
+constexpr uint16_t kDefaultBeepFrequencyHz = 2300;
+constexpr uint16_t kAlertBeepFrequencyHz = 2000;
+constexpr uint8_t kDefaultDutyCycle = 217;  // 85%
+}
 
 Buzzer::Buzzer(uint8_t buzzerPin) :
   pin(buzzerPin),
   pwmChannel(1),       // Use channel 1 to avoid conflict with ESP32Servo (uses timer 0)
-  pwmFrequency(2500),  // 2.5 kHz - passive buzzer resonant frequency for maximum volume
+  pwmFrequency(kDefaultBeepFrequencyHz),
   pwmResolution(8),    // 8-bit resolution (0-255)
-  pwmDutyCycle(255),   // 100% duty cycle — narrow low-pulse generates harmonics that excite buzzer resonance
+  pwmDutyCycle(kDefaultDutyCycle),
   playing(false),
   startTime(0),
   beepDuration(0),
@@ -170,44 +186,42 @@ void Buzzer::setFrequency(uint16_t frequency) {
   }
 }
 
-// All beep patterns use 2500 Hz (buzzer resonant frequency) at 100% duty cycle.
-// With 255/256 duty, the narrow low-pulse generates harmonics that excite the buzzer
-// at its resonant frequency regardless of the fundamental, maximizing volume.
-// Sounds are distinguished by rhythm (count, duration, pause) rather than pitch.
+// General UX beeps use the tuned default frequency and duty cycle.
+// The armed alert uses a slightly lower tone so it stands out immediately.
 
 void Buzzer::beepSystemStart() {
   // 3 beeps — friendly startup confirmation
-  startBeep(150, 3, 80);
+  startBeep(150, 3, 80, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepCalibrationStep() {
   // 2 short beeps — step acknowledgement
-  startBeep(80, 2, 60);
+  startBeep(80, 2, 60, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepCalibrationComplete() {
   // 3 longer beeps — positive confirmation
-  startBeep(200, 3, 80);
+  startBeep(200, 3, 80, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepDisarmed() {
   // 2 slow beeps — relaxed, disarmed state
-  startBeep(250, 2, 150);
+  startBeep(250, 2, 150, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepArmingBlocked() {
   // 5 rapid beeps — urgent warning
-  startBeep(60, 5, 40);
+  startBeep(60, 5, 40, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepButtonClick() {
   // 1 short beep — tactile click feedback
-  startBeep(50, 1, 0);
+  startBeep(50, 1, 0, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::beepArmedAlert() {
   // Fast continuous beep — repeating armed alert
-  startBeep(200, 255, 200);
+  startBeep(200, 255, 200, kAlertBeepFrequencyHz);
 }
 
 void Buzzer::setPwmOn() {
