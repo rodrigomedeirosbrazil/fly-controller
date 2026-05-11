@@ -37,6 +37,7 @@ private:
     void writeEscInfo(char* data, size_t size, size_t& used);
     void writeSystemStatus(char* data, size_t size, size_t& used);
     void writeBmsInfo(char* data, size_t size, size_t& used);
+    void writeMotorTempNtc(char* data, size_t size, size_t& used);
 };
 
 #endif // XCTOD_H

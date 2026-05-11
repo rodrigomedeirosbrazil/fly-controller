@@ -114,6 +114,7 @@ void Xctod::write() {
     writeEscInfo(data, sizeof(data), used);
     writeSystemStatus(data, sizeof(data), used);
     writeBmsInfo(data, sizeof(data), used);
+    writeMotorTempNtc(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     pCharacteristic->setValue(reinterpret_cast<uint8_t*>(data), used);
@@ -242,4 +243,9 @@ void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
     } else {
         appendToBuffer(data, size, used, ",,");
     }
+}
+
+void Xctod::writeMotorTempNtc(char* data, size_t size, size_t& used) {
+    int32_t ntcCelsius = telemetry.getMotorTempNtcMilliCelsius() / 1000;
+    appendToBuffer(data, size, used, ",%ld", (long)ntcCelsius);
 }

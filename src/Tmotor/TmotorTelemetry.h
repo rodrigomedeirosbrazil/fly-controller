@@ -17,6 +17,7 @@ public:
     uint32_t getBatteryCurrentMilliAmps() const;
     uint16_t getRpm() const;
     int32_t getMotorTempMilliCelsius() const;
+    int32_t getMotorTempNtcMilliCelsius() const;
     int32_t getEscTempMilliCelsius() const;
     unsigned long getLastUpdate() const;
 

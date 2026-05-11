@@ -81,6 +81,10 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="label">Motor</div>
                     <div class="value" id="motorTemp">--</div>
                     <div class="sub" id="rpm">--</div>
+                    <div class="sub2">
+                        <div class="sub2-label">NTC</div>
+                        <div class="sub2-value" id="motorTempNtc">--</div>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">ESC</div>
@@ -516,6 +520,7 @@ const renderTelemetry = (data) => {
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
     setText('throttleRaw', `${data.throttleRaw || 0}`);
     setText('motorTemp', fmtC(data.motorTempMc || 0));
+    setText('motorTempNtc', fmtC(data.motorTempNtcMc || 0));
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
     setText('escTemp', fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');

@@ -18,6 +18,10 @@ static int32_t motorTempMilliCelsiusForDisplay() {
     return (int32_t)(motorTemp.getTemperature() * 1000.0);
 }
 
+static int32_t motorTempNtcMilliCelsius() {
+    return (int32_t)(motorTemp.getTemperature() * 1000.0f);
+}
+
 void TmotorTelemetry::update() {
     cachedBatteryVoltageMilliVolts = batterySensor.getVoltageMilliVolts();
 
@@ -44,6 +48,7 @@ uint16_t TmotorTelemetry::getBatteryVoltageMilliVolts() const { return cachedBat
 uint32_t TmotorTelemetry::getBatteryCurrentMilliAmps() const { return cachedBatteryCurrentMilliAmps; }
 uint16_t TmotorTelemetry::getRpm() const { return cachedRpm; }
 int32_t TmotorTelemetry::getMotorTempMilliCelsius() const { return cachedMotorTempMilliCelsius; }
+int32_t TmotorTelemetry::getMotorTempNtcMilliCelsius() const { return motorTempNtcMilliCelsius(); }
 int32_t TmotorTelemetry::getEscTempMilliCelsius() const { return cachedEscTempMilliCelsius; }
 unsigned long TmotorTelemetry::getLastUpdate() const { return cachedLastUpdate; }
 #endif

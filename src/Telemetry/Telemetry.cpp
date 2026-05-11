@@ -12,11 +12,12 @@ static uint16_t wrapGetBatteryVoltageMilliVolts() { return hobbywingTelemetry.ge
 static uint32_t wrapGetBatteryCurrentMilliAmps() { return hobbywingTelemetry.getBatteryCurrentMilliAmps(); }
 static uint16_t wrapGetRpm() { return hobbywingTelemetry.getRpm(); }
 static int32_t wrapGetMotorTempMilliCelsius() { return hobbywingTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetMotorTempNtcMilliCelsius() { return (int32_t)(motorTemp.getTemperature() * 1000.0f); }
 static int32_t wrapGetEscTempMilliCelsius() { return hobbywingTelemetry.getEscTempMilliCelsius(); }
 static unsigned long wrapGetLastUpdate() { return hobbywingTelemetry.getLastUpdate(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetMotorTempNtcMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
 };
 #elif IS_TMOTOR
 static void wrapUpdate() { tmotorTelemetry.update(); }
@@ -25,11 +26,12 @@ static uint16_t wrapGetBatteryVoltageMilliVolts() { return tmotorTelemetry.getBa
 static uint32_t wrapGetBatteryCurrentMilliAmps() { return tmotorTelemetry.getBatteryCurrentMilliAmps(); }
 static uint16_t wrapGetRpm() { return tmotorTelemetry.getRpm(); }
 static int32_t wrapGetMotorTempMilliCelsius() { return tmotorTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetMotorTempNtcMilliCelsius() { return tmotorTelemetry.getMotorTempNtcMilliCelsius(); }
 static int32_t wrapGetEscTempMilliCelsius() { return tmotorTelemetry.getEscTempMilliCelsius(); }
 static unsigned long wrapGetLastUpdate() { return tmotorTelemetry.getLastUpdate(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetMotorTempNtcMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
 };
 #elif IS_XAG
 static void wrapUpdate() { xagTelemetry.update(); }
@@ -38,11 +40,12 @@ static uint16_t wrapGetBatteryVoltageMilliVolts() { return xagTelemetry.getBatte
 static uint32_t wrapGetBatteryCurrentMilliAmps() { return xagTelemetry.getBatteryCurrentMilliAmps(); }
 static uint16_t wrapGetRpm() { return xagTelemetry.getRpm(); }
 static int32_t wrapGetMotorTempMilliCelsius() { return xagTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetMotorTempNtcMilliCelsius() { return (int32_t)(motorTemp.getTemperature() * 1000.0f); }
 static int32_t wrapGetEscTempMilliCelsius() { return xagTelemetry.getEscTempMilliCelsius(); }
 static unsigned long wrapGetLastUpdate() { return xagTelemetry.getLastUpdate(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetMotorTempNtcMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
 };
 #endif
 
@@ -88,6 +91,10 @@ uint16_t Telemetry::getRpm() const {
 
 int32_t Telemetry::getMotorTempMilliCelsius() const {
     return s_backend_ptr && s_backend_ptr->getMotorTempMilliCelsius ? s_backend_ptr->getMotorTempMilliCelsius() : 0;
+}
+
+int32_t Telemetry::getMotorTempNtcMilliCelsius() const {
+    return s_backend_ptr && s_backend_ptr->getMotorTempNtcMilliCelsius ? s_backend_ptr->getMotorTempNtcMilliCelsius() : 0;
 }
 
 int32_t Telemetry::getEscTempMilliCelsius() const {
