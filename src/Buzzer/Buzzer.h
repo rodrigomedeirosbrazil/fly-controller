@@ -57,6 +57,10 @@ class Buzzer {
     // shared low-speed clock, halving previously-configured frequencies).
     void recalibrate();
 
+    // Sets the output volume as a percentage (0-100), mapped directly to the
+    // PWM duty cycle. 0 = silent. Takes effect on the next beep.
+    void setVolume(uint8_t percent);
+
     // Contextual methods
     void beepSystemStart();
     void beepCalibrationStep();
@@ -65,6 +69,7 @@ class Buzzer {
     void beepArmingBlocked();
     void beepButtonClick();
     void beepArmedAlert();
+    void beepVolumePreview();
 
     void stop();
 };

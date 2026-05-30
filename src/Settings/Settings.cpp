@@ -56,6 +56,7 @@ Settings::Settings() {
     escTempReductionStart = 0;
     powerControlEnabled = true;
     bmsType = BmsTypeNone;
+    buzzerVolume = getDefaultBuzzerVolume();
     mutex_ = nullptr;
 #if IS_TMOTOR
     motorTempSource = MotorTempSourceCan;
@@ -107,6 +108,10 @@ void Settings::load() {
     configPin = readBoundedPrefString(preferences, "cfgPin");
     if (configPin.length() == 0) configPin = "0000";
 
+    // Load buzzer volume (default 85%), clamp to valid range
+    buzzerVolume = preferences.getUChar("buzzVol", getDefaultBuzzerVolume());
+    if (buzzerVolume > 100) buzzerVolume = getDefaultBuzzerVolume();
+
 #if IS_TMOTOR
     motorTempSource = (MotorTempSource)preferences.getUChar("motTmpSrc", MotorTempSourceCan);
     if (motorTempSource > MotorTempSourceAds1115) motorTempSource = MotorTempSourceCan;
@@ -156,6 +161,7 @@ void Settings::save() {
     preferences.putBool("pwrCtrl", powerControlEnabled);
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
+    preferences.putUChar("buzzVol", buzzerVolume);
 #if IS_TMOTOR
     preferences.putUChar("motTmpSrc", (uint8_t)motorTempSource);
 #endif
@@ -302,6 +308,19 @@ void Settings::setConfigPin(const String& pin) {
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     configPin = pin;
     if (mutex_) xSemaphoreGive(mutex_);
+}
+
+uint8_t Settings::getBuzzerVolume() const {
+    return buzzerVolume;
+}
+
+void Settings::setBuzzerVolume(uint8_t percent) {
+    if (percent > 100) percent = 100;
+    buzzerVolume = percent;
+}
+
+uint8_t Settings::getDefaultBuzzerVolume() const {
+    return 85;  // Matches the empirically tuned peak-volume duty cycle (217/255)
 }
 
 #if IS_TMOTOR

@@ -174,6 +174,14 @@ void Buzzer::startMelody(const Melody* melody, bool repeat) {
   melodyRepeat = repeat;
 }
 
+void Buzzer::setVolume(uint8_t percent) {
+  if (percent > 100) {
+    percent = 100;
+  }
+  // Map 0-100% directly to the 8-bit duty cycle (0-255). 0% = silent.
+  pwmDutyCycle = (uint32_t)percent * 255 / 100;
+}
+
 void Buzzer::setFrequency(uint16_t frequency) {
   if (frequency == 0) {
     frequency = pwmFrequency; // Use default if 0
@@ -222,6 +230,11 @@ void Buzzer::beepButtonClick() {
 void Buzzer::beepArmedAlert() {
   // Fast continuous beep — repeating armed alert
   startBeep(200, 255, 200, kAlertBeepFrequencyHz);
+}
+
+void Buzzer::beepVolumePreview() {
+  // 1 short beep at the current volume — live feedback while adjusting
+  startBeep(120, 1, 0, kDefaultBeepFrequencyHz);
 }
 
 void Buzzer::setPwmOn() {

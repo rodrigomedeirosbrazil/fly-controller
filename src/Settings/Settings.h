@@ -63,6 +63,10 @@ public:
     String getConfigPin() const;
     void setConfigPin(const String& pin);
 
+    // Buzzer volume (0-100%, maps directly to PWM duty cycle)
+    uint8_t getBuzzerVolume() const;
+    void setBuzzerVolume(uint8_t percent);
+
 #if IS_TMOTOR
     // Motor temperature sensor source (T-Motor only)
     MotorTempSource getMotorTempSource() const;
@@ -83,6 +87,7 @@ private:
     int32_t getDefaultEscTempReductionStart() const;
     bool getDefaultPowerControlEnabled() const;
     uint8_t getDefaultBmsType() const;
+    uint8_t getDefaultBuzzerVolume() const;
 
     // Current values
     String configPin;
@@ -99,6 +104,7 @@ private:
     bool powerControlEnabled;
     String bmsMac;
     uint8_t bmsType;
+    uint8_t buzzerVolume;
 };
 
 #endif // SETTINGS_H

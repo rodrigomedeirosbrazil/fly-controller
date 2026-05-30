@@ -127,6 +127,7 @@ void setup()
   esc.attach(ESC_PIN);
   esc.writeMicroseconds(ESC_MIN_PWM);
   buzzer.recalibrate();
+  buzzer.setVolume(settings.getBuzzerVolume());
   buzzer.beepSystemStart();
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
