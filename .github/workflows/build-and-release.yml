@@ -84,7 +84,11 @@ jobs:
             REF="${GITHUB_REF#refs/tags/}"
           fi
 
-          PREVIOUS_TAG=$(git tag -l --sort=-v:refname | awk -v t="$TAG" '{ if ($0 == t) found=1; else if (found) { print; exit } }')
+          # Find the previous release by walking git history from the tagged
+          # commit's parent. Robust against out-of-order/misnamed tags — a
+          # version or name sort can pick a tag pointing at an old commit and
+          # bloat the changelog with unrelated history.
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 "${REF}^" 2>/dev/null || true)
           if [ -z "$PREVIOUS_TAG" ]; then
             PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD 2>/dev/null | head -1)
           fi
