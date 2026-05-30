@@ -21,6 +21,10 @@ ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. S
 
 Do NOT run `pio` without the full path — it may not be in PATH.
 
+## Releases
+
+Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds all three targets and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
+
 ## Build Targets
 
 | Environment | `CONTROLLER_TYPE` | Macro | CAN Bus | Protocol |

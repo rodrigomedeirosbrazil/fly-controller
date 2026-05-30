@@ -98,8 +98,9 @@ NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adc
 
 ### Buzzer — `Buzzer/`
 Passive buzzer via LEDC PWM. Non-blocking: `setup()` once, then `handle()` every loop tick. Named methods: `beepSystemStart()`, `beepCalibrationStep()`, `beepArmedAlert()`, etc. Supports melodies (sequences of `Note` structs).
+Volume is configurable at runtime: `setVolume(percent)` maps 0-100% directly to the 8-bit duty cycle (0 = silent). The saved volume is applied in `setup()` from `Settings::getBuzzerVolume()`, and `beepVolumePreview()` plays a short beep at the current level for live feedback while adjusting (see the web "Sistema" config page).
 Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and passive piezo buzzer:
-- Duty-cycle sweep found the highest perceived volume at about 85% (`217/255`).
+- Duty-cycle sweep found the highest perceived volume at about 85% (`217/255`) — this is the default volume; higher duty cycles actually sound quieter on this piezo.
 - Frequency sweep found the loudest useful range between `2000 Hz` and `2500 Hz`.
 - Current defaults use `2300 Hz` for general beeps and `2000 Hz` for the armed alert.
 
@@ -110,7 +111,7 @@ Computes ESC PWM from throttle position, applying battery voltage limiting, moto
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.
 
 ### Settings — `Settings/`
-Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, WiFi behavior, BMS type and MAC. Initialized first in `setup()`.
+Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, WiFi behavior, BMS type and MAC, config PIN, and buzzer volume (key `buzzVol`, 0-100%, default 85%). Initialized first in `setup()`.
 
 ### Telemetry — `Telemetry/`
 Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `hobbywingTelemetry` directly.
