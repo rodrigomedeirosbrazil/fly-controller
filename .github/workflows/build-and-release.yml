@@ -49,28 +49,31 @@ jobs:
             RELEASE_TAG="${GITHUB_REF#refs/tags/}"
           fi
           echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "/* Overwritten by CI - do not edit */" > src/Version.h
-          echo "#ifndef VERSION_H" >> src/Version.h
-          echo "#define VERSION_H" >> src/Version.h
-          echo "#define APP_VERSION \"${RELEASE_TAG}\"" >> src/Version.h
-          echo "#endif" >> src/Version.h
+          echo "/* Overwritten by CI - do not edit */" > controller/src/Version.h
+          echo "#ifndef VERSION_H" >> controller/src/Version.h
+          echo "#define VERSION_H" >> controller/src/Version.h
+          echo "#define APP_VERSION \"${RELEASE_TAG}\"" >> controller/src/Version.h
+          echo "#endif" >> controller/src/Version.h
 
       - name: Build Hobbywing
+        working-directory: controller
         run: pio run -e lolin_c3_mini_hobbywing
 
       - name: Build T-Motor
+        working-directory: controller
         run: pio run -e lolin_c3_mini_tmotor
 
       - name: Build XAG
+        working-directory: controller
         run: pio run -e lolin_c3_mini_xag
 
       - name: Prepare release artifacts
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           mkdir -p release
-          cp .pio/build/lolin_c3_mini_hobbywing/firmware.bin "release/firmware-hobbywing-${TAG}.bin"
-          cp .pio/build/lolin_c3_mini_tmotor/firmware.bin "release/firmware-tmotor-${TAG}.bin"
-          cp .pio/build/lolin_c3_mini_xag/firmware.bin "release/firmware-xag-${TAG}.bin"
+          cp controller/.pio/build/lolin_c3_mini_hobbywing/firmware.bin "release/firmware-hobbywing-${TAG}.bin"
+          cp controller/.pio/build/lolin_c3_mini_tmotor/firmware.bin "release/firmware-tmotor-${TAG}.bin"
+          cp controller/.pio/build/lolin_c3_mini_xag/firmware.bin "release/firmware-xag-${TAG}.bin"
 
       - name: Set release body
         id: release

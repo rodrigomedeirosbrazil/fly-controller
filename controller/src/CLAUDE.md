@@ -24,7 +24,7 @@ Defined via `-D CONTROLLER_TYPE=N` in `platformio.ini`:
 
 `USES_CAN_BUS` is 1 for Hobbywing and Tmotor, 0 for XAG. The XAG env also excludes `Hobbywing/`, `Tmotor/`, and `Canbus/` from the build via `build_src_filter`.
 
-Build command: `~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing`
+Build command (run from `controller/`): `~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing`
 
 Debug builds: add `_debug` suffix (e.g. `lolin_c3_mini_tmotor_debug`), which defines `DEBUG=1` and enables `DEBUG_PRINT` / `DEBUG_PRINTLN` macros from `config.h`.
 
