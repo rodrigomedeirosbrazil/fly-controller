@@ -161,6 +161,14 @@ void loop()
   remoteLink.setCalibrating(!throttle.isCalibrated());
   remoteLink.handle();
 
+  // Wireless failsafe: prolonged link loss disarms (the ramp-to-zero case is
+  // handled in the throttle ReadFn feeding 0). See RemoteLinkLogic.
+  if (settings.getThrottleSource() == ThrottleSourceWireless &&
+      throttle.isArmed() &&
+      remoteLink.failsafe(true, millis()) == FailsafeAction::Disarm) {
+    throttle.setDisarmed();
+  }
+
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
 #if IS_XAG
