@@ -59,14 +59,18 @@ root `CLAUDE.md`, and `src/CLAUDE.md`.
 
 ```c
 struct ThrottleToControllerPacket {
-    uint16_t hallRaw;            // raw Hall ADC reading
-    uint8_t  buttonEventCounter; // monotonic; increments once per discrete button event
-    uint8_t  buttonEventType;    // enum: None / ShortClick / LongPress
+    uint16_t hallRaw;       // raw Hall ADC reading
+    uint8_t  buttonPressed; // 1 = button physically pressed, 0 = released
+    uint8_t  reserved;      // padding / future use
 };
 ```
 
-The `buttonEventCounter` deduplicates button events without ACKs: the controller acts only when the
-counter changes. This makes button delivery robust against the 50 Hz repetition and packet loss.
+The remote forwards the **raw button state**, not semantic events. The controller's arming gesture
+is timing-based (a short click followed by a long press), driven by AceButton's internal state — so
+the remote cannot faithfully reproduce it from discrete events. Instead, the controller feeds the
+received `buttonPressed` into its **existing** AceButton (via a `readButton()` source switch), so the
+arming behavior is identical on the wired and wireless paths and no arming logic is duplicated. The
+remote keeps no button state machine; a simple millis-based hold detector triggers pairing mode.
 
 ### Controller → Remote (heartbeat ~5 Hz + on-change)
 

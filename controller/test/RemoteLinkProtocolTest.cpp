@@ -10,12 +10,6 @@ void test_packet_sizes_are_fixed() {
     assert(sizeof(ControllerToThrottlePacket) == 4);
 }
 
-void test_button_event_enum_values() {
-    assert(RemoteButtonEvent::None == 0);
-    assert(RemoteButtonEvent::ShortClick == 1);
-    assert(RemoteButtonEvent::LongPress == 2);
-}
-
 void test_counter_advances_only_on_change() {
     uint8_t lastSeen = 5;
     assert(remoteLinkCounterAdvanced(5, lastSeen) == false); // same -> no action
@@ -32,7 +26,6 @@ void test_counter_wraps_around() {
 
 int main() {
     test_packet_sizes_are_fixed();
-    test_button_event_enum_values();
     test_counter_advances_only_on_change();
     test_counter_wraps_around();
     cout << "RemoteLinkProtocolTest: all passed" << endl;

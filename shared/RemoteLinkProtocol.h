@@ -10,15 +10,6 @@
 // channel on the ESP32-C3's single radio. Matches the softAP default.
 #define REMOTE_LINK_CHANNEL 1
 
-// Discrete button events produced by the remote (AceButton on the remote side).
-namespace RemoteButtonEvent {
-    enum Type : uint8_t {
-        None = 0,
-        ShortClick = 1, // arm / disarm
-        LongPress = 2,  // start calibration
-    };
-}
-
 // Beep commands the controller asks the remote to play. Mapped to named
 // Buzzer patterns on the remote side.
 namespace RemoteBeep {
@@ -35,10 +26,13 @@ namespace RemoteBeep {
 #pragma pack(push, 1)
 
 // Remote -> Controller, sent ~50 Hz.
+// The remote forwards the RAW button state; the controller runs its existing
+// AceButton arming gesture on the received state (identical wired/wireless
+// behavior). reserved keeps the struct at a stable 4 bytes for future use.
 struct ThrottleToControllerPacket {
-    uint16_t hallRaw;            // raw Hall ADC reading
-    uint8_t  buttonEventCounter; // monotonic; +1 per discrete button event
-    uint8_t  buttonEventType;    // RemoteButtonEvent::Type
+    uint16_t hallRaw;       // raw Hall ADC reading
+    uint8_t  buttonPressed; // 1 = button physically pressed, 0 = released
+    uint8_t  reserved;      // padding / future use
 };
 
 // Controller -> Remote, heartbeat ~5 Hz + on-change.

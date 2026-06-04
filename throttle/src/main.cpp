@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <AceButton.h>
 #include <Buzzer.h>
 #include "RemoteLinkProtocol.h"
 #include "RemotePins.h"
@@ -7,29 +6,20 @@
 #include "RemoteEspNow/RemoteEspNow.h"
 #include "RemotePairing/RemotePairing.h"
 
-using namespace ace_button;
-
 Buzzer buzzer(BUZZER_PIN);
-AceButton button(BUTTON_PIN);
-RemoteButtonState buttonState;
 
 static uint8_t lastBeepCounter = 0;
 static bool pairingMode = false;
 
-static const uint16_t THROTTLE_TX_INTERVAL_MS = 20; // ~50 Hz
+static const uint16_t THROTTLE_TX_INTERVAL_MS = 20;   // ~50 Hz
+static const uint32_t PAIRING_HOLD_MS = 3000;         // hold (unpaired) to enter pairing
 static uint32_t lastTxMs = 0;
+static uint32_t pressStartMs = 0;
+static bool wasPressed = false;
 
-void handleButton(AceButton *, uint8_t eventType, uint8_t) {
-    if (eventType == AceButton::kEventClicked) {
-        recordButtonEvent(buttonState, RemoteButtonEvent::ShortClick);
-    } else if (eventType == AceButton::kEventLongPressed) {
-        // On a fresh (unpaired) remote, a long hold enters pairing mode.
-        if (!remotePairing.isPaired()) {
-            pairingMode = true;
-            remoteEspNow.setBroadcastPeer();
-        }
-        recordButtonEvent(buttonState, RemoteButtonEvent::LongPress);
-    }
+// Active-low button: pressed when the pin reads LOW.
+static bool buttonPressed() {
+    return digitalRead(BUTTON_PIN) == LOW;
 }
 
 void setup() {
@@ -41,12 +31,6 @@ void setup() {
 
     buzzer.setup();
 
-    ButtonConfig *cfg = button.getButtonConfig();
-    cfg->setEventHandler(handleButton);
-    cfg->setFeature(ButtonConfig::kFeatureClick);
-    cfg->setFeature(ButtonConfig::kFeatureLongPress);
-    cfg->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-
     remoteEspNow.setup();
     remotePairing.load();
     if (remotePairing.isPaired()) {
@@ -55,6 +39,19 @@ void setup() {
         remoteEspNow.setBroadcastPeer();
     }
     buzzer.beepSystemStart();
+}
+
+// On a fresh (unpaired) remote, holding the button enters pairing mode.
+static void updatePairingHold(bool pressed, uint32_t now) {
+    if (pressed && !wasPressed) {
+        pressStartMs = now;
+    }
+    if (pressed && !remotePairing.isPaired() && !pairingMode &&
+        (now - pressStartMs) >= PAIRING_HOLD_MS) {
+        pairingMode = true;
+        remoteEspNow.setBroadcastPeer();
+    }
+    wasPressed = pressed;
 }
 
 static void driveLeds() {
@@ -81,16 +78,17 @@ static void playRequestedBeep() {
 }
 
 void loop() {
-    button.check();
     buzzer.handle();
 
     uint32_t now = millis();
+    bool pressed = buttonPressed();
+    updatePairingHold(pressed, now);
+
     if (now - lastTxMs >= THROTTLE_TX_INTERVAL_MS) {
         lastTxMs = now;
         ThrottleToControllerPacket pkt{};
         pkt.hallRaw = analogRead(HALL_PIN);
-        pkt.buttonEventCounter = buttonState.counter;
-        pkt.buttonEventType = buttonState.type;
+        pkt.buttonPressed = pressed ? 1 : 0;
         remoteEspNow.sendThrottle(pkt);
     }
 
