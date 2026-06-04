@@ -185,6 +185,8 @@ void ControllerWebServer::begin() {
 void ControllerWebServer::startAP() {
     Serial.println("Configuring access point...");
     WiFi.mode(WIFI_AP);
+    // ESP32-C3 Supermini transmits unstably at full power; 8.5 dBm fixes it
+    // (commit f06aa0d). ESP-NOW shares this radio/TX power — fine at close range.
     WiFi.setTxPower(WIFI_POWER_8_5dBm);
     WiFi.softAPConfig(apIP, apIP, netMsk);
     WiFi.softAP(SOFT_AP_SSID);
@@ -911,16 +913,6 @@ void ControllerWebServer::startAP() {
     ElegantOTA.begin(&server);
     ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
     Serial.println("Web server started.");
-}
-
-void ControllerWebServer::stop() {
-    Serial.println("Stopping web server and access point...");
-    server.end(); // Stop the web server
-    dnsServer.stop(); // Stop the DNS server
-    WiFi.softAPdisconnect(true); // Disconnect clients and stop AP
-    WiFi.mode(WIFI_OFF); // Turn off Wi-Fi
-    isActive = false;
-    Serial.println("Web server and access point stopped.");
 }
 
 void ControllerWebServer::handleClient() {

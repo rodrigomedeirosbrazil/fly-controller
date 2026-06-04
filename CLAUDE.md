@@ -126,3 +126,5 @@ All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences
 ## Web Portal
 
 Available on all builds. Connects to WiFi AP, serves config pages at `192.168.4.1`. OTA firmware update via ElegantOTA.
+
+WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).

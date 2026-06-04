@@ -12,7 +12,6 @@ class ControllerWebServer {
 public:
     ControllerWebServer();
     void begin();
-    void stop();
     void handleClient();
 
 private:
