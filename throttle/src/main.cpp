@@ -5,6 +5,7 @@
 #include "RemotePins.h"
 #include "RemoteLogic/RemoteLogic.h"
 #include "RemoteEspNow/RemoteEspNow.h"
+#include "RemotePairing/RemotePairing.h"
 
 using namespace ace_button;
 
@@ -13,6 +14,7 @@ AceButton button(BUTTON_PIN);
 RemoteButtonState buttonState;
 
 static uint8_t lastBeepCounter = 0;
+static bool pairingMode = false;
 
 static const uint16_t THROTTLE_TX_INTERVAL_MS = 20; // ~50 Hz
 static uint32_t lastTxMs = 0;
@@ -21,6 +23,11 @@ void handleButton(AceButton *, uint8_t eventType, uint8_t) {
     if (eventType == AceButton::kEventClicked) {
         recordButtonEvent(buttonState, RemoteButtonEvent::ShortClick);
     } else if (eventType == AceButton::kEventLongPressed) {
+        // On a fresh (unpaired) remote, a long hold enters pairing mode.
+        if (!remotePairing.isPaired()) {
+            pairingMode = true;
+            remoteEspNow.setBroadcastPeer();
+        }
         recordButtonEvent(buttonState, RemoteButtonEvent::LongPress);
     }
 }
@@ -41,12 +48,17 @@ void setup() {
     cfg->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
 
     remoteEspNow.setup();
+    remotePairing.load();
+    if (remotePairing.isPaired()) {
+        remoteEspNow.setPeer(remotePairing.peerMac());
+    } else {
+        remoteEspNow.setBroadcastPeer();
+    }
     buzzer.beepSystemStart();
 }
 
 static void driveLeds() {
-    bool paired = false; // wired up in Task 4 (pairing/persistence)
-    bool pairingMode = false;
+    bool paired = remotePairing.isPaired();
     bool linkLost = !remoteEspNow.hasState() || isLinkLost(remoteEspNow.lastRxMs(), millis());
     bool armed = remoteEspNow.hasState() && remoteEspNow.state().armed;
     LedOutput out = renderLeds(pickLedPattern(paired, pairingMode, linkLost, armed), millis());
@@ -80,6 +92,14 @@ void loop() {
         pkt.buttonEventCounter = buttonState.counter;
         pkt.buttonEventType = buttonState.type;
         remoteEspNow.sendThrottle(pkt);
+    }
+
+    // While pairing, the first controller packet teaches us its MAC.
+    if (pairingMode && remoteEspNow.hasState()) {
+        remotePairing.save(remoteEspNow.lastSenderMac());
+        remoteEspNow.setPeer(remotePairing.peerMac());
+        pairingMode = false;
+        buzzer.beepCalibrationComplete(); // audible pairing confirmation
     }
 
     playRequestedBeep();
