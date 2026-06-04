@@ -133,6 +133,7 @@ void setup()
   buzzer.recalibrate();
   buzzer.setVolume(settings.getBuzzerVolume());
   buzzer.beepSystemStart();
+  remoteLink.requestBeep(RemoteBeep::SystemStart);
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
   // WDT_TIMEOUT_S seconds (e.g. a blocking BLE call or infinite loop), the
@@ -261,11 +262,13 @@ void handleArmedBeep()
     // Start continuous beep when armed and motor stops
     if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
         buzzer.beepArmedAlert(); // Continuous intermittent beep - critical safety alert
+        remoteLink.requestBeep(RemoteBeep::Armed);
     }
 
     // Stop beep when motor starts running or throttle is disarmed
     if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning) {
         buzzer.stop();
+        if (!isArmed) remoteLink.requestBeep(RemoteBeep::Disarmed);
     }
 
     wasArmed = isArmed;
