@@ -65,3 +65,4 @@ JbdBms jbdBms;
 Settings settings;
 HourMeter hourMeter;
 ADS1115 ads1115;
+RemoteLink remoteLink;

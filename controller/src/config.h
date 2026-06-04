@@ -31,6 +31,7 @@
 #if IS_XAG
 #include "Xag/XagTelemetry.h"
 #endif
+#include "RemoteLink/RemoteLink.h"
 
 // Debug logging - compiles to zero in production
 #ifdef DEBUG
@@ -81,6 +82,7 @@ extern JbdBms jbdBms;
 extern Settings settings;
 extern HourMeter hourMeter;
 extern ADS1115 ads1115;
+extern RemoteLink remoteLink;
 #include "Telemetry/Telemetry.h"
 
 // ========== ANALOG INPUTS (ADC1 - legacy, used only when ADS1115 not in use) ==========

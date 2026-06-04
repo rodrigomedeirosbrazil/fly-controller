@@ -21,6 +21,7 @@
 #include "Xctod/Xctod.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
+#include "RemoteLink/RemoteLink.h"
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/HobbywingCan.h"
 #endif
@@ -55,6 +56,9 @@ void setup()
   hourMeter.init();
 
   webServer.begin();
+
+  // ESP-NOW rides the same radio as the AP — init after WiFi/AP is up.
+  remoteLink.setup();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
   extern ADS1115 ads1115;
@@ -151,6 +155,12 @@ void loop()
   checkCanbus();
 #endif
   throttle.handle();
+
+  // Mirror controller state to the remote and send the periodic heartbeat.
+  remoteLink.setArmed(throttle.isArmed());
+  remoteLink.setCalibrating(!throttle.isCalibrated());
+  remoteLink.handle();
+
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
 #if IS_XAG
