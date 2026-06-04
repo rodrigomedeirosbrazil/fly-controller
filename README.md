@@ -213,6 +213,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Direct ESC PWM control
 - ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
 - ✅ Bidirectional CAN bus communication (DroneCAN/UAVCAN)
+- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in `throttle/`), with a hybrid link-loss failsafe (ramp to zero, then disarm), web-portal pairing, and status LEDs/buzzer on the remote
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -250,26 +251,36 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 ## 🚀 Installation and Configuration
 
+### Repository Layout (monorepo)
+
+| Path | Project |
+|------|---------|
+| `controller/` | Controller firmware (the main flight controller; `platformio.ini` lives here) |
+| `throttle/` | Remote wireless-throttle firmware (ESP-NOW) |
+| `shared/` | Code shared by both — e.g. `RemoteLinkProtocol.h` (the ESP-NOW wire contract) |
+
+Run the controller `pio` commands from `controller/` and the remote-throttle command from `throttle/`.
+
 ### Build Environments
 
-The project supports three controller types with dedicated build environments:
+The project supports three controller types plus the optional wireless remote throttle:
 
-| Controller | Environment | Protocol | CAN Bus |
+| Firmware | Environment | Protocol | CAN Bus |
 |------------|-------------|----------|---------|
 | **Hobbywing** | `lolin_c3_mini_hobbywing` | DroneCAN | ✅ Required |
 | **T-Motor** | `lolin_c3_mini_tmotor` | UAVCAN | ✅ Required |
 | **XAG** | `lolin_c3_mini_xag` | PWM-only | ❌ Not required |
+| **Remote throttle** | `remote_throttle` | ESP-NOW | ❌ Not required |
 
 **Quick Build Commands:**
 ```bash
-# Hobbywing (default)
+# Controller targets (run from controller/)
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
-
-# T-Motor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
-
-# XAG
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
+
+# Remote wireless throttle (run from throttle/)
+~/.platformio/penv/bin/pio run -e remote_throttle
 ```
 
 ### 1. Prerequisites

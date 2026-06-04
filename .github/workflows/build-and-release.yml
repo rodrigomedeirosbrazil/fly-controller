@@ -67,6 +67,10 @@ jobs:
         working-directory: controller
         run: pio run -e lolin_c3_mini_xag
 
+      - name: Build Remote Throttle
+        working-directory: throttle
+        run: pio run -e remote_throttle
+
       - name: Prepare release artifacts
         run: |
           TAG="${{ steps.version.outputs.tag }}"
@@ -74,6 +78,7 @@ jobs:
           cp controller/.pio/build/lolin_c3_mini_hobbywing/firmware.bin "release/firmware-hobbywing-${TAG}.bin"
           cp controller/.pio/build/lolin_c3_mini_tmotor/firmware.bin "release/firmware-tmotor-${TAG}.bin"
           cp controller/.pio/build/lolin_c3_mini_xag/firmware.bin "release/firmware-xag-${TAG}.bin"
+          cp throttle/.pio/build/remote_throttle/firmware.bin "release/firmware-remote-throttle-${TAG}.bin"
 
       - name: Set release body
         id: release
@@ -116,9 +121,10 @@ jobs:
               echo ""
             fi
             echo "### Firmware images"
-            echo "- \`firmware-hobbywing-${TAG}.bin\` — Hobbywing (DroneCAN)"
-            echo "- \`firmware-tmotor-${TAG}.bin\` — T-Motor (UAVCAN)"
-            echo "- \`firmware-xag-${TAG}.bin\` — XAG (PWM/analog)"
+            echo "- \`firmware-hobbywing-${TAG}.bin\` — Hobbywing controller (DroneCAN)"
+            echo "- \`firmware-tmotor-${TAG}.bin\` — T-Motor controller (UAVCAN)"
+            echo "- \`firmware-xag-${TAG}.bin\` — XAG controller (PWM/analog)"
+            echo "- \`firmware-remote-throttle-${TAG}.bin\` — Wireless remote throttle (ESP-NOW)"
             echo "RELEASE_BODY"
           } >> "$GITHUB_OUTPUT"
 
@@ -132,5 +138,6 @@ jobs:
             release/firmware-hobbywing-${{ steps.version.outputs.tag }}.bin
             release/firmware-tmotor-${{ steps.version.outputs.tag }}.bin
             release/firmware-xag-${{ steps.version.outputs.tag }}.bin
+            release/firmware-remote-throttle-${{ steps.version.outputs.tag }}.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
