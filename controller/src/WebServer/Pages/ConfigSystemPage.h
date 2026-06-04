@@ -40,6 +40,16 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">Ajuste em passos de 5%. Ao mover, o buzzer emite um beep no novo nível. 0% = silencioso.</div>
                 </div>
 
+                <h2>Acelerador</h2>
+                <div class="form-group">
+                    <label for="throttleSource">Fonte do acelerador</label>
+                    <select id="throttleSource" name="throttleSource">
+                        <option value="0">Cabeado</option>
+                        <option value="1">Sem fio (ESP-NOW)</option>
+                    </select>
+                    <div class="info-text">No modo sem fio, o acelerador e o botão vêm do controle remoto por ESP-NOW.</div>
+                </div>
+
                 <div class="form-group">
                     <label for="configPin">PIN</label>
                     <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
@@ -48,6 +58,15 @@ static const char CONFIG_SYSTEM_PAGE_HTML[] PROGMEM = R"rawliteral(
                 <button type="submit" id="saveButton">Salvar Configurações de Sistema</button>
                 <div class="message" id="message"></div>
             </form>
+
+            <h2>Pareamento do acelerador sem fio</h2>
+            <div class="form-group">
+                <div class="info-text">Remote pareado: <span id="remoteMac">--</span></div>
+                <button type="button" id="pairButton">Parear remote</button>
+                <button type="button" id="forgetButton">Esquecer remote</button>
+                <div class="info-text">Ao parear, segure o botão do acelerador para ele transmitir. O PIN acima é necessário.</div>
+                <div class="message" id="pairMessage"></div>
+            </div>
         </div>
     </div>
 
@@ -75,6 +94,8 @@ const loadCurrentValues = () => {
         .then((data) => {
             $('buzzerVolume').value = data.buzzerVolume;
             $('buzzerVolumeValue').textContent = data.buzzerVolume;
+            if (data.throttleSource !== undefined) $('throttleSource').value = String(data.throttleSource);
+            $('remoteMac').textContent = (data.remoteMac && data.remoteMac.length) ? data.remoteMac : 'não pareado';
         })
         .catch((error) => {
             console.error('Error loading system settings:', error);
@@ -105,7 +126,8 @@ $('systemConfigForm').addEventListener('submit', function(e) {
     $('message').style.display = 'none';
 
     const data = {
-        buzzerVolume: parseInt($('buzzerVolume').value, 10)
+        buzzerVolume: parseInt($('buzzerVolume').value, 10),
+        throttleSource: parseInt($('throttleSource').value, 10)
     };
 
     const pin = $('configPin').value;
@@ -126,6 +148,29 @@ $('systemConfigForm').addEventListener('submit', function(e) {
             saveButton.disabled = false;
         });
 });
+
+const showPairMessage = (text, kind) => {
+    const el = $('pairMessage');
+    if (!el) return;
+    el.textContent = text;
+    el.className = `message ${kind}`;
+    el.style.display = 'block';
+};
+
+const postRemote = (url, okText) => {
+    const pin = $('configPin').value || getPin();
+    setPin(pin);
+    fetch(url, { method: 'POST', headers: { 'X-Config-Pin': pin } })
+        .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
+        .then(({ ok, text }) => {
+            showPairMessage(ok ? okText : 'Erro: ' + text, ok ? 'ok' : 'err');
+            if (ok) loadCurrentValues();
+        })
+        .catch((error) => showPairMessage('Erro: ' + error, 'err'));
+};
+
+$('pairButton').addEventListener('click', () => postRemote('/api/remote/pair', 'Modo de pareamento ativado — segure o botão do acelerador.'));
+$('forgetButton').addEventListener('click', () => postRemote('/api/remote/forget', 'Remote esquecido.'));
 
 window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPin(); });
 

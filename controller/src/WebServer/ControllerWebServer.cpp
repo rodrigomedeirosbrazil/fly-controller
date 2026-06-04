@@ -155,8 +155,10 @@ void sendBmsConfigResponse(AsyncWebServerRequest* request) {
 }
 
 void sendSystemConfigResponse(AsyncWebServerRequest* request) {
-    StaticJsonDocument<128> doc;
+    StaticJsonDocument<256> doc;
     doc["buzzerVolume"] = settings.getBuzzerVolume();
+    doc["throttleSource"] = settings.getThrottleSource();
+    doc["remoteMac"] = settings.getRemoteMac();
     if (doc.overflowed()) {
         request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
@@ -519,16 +521,42 @@ void ControllerWebServer::startAP() {
             }
 
             settings.setBuzzerVolume((uint8_t)volume);
+
+            // Optional: wireless throttle source (0 = wired, 1 = wireless).
+            if (doc.containsKey("throttleSource")) {
+                int32_t src = doc["throttleSource"];
+                if (src < 0 || src > 1) {
+                    request->send(400, "text/plain", "throttleSource fora do intervalo (0-1)");
+                    return;
+                }
+                settings.setThrottleSource((uint8_t)src);
+            }
+
             settings.save();
             buzzer.setVolume((uint8_t)volume);
 
             request->send(200, "text/plain", "Sucesso: Configurações de sistema salvas");
         },
-        128
+        192
     );
     saveSystemHandler->setMethod(HTTP_POST);
-    saveSystemHandler->setMaxContentLength(128);
+    saveSystemHandler->setMaxContentLength(192);
     server.addHandler(saveSystemHandler);
+
+    // Remote-throttle pairing: arm pairing mode; the next remote heard is saved.
+    server.on("/api/remote/pair", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
+        remoteLink.enterPairing();
+        request->send(200, "text/plain", "Modo de pareamento ativado");
+    });
+
+    // Forget the paired remote.
+    server.on("/api/remote/forget", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
+        settings.clearRemoteMac();
+        settings.save();
+        request->send(200, "text/plain", "Remote esquecido");
+    });
 
     // PIN management — GET: check if pin is "0000" (default); POST: change pin.
     // The POST body must be { "currentPin": "xxxx", "newPin": "yyyy" }.
