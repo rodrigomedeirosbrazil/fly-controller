@@ -429,6 +429,33 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 2. Move throttle to minimum position and hold for 3 seconds
 3. Calibration complete - system is ready to arm
 
+### 8. Wireless Throttle (ESP-NOW) — Pairing
+
+The optional wireless throttle (remote firmware in `throttle/`) sends throttle + button to the controller over ESP-NOW. The controller keeps all logic; the remote just forwards its Hall reading and raw button state, and shows status on two LEDs (red = armed, green = disarmed). Both devices must be paired once before use.
+
+**Pairing steps:**
+1. Power on both devices. An **unpaired** remote shows the **red LED blinking**.
+2. On the controller, connect to its WiFi AP and open the portal at `192.168.4.1`.
+3. Go to **Sistema** (System) and set **Fonte do acelerador** (Throttle source) to **Sem fio (ESP-NOW)**. Enter the config PIN and save.
+4. In the same page, under **Pareamento do acelerador sem fio**, click **Parear remote**. (The PIN field must be filled.)
+5. On the remote, **hold the button** for ~3 seconds. It enters pairing mode — **red and green LEDs alternate**.
+6. The controller captures the remote's MAC and saves it; the remote learns the controller's MAC (persisted in NVS) and **beeps** to confirm. The portal then shows the paired MAC.
+7. Done — the remote shows **green solid** (disarmed). Arm/calibrate exactly as with the wired throttle, using the remote's button and Hall.
+
+**LED reference (remote):**
+
+| State | Red | Green |
+|---|---|---|
+| Unpaired | blinking | off |
+| Pairing mode | alternating | alternating |
+| Paired + disarmed | off | solid |
+| Paired + armed | solid | off |
+| Link lost | blinking together | blinking together |
+
+**Unpairing / re-pairing:** in the portal, use **Esquecer remote** (Forget) to clear the saved MAC, then pair again. Switching **Fonte do acelerador** back to **Cabeado** (Wired) restores the wired Hall + on-board button without unpairing.
+
+**Failsafe (wireless mode):** if the controller stops receiving packets for >500 ms it ramps the throttle to zero (staying armed); after >3 s it disarms. On the remote, lost link shows both LEDs blinking together.
+
 ## 📊 Usage Example
 
 ### Operation Sequence
