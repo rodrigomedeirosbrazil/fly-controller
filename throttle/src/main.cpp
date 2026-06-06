@@ -41,15 +41,17 @@ void setup() {
     buzzer.beepSystemStart();
 }
 
-// On a fresh (unpaired) remote, holding the button enters pairing mode.
-static void updatePairingHold(bool pressed, uint32_t now) {
+// Button handling: immediate press feedback + hold-to-pair (when unpaired).
+static void updateButton(bool pressed, uint32_t now) {
     if (pressed && !wasPressed) {
         pressStartMs = now;
+        buzzer.beepButtonClick(); // immediate local feedback on every press
     }
     if (pressed && !remotePairing.isPaired() && !pairingMode &&
         (now - pressStartMs) >= PAIRING_HOLD_MS) {
         pairingMode = true;
         remoteEspNow.setBroadcastPeer();
+        buzzer.beepCalibrationStep(); // entered pairing mode
     }
     wasPressed = pressed;
 }
@@ -82,7 +84,7 @@ void loop() {
 
     uint32_t now = millis();
     bool pressed = buttonPressed();
-    updatePairingHold(pressed, now);
+    updateButton(pressed, now);
 
     if (now - lastTxMs >= THROTTLE_TX_INTERVAL_MS) {
         lastTxMs = now;
