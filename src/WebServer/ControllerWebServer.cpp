@@ -120,6 +120,13 @@ void sendPowerConfigResponse(AsyncWebServerRequest* request) {
     doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
     doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
     doc["powerControlEnabled"] = settings.getPowerControlEnabled();
+    doc["voltageDividerRatio"] = serialized(String(settings.getVoltageDividerRatio(), 2));
+    doc["defaultVoltageDividerRatio"] = serialized(String(settings.getDefaultVoltageDividerRatio(), 2));
+#if IS_XAG || IS_TMOTOR
+    doc["hasVoltageSensor"] = true;
+#else
+    doc["hasVoltageSensor"] = false;
+#endif
     if (doc.overflowed()) {
         request->send(500, "text/plain", "Estouro do buffer JSON");
         return;
@@ -347,10 +354,23 @@ void ControllerWebServer::startAP() {
             settings.setBatteryMinVoltage(minV);
             settings.setBatteryMaxVoltage(maxV);
             settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
+
+            if (doc.containsKey("voltageDividerRatio")) {
+                float ratio = doc["voltageDividerRatio"].as<float>();
+                if (ratio < 1.0f || ratio > 100.0f) {
+                    request->send(400, "text/plain", "Divisor de tensão fora do intervalo (1.0-100.0)");
+                    return;
+                }
+                settings.setVoltageDividerRatio(ratio);
+            }
+
             settings.save();
             // Keep the in-memory BatteryMonitor in sync with the new capacity
             // setting — without this, Coulomb counting uses the old value until reboot.
             batteryMonitor.setCapacity(settings.getBatteryCapacityMah());
+#if IS_XAG || IS_TMOTOR
+            batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
+#endif
 
             request->send(200, "text/plain", "Sucesso: Configurações de energia salvas");
         },

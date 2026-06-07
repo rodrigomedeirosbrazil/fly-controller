@@ -57,6 +57,7 @@ Settings::Settings() {
     powerControlEnabled = true;
     bmsType = BmsTypeNone;
     buzzerVolume = getDefaultBuzzerVolume();
+    voltageDividerRatio = getDefaultVoltageDividerRatio();
     mutex_ = nullptr;
 #if IS_TMOTOR
     motorTempSource = MotorTempSourceCan;
@@ -112,6 +113,10 @@ void Settings::load() {
     buzzerVolume = preferences.getUChar("buzzVol", getDefaultBuzzerVolume());
     if (buzzerVolume > 100) buzzerVolume = getDefaultBuzzerVolume();
 
+    // Load voltage divider calibration ratio
+    voltageDividerRatio = preferences.getFloat("vDivR", getDefaultVoltageDividerRatio());
+    if (voltageDividerRatio < 1.0f || voltageDividerRatio > 100.0f) voltageDividerRatio = getDefaultVoltageDividerRatio();
+
 #if IS_TMOTOR
     motorTempSource = (MotorTempSource)preferences.getUChar("motTmpSrc", MotorTempSourceCan);
     if (motorTempSource > MotorTempSourceAds1115) motorTempSource = MotorTempSourceCan;
@@ -162,6 +167,7 @@ void Settings::save() {
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
     preferences.putUChar("buzzVol", buzzerVolume);
+    preferences.putFloat("vDivR", voltageDividerRatio);
 #if IS_TMOTOR
     preferences.putUChar("motTmpSrc", (uint8_t)motorTempSource);
 #endif
@@ -321,6 +327,23 @@ void Settings::setBuzzerVolume(uint8_t percent) {
 
 uint8_t Settings::getDefaultBuzzerVolume() const {
     return 85;  // Matches the empirically tuned peak-volume duty cycle (217/255)
+}
+
+float Settings::getVoltageDividerRatio() const {
+    return voltageDividerRatio;
+}
+
+void Settings::setVoltageDividerRatio(float ratio) {
+    if (ratio < 1.0f || ratio > 100.0f) return;
+    voltageDividerRatio = ratio;
+}
+
+float Settings::getDefaultVoltageDividerRatio() const {
+#if IS_XAG || IS_TMOTOR
+    return BATTERY_DIVIDER_RATIO;
+#else
+    return 1.0f;
+#endif
 }
 
 #if IS_TMOTOR

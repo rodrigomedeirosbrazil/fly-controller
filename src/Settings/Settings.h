@@ -67,6 +67,11 @@ public:
     uint8_t getBuzzerVolume() const;
     void setBuzzerVolume(uint8_t percent);
 
+    // Voltage divider calibration ratio (XAG/Tmotor: compensates resistor tolerance)
+    float getVoltageDividerRatio() const;
+    void setVoltageDividerRatio(float ratio);
+    float getDefaultVoltageDividerRatio() const;
+
 #if IS_TMOTOR
     // Motor temperature sensor source (T-Motor only)
     MotorTempSource getMotorTempSource() const;
@@ -105,6 +110,7 @@ private:
     String bmsMac;
     uint8_t bmsType;
     uint8_t buzzerVolume;
+    float voltageDividerRatio;
 };
 
 #endif // SETTINGS_H

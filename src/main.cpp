@@ -54,6 +54,10 @@ void setup()
 
   hourMeter.init();
 
+#if IS_XAG || IS_TMOTOR
+  batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
+#endif
+
   webServer.begin();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
