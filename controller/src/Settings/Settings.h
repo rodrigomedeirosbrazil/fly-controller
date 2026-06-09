@@ -72,6 +72,11 @@ public:
     uint8_t getBuzzerVolume() const;
     void setBuzzerVolume(uint8_t percent);
 
+    // Voltage divider calibration ratio (XAG/Tmotor: compensates resistor tolerance)
+    float getVoltageDividerRatio() const;
+    void setVoltageDividerRatio(float ratio);
+    float getDefaultVoltageDividerRatio() const;
+
     // Wireless throttle (ESP-NOW remote). Setters mutate in memory; call save() to persist.
     uint8_t getThrottleSource() const;
     void setThrottleSource(uint8_t source);
@@ -119,6 +124,7 @@ private:
     String bmsMac;
     uint8_t bmsType;
     uint8_t buzzerVolume;
+    float voltageDividerRatio;
 };
 
 #endif // SETTINGS_H

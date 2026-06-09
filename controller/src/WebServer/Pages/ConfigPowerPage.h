@@ -70,6 +70,39 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="info-text">Quando ativado, a saída de energia é limitada com base na tensão da bateria, temperatura do motor e temperatura do ESC. Quando desativado, a energia total está disponível sem limitações.</div>
                 </div>
 
+                <div id="voltageCalibrationSection" style="display: none;">
+                    <h2>Calibração de Tensão</h2>
+
+                    <div class="form-group">
+                        <label>Tensão atual do sensor:</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="currentSensorVoltage" style="font-size: 1.2em; font-weight: bold;">--</span>
+                            <button type="button" id="refreshVoltageBtn" style="padding: 4px 12px; font-size: 0.9em;">Atualizar</button>
+                        </div>
+                        <div class="info-text">Tensão lida pelo sensor do sistema. Atualize para obter a leitura mais recente.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bmsReferenceVoltage">Tensão de referência do BMS (V):</label>
+                        <input type="number" id="bmsReferenceVoltage" min="10" max="65" step="0.01" placeholder="Ex: 51.20">
+                        <div class="info-text">Insira a tensão que o BMS mostra. O sistema calculará o fator de correção automaticamente.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ratio do divisor de tensão:</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span id="currentRatioDisplay" style="font-size: 1.1em;">--</span>
+                            <span id="ratioDefaultLabel" style="font-size: 0.85em; color: #888;"></span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button type="button" id="calibrateBtn">Calibrar</button>
+                        <button type="button" id="resetCalibrationBtn" style="background: #666;">Resetar para Padrão</button>
+                    </div>
+                    <div class="message" id="calibrationMessage"></div>
+                </div>
+
                 <div class="form-group">
                     <label for="configPin">PIN</label>
                     <input type="password" id="configPin" maxlength="8" placeholder="Necessário para salvar">
@@ -92,19 +125,42 @@ const CELL_COUNT = 14;
 const getPin = () => sessionStorage.getItem('cfgPin') || '';
 const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 
-const showMessage = (text, kind) => {
-    const el = $('message');
+let currentRatio = 0;
+let defaultRatio = 0;
+let sensorVoltageMv = 0;
+
+const showMsg = (elId, text, kind) => {
+    const el = $(elId);
     if (!el) return;
     el.textContent = text;
     el.className = `message ${kind}`;
     el.style.display = 'block';
 };
+const showMessage = (text, kind) => showMsg('message', text, kind);
 
 const updateVoltageTotals = () => {
     const minVoltagePerCell = parseFloat($('minVoltagePerCell').value) || 0;
     const maxVoltagePerCell = parseFloat($('maxVoltagePerCell').value) || 0;
     $('minVoltageTotalValue').textContent = (minVoltagePerCell * CELL_COUNT).toFixed(2);
     $('maxVoltageTotalValue').textContent = (maxVoltagePerCell * CELL_COUNT).toFixed(2);
+};
+
+const refreshSensorVoltage = () => {
+    fetch('/api/telemetry')
+        .then((r) => r.json())
+        .then((data) => {
+            sensorVoltageMv = data.batteryVoltageMv || 0;
+            $('currentSensorVoltage').textContent = sensorVoltageMv > 0
+                ? (sensorVoltageMv / 1000).toFixed(2) + ' V'
+                : 'Sem leitura';
+        })
+        .catch(() => { $('currentSensorVoltage').textContent = 'Erro'; });
+};
+
+const updateRatioDisplay = () => {
+    $('currentRatioDisplay').textContent = currentRatio.toFixed(2);
+    const isDefault = Math.abs(currentRatio - defaultRatio) < 0.005;
+    $('ratioDefaultLabel').textContent = isDefault ? '(padrão)' : '(calibrado)';
 };
 
 const loadCurrentValues = () => {
@@ -125,6 +181,14 @@ const loadCurrentValues = () => {
             $('maxVoltagePerCell').value = ((data.batteryMaxVoltage / 1000) / CELL_COUNT).toFixed(2);
             $('powerControlEnabled').checked = data.powerControlEnabled || false;
             updateVoltageTotals();
+
+            if (data.hasVoltageSensor) {
+                currentRatio = parseFloat(data.voltageDividerRatio) || 0;
+                defaultRatio = parseFloat(data.defaultVoltageDividerRatio) || 0;
+                updateRatioDisplay();
+                $('voltageCalibrationSection').style.display = '';
+                refreshSensorVoltage();
+            }
         })
         .catch((error) => {
             console.error('Error loading power settings:', error);
@@ -188,6 +252,69 @@ $('powerConfigForm').addEventListener('submit', function(e) {
             showMessage('Erro ao salvar a configuração: ' + error, 'err');
             saveButton.disabled = false;
         });
+});
+
+$('refreshVoltageBtn').addEventListener('click', refreshSensorVoltage);
+
+const saveCalibrationRatio = (ratio) => {
+    const pin = $('configPin').value || getPin();
+    if (!pin) { showMsg('calibrationMessage', 'Insira o PIN primeiro', 'err'); return; }
+
+    const capacityAh = $('batteryCapacity').value === 'custom'
+        ? parseFloat($('batteryCapacityCustom').value)
+        : parseFloat($('batteryCapacity').value);
+    const minVoltagePerCell = parseFloat($('minVoltagePerCell').value);
+    const maxVoltagePerCell = parseFloat($('maxVoltagePerCell').value);
+
+    const data = {
+        batteryCapacity: Math.round(capacityAh * 1000),
+        batteryMinVoltage: Math.round(minVoltagePerCell * CELL_COUNT * 1000),
+        batteryMaxVoltage: Math.round(maxVoltagePerCell * CELL_COUNT * 1000),
+        powerControlEnabled: $('powerControlEnabled').checked,
+        voltageDividerRatio: ratio
+    };
+
+    setPin(pin);
+    fetch('/api/config/power', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Config-Pin': pin },
+        body: JSON.stringify(data)
+    })
+        .then((r) => r.text().then((text) => ({ ok: r.ok, text })))
+        .then(({ ok, text }) => {
+            if (ok) {
+                currentRatio = ratio;
+                updateRatioDisplay();
+                showMsg('calibrationMessage', 'Calibração salva com sucesso!', 'ok');
+                setTimeout(refreshSensorVoltage, 500);
+            } else {
+                showMsg('calibrationMessage', 'Erro: ' + text, 'err');
+            }
+        })
+        .catch((e) => showMsg('calibrationMessage', 'Erro: ' + e, 'err'));
+};
+
+$('calibrateBtn').addEventListener('click', () => {
+    const bmsV = parseFloat($('bmsReferenceVoltage').value);
+    if (!bmsV || bmsV < 10 || bmsV > 65) {
+        showMsg('calibrationMessage', 'Insira uma tensão de referência válida (10-65V)', 'err');
+        return;
+    }
+    if (sensorVoltageMv <= 0) {
+        showMsg('calibrationMessage', 'Sem leitura do sensor. Clique em Atualizar primeiro.', 'err');
+        return;
+    }
+    const sensorV = sensorVoltageMv / 1000;
+    const newRatio = currentRatio * (bmsV / sensorV);
+    if (newRatio < 1 || newRatio > 100) {
+        showMsg('calibrationMessage', 'Ratio calculado fora do intervalo. Verifique os valores.', 'err');
+        return;
+    }
+    saveCalibrationRatio(parseFloat(newRatio.toFixed(2)));
+});
+
+$('resetCalibrationBtn').addEventListener('click', () => {
+    saveCalibrationRatio(defaultRatio);
 });
 
 // Pre-fill PIN from sessionStorage

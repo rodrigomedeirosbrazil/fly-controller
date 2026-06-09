@@ -17,6 +17,10 @@ static uint32_t lastTxMs = 0;
 static uint32_t pressStartMs = 0;
 static bool wasPressed = false;
 
+// Local armed-alert beep management (mirrors controller logic using local hall).
+static uint16_t hallIdle = 0;
+static bool localArmedBeeping = false;
+
 // Active-low button: pressed when the pin reads LOW.
 static bool buttonPressed() {
     return digitalRead(BUTTON_PIN) == LOW;
@@ -38,20 +42,25 @@ void setup() {
     } else {
         remoteEspNow.setBroadcastPeer();
     }
+    hallIdle = analogRead(HALL_PIN);
     buzzer.beepSystemStart();
 }
 
-// Button handling: immediate press feedback + hold-to-pair (when unpaired).
+// Button handling: immediate press feedback + hold-to-pair.
+// Enters pairing when unpaired OR when paired but link is lost (controller unreachable).
 static void updateButton(bool pressed, uint32_t now) {
     if (pressed && !wasPressed) {
         pressStartMs = now;
-        buzzer.beepButtonClick(); // immediate local feedback on every press
+        buzzer.beepButtonClick();
     }
-    if (pressed && !remotePairing.isPaired() && !pairingMode &&
+    bool canPair = !remotePairing.isPaired() ||
+                   !remoteEspNow.hasState() ||
+                   isLinkLost(remoteEspNow.lastRxMs(), now);
+    if (pressed && canPair && !pairingMode &&
         (now - pressStartMs) >= PAIRING_HOLD_MS) {
         pairingMode = true;
         remoteEspNow.setBroadcastPeer();
-        buzzer.beepCalibrationStep(); // entered pairing mode
+        buzzer.beepCalibrationStep();
     }
     wasPressed = pressed;
 }
@@ -65,6 +74,24 @@ static void driveLeds() {
     digitalWrite(LED_GREEN_PIN, out.green ? HIGH : LOW);
 }
 
+// Manage armed-alert beep locally: beep when armed + throttle idle, stop when
+// throttle exceeds 5% of full ADC range above the idle baseline.
+static void handleLocalArmedBeep() {
+    bool armed = remoteEspNow.hasState() && remoteEspNow.state().armed;
+    uint16_t hall = analogRead(HALL_PIN);
+    int delta = abs((int)hall - (int)hallIdle);
+    bool throttleActive = delta > (4095 * 5 / 100); // 5% of 12-bit range
+
+    if (armed && !throttleActive && !localArmedBeeping) {
+        buzzer.beepArmedAlert();
+        localArmedBeeping = true;
+    }
+    if ((!armed || throttleActive) && localArmedBeeping) {
+        buzzer.stop();
+        localArmedBeeping = false;
+    }
+}
+
 static void playRequestedBeep() {
     if (!remoteEspNow.hasState()) return;
     ControllerToThrottlePacket s = remoteEspNow.state();
@@ -72,9 +99,10 @@ static void playRequestedBeep() {
     switch (s.beepCommand) {
         case RemoteBeep::SystemStart:     buzzer.beepSystemStart(); break;
         case RemoteBeep::CalibrationStep: buzzer.beepCalibrationStep(); break;
-        case RemoteBeep::Armed:           buzzer.beepArmedAlert(); break;
+        case RemoteBeep::Armed:           break; // managed locally by handleLocalArmedBeep
         case RemoteBeep::Disarmed:        buzzer.beepDisarmed(); break;
         case RemoteBeep::Alert:           buzzer.beepArmingBlocked(); break;
+        case RemoteBeep::Stop:            buzzer.stop(); break;
         default: break;
     }
 }
@@ -103,5 +131,6 @@ void loop() {
     }
 
     playRequestedBeep();
+    handleLocalArmedBeep();
     driveLeds();
 }

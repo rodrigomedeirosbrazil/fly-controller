@@ -55,6 +55,10 @@ void setup()
 
   hourMeter.init();
 
+#if IS_XAG || IS_TMOTOR
+  batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
+#endif
+
   webServer.begin();
 
   // ESP-NOW rides the same radio as the AP — init after WiFi/AP is up.
@@ -259,16 +263,22 @@ void handleArmedBeep()
     bool isArmed = throttle.isArmed();
     bool motorRunning = isMotorRunning();
 
-    // Start continuous beep when armed and motor stops
+    // Controller buzzer: beep when armed + motor stopped (local safety alert).
     if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
-        buzzer.beepArmedAlert(); // Continuous intermittent beep - critical safety alert
-        remoteLink.requestBeep(RemoteBeep::Armed);
+        buzzer.beepArmedAlert();
     }
-
-    // Stop beep when motor starts running or throttle is disarmed
     if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning) {
         buzzer.stop();
-        if (!isArmed) remoteLink.requestBeep(RemoteBeep::Disarmed);
+    }
+
+    // Remote buzzer: beep continuously while armed, stop on disarm.
+    // Decoupled from motor state to avoid Stop/Armed oscillation from
+    // throttle noise crossing the isMotorRunning threshold.
+    if (isArmed && !wasArmed) {
+        remoteLink.requestBeep(RemoteBeep::Armed);
+    }
+    if (!isArmed && wasArmed) {
+        remoteLink.requestBeep(RemoteBeep::Disarmed);
     }
 
     wasArmed = isArmed;

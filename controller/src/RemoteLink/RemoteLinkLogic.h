@@ -14,9 +14,15 @@ enum class FailsafeAction {
 };
 
 // Decide the failsafe action from the link state. nowMs/lastRxMs are millis().
+// Guard against unsigned underflow: on single-core ESP32-C3, the WiFi task can
+// update the volatile lastRxMs between the caller's millis() snapshot and the
+// read inside this function, making lastRxMs > nowMs. The underflow produces a
+// huge gap (~4 billion) that would false-trigger Disarm. Any gap above half the
+// uint32 range is treated as a race artifact rather than a real timeout.
 inline FailsafeAction computeFailsafe(bool wireless, uint32_t lastRxMs, uint32_t nowMs) {
     if (!wireless) return FailsafeAction::None;
     uint32_t gap = nowMs - lastRxMs;
+    if (gap > 0x80000000UL) return FailsafeAction::None;
     if (gap > FAILSAFE_DISARM_MS) return FailsafeAction::Disarm;
     if (gap > FAILSAFE_RAMP_MS)   return FailsafeAction::RampToZero;
     return FailsafeAction::None;

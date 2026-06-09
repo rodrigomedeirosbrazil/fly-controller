@@ -20,6 +20,7 @@ namespace RemoteBeep {
         Armed = 3,
         Disarmed = 4,
         Alert = 5,
+        Stop = 6,
     };
 }
 

@@ -48,13 +48,15 @@ void RemoteLink::addPeer(const uint8_t mac[6]) {
     esp_now_peer_info_t peer{};
     memcpy(peer.peer_addr, mac, 6);
     peer.channel = REMOTE_LINK_CHANNEL;
+    peer.ifidx = WIFI_IF_AP; // controller runs in AP mode; STA interface is not up
     peer.encrypt = false;
     esp_now_add_peer(&peer);
 }
 
 void RemoteLink::requestBeep(uint8_t beep) {
     tx_.beepCommand = beep;
-    tx_.beepCommandCounter++; // wraps; remote acts on change
+    tx_.beepCommandCounter++;
+    sendState(); // send immediately so the remote hears it without waiting for the next 5 Hz tick
 }
 
 void RemoteLink::sendState() {

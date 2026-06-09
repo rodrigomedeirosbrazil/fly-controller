@@ -57,6 +57,7 @@ Settings::Settings() {
     powerControlEnabled = true;
     bmsType = BmsTypeNone;
     buzzerVolume = getDefaultBuzzerVolume();
+    voltageDividerRatio = getDefaultVoltageDividerRatio();
     throttleSource = ThrottleSourceWired;
     remoteMac = "";
     mutex_ = nullptr;
@@ -114,6 +115,10 @@ void Settings::load() {
     buzzerVolume = preferences.getUChar("buzzVol", getDefaultBuzzerVolume());
     if (buzzerVolume > 100) buzzerVolume = getDefaultBuzzerVolume();
 
+    // Load voltage divider calibration ratio
+    voltageDividerRatio = preferences.getFloat("vDivR", getDefaultVoltageDividerRatio());
+    if (voltageDividerRatio < 1.0f || voltageDividerRatio > 100.0f) voltageDividerRatio = getDefaultVoltageDividerRatio();
+
     // Wireless throttle source + paired remote MAC
     throttleSource = preferences.getUChar("thrSrc", ThrottleSourceWired);
     if (throttleSource > ThrottleSourceWireless) throttleSource = ThrottleSourceWired;
@@ -169,6 +174,7 @@ void Settings::save() {
     preferences.putUChar("bmsType", bmsType);
     preferences.putString("bmsMac", bmsMac);
     preferences.putUChar("buzzVol", buzzerVolume);
+    preferences.putFloat("vDivR", voltageDividerRatio);
     preferences.putUChar("thrSrc", throttleSource);
     preferences.putString("rmtMac", remoteMac);
 #if IS_TMOTOR
@@ -358,6 +364,23 @@ void Settings::clearRemoteMac() {
 
 uint8_t Settings::getDefaultBuzzerVolume() const {
     return 85;  // Matches the empirically tuned peak-volume duty cycle (217/255)
+}
+
+float Settings::getVoltageDividerRatio() const {
+    return voltageDividerRatio;
+}
+
+void Settings::setVoltageDividerRatio(float ratio) {
+    if (ratio < 1.0f || ratio > 100.0f) return;
+    voltageDividerRatio = ratio;
+}
+
+float Settings::getDefaultVoltageDividerRatio() const {
+#if IS_XAG || IS_TMOTOR
+    return BATTERY_DIVIDER_RATIO;
+#else
+    return 1.0f;
+#endif
 }
 
 #if IS_TMOTOR

@@ -9,6 +9,7 @@ public:
     BatteryVoltageSensor(ReadFn readFn, float dividerRatio, float adcVoltageRef);
     void handle();
     uint16_t getVoltageMilliVolts() const { return voltageMilliVolts; }
+    void setDividerRatio(float ratio) { dividerRatio = ratio; }
 
 private:
     static const int oversampleCount = 10;
