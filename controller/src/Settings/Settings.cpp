@@ -123,7 +123,6 @@ void Settings::load() {
     throttleSource = preferences.getUChar("thrSrc", ThrottleSourceWired);
     if (throttleSource > ThrottleSourceWireless) throttleSource = ThrottleSourceWired;
     remoteMac = preferences.getString("rmtMac", "");
-
 #if IS_TMOTOR
     motorTempSource = (MotorTempSource)preferences.getUChar("motTmpSrc", MotorTempSourceCan);
     if (motorTempSource > MotorTempSourceAds1115) motorTempSource = MotorTempSourceCan;

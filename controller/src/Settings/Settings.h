@@ -83,7 +83,6 @@ public:
     String getRemoteMac() const;          // "" when unpaired
     void setRemoteMac(const char* mac);
     void clearRemoteMac();
-
 #if IS_TMOTOR
     // Motor temperature sensor source (T-Motor only)
     MotorTempSource getMotorTempSource() const;
