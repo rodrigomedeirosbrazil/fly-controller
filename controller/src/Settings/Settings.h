@@ -13,6 +13,11 @@ enum BmsType : uint8_t {
     BmsTypeDaly = 2
 };
 
+enum ThrottleSource : uint8_t {
+    ThrottleSourceWired = 0,
+    ThrottleSourceWireless = 1
+};
+
 #if IS_TMOTOR
 enum MotorTempSource : uint8_t {
     MotorTempSourceCan = 0,
@@ -72,6 +77,12 @@ public:
     void setVoltageDividerRatio(float ratio);
     float getDefaultVoltageDividerRatio() const;
 
+    // Wireless throttle (ESP-NOW remote). Setters mutate in memory; call save() to persist.
+    uint8_t getThrottleSource() const;
+    void setThrottleSource(uint8_t source);
+    String getRemoteMac() const;          // "" when unpaired
+    void setRemoteMac(const char* mac);
+    void clearRemoteMac();
 #if IS_TMOTOR
     // Motor temperature sensor source (T-Motor only)
     MotorTempSource getMotorTempSource() const;
@@ -107,6 +118,8 @@ private:
     int32_t escMaxTemp;
     int32_t escTempReductionStart;
     bool powerControlEnabled;
+    uint8_t throttleSource;
+    String remoteMac;
     String bmsMac;
     uint8_t bmsType;
     uint8_t buzzerVolume;

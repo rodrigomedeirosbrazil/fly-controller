@@ -9,6 +9,13 @@ class Buzzer;
 
 using namespace ace_button;
 
+// Reads the physical pin in wired mode, or the remote's forwarded button
+// state in wireless mode — so the same AceButton arming gesture works for both.
+class SourceSwitchButtonConfig : public ButtonConfig {
+  protected:
+    int readButton(uint8_t pin) override;
+};
+
 class Button
 {
     public:
@@ -20,6 +27,7 @@ class Button
         const static unsigned long longClickThreshold = 3500;
 
         AceButton aceButton;
+        SourceSwitchButtonConfig sourceConfig;
         uint8_t pin;
         ButtonConfig* buttonConfig;
         unsigned long releaseButtonTime;

@@ -21,6 +21,7 @@
 #include "Xctod/Xctod.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
+#include "RemoteLink/RemoteLink.h"
 #if USES_CAN_BUS && IS_HOBBYWING
 #include "Hobbywing/HobbywingCan.h"
 #endif
@@ -59,6 +60,9 @@ void setup()
 #endif
 
   webServer.begin();
+
+  // ESP-NOW rides the same radio as the AP — init after WiFi/AP is up.
+  remoteLink.setup();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
   extern ADS1115 ads1115;
@@ -133,6 +137,7 @@ void setup()
   buzzer.recalibrate();
   buzzer.setVolume(settings.getBuzzerVolume());
   buzzer.beepSystemStart();
+  remoteLink.requestBeep(RemoteBeep::SystemStart);
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
   // WDT_TIMEOUT_S seconds (e.g. a blocking BLE call or infinite loop), the
@@ -155,6 +160,20 @@ void loop()
   checkCanbus();
 #endif
   throttle.handle();
+
+  // Mirror controller state to the remote and send the periodic heartbeat.
+  remoteLink.setArmed(throttle.isArmed());
+  remoteLink.setCalibrating(!throttle.isCalibrated());
+  remoteLink.handle();
+
+  // Wireless failsafe: prolonged link loss disarms (the ramp-to-zero case is
+  // handled in the throttle ReadFn feeding 0). See RemoteLinkLogic.
+  if (settings.getThrottleSource() == ThrottleSourceWireless &&
+      throttle.isArmed() &&
+      remoteLink.failsafe(true, millis()) == FailsafeAction::Disarm) {
+    throttle.setDisarmed();
+  }
+
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
 #if IS_XAG
@@ -244,14 +263,22 @@ void handleArmedBeep()
     bool isArmed = throttle.isArmed();
     bool motorRunning = isMotorRunning();
 
-    // Start continuous beep when armed and motor stops
+    // Controller buzzer: beep when armed + motor stopped (local safety alert).
     if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
-        buzzer.beepArmedAlert(); // Continuous intermittent beep - critical safety alert
+        buzzer.beepArmedAlert();
     }
-
-    // Stop beep when motor starts running or throttle is disarmed
     if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning) {
         buzzer.stop();
+    }
+
+    // Remote buzzer: beep continuously while armed, stop on disarm.
+    // Decoupled from motor state to avoid Stop/Armed oscillation from
+    // throttle noise crossing the isMotorRunning threshold.
+    if (isArmed && !wasArmed) {
+        remoteLink.requestBeep(RemoteBeep::Armed);
+    }
+    if (!isArmed && wasArmed) {
+        remoteLink.requestBeep(RemoteBeep::Disarmed);
     }
 
     wasArmed = isArmed;

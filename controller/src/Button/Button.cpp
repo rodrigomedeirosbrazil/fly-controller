@@ -5,16 +5,28 @@
 #include "Button.h"
 #include "../Throttle/Throttle.h"
 #include "../Buzzer/Buzzer.h"
+#include "../RemoteLink/RemoteLink.h"
+#include "../Settings/Settings.h"
 #include "../main.h"
 
 extern Throttle throttle;
 extern Buzzer buzzer;
+extern Settings settings;
+
+int SourceSwitchButtonConfig::readButton(uint8_t pin) {
+    if (settings.getThrottleSource() == ThrottleSourceWireless) {
+        // Active-low semantics to match INPUT_PULLUP: pressed -> LOW.
+        return remoteLink.remoteButtonPressed() ? LOW : HIGH;
+    }
+    return digitalRead(pin);
+}
 
 Button::Button(
   uint8_t pin
 ) {
     this->pin = pin;
     pinMode(pin, INPUT_PULLUP);
+    aceButton.setButtonConfig(&sourceConfig);
     aceButton.init(pin);
     releaseButtonTime = 0;
     buttonWasClicked = false;
