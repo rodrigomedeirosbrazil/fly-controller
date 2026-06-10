@@ -12,7 +12,7 @@ static uint8_t lastBeepCounter = 0;
 static bool pairingMode = false;
 
 static const uint16_t THROTTLE_TX_INTERVAL_MS = 20;   // ~50 Hz
-static const uint32_t PAIRING_HOLD_MS = 3000;         // hold (unpaired) to enter pairing
+static const uint32_t PAIRING_HOLD_MS = 6000;         // hold to enter pairing (well above the 2 s arm/disarm gesture)
 static uint32_t lastTxMs = 0;
 static uint32_t pressStartMs = 0;
 static bool wasPressed = false;
@@ -47,16 +47,14 @@ void setup() {
 }
 
 // Button handling: immediate press feedback + hold-to-pair.
-// Enters pairing when unpaired OR when paired but link is lost (controller unreachable).
+// Long-press always enters pairing — the 6 s hold is sufficient protection
+// against accidental re-pairing during flight.
 static void updateButton(bool pressed, uint32_t now) {
     if (pressed && !wasPressed) {
         pressStartMs = now;
         buzzer.beepButtonClick();
     }
-    bool canPair = !remotePairing.isPaired() ||
-                   !remoteEspNow.hasState() ||
-                   isLinkLost(remoteEspNow.lastRxMs(), now);
-    if (pressed && canPair && !pairingMode &&
+    if (pressed && !pairingMode &&
         (now - pressStartMs) >= PAIRING_HOLD_MS) {
         pairingMode = true;
         remoteEspNow.setBroadcastPeer();
