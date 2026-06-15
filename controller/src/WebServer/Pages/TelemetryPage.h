@@ -146,6 +146,7 @@ let bzStopLoopFlag = false;
 let bzActiveOsc = null;
 let bzActiveGain = null;
 let bzLastSeq = -1;
+let bzPrimed = false;
 let bzLoopIsRunning = false;
 
 const bzInitCtx = () => {
@@ -181,10 +182,8 @@ const bzStopLoop = () => {
     }
 };
 
-const bzPlayOnce = (freq, onMs, offMs, reps) => {
-    if (!audioCtx) return;
-    bzStopLoop();
-    let t = audioCtx.currentTime;
+const bzScheduleOnce = (freq, onMs, offMs, reps, startT) => {
+    let t = startT;
     for (let i = 0; i < reps; i++) {
         const osc = audioCtx.createOscillator();
         const g = audioCtx.createGain();
@@ -198,6 +197,7 @@ const bzPlayOnce = (freq, onMs, offMs, reps) => {
         osc.stop(t + onMs / 1000);
         t += (onMs + offMs) / 1000;
     }
+    return t;
 };
 
 const bzStartLoop = (freq, onMs, offMs) => {
@@ -230,26 +230,37 @@ const bzStartLoop = (freq, onMs, offMs) => {
     step();
 };
 
-// Pure function — easy to test in isolation
-const bzNextAction = (prevSeq, curSeq, reps, active) => {
-    if (curSeq === prevSeq) return 'none';
-    if (!active)            return 'stop';
-    if (reps === 255)       return 'start-loop';
-    return 'play-once';
+const bzPlayQueue = (events) => {
+    if (!audioCtx) return;
+    let t = audioCtx.currentTime;
+    for (const ev of events) {
+        if (!ev.active) {
+            bzStopLoop();
+            t = audioCtx.currentTime;
+        } else if (ev.reps === 255) {
+            bzStartLoop(ev.freq, ev.onMs, ev.offMs);
+            t = audioCtx.currentTime;
+        } else {
+            if (bzLoopIsRunning) {
+                bzStopLoop();
+                t = audioCtx.currentTime;
+            }
+            t = bzScheduleOnce(ev.freq, ev.onMs, ev.offMs, ev.reps, t);
+        }
+    }
 };
 
-const bzProcessEvent = (bz) => {
-    if (!bz) return;
-    const action = bzNextAction(bzLastSeq, bz.seq, bz.reps, bz.active);
-    if (action === 'none') return;
-    bzLastSeq = bz.seq;
-    if (action === 'play-once') {
-        bzPlayOnce(bz.freq, bz.onMs, bz.offMs, bz.reps);
-    } else if (action === 'start-loop') {
-        bzStartLoop(bz.freq, bz.onMs, bz.offMs);
-    } else if (action === 'stop') {
-        bzStopLoop();
+const bzProcessEvents = (events) => {
+    if (!bzPrimed) {
+        bzLastSeq = (events && events.length > 0) ? events[events.length - 1].seq : -1;
+        bzPrimed = true;
+        return;
     }
+    if (!events || !events.length) return;
+    const fresh = events.filter(ev => ev.seq > bzLastSeq);
+    if (!fresh.length) return;
+    bzLastSeq = fresh[fresh.length - 1].seq;
+    bzPlayQueue(fresh);
 };
 
 const initBuzzerSound = () => {
@@ -673,7 +684,7 @@ const renderTelemetry = (data) => {
         bmsCard.style.display = 'none';
     }
 
-    bzProcessEvent(data.buzzer);
+    bzProcessEvents(data.buzzer);
 };
 
 const loadTelemetry = () => {
