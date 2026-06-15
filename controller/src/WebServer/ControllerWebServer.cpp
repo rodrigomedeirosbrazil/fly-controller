@@ -650,7 +650,7 @@ void ControllerWebServer::startAP() {
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<768> doc;
+        StaticJsonDocument<2048> doc;
 
         const bool hasTelemetry = telemetry.hasData();
         const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
@@ -712,6 +712,21 @@ void ControllerWebServer::startAP() {
                 bms["cellMinMv"] = bluetoothBms.getCellMinMilliVolts();
                 bms["cellMaxMv"] = bluetoothBms.getCellMaxMilliVolts();
                 bms["cellDeltaMv"] = bluetoothBms.getCellDeltaMilliVolts();
+            }
+        }
+
+        {
+            BeepEvent evBuf[Buzzer::kRingSize];
+            uint8_t evCount = buzzer.getBeepEvents(evBuf, Buzzer::kRingSize);
+            JsonArray buzzerArr = doc.createNestedArray("buzzer");
+            for (uint8_t i = 0; i < evCount; i++) {
+                JsonObject buzzerObj = buzzerArr.createNestedObject();
+                buzzerObj["seq"]    = evBuf[i].seq;
+                buzzerObj["freq"]   = evBuf[i].frequency;
+                buzzerObj["onMs"]   = evBuf[i].onMs;
+                buzzerObj["offMs"]  = evBuf[i].offMs;
+                buzzerObj["reps"]   = evBuf[i].reps;
+                buzzerObj["active"] = evBuf[i].active;
             }
         }
 

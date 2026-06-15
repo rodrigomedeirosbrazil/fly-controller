@@ -98,7 +98,7 @@ while (canbus.receive(&msg)) {
 
 ## Coding Conventions
 
-- **Language:** All code and comments in English
+- **Language:** All code, comments, commit messages, documentation, and identifiers in **English**. The only exception is user-facing strings rendered in the web portal and UI (button labels, page text, error messages shown to the user) — those are in **Brazilian Portuguese**.
 - **No `delay()`** in main loop — use `millis()` for timing
 - **Naming:** camelCase for functions/variables, PascalCase for classes
 - **Constants:** `#define` or `const` — no magic numbers
@@ -134,6 +134,8 @@ All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences
 Available on all builds. Connects to WiFi AP, serves config pages at `192.168.4.1`. OTA firmware update via ElegantOTA.
 
 WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).
+
+The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) — the browser replays all events with `seq > bzLastSeq` in order using a Web Audio time cursor. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
 
 ## Wireless Throttle (ESP-NOW)
 

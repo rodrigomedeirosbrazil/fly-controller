@@ -31,6 +31,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <span id="statusBadge" class="status nodata">SEM DADOS</span>
                 </div>
                 <div class="tsb-right">
+                    <button type="button" id="soundBtn" class="wake-icon-btn sound-muted" aria-label="Ativar som">&#x1F507;</button>
                     <button type="button" id="wakeIconBtn" class="wake-icon-btn" aria-expanded="false" aria-controls="wakePanel">&#x1F512;</button>
                 </div>
             </div>
@@ -135,6 +136,147 @@ const fmtSeconds = s => {
 };
 const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ============ Web Audio Buzzer ============
+let audioCtx = null;
+let gainMaster = null;
+let soundMuted = localStorage.getItem('bzMuted') !== '0';  // default: muted
+let bzStopLoopFlag = false;
+let bzActiveOsc = null;
+let bzActiveGain = null;
+let bzLastSeq = -1;
+let bzPrimed = false;
+let bzLoopIsRunning = false;
+
+const bzInitCtx = () => {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    gainMaster = audioCtx.createGain();
+    gainMaster.connect(audioCtx.destination);
+    gainMaster.gain.value = soundMuted ? 0 : 1;
+};
+
+const bzApplyMute = () => {
+    if (gainMaster) gainMaster.gain.value = soundMuted ? 0 : 1;
+    const btn = $('soundBtn');
+    if (!btn) return;
+    if (soundMuted) {
+        btn.innerHTML = '&#x1F507;';
+        btn.classList.add('sound-muted');
+        btn.setAttribute('aria-label', 'Ativar som');
+    } else {
+        btn.innerHTML = '&#x1F514;';
+        btn.classList.remove('sound-muted');
+        btn.setAttribute('aria-label', 'Silenciar');
+    }
+};
+
+const bzStopLoop = () => {
+    bzStopLoopFlag = true;
+    bzLoopIsRunning = false;
+    if (bzActiveOsc) {
+        try { bzActiveOsc.stop(); } catch(e) {}
+        bzActiveOsc = null;
+        bzActiveGain = null;
+    }
+};
+
+const bzScheduleOnce = (freq, onMs, offMs, reps, startT) => {
+    let t = startT;
+    for (let i = 0; i < reps; i++) {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.connect(g);
+        g.connect(gainMaster);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(1, t);
+        g.gain.setValueAtTime(0, t + onMs / 1000);
+        osc.start(t);
+        osc.stop(t + onMs / 1000);
+        t += (onMs + offMs) / 1000;
+    }
+    return t;
+};
+
+const bzStartLoop = (freq, onMs, offMs) => {
+    if (!audioCtx) return;
+    bzStopLoop();
+    bzStopLoopFlag = false;
+    bzLoopIsRunning = true;
+    bzActiveGain = audioCtx.createGain();
+    bzActiveGain.connect(gainMaster);
+    bzActiveOsc = audioCtx.createOscillator();
+    bzActiveOsc.connect(bzActiveGain);
+    bzActiveOsc.type = 'square';
+    bzActiveOsc.frequency.value = freq;
+    bzActiveOsc.start(audioCtx.currentTime);
+    const step = async () => {
+        while (!bzStopLoopFlag && bzLoopIsRunning) {
+            bzActiveGain.gain.setValueAtTime(1, audioCtx.currentTime);
+            await new Promise(r => setTimeout(r, onMs));
+            if (bzStopLoopFlag || !bzLoopIsRunning) break;
+            bzActiveGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            await new Promise(r => setTimeout(r, offMs));
+        }
+        if (bzActiveOsc) {
+            try { bzActiveOsc.stop(); } catch(e) {}
+            bzActiveOsc = null;
+            bzActiveGain = null;
+        }
+        bzLoopIsRunning = false;
+    };
+    step();
+};
+
+const bzPlayQueue = (events) => {
+    if (!audioCtx) return;
+    let t = audioCtx.currentTime;
+    for (const ev of events) {
+        if (!ev.active) {
+            bzStopLoop();
+            t = audioCtx.currentTime;
+        } else if (ev.reps === 255) {
+            bzStartLoop(ev.freq, ev.onMs, ev.offMs);
+            t = audioCtx.currentTime;
+        } else {
+            if (bzLoopIsRunning) {
+                bzStopLoop();
+                t = audioCtx.currentTime;
+            }
+            t = bzScheduleOnce(ev.freq, ev.onMs, ev.offMs, ev.reps, t);
+        }
+    }
+};
+
+const bzProcessEvents = (events) => {
+    if (!bzPrimed) {
+        bzLastSeq = (events && events.length > 0) ? events[events.length - 1].seq : -1;
+        bzPrimed = true;
+        return;
+    }
+    if (!events || !events.length) return;
+    const fresh = events.filter(ev => ev.seq > bzLastSeq);
+    if (!fresh.length) return;
+    bzLastSeq = fresh[fresh.length - 1].seq;
+    bzPlayQueue(fresh);
+};
+
+const initBuzzerSound = () => {
+    bzApplyMute();
+    const btn = $('soundBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        bzInitCtx();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        soundMuted = !soundMuted;
+        localStorage.setItem('bzMuted', soundMuted ? '1' : '0');
+        bzApplyMute();
+    });
+};
+// ============ End Web Audio Buzzer ============
 
 let wakeLockSentinel = null;
 let wakeState = 'idle';
@@ -540,6 +682,8 @@ const renderTelemetry = (data) => {
     } else {
         bmsCard.style.display = 'none';
     }
+
+    bzProcessEvents(data.buzzer);
 };
 
 const loadTelemetry = () => {
@@ -550,6 +694,7 @@ const loadTelemetry = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initTelemetryWake();
+    initBuzzerSound();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

@@ -34,7 +34,11 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
   currentNoteIndex(0),
   noteStartTime(0),
   noteIsOn(false),
-  melodyRepeat(false) {
+  melodyRepeat(false),
+  beepRing_{},
+  beepWriteIdx_(0),
+  beepCount_(0),
+  beepSeq_(0) {
 }
 
 void Buzzer::setup() {
@@ -58,6 +62,33 @@ void Buzzer::setup() {
   ledc_channel_config(&ledc_channel);
 
   setPwmOff();
+}
+
+void Buzzer::silence() {
+  playing = false;
+  playingMelody = false;
+  isOn = false;
+  noteIsOn = false;
+  repetitions = 0;
+  currentMelody = nullptr;
+  currentNoteIndex = 0;
+  melodyRepeat = false;
+  setPwmOff();
+}
+
+void Buzzer::pushBeepEvent(uint16_t freq, uint16_t onMs, uint16_t offMs, uint8_t reps, bool active) {
+  beepRing_[beepWriteIdx_] = { ++beepSeq_, freq, onMs, offMs, reps, active };
+  beepWriteIdx_ = (beepWriteIdx_ + 1) % kRingSize;
+  if (beepCount_ < kRingSize) beepCount_++;
+}
+
+uint8_t Buzzer::getBeepEvents(BeepEvent* buf, uint8_t maxCount) const {
+  uint8_t count = (beepCount_ < maxCount) ? beepCount_ : maxCount;
+  uint8_t start = (beepWriteIdx_ + kRingSize - beepCount_) % kRingSize;
+  for (uint8_t i = 0; i < count; i++) {
+    buf[i] = beepRing_[(start + i) % kRingSize];
+  }
+  return count;
 }
 
 void Buzzer::recalibrate() {
@@ -102,7 +133,7 @@ void Buzzer::handle() {
             currentNoteIndex = 0;  // Restart melody
             noteStartTime = currentTime;
           } else {
-            stop();
+            silence();
             return;
           }
         }
@@ -128,7 +159,7 @@ void Buzzer::handle() {
       isOn = false;
       startTime = currentTime;
       if (++currentRepetition >= repetitions) {
-        stop();
+        silence();
         return;
       }
     }
@@ -144,7 +175,7 @@ void Buzzer::handle() {
 
 void Buzzer::startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency) {
   if (playing || playingMelody) {
-    stop();
+    silence();
   }
 
   if (frequency > 0) {
@@ -159,11 +190,12 @@ void Buzzer::startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t
   isOn = true;
   setPwmOn();
   startTime = millis();
+  pushBeepEvent(pwmFrequency, duration, pause, reps, true);
 }
 
 void Buzzer::startMelody(const Melody* melody, bool repeat) {
   if (playing || playingMelody) {
-    stop();
+    silence();
   }
 
   currentMelody = melody;
@@ -248,13 +280,9 @@ void Buzzer::setPwmOff() {
 }
 
 void Buzzer::stop() {
-  playing = false;
-  playingMelody = false;
-  isOn = false;
-  noteIsOn = false;
-  repetitions = 0;
-  currentMelody = nullptr;
-  currentNoteIndex = 0;
-  melodyRepeat = false;
-  setPwmOff();
+  bool wasPlaying = playing || playingMelody;
+  silence();
+  if (wasPlaying) {
+    pushBeepEvent(pwmFrequency, 0, 0, 0, false);
+  }
 }
