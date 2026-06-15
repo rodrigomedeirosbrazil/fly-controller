@@ -135,7 +135,7 @@ Available on all builds. Connects to WiFi AP, serves config pages at `192.168.4.
 
 WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).
 
-The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response (`BeepEvent` snapshot: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) drives a square-wave oscillator player. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
+The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) — the browser replays all events with `seq > bzLastSeq` in order using a Web Audio time cursor. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
 
 ## Wireless Throttle (ESP-NOW)
 
