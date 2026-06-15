@@ -17,74 +17,89 @@ struct Melody {
   uint16_t pauseBetweenNotes;  // Pause between notes in ms
 };
 
-// Snapshot of the currently playing (or last played) beep, for web telemetry.
+// One entry in the beep event ring — for web telemetry transport.
 struct BeepEvent {
-  uint32_t seq;       // monotonic counter, incremented on each startBeep()
-  uint16_t frequency; // Hz (resolved default if 0 was passed)
+  uint32_t seq;       // monotonic counter; 0 = empty slot
+  uint16_t frequency; // Hz
   uint16_t onMs;      // on duration
   uint16_t offMs;     // off/pause duration between reps
   uint8_t  reps;      // 255 = continuous
-  bool     active;    // true while the buzzer is playing
+  bool     active;    // true = started, false = stopped
 };
 
 class Buzzer {
-  private:
-    uint8_t pin;
-    uint8_t pwmChannel;
-    uint32_t pwmFrequency;
-    uint8_t pwmResolution;
-    uint32_t pwmDutyCycle;
-    bool playing;
-    uint32_t startTime;
-    uint16_t beepDuration;
-    uint16_t pauseDuration;
-    uint8_t repetitions;
-    uint8_t currentRepetition;
-    bool isOn;
+public:
+  static constexpr uint8_t kRingSize = 8;
 
-    // Melody/sequence support
-    bool playingMelody;
-    const Melody* currentMelody;
-    uint8_t currentNoteIndex;
-    uint32_t noteStartTime;
-    bool noteIsOn;
-    bool melodyRepeat;  // If true, melody repeats continuously
+private:
+  uint8_t pin;
+  uint8_t pwmChannel;
+  uint32_t pwmFrequency;
+  uint8_t pwmResolution;
+  uint32_t pwmDutyCycle;
+  bool playing;
+  uint32_t startTime;
+  uint16_t beepDuration;
+  uint16_t pauseDuration;
+  uint8_t repetitions;
+  uint8_t currentRepetition;
+  bool isOn;
 
-    BeepEvent beepEvent_;
+  // Melody/sequence support
+  bool playingMelody;
+  const Melody* currentMelody;
+  uint8_t currentNoteIndex;
+  uint32_t noteStartTime;
+  bool noteIsOn;
+  bool melodyRepeat;
 
-    void startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency = 0);
-    void startMelody(const Melody* melody, bool repeat = false);
-    bool isPlaying() { return playing || playingMelody; };
-    void setPwmOn();
-    void setPwmOff();
-    void setFrequency(uint16_t frequency);
+  // Event ring buffer
+  BeepEvent beepRing_[kRingSize];
+  uint8_t beepWriteIdx_;
+  uint8_t beepCount_;
+  uint32_t beepSeq_;
 
-  public:
-    Buzzer(uint8_t buzzerPin);
-    void setup();
-    void handle();
+  void startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency = 0);
+  void startMelody(const Melody* melody, bool repeat = false);
+  bool isPlaying() { return playing || playingMelody; }
+  void setPwmOn();
+  void setPwmOff();
+  void setFrequency(uint16_t frequency);
+  // Stops PWM and resets playback state without logging an event.
+  void silence();
+  // Appends one event to the ring (seq auto-assigned).
+  void pushBeepEvent(uint16_t freq, uint16_t onMs, uint16_t offMs, uint8_t reps, bool active);
 
-    // Re-applies the timer frequency after the global LEDC clock source
-    // changes (e.g. when ESP32Servo's esc.attach() forces XTAL on the
-    // shared low-speed clock, halving previously-configured frequencies).
-    void recalibrate();
+public:
+  Buzzer(uint8_t buzzerPin);
+  void setup();
+  void handle();
 
-    // Sets the output volume as a percentage (0-100), mapped directly to the
-    // PWM duty cycle. 0 = silent. Takes effect on the next beep.
-    void setVolume(uint8_t percent);
+  // Re-applies the timer frequency after the global LEDC clock source
+  // changes (e.g. when ESP32Servo's esc.attach() forces XTAL on the
+  // shared low-speed clock, halving previously-configured frequencies).
+  void recalibrate();
 
-    // Contextual methods
-    void beepSystemStart();
-    void beepCalibrationStep();
-    void beepCalibrationComplete();
-    void beepDisarmed();
-    void beepArmingBlocked();
-    void beepButtonClick();
-    void beepArmedAlert();
-    void beepVolumePreview();
+  // Sets the output volume as a percentage (0-100), mapped directly to the
+  // PWM duty cycle. 0 = silent. Takes effect on the next beep.
+  void setVolume(uint8_t percent);
 
-    void stop();
-    BeepEvent getBeepEvent() const { return beepEvent_; }
+  // Contextual methods
+  void beepSystemStart();
+  void beepCalibrationStep();
+  void beepCalibrationComplete();
+  void beepDisarmed();
+  void beepArmingBlocked();
+  void beepButtonClick();
+  void beepArmedAlert();
+  void beepVolumePreview();
+
+  // Stops playback and logs an active:false event if something was playing.
+  void stop();
+
+  // Returns events in ascending seq order (oldest first), up to maxCount.
+  // Returns the number written into buf.
+  uint8_t getBeepEvents(BeepEvent* buf, uint8_t maxCount) const;
 };
 
 #endif

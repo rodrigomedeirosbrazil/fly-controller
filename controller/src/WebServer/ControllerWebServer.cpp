@@ -650,7 +650,7 @@ void ControllerWebServer::startAP() {
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<896> doc;
+        StaticJsonDocument<1536> doc;
 
         const bool hasTelemetry = telemetry.hasData();
         const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();
@@ -716,14 +716,18 @@ void ControllerWebServer::startAP() {
         }
 
         {
-            const BeepEvent ev = buzzer.getBeepEvent();
-            JsonObject buzzerObj = doc.createNestedObject("buzzer");
-            buzzerObj["seq"]    = ev.seq;
-            buzzerObj["freq"]   = ev.frequency;
-            buzzerObj["onMs"]   = ev.onMs;
-            buzzerObj["offMs"]  = ev.offMs;
-            buzzerObj["reps"]   = ev.reps;
-            buzzerObj["active"] = ev.active;
+            BeepEvent evBuf[Buzzer::kRingSize];
+            uint8_t evCount = buzzer.getBeepEvents(evBuf, Buzzer::kRingSize);
+            JsonArray buzzerArr = doc.createNestedArray("buzzer");
+            for (uint8_t i = 0; i < evCount; i++) {
+                JsonObject buzzerObj = buzzerArr.createNestedObject();
+                buzzerObj["seq"]    = evBuf[i].seq;
+                buzzerObj["freq"]   = evBuf[i].frequency;
+                buzzerObj["onMs"]   = evBuf[i].onMs;
+                buzzerObj["offMs"]  = evBuf[i].offMs;
+                buzzerObj["reps"]   = evBuf[i].reps;
+                buzzerObj["active"] = evBuf[i].active;
+            }
         }
 
         if (doc.overflowed()) {
