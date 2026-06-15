@@ -44,8 +44,16 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                 <div id="wakeHelp" style="margin-top:8px;font-size:12px;line-height:1.35;">A página tentará automaticamente primeiro. Se a tela ainda apagar, toque no botão uma vez.</div>
             </div>
 
+            <div class="power-alert-panel" id="powerAlertPanel">
+                <div style="flex:1;">
+                    <div class="power-alert-title">&#x26A0; Pot&#xEA;ncia reduzida</div>
+                    <div class="power-alert-causes" id="powerAlertCauses"></div>
+                </div>
+                <button type="button" class="power-alert-close" id="powerAlertClose" aria-label="Fechar alerta">&#x2715;</button>
+            </div>
+
             <div class="grid telemetry-grid">
-                <div class="card">
+                <div class="card" id="cardBattery">
                     <div class="label">Tens&#xE3;o</div>
                     <div class="value" id="batteryVoltage">--</div>
                     <div class="armed-pill disarmed" id="armedPill">
@@ -62,7 +70,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <div class="sub2-value" id="socVoltage">--</div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" id="cardPower">
                     <div class="label">Energia</div>
                     <div class="value" id="powerKw">--</div>
                     <div class="sub2">
@@ -78,12 +86,12 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <div class="sub2-value" id="throttleRaw">--</div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" id="cardMotorTemp">
                     <div class="label">Motor</div>
                     <div class="value" id="motorTemp">--</div>
                     <div class="sub" id="rpm">--</div>
                 </div>
-                <div class="card">
+                <div class="card" id="cardEscTemp">
                     <div class="label">ESC</div>
                     <div class="value" id="escTemp">--</div>
                     <div class="sub" id="escCurrent">--</div>
@@ -684,6 +692,80 @@ const renderTelemetry = (data) => {
     }
 
     bzProcessEvents(data.buzzer);
+    renderPowerAlert(data.powerAlert);
+};
+
+// ============ Power Alert ============
+let paLastSeq = -1;
+let paDismissedSeq = -1;
+
+const PA_CAUSE_LABELS = {
+    battery:   'Tensão da bateria baixa',
+    motorTemp: 'Temperatura do motor alta',
+    escTemp:   'Temperatura do ESC alta',
+};
+
+const PA_CAUSE_CARDS = {
+    battery:   'cardBattery',
+    motorTemp: 'cardMotorTemp',
+    escTemp:   'cardEscTemp',
+};
+
+const renderPowerAlert = (pa) => {
+    const panel = $('powerAlertPanel');
+    const causesEl = $('powerAlertCauses');
+    const powerCard = $('cardPower');
+    if (!panel || !causesEl || !powerCard) return;
+
+    const causes = (pa && pa.causes) ? pa.causes : [];
+    const seq = (pa && pa.seq != null) ? pa.seq : paLastSeq;
+
+    // Persistent card highlights: driven by active causes, independent of dismissal.
+    const allCauseIds = Object.keys(PA_CAUSE_CARDS);
+    allCauseIds.forEach(key => {
+        const card = $(PA_CAUSE_CARDS[key]);
+        if (!card) return;
+        if (causes.includes(key)) {
+            card.classList.add('power-limit-active');
+        } else {
+            card.classList.remove('power-limit-active');
+        }
+    });
+    if (causes.length > 0) {
+        powerCard.classList.add('power-limit-active');
+        const pct = $('powerPercent');
+        if (pct) pct.className = 'sub2-value power-limit-badge';
+    } else {
+        powerCard.classList.remove('power-limit-active');
+        const pct = $('powerPercent');
+        if (pct) pct.className = 'sub2-value';
+    }
+
+    // Dismissible alert card: event-driven by seq.
+    if (causes.length === 0) {
+        // Limiting stopped — auto-close and reset dismissal state.
+        panel.classList.remove('open');
+        paDismissedSeq = -1;
+        paLastSeq = -1;
+        return;
+    }
+
+    if (seq !== paLastSeq && seq !== paDismissedSeq) {
+        // New alert fire — show panel.
+        paLastSeq = seq;
+        causesEl.textContent = causes.map(c => PA_CAUSE_LABELS[c] || c).join(' · ');
+        panel.classList.add('open');
+    }
+};
+
+const initPowerAlert = () => {
+    const closeBtn = $('powerAlertClose');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            paDismissedSeq = paLastSeq;
+            $('powerAlertPanel').classList.remove('open');
+        });
+    }
 };
 
 const loadTelemetry = () => {
@@ -695,6 +777,7 @@ const loadTelemetry = () => {
 document.addEventListener('DOMContentLoaded', () => {
     initTelemetryWake();
     initBuzzerSound();
+    initPowerAlert();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

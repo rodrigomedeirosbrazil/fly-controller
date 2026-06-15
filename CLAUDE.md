@@ -137,6 +137,8 @@ WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the r
 
 The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) — the browser replays all events with `seq > bzLastSeq` in order using a Web Audio time cursor. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
 
+The `/api/telemetry` response also includes a `powerAlert` object (`{seq, causes: [...]}`) driven by the `PowerAlert` component. When any power limiter is active while armed, the telemetry page highlights the affected metric cards in red (persistent while limiting) and shows a dismissible alert panel synced to the `seq` counter (reopens on every 10 s re-fire after dismissal). See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
+
 ## Wireless Throttle (ESP-NOW)
 
 An optional second ESP32 (the **remote throttle**, firmware in `throttle/`) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with the WiFi AP + BLE on the C3's single radio). The wire contract is `shared/RemoteLinkProtocol.h`, included by both firmwares.

@@ -193,6 +193,7 @@ void loop()
 
   handleEsc();
   handleArmedBeep();
+  powerAlert.handle();
 
   webServer.handleClient();
 

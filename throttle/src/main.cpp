@@ -101,6 +101,7 @@ static void playRequestedBeep() {
         case RemoteBeep::Disarmed:        buzzer.beepDisarmed(); break;
         case RemoteBeep::Alert:           buzzer.beepArmingBlocked(); break;
         case RemoteBeep::Stop:            buzzer.stop(); break;
+        case RemoteBeep::PowerAlert:      buzzer.beepPowerAlert(); break;
         default: break;
     }
 }

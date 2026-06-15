@@ -10,6 +10,7 @@ Power::Power() {
     lastPowerCalculationTime = 0;
     power = 100;
     batteryPowerFloor = 100;
+    activeLimitCauses_ = POWER_LIMIT_NONE;
     outputPwm = (float)ESC_MIN_PWM;
     lastTickMs = 0;
     startState = StartState::IDLE;
@@ -137,10 +138,21 @@ unsigned int Power::getPower() {
 }
 
 unsigned int Power::calcPower() {
-    if (!settings.getPowerControlEnabled()) return 100;
+    if (!settings.getPowerControlEnabled()) {
+        activeLimitCauses_ = POWER_LIMIT_NONE;
+        return 100;
+    }
     unsigned int batteryLimit   = calcBatteryLimit();
     unsigned int motorTempLimit = calcMotorTempLimit();
     unsigned int escTempLimit   = calcEscTempLimit();
+
+    uint8_t causes = POWER_LIMIT_NONE;
+    // Battery: only when telemetry is valid (excludes conservative startup floor)
+    if (batteryLimit < 100 && telemetry.hasData()) causes |= POWER_LIMIT_BATTERY;
+    if (motorTempLimit < 100) causes |= POWER_LIMIT_MOTOR_TEMP;
+    if (escTempLimit < 100)   causes |= POWER_LIMIT_ESC_TEMP;
+    activeLimitCauses_ = causes;
+
     return min(min(batteryLimit, motorTempLimit), escTempLimit);
 }
 
