@@ -96,6 +96,10 @@ while (canbus.receive(&msg)) {
 ```
 `Canbus` handles NodeStatus/GetNodeInfo internally.
 
+## Agentic Workflow Artifacts
+
+`docs/superpowers/` (specs, plans) and temporary test files (e.g. `docs/*.html`) are **working documents** — never commit them to PRs or feature branches. They are gitignored. Keep them local only.
+
 ## Coding Conventions
 
 - **Language:** All code, comments, commit messages, documentation, and identifiers in **English**. The only exception is user-facing strings rendered in the web portal and UI (button labels, page text, error messages shown to the user) — those are in **Brazilian Portuguese**.
