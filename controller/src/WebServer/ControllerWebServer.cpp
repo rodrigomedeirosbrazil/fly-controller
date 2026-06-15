@@ -716,6 +716,16 @@ void ControllerWebServer::startAP() {
         }
 
         {
+            uint8_t causes = powerAlert.getActiveCauses();
+            JsonObject pa = doc.createNestedObject("powerAlert");
+            pa["seq"] = powerAlert.getAlertSeq();
+            JsonArray causesArr = pa.createNestedArray("causes");
+            if (causes & POWER_LIMIT_BATTERY)    causesArr.add("battery");
+            if (causes & POWER_LIMIT_MOTOR_TEMP) causesArr.add("motorTemp");
+            if (causes & POWER_LIMIT_ESC_TEMP)   causesArr.add("escTemp");
+        }
+
+        {
             BeepEvent evBuf[Buzzer::kRingSize];
             uint8_t evCount = buzzer.getBeepEvents(evBuf, Buzzer::kRingSize);
             JsonArray buzzerArr = doc.createNestedArray("buzzer");

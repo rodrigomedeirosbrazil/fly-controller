@@ -269,6 +269,11 @@ void Buzzer::beepVolumePreview() {
   startBeep(120, 1, 0, kDefaultBeepFrequencyHz);
 }
 
+void Buzzer::beepPowerAlert() {
+  // 3 rapid beeps at 2500 Hz — distinct power-reduction warning
+  startBeep(100, 3, 60, 2500);
+}
+
 void Buzzer::setPwmOn() {
   ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel, pwmDutyCycle);
   ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel);

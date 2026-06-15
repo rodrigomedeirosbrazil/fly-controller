@@ -32,6 +32,7 @@
 #include "Xag/XagTelemetry.h"
 #endif
 #include "RemoteLink/RemoteLink.h"
+#include "PowerAlert/PowerAlert.h"
 
 // Debug logging - compiles to zero in production
 #ifdef DEBUG
@@ -83,6 +84,7 @@ extern Settings settings;
 extern HourMeter hourMeter;
 extern ADS1115 ads1115;
 extern RemoteLink remoteLink;
+extern PowerAlert powerAlert;
 #include "Telemetry/Telemetry.h"
 
 // ========== ANALOG INPUTS (ADC1 - legacy, used only when ADS1115 not in use) ==========
@@ -151,6 +153,9 @@ extern RemoteLink remoteLink;
 // Only used when useSmoothStart is true (XAG build).
 #define XAG_MOTOR_REACTION_DELAY_MS    1500
 #define XAG_WAKEUP_PWM_PERCENT        5
+
+// ========== POWER ALERT ==========
+#define POWER_ALERT_BEEP_INTERVAL_MS 10000
 
 // ========== WATCHDOG ==========
 // Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()

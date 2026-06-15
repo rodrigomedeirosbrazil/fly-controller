@@ -108,6 +108,10 @@ Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and 
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, ESC temp limiting, and ramp rate control. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`.
+`getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Battery cause is only set when `telemetry.hasData()` (excludes the conservative 50% startup floor). Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
+
+### PowerAlert — `PowerAlert/`
+Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `buzzer.beepPowerAlert()` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
 
 ### BatteryMonitor — `BatteryMonitor/`
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.

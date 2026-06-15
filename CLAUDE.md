@@ -96,6 +96,10 @@ while (canbus.receive(&msg)) {
 ```
 `Canbus` handles NodeStatus/GetNodeInfo internally.
 
+## Agentic Workflow Artifacts
+
+`docs/superpowers/` (specs, plans) and temporary test files (e.g. `docs/*.html`) are **working documents** — never commit them to PRs or feature branches. They are gitignored. Keep them local only.
+
 ## Coding Conventions
 
 - **Language:** All code, comments, commit messages, documentation, and identifiers in **English**. The only exception is user-facing strings rendered in the web portal and UI (button labels, page text, error messages shown to the user) — those are in **Brazilian Portuguese**.
@@ -136,6 +140,8 @@ Available on all builds. Connects to WiFi AP, serves config pages at `192.168.4.
 WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).
 
 The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) — the browser replays all events with `seq > bzLastSeq` in order using a Web Audio time cursor. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
+
+The `/api/telemetry` response also includes a `powerAlert` object (`{seq, causes: [...]}`) driven by the `PowerAlert` component. When any power limiter is active while armed, the telemetry page highlights the affected metric cards in red (persistent while limiting) and shows a dismissible alert panel synced to the `seq` counter (reopens on every 10 s re-fire after dismissal). See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
 
 ## Wireless Throttle (ESP-NOW)
 

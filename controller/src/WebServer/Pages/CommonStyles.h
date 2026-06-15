@@ -351,6 +351,69 @@ th {
     margin-top: 8px;
 }
 
+.power-alert-panel {
+    display: none;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    line-height: 1.4;
+    border-left: 4px solid #dc2626;
+}
+
+.power-alert-panel.open {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.power-alert-title {
+    font-weight: 600;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+.power-alert-causes {
+    color: #991b1b;
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.power-alert-close {
+    margin-left: auto;
+    background: transparent;
+    border: 0;
+    color: #991b1b;
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.card.power-limit-active {
+    background: #fef2f2;
+    border-color: #dc2626;
+}
+
+.card.power-limit-active .label {
+    color: #991b1b;
+}
+
+.card.power-limit-active .value {
+    color: #991b1b;
+}
+
+.power-limit-badge {
+    background: #fee2e2;
+    color: #991b1b;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
 .armed-pill {
     display: inline-flex;
     align-items: center;
