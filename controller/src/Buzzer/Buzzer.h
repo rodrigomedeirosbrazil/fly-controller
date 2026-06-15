@@ -19,12 +19,12 @@ struct Melody {
 
 // Snapshot of the currently playing (or last played) beep, for web telemetry.
 struct BeepEvent {
-    uint32_t seq;       // monotonic counter, incremented on each startBeep()
-    uint16_t frequency; // Hz (resolved default if 0 was passed)
-    uint16_t onMs;      // on duration
-    uint16_t offMs;     // off/pause duration between reps
-    uint8_t  reps;      // 255 = continuous
-    bool     active;    // true while the buzzer is playing
+  uint32_t seq;       // monotonic counter, incremented on each startBeep()
+  uint16_t frequency; // Hz (resolved default if 0 was passed)
+  uint16_t onMs;      // on duration
+  uint16_t offMs;     // off/pause duration between reps
+  uint8_t  reps;      // 255 = continuous
+  bool     active;    // true while the buzzer is playing
 };
 
 class Buzzer {
