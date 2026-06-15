@@ -17,6 +17,16 @@ struct Melody {
   uint16_t pauseBetweenNotes;  // Pause between notes in ms
 };
 
+// Snapshot of the currently playing (or last played) beep, for web telemetry.
+struct BeepEvent {
+    uint32_t seq;       // monotonic counter, incremented on each startBeep()
+    uint16_t frequency; // Hz (resolved default if 0 was passed)
+    uint16_t onMs;      // on duration
+    uint16_t offMs;     // off/pause duration between reps
+    uint8_t  reps;      // 255 = continuous
+    bool     active;    // true while the buzzer is playing
+};
+
 class Buzzer {
   private:
     uint8_t pin;
@@ -39,6 +49,8 @@ class Buzzer {
     uint32_t noteStartTime;
     bool noteIsOn;
     bool melodyRepeat;  // If true, melody repeats continuously
+
+    BeepEvent beepEvent_;
 
     void startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency = 0);
     void startMelody(const Melody* melody, bool repeat = false);
@@ -72,6 +84,7 @@ class Buzzer {
     void beepVolumePreview();
 
     void stop();
+    BeepEvent getBeepEvent() const { return beepEvent_; }
 };
 
 #endif
