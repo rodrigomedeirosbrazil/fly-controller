@@ -306,6 +306,7 @@ th {
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    gap: 10px;
 }
 
 .wake-icon-btn {
