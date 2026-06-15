@@ -34,7 +34,8 @@ Buzzer::Buzzer(uint8_t buzzerPin) :
   currentNoteIndex(0),
   noteStartTime(0),
   noteIsOn(false),
-  melodyRepeat(false) {
+  melodyRepeat(false),
+  beepEvent_{} {
 }
 
 void Buzzer::setup() {
@@ -159,6 +160,12 @@ void Buzzer::startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t
   isOn = true;
   setPwmOn();
   startTime = millis();
+  beepEvent_.seq++;
+  beepEvent_.frequency = pwmFrequency;  // resolved: setFrequency() already updated it
+  beepEvent_.onMs      = duration;
+  beepEvent_.offMs     = pause;
+  beepEvent_.reps      = reps;
+  beepEvent_.active    = true;
 }
 
 void Buzzer::startMelody(const Melody* melody, bool repeat) {
@@ -257,4 +264,5 @@ void Buzzer::stop() {
   currentNoteIndex = 0;
   melodyRepeat = false;
   setPwmOff();
+  beepEvent_.active = false;
 }
