@@ -650,7 +650,7 @@ void ControllerWebServer::startAP() {
 
     // Telemetry API
     server.on("/api/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<1536> doc;
+        StaticJsonDocument<2048> doc;
 
         const bool hasTelemetry = telemetry.hasData();
         const uint16_t batteryVoltageMv = telemetry.getBatteryVoltageMilliVolts();

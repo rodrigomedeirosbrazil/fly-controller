@@ -324,6 +324,10 @@ th {
     justify-content: center;
 }
 
+.wake-icon-btn.sound-muted {
+    opacity: 0.55;
+}
+
 .wake-panel {
     display: none;
     background: var(--card);

@@ -141,7 +141,6 @@ const isAppleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
 let audioCtx = null;
 let gainMaster = null;
 let soundMuted = localStorage.getItem('bzMuted') !== '0';  // default: muted
-let bzLoopActive = false;
 let bzStopLoopFlag = false;
 let bzActiveOsc = null;
 let bzActiveGain = null;
