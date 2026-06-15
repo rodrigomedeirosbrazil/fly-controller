@@ -104,6 +104,8 @@ Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and 
 - Frequency sweep found the loudest useful range between `2000 Hz` and `2500 Hz`.
 - Current defaults use `2300 Hz` for general beeps and `2000 Hz` for the armed alert.
 
+`getBeepEvent()` returns a `BeepEvent` snapshot (`seq`, `frequency`, `onMs`, `offMs`, `reps`, `active`) populated by `startBeep()` and cleared by `stop()`. The web server reads this to include a `buzzer` object in `/api/telemetry`, which the telemetry page uses to mirror beeps in the browser via Web Audio API.
+
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, ESC temp limiting, and ramp rate control. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`.
 

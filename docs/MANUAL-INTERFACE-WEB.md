@@ -59,11 +59,18 @@ Os dados são atualizados automaticamente a cada 1 segundo.
 
 Mostra os dados ao vivo do sistema, atualizados a cada 1 segundo.
 
+### Barra de status
+
+A barra no topo da tela de telemetria possui dois controles além do badge:
+
+- **🔔 / 🔇 (Som)** — Ativa ou silencia os beeps do buzzer no navegador. No primeiro toque, o áudio é desbloqueado (política de autoplay do navegador). O estado é salvo e lembrado entre visitas. Começa **silenciado** por padrão; o volume real é controlado pelo volume do dispositivo.
+- **🔒 (Manter ativo)** — Mantém a tela do dispositivo acesa enquanto a página está aberta (wake lock).
+
 ### Badge de status
 
-- **NO DATA** — Ainda não há dados de telemetria (ex.: ESC não conectado ou sem CAN).
-- **STALE** — Última atualização há mais de 3 segundos.
-- **LIVE** — Dados sendo atualizados normalmente.
+- **SEM DADOS** — Ainda não há dados de telemetria (ex.: ESC não conectado ou sem CAN).
+- **DESATUALIZADO** — Última atualização há mais de 3 segundos.
+- **AO VIVO** — Dados sendo atualizados normalmente.
 
 ### Campos exibidos
 
@@ -214,7 +221,7 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 - A interface é servida pelo próprio controlador (ESP32); não depende de internet.
 - O ponto de acesso **FlyController** não usa senha; qualquer dispositivo próximo pode conectar. Use em ambiente controlado.
 - As configurações são validadas no servidor (por exemplo, capacidade 1000–200000 mAh, tensões e temperaturas dentro das faixas). Valores fora do permitido são rejeitados com mensagem de erro.
-- A API de telemetria está em **GET /api/telemetry** (JSON). O objeto **availability** indica quais dados estão disponíveis (`current`, `rpm`, `powerKw`, `bms`, `bmsCells`). Campos numéricos como `rpm`, `escCurrentMa` e `powerKwX10` são omitidos quando indisponíveis (a página mostra N/A). Quando o JBD BMS está conectado, o objeto **bms** traz `tempMaxC`, `cellMinMv`, `cellMaxMv` e `cellDeltaMv`. A página de Configuração usa **GET /config/values** (ler) e **POST /config/save** (gravar) com corpo JSON.
+- A API de telemetria está em **GET /api/telemetry** (JSON). O objeto **availability** indica quais dados estão disponíveis (`current`, `rpm`, `powerKw`, `bms`, `bmsCells`). Campos numéricos como `rpm`, `escCurrentMa` e `powerKwX10` são omitidos quando indisponíveis (a página mostra N/A). Quando o BMS está conectado, o objeto **bms** traz `tempMaxC`, `cellMinMv`, `cellMaxMv` e `cellDeltaMv`. O objeto **buzzer** traz o snapshot do beep atual: `seq` (contador monotônico), `freq` (Hz), `onMs`, `offMs`, `reps` (255 = contínuo) e `active` (se está tocando). A página de Telemetria usa esses dados para reproduzir os beeps no navegador. A página de Configuração usa **GET /config/values** (ler) e **POST /config/save** (gravar) com corpo JSON.
 
 ---
 
