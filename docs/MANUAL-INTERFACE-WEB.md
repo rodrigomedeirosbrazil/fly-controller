@@ -89,7 +89,7 @@ A barra no topo da tela de telemetria possui dois controles além do badge:
 | **ESC Current**      | Corrente consumida (A). **N/A** quando não há sensor de corrente; **0** é valor válido quando o sensor existe. |
 | **System**           | ARMED ou DISARMED. |
 | **Last update**      | Há quantos milissegundos os dados foram atualizados. |
-| **BMS**              | Card exibido apenas quando o JBD BMS está conectado e enviando dados: temperatura máxima da bateria (NTCs), célula mín/máx (mV) e delta (balanceamento). |
+| **BMS**              | Card exibido quando há um BMS (JBD, Daly ou JK) configurado: mostra o estado da conexão (conectando / conectado) e, quando recebendo dados, a temperatura máxima da bateria (NTCs), célula mín/máx (mV) e delta (balanceamento). |
 
 A interface usa flags de **disponibilidade** enviadas pela API: quando um dado não está disponível (ex.: sem sensor de corrente), o valor é exibido como **N/A**; quando está disponível, **0** é mostrado como zero (não como N/A).
 
@@ -126,7 +126,7 @@ Lista os arquivos de log armazenados na memória interna (LittleFS). Apenas arqu
 
 A tabela mostra o **nome do arquivo** e o **tamanho**. A lista é recarregada ao abrir a página; após excluir um arquivo, a tabela é atualizada.
 
-Os logs em CSV incluem, quando disponível, dados do BMS JBD: **battery_temp_max** (temperatura máxima da bateria entre os NTCs), **cell_voltage_min_mv** e **cell_voltage_max_mv** (menor e maior tensão por célula em mV). Esses campos aparecem vazios se o BMS não estiver conectado.
+Os logs em CSV incluem, quando disponível, dados do BMS: **battery_temp_max** (temperatura máxima da bateria entre os NTCs), **cell_voltage_min_mv** e **cell_voltage_max_mv** (menor e maior tensão por célula em mV). Esses campos aparecem vazios se o BMS não estiver conectado.
 
 ---
 
@@ -188,9 +188,10 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 
 | Configuração | Descrição e uso |
 |--------------|------------------|
-| **BMS type** | Seleciona o backend Bluetooth do BMS. Atualmente a interface suporta **JBD** e **Daly (D2 BLE)**. |
+| **Status da conexão** | Mostra ao vivo o estado do BMS configurado (não configurado / conectando / conectado) e, quando recebendo dados, tensão, corrente, SoC, número de células, temperatura e delta entre células. |
+| **BMS type** | Seleciona o backend Bluetooth do BMS. A interface suporta **JBD**, **Daly (D2 BLE)** e **JK BMS**. |
 | **BMS Bluetooth address (MAC)** | Endereço MAC do BMS no formato **XX:XX:XX:XX:XX:XX** (6 bytes em hexadecimal separados por dois pontos). Pode ser digitado manualmente ou preenchido pelo scanner BLE da própria página. |
-| **Scan for BMS** | Executa uma busca BLE manual por BMS compatíveis enquanto a página de configuração está aberta. O scanner lista apenas dispositivos que anunciam os serviços conhecidos do firmware: **0xFF00** para **JBD** e **0xFFF0** para **Daly (D2 BLE)**. Ao selecionar um resultado, a interface preenche automaticamente o **tipo do BMS** e o **MAC**. |
+| **Scan for BMS** | Executa uma busca BLE manual por BMS compatíveis enquanto a página de configuração está aberta. O scanner lista apenas dispositivos que anunciam os serviços conhecidos do firmware: **0xFF00** para **JBD**, **0xFFF0** para **Daly (D2 BLE)** e **0xFFE0** para **JK BMS**. Ao selecionar um resultado, a interface preenche automaticamente o **tipo do BMS** e o **MAC**. |
 
 **Nota:** Após alterar o MAC, salve a configuração e reinicie o controlador para que a nova conexão seja tentada.
 

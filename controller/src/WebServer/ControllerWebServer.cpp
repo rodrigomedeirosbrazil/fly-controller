@@ -161,6 +161,46 @@ void sendBmsConfigResponse(AsyncWebServerRequest* request) {
     sendJsonResponse(request, 200, doc);
 }
 
+// Live BLE BMS connection status + readings, polled by the /config/bms page so
+// the user can see whether the configured BMS is actually connecting/streaming.
+void sendBmsStatusResponse(AsyncWebServerRequest* request) {
+    StaticJsonDocument<512> doc;
+    const uint8_t type = settings.getBmsType();
+    const String mac = settings.getBmsMac();
+    doc["type"] = type;
+    doc["mac"] = mac;
+    doc["configured"] = (type != BmsTypeNone && mac.length() >= 17);
+    doc["connected"] = bluetoothBms.isConnected();
+    doc["state"] = bluetoothBms.getConnectionState();
+
+    const bool hasData = isBmsDataAvailable();
+    doc["hasData"] = hasData;
+    if (hasData) {
+        doc["voltageMv"] = bluetoothBms.getPackVoltageMilliVolts();
+        doc["currentMa"] = bluetoothBms.getPackCurrentMilliAmps();
+        doc["soc"] = bluetoothBms.getSoCPercent();
+        doc["cellCount"] = bluetoothBms.getCellCount();
+        if (bluetoothBms.getTempCount() > 0) {
+            int16_t maxTemp = bluetoothBms.getTempCelsius(0);
+            for (uint8_t i = 1; i < bluetoothBms.getTempCount(); i++) {
+                int16_t t = bluetoothBms.getTempCelsius(i);
+                if (t > maxTemp) maxTemp = t;
+            }
+            doc["tempC"] = maxTemp;
+        }
+        if (isBmsCellDataAvailable()) {
+            doc["cellMinMv"] = bluetoothBms.getCellMinMilliVolts();
+            doc["cellMaxMv"] = bluetoothBms.getCellMaxMilliVolts();
+            doc["cellDeltaMv"] = bluetoothBms.getCellDeltaMilliVolts();
+        }
+    }
+    if (doc.overflowed()) {
+        request->send(500, "text/plain", "Estouro do buffer JSON");
+        return;
+    }
+    sendJsonResponse(request, 200, doc);
+}
+
 void sendSystemConfigResponse(AsyncWebServerRequest* request) {
     StaticJsonDocument<256> doc;
     doc["buzzerVolume"] = settings.getBuzzerVolume();
@@ -274,6 +314,11 @@ void ControllerWebServer::startAP() {
     server.on("/api/bms/scan/status", HTTP_GET, [](AsyncWebServerRequest *request) {
         logWebHeap("/api/bms/scan/status");
         sendBmsScanStatusResponse(request);
+    });
+
+    server.on("/api/bms/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+        logWebHeap("/api/bms/status");
+        sendBmsStatusResponse(request);
     });
 
     server.on("/api/bms/scan/start", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -470,7 +515,7 @@ void ControllerWebServer::startAP() {
             }
 
             const uint8_t bmsType = doc["bmsType"].as<uint8_t>();
-            if (bmsType > BmsTypeDaly) {
+            if (bmsType > BmsTypeJk) {
                 request->send(400, "text/plain", "Tipo de BMS inválido");
                 return;
             }
@@ -695,6 +740,10 @@ void ControllerWebServer::startAP() {
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
         doc["hourMeterSec"] = hourMeter.getHourMeterSec();
         doc["sessionSec"] = hourMeter.getSessionSec();
+
+        doc["bmsConnected"] = bluetoothBms.isConnected();
+        doc["bmsState"] = bluetoothBms.getConnectionState();
+        doc["bmsConfigured"] = (settings.getBmsType() != BmsTypeNone && settings.getBmsMac().length() >= 17);
 
         // Generic Bluetooth BMS data when available
         if (isBmsDataAvailable()) {

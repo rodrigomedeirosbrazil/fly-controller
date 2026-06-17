@@ -7,10 +7,16 @@
 #include <freertos/semphr.h>
 #include "../config_controller.h"
 
+// When adding a BMS type, bump the upper-bound checks that reject "invalid"
+// values, or the new type is silently coerced to BmsTypeNone:
+//   - Settings::setBmsType() and Settings::validate() (Settings.cpp)
+//   - the POST /api/config/bms handler (ControllerWebServer.cpp)
+// BmsTypeJk must remain the highest value.
 enum BmsType : uint8_t {
     BmsTypeNone = 0,
     BmsTypeJbd = 1,
-    BmsTypeDaly = 2
+    BmsTypeDaly = 2,
+    BmsTypeJk = 3
 };
 
 enum ThrottleSource : uint8_t {

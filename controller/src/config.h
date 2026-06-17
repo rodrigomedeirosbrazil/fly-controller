@@ -48,6 +48,7 @@
 class Power;
 class Xctod;
 class JbdBms;
+class JkBms;
 class TelemetryLogger;
 
 extern Buzzer buzzer;
@@ -80,6 +81,7 @@ extern DalyBms dalyBms;
 extern Xctod xctod;
 extern TelemetryLogger telemetryLogger;
 extern JbdBms jbdBms;
+extern JkBms jkBms;
 extern Settings settings;
 extern HourMeter hourMeter;
 extern ADS1115 ads1115;

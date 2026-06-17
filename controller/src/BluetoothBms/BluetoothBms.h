@@ -29,6 +29,7 @@ public:
     bool isConnected() const;
     bool hasData() const;
     bool hasCellData() const;
+    const char* getConnectionState() const;
 
     uint32_t getPackVoltageMilliVolts() const;
     int32_t getPackCurrentMilliAmps() const;

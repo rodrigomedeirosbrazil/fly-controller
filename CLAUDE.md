@@ -55,9 +55,10 @@ controller/src/
 ├── Button/                   # AceButton single-click (arm) + long-press (cruise)
 ├── Buzzer/                   # Non-blocking PWM beep patterns
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
-├── DalyBms/                  # Daly BMS serial protocol
+├── DalyBms/                  # Daly BMS (BLE) protocol
 ├── Hobbywing/                # HobbywingCan + HobbywingTelemetry
-├── JbdBms/                   # JBD BMS serial protocol
+├── JbdBms/                   # JBD BMS (BLE) protocol
+├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS
 ├── Power/                    # Available-power calculation + throttle ramp limiting
 ├── RemoteLink/               # ESP-NOW remote-throttle link + host-tested failsafe logic

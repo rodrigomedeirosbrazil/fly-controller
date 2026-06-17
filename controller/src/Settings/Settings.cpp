@@ -139,7 +139,7 @@ void Settings::load() {
         bmsMac = "";
     }
 
-    if (bmsType > BmsTypeDaly) {
+    if (bmsType > BmsTypeJk) {
         Serial.println("[Settings] Invalid BMS type in NVS, resetting to None");
         bmsType = BmsTypeNone;
         repaired = true;
@@ -283,7 +283,7 @@ uint8_t Settings::getBmsType() const {
 }
 
 void Settings::setBmsType(uint8_t type) {
-    if (type > BmsTypeDaly) {
+    if (type > BmsTypeJk) {
         type = BmsTypeNone;
     }
     bmsType = type;
@@ -338,7 +338,10 @@ uint8_t Settings::getThrottleSource() const {
 }
 
 void Settings::setThrottleSource(uint8_t source) {
-    throttleSource = (source > ThrottleSourceWireless) ? ThrottleSourceWired : source;
+    if (source > ThrottleSourceWireless) {
+        source = ThrottleSourceWired;
+    }
+    throttleSource = source;
 }
 
 String Settings::getRemoteMac() const {

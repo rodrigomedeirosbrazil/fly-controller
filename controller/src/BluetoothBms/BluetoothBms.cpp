@@ -2,6 +2,7 @@
 #include "../config.h"
 #include "../DalyBms/DalyBms.h"
 #include "../JbdBms/JbdBms.h"
+#include "../JkBms/JkBms.h"
 #include "../Settings/Settings.h"
 #include "../Xctod/Xctod.h"
 #include <BLEAdvertisedDevice.h>
@@ -9,14 +10,16 @@
 #include <BLEDevice.h>
 
 namespace {
-constexpr char JBD_SCAN_SERVICE_UUID[] = "0000ff00-0000-1000-8000-00805f9b34fb";
+constexpr char JBD_SCAN_SERVICE_UUID[]  = "0000ff00-0000-1000-8000-00805f9b34fb";
 constexpr char DALY_SCAN_SERVICE_UUID[] = "0000fff0-0000-1000-8000-00805f9b34fb";
+constexpr char JK_SCAN_SERVICE_UUID[]   = "0000ffe0-0000-1000-8000-00805f9b34fb";
 constexpr uint32_t WEB_SCAN_DURATION_SECONDS = 5;
 } // namespace
 
 void BluetoothBms::init() {
     jbdBms.init();
     dalyBms.init();
+    jkBms.init();
     clearWebScanResults();
 }
 
@@ -34,153 +37,128 @@ void BluetoothBms::update() {
     dalyBms.setMacAddress(mac);
     dalyBms.setEnabled(activeType == BmsTypeDaly);
 
+    jkBms.setMacAddress(mac);
+    jkBms.setEnabled(activeType == BmsTypeJk);
+
     if (activeType == BmsTypeJbd) {
         jbdBms.update();
     } else if (activeType == BmsTypeDaly) {
         dalyBms.update();
+    } else if (activeType == BmsTypeJk) {
+        jkBms.update();
     }
 }
 
 bool BluetoothBms::isConnected() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.isConnected();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.isConnected();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.isConnected();
+    if (activeType == BmsTypeDaly) return dalyBms.isConnected();
+    if (activeType == BmsTypeJk)   return jkBms.isConnected();
     return false;
 }
 
 bool BluetoothBms::hasData() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.hasData();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.hasData();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.hasData();
+    if (activeType == BmsTypeDaly) return dalyBms.hasData();
+    if (activeType == BmsTypeJk)   return jkBms.hasData();
     return false;
+}
+
+const char* BluetoothBms::getConnectionState() const {
+    const uint8_t activeType = getActiveType();
+    if (activeType == BmsTypeJk) return jkBms.getStateName();
+    if (activeType == BmsTypeJbd || activeType == BmsTypeDaly) {
+        return isConnected() ? "connected" : "connecting";
+    }
+    return "none";
 }
 
 bool BluetoothBms::hasCellData() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.hasCellData();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.hasCellData();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.hasCellData();
+    if (activeType == BmsTypeDaly) return dalyBms.hasCellData();
+    if (activeType == BmsTypeJk)   return jkBms.hasCellData();
     return false;
 }
 
 uint32_t BluetoothBms::getPackVoltageMilliVolts() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getPackVoltageMilliVolts();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getPackVoltageMilliVolts();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getPackVoltageMilliVolts();
+    if (activeType == BmsTypeDaly) return dalyBms.getPackVoltageMilliVolts();
+    if (activeType == BmsTypeJk)   return jkBms.getPackVoltageMilliVolts();
     return 0;
 }
 
 int32_t BluetoothBms::getPackCurrentMilliAmps() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getPackCurrentMilliAmps();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getPackCurrentMilliAmps();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getPackCurrentMilliAmps();
+    if (activeType == BmsTypeDaly) return dalyBms.getPackCurrentMilliAmps();
+    if (activeType == BmsTypeJk)   return jkBms.getPackCurrentMilliAmps();
     return 0;
 }
 
 uint8_t BluetoothBms::getSoCPercent() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getSoCPercent();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getSoCPercent();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getSoCPercent();
+    if (activeType == BmsTypeDaly) return dalyBms.getSoCPercent();
+    if (activeType == BmsTypeJk)   return jkBms.getSoCPercent();
     return 0;
 }
 
 uint8_t BluetoothBms::getCellCount() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getCellCount();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getCellCount();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getCellCount();
+    if (activeType == BmsTypeDaly) return dalyBms.getCellCount();
+    if (activeType == BmsTypeJk)   return jkBms.getCellCount();
     return 0;
 }
 
 uint8_t BluetoothBms::getTempCount() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getNtcCount();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getTempCount();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getNtcCount();
+    if (activeType == BmsTypeDaly) return dalyBms.getTempCount();
+    if (activeType == BmsTypeJk)   return jkBms.getTempCount();
     return 0;
 }
 
 int16_t BluetoothBms::getTempCelsius(uint8_t index) const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getNtcTempCelsius(index);
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getTempCelsius(index);
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getNtcTempCelsius(index);
+    if (activeType == BmsTypeDaly) return dalyBms.getTempCelsius(index);
+    if (activeType == BmsTypeJk)   return jkBms.getTempCelsius(index);
     return 0;
 }
 
 uint16_t BluetoothBms::getCellVoltageMilliVolts(uint8_t index) const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getCellVoltageMilliVolts(index);
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getCellVoltageMilliVolts(index);
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getCellVoltageMilliVolts(index);
+    if (activeType == BmsTypeDaly) return dalyBms.getCellVoltageMilliVolts(index);
+    if (activeType == BmsTypeJk)   return jkBms.getCellVoltageMilliVolts(index);
     return 0;
 }
 
 uint16_t BluetoothBms::getCellMinMilliVolts() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getCellMinMilliVolts();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getCellMinMilliVolts();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getCellMinMilliVolts();
+    if (activeType == BmsTypeDaly) return dalyBms.getCellMinMilliVolts();
+    if (activeType == BmsTypeJk)   return jkBms.getCellMinMilliVolts();
     return 0;
 }
 
 uint16_t BluetoothBms::getCellMaxMilliVolts() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getCellMaxMilliVolts();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getCellMaxMilliVolts();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getCellMaxMilliVolts();
+    if (activeType == BmsTypeDaly) return dalyBms.getCellMaxMilliVolts();
+    if (activeType == BmsTypeJk)   return jkBms.getCellMaxMilliVolts();
     return 0;
 }
 
 uint16_t BluetoothBms::getCellDeltaMilliVolts() const {
     const uint8_t activeType = getActiveType();
-    if (activeType == BmsTypeJbd) {
-        return jbdBms.getCellDeltaMilliVolts();
-    }
-    if (activeType == BmsTypeDaly) {
-        return dalyBms.getCellDeltaMilliVolts();
-    }
+    if (activeType == BmsTypeJbd)  return jbdBms.getCellDeltaMilliVolts();
+    if (activeType == BmsTypeDaly) return dalyBms.getCellDeltaMilliVolts();
+    if (activeType == BmsTypeJk)   return jkBms.getCellDeltaMilliVolts();
     return 0;
 }
 
@@ -204,6 +182,7 @@ bool BluetoothBms::startWebScan() {
 
     jbdBms.setEnabled(false);
     dalyBms.setEnabled(false);
+    jkBms.setEnabled(false);
     pauseTelemetryAdvertisingForScan();
 
     BLEScan* scan = BLEDevice::getScan();
@@ -265,6 +244,7 @@ uint8_t BluetoothBms::detectBmsTypeByMac(const String& macAddress) {
 
     jbdBms.setEnabled(false);
     dalyBms.setEnabled(false);
+    jkBms.setEnabled(false);
     pauseTelemetryAdvertisingForScan();
 
     uint8_t detectedType = BmsTypeNone;
@@ -276,6 +256,8 @@ uint8_t BluetoothBms::detectBmsTypeByMac(const String& macAddress) {
                 detectedType = BmsTypeDaly;
             } else if (probeClient->getService(JBD_SCAN_SERVICE_UUID) != nullptr) {
                 detectedType = BmsTypeJbd;
+            } else if (probeClient->getService(JK_SCAN_SERVICE_UUID) != nullptr) {
+                detectedType = BmsTypeJk;
             }
             probeClient->disconnect();
         }
@@ -326,6 +308,8 @@ void BluetoothBms::completeWebScan() {
             detectedType = BmsTypeJbd;
         } else if (device.isAdvertisingService(BLEUUID(DALY_SCAN_SERVICE_UUID))) {
             detectedType = BmsTypeDaly;
+        } else if (device.isAdvertisingService(BLEUUID(JK_SCAN_SERVICE_UUID))) {
+            detectedType = BmsTypeJk;
         }
 
         const String mac = String(device.getAddress().toString().c_str());
