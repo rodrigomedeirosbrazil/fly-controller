@@ -7,6 +7,7 @@
 #include "Xctod/Xctod.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "JbdBms/JbdBms.h"
+#include "JkBms/JkBms.h"
 #include "Settings/Settings.h"
 
 Buzzer buzzer(BUZZER_PIN);
@@ -71,6 +72,7 @@ DalyBms dalyBms;
 Xctod xctod;
 TelemetryLogger telemetryLogger;
 JbdBms jbdBms;
+JkBms jkBms;
 Settings settings;
 HourMeter hourMeter;
 ADS1115 ads1115;

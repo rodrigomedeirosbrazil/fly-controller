@@ -10,7 +10,8 @@
 enum BmsType : uint8_t {
     BmsTypeNone = 0,
     BmsTypeJbd = 1,
-    BmsTypeDaly = 2
+    BmsTypeDaly = 2,
+    BmsTypeJk = 3
 };
 
 enum ThrottleSource : uint8_t {

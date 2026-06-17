@@ -56,12 +56,9 @@ void JbdBms::init() {
         DEBUG_PRINTLN("[JBD] ERROR: mutex or connect queue create failed");
         return;
     }
-    // BLEDevice::init() must have been called by the main system
-    pClient_ = BLEDevice::createClient();
-    if (!pClient_) {
-        DEBUG_PRINTLN("[JBD] ERROR: createClient failed");
-        return;
-    }
+    // BLEDevice::init() must have been called by the main system.
+    // pClient_ is created lazily in connectTask to avoid allocating BLE heap
+    // for inactive backends (all three BMS types are init'd at boot).
     txQueue_ = xQueueCreate(4, sizeof(BleFrame));
     xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     if (xTaskCreate(connectTask, "jbd_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
@@ -152,6 +149,11 @@ void JbdBms::connectTask(void* arg) {
         }
 
         // ----- Phase 1: BLE connect (slow, off main loop) -----
+        // Lazy-create the BLE client on first connection attempt so inactive
+        // backends don't consume BLE heap at boot.
+        if (self->pClient_ == nullptr) {
+            self->pClient_ = BLEDevice::createClient();
+        }
         BLEAddress addr(mac);
         bool connectedOk = self->pClient_ != nullptr
             && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);

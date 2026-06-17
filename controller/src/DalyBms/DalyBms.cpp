@@ -48,11 +48,8 @@ void DalyBms::init() {
         DEBUG_PRINTLN("[Daly] ERROR: mutex or connect queue create failed");
         return;
     }
-    pClient_ = BLEDevice::createClient();
-    if (pClient_ == nullptr) {
-        DEBUG_PRINTLN("[Daly] ERROR: createClient failed");
-        return;
-    }
+    // pClient_ is created lazily in connectTask to avoid allocating BLE heap
+    // for inactive backends (all three BMS types are init'd at boot).
     if (xTaskCreate(connectTask, "daly_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[Daly] ERROR: connect task create failed");
     }
@@ -231,6 +228,9 @@ void DalyBms::connectTask(void* arg) {
         }
 
         // ----- Phase 1: BLE connect (slow, off main loop) -----
+        if (self->pClient_ == nullptr) {
+            self->pClient_ = BLEDevice::createClient();
+        }
         BLEAddress addr(mac);
         bool connectedOk = self->pClient_ != nullptr
             && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);

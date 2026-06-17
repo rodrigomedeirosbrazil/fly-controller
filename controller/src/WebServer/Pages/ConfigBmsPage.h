@@ -31,6 +31,19 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
         <div class="panel">
             <h1>BMS Bluetooth</h1>
 
+            <div class="form-group" id="bmsStatusCard" style="border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px;">
+                <label>Status da conexão</label>
+                <div class="info-text" id="bmsStatusState">Carregando status...</div>
+                <div id="bmsStatusData" style="display:none; grid-template-columns:1fr 1fr; gap:6px 16px; margin-top:8px;">
+                    <div>Tensão: <strong id="bmsStV">--</strong></div>
+                    <div>Corrente: <strong id="bmsStI">--</strong></div>
+                    <div>SoC: <strong id="bmsStSoc">--</strong></div>
+                    <div>Células: <strong id="bmsStCells">--</strong></div>
+                    <div>Temp.: <strong id="bmsStTemp">--</strong></div>
+                    <div>Delta: <strong id="bmsStDelta">--</strong></div>
+                </div>
+            </div>
+
             <form id="bmsConfigForm">
                 <div class="form-group">
                     <label for="bmsType">Tipo de BMS:</label>
@@ -38,6 +51,7 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <option value="0">Desativado</option>
                         <option value="1">JBD</option>
                         <option value="2">Daly (D2 BLE)</option>
+                        <option value="3">JK BMS</option>
                     </select>
                     <div class="info-text">Selecione o backend BMS Bluetooth usado pelo controlador.</div>
                 </div>
@@ -50,7 +64,7 @@ static const char CONFIG_BMS_PAGE_HTML[] PROGMEM = R"rawliteral(
 
                 <div class="form-group">
                     <button type="button" id="scanBmsButton">Buscar BMS</button>
-                    <div class="info-text" id="bmsScanStatus">Pressione "Buscar BMS" para procurar dispositivos JBD e Daly próximos.</div>
+                    <div class="info-text" id="bmsScanStatus">Pressione "Buscar BMS" para procurar dispositivos JBD, Daly e JK próximos.</div>
                     <div id="bmsScanResults" style="display: grid; gap: 10px; margin-top: 12px;"></div>
                 </div>
 
@@ -77,7 +91,8 @@ const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 const BMS_TYPE_LABELS = {
     0: 'Desconhecido',
     1: 'JBD',
-    2: 'Daly (D2 BLE)'
+    2: 'Daly (D2 BLE)',
+    3: 'JK BMS'
 };
 
 let bmsScanPollTimer = null;
@@ -207,37 +222,41 @@ const applyBmsScanState = (data) => {
     setBmsScanStatus('Pressione "Buscar BMS" para procurar dispositivos BLE próximos e inspecionar os serviços anunciados.');
 };
 
+const fetchJson = (url, options) =>
+    fetch(url, options).then((r) => {
+        if (!r.ok) return r.text().then((t) => { throw new Error(`HTTP ${r.status}: ${t.trim() || r.statusText}`); });
+        return r.json();
+    });
+
 function loadBmsScanStatus() {
-    fetch('/api/bms/scan/status')
-        .then((response) => response.json())
+    fetchJson('/api/bms/scan/status')
         .then(applyBmsScanState)
         .catch((error) => {
             console.error('Error loading BMS scan status:', error);
             stopBmsScanPolling();
             $('scanBmsButton').disabled = false;
-            setBmsScanStatus('Não foi possível ler o status da busca BLE.');
+            setBmsScanStatus(`Erro ao ler status da busca: ${error.message || error}`);
         });
 }
 
 const startBmsScan = () => {
     $('scanBmsButton').disabled = true;
     setBmsScanStatus('Iniciando busca BLE...');
-    fetch('/api/bms/scan/start', { method: 'POST', headers: { 'X-Config-Pin': getPin() } })
-        .then((response) => response.json())
+    fetchJson('/api/bms/scan/start', { method: 'POST', headers: { 'X-Config-Pin': getPin() } })
         .then(applyBmsScanState)
         .catch((error) => {
             console.error('Error starting BMS scan:', error);
             $('scanBmsButton').disabled = false;
-            setBmsScanStatus('Não foi possível iniciar a busca BLE.');
+            setBmsScanStatus(`Erro ao iniciar busca BLE: ${error.message || error}`);
         });
 };
 
 const detectBmsType = (mac) => {
-    return fetch('/api/bms/detect', {
+    return fetchJson('/api/bms/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mac })
-    }).then((response) => response.json());
+    });
 };
 
 const loadCurrentValues = () => {
@@ -252,6 +271,60 @@ const loadCurrentValues = () => {
             showMessage('Erro ao carregar a configuração atual', 'err');
         });
 };
+
+const setText = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+
+const BMS_STATE_LABELS = {
+    none: 'Sem conexão',
+    idle: 'Aguardando',
+    connecting: 'Conectando...',
+    connected: 'Conectado'
+};
+
+let bmsStatusPollTimer = null;
+
+const renderBmsStatus = (data) => {
+    const stateEl = $('bmsStatusState');
+    const dataEl = $('bmsStatusData');
+    if (!stateEl || !dataEl) return;
+
+    if (!data || !data.configured) {
+        stateEl.textContent = 'BMS não configurado — selecione o tipo e o MAC e salve para conectar.';
+        dataEl.style.display = 'none';
+        return;
+    }
+
+    const typeLabel = BMS_TYPE_LABELS[data.type] || '';
+    const mac = data.mac || '—';
+
+    if (data.hasData) {
+        stateEl.textContent = `Conectado a ${typeLabel} (${mac}) — recebendo dados`;
+        dataEl.style.display = 'grid';
+        setText('bmsStV', typeof data.voltageMv === 'number' ? (data.voltageMv / 1000).toFixed(2) + ' V' : '--');
+        setText('bmsStI', typeof data.currentMa === 'number' ? (data.currentMa / 1000).toFixed(2) + ' A' : '--');
+        setText('bmsStSoc', typeof data.soc === 'number' ? data.soc + ' %' : '--');
+        setText('bmsStCells', typeof data.cellCount === 'number' ? String(data.cellCount) : '--');
+        setText('bmsStTemp', typeof data.tempC === 'number' ? data.tempC + ' °C' : '--');
+        setText('bmsStDelta', typeof data.cellDeltaMv === 'number' ? data.cellDeltaMv + ' mV' : '--');
+    } else {
+        const label = BMS_STATE_LABELS[data.state] || data.state || 'Sem conexão';
+        stateEl.textContent = `${label}${typeLabel ? ' — ' + typeLabel : ''} (${mac})`;
+        dataEl.style.display = 'none';
+    }
+};
+
+const scheduleBmsStatusPolling = (delayMs = 2000) => {
+    if (bmsStatusPollTimer) clearTimeout(bmsStatusPollTimer);
+    bmsStatusPollTimer = setTimeout(loadBmsStatus, delayMs);
+};
+
+function loadBmsStatus() {
+    fetch('/api/bms/status')
+        .then((r) => (r.ok ? r.json() : null))
+        .then(renderBmsStatus)
+        .catch(() => {})
+        .then(() => scheduleBmsStatusPolling());
+}
 
 $('scanBmsButton').addEventListener('click', startBmsScan);
 
@@ -297,4 +370,5 @@ window.addEventListener('DOMContentLoaded', () => { $('configPin').value = getPi
 
 loadCurrentValues();
 loadBmsScanStatus();
+loadBmsStatus();
 )rawliteral";

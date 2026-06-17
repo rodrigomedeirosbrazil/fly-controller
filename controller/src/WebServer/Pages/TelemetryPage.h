@@ -101,6 +101,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <div class="value" id="bmsTempMax">--</div>
                     <div class="sub" id="bmsDelta">--</div>
                     <div class="sub" id="bmsCells">--</div>
+                    <div class="sub" id="bmsStatus" style="font-size:0.75em;opacity:0.7;"></div>
                 </div>
             </div>
         </div>
@@ -678,8 +679,33 @@ const renderTelemetry = (data) => {
     setText('sessionTime', fmtSeconds(data.sessionSec || 0));
 
     const bmsCard = $('bmsCard');
-    if (data.bms && data.bms.available) {
+    const bmsState = data.bmsState || 'none';
+    const bmsHasData = !!(data.bms && data.bms.available);
+    const bmsConfigured = !!data.bmsConfigured;
+    if (bmsConfigured || bmsHasData) {
         bmsCard.style.display = '';
+        if (bmsHasData) {
+            setText('bmsStatus', '');
+        } else if (bmsState === 'connecting') {
+            setText('bmsStatus', 'Conectando...');
+            setText('bmsTempMax', '--');
+            setText('bmsDelta', '--');
+            setText('bmsCells', '--');
+        } else if (bmsState === 'connected') {
+            setText('bmsStatus', 'Conectado, aguardando dados...');
+            setText('bmsTempMax', '--');
+            setText('bmsDelta', '--');
+            setText('bmsCells', '--');
+        } else {
+            setText('bmsStatus', `BMS configurado (${bmsState})`);
+            setText('bmsTempMax', '--');
+            setText('bmsDelta', '--');
+            setText('bmsCells', '--');
+        }
+    } else {
+        bmsCard.style.display = 'none';
+    }
+    if (bmsHasData) {
         setText('bmsTempMax', data.bms.tempMaxC != null ? `${data.bms.tempMaxC} C` : '--');
         setText('bmsDelta', data.bms.cellDeltaMv != null ? `Delta: ${data.bms.cellDeltaMv} mV` : '--');
         if (data.bms.cellMinMv != null && data.bms.cellMaxMv != null) {
@@ -687,8 +713,6 @@ const renderTelemetry = (data) => {
         } else {
             setText('bmsCells', '--');
         }
-    } else {
-        bmsCard.style.display = 'none';
     }
 
     bzProcessEvents(data.buzzer);
