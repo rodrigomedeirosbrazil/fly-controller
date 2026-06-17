@@ -57,6 +57,19 @@
 
 #define JK_HW_VERSION_OFFSET   22   // device info frame: null-terminated ASCII
 
+// The aggregate fields keep a CONSTANT internal spacing relative to the
+// pack-voltage field across JK02 variants, even though the absolute base offset
+// differs by firmware (observed in the field: 118, 134, and 150). These deltas
+// are derived from the reference offsets above.
+#define JK_CURRENT_DELTA (JK_PACK_CURRENT_OFFSET - JK_PACK_VOLTAGE_OFFSET)  // 8
+#define JK_TEMP1_DELTA   (JK_TEMP1_OFFSET - JK_PACK_VOLTAGE_OFFSET)         // 12
+#define JK_TEMP2_DELTA   (JK_TEMP2_OFFSET - JK_PACK_VOLTAGE_OFFSET)         // 14
+#define JK_SOC_DELTA     (JK_SOC_OFFSET - JK_PACK_VOLTAGE_OFFSET)           // 23
+
+// The pack-voltage field tracks the cell sum within measurement noise; accept a
+// scan match only within this margin (else fall back to the fixed base offset).
+#define JK_PACK_MATCH_TOLERANCE_MV 5000
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 enum JkProtocol {
@@ -168,38 +181,39 @@ static inline bool jkParseCellInfo(const uint8_t* buf, size_t frameSize,
     }
     out->cellCount = cellCount;
 
-    // Auto-detect the 24S/32S field offset. Every post-cell field shifts by +16
-    // for 32S, and the controller cannot reliably learn the variant from device
-    // info. The pack-voltage field equals the sum of the series cells (a
-    // physical invariant), so pick the candidate position (24S: 118, 32S: 134)
-    // closest to that sum; fall back to the hint only when there are no cells.
-    const uint32_t packV0  = jkGet32LE(buf, JK_PACK_VOLTAGE_OFFSET);
-    const uint32_t packV16 = jkGet32LE(buf, JK_PACK_VOLTAGE_OFFSET + 16);
-    uint8_t offset;
-    if (cellSum == 0) {
-        offset = jkProtocolOffset(protocol);
-    } else {
-        const uint32_t d0  = (packV0  > cellSum) ? packV0  - cellSum : cellSum - packV0;
-        const uint32_t d16 = (packV16 > cellSum) ? packV16 - cellSum : cellSum - packV16;
-        offset = (d0 <= d16) ? 0 : 16;
+    // Locate the aggregate-field block. The absolute base offset differs by
+    // firmware (118 / 134 / 150 seen in the field), but the internal spacing is
+    // constant (current = base+8, temps = base+12/+14, SoC = base+23). The
+    // pack-voltage field equals the sum of the series cells (a physical
+    // invariant) and cells decode reliably, so find the base by scanning for the
+    // uint32 closest to the cell sum.
+    size_t   packPos  = 0;
+    uint32_t bestDiff = 0xFFFFFFFFu;
+    if (cellSum > 0) {
+        for (size_t o = JK_CELL_BASE_OFFSET; o + JK_SOC_DELTA < frameSize; o++) {
+            const uint32_t v = jkGet32LE(buf, o);
+            const uint32_t diff = (v > cellSum) ? v - cellSum : cellSum - v;
+            if (diff < bestDiff) { bestDiff = diff; packPos = o; }
+        }
     }
 
-    // Pack voltage: LE uint32, mV
-    out->packVoltageMilliVolts = (offset == 0) ? packV0 : packV16;
+    if (bestDiff > JK_PACK_MATCH_TOLERANCE_MV) {
+        // Scan inconclusive — fall back to the protocol hint's fixed base offset.
+        packPos = JK_PACK_VOLTAGE_OFFSET + jkProtocolOffset(protocol);
+    }
 
-    // Pack current: LE int32, mA (negative = discharge)
-    out->packCurrentMilliAmps = (int32_t)jkGet32LE(buf, JK_PACK_CURRENT_OFFSET + offset);
+    if (packPos + JK_SOC_DELTA >= frameSize) {
+        // No room for the aggregate block; report cells only.
+        out->valid = (cellCount > 0);
+        return out->valid;
+    }
 
-    // Temperatures: LE int16, raw * 0.1 = °C → raw / 10 as integer
-    int16_t raw1 = (int16_t)jkGet16LE(buf, JK_TEMP1_OFFSET + offset);
-    int16_t raw2 = (int16_t)jkGet16LE(buf, JK_TEMP2_OFFSET + offset);
-    out->tempsCelsius[0] = raw1 / 10;
-    out->tempsCelsius[1] = raw2 / 10;
-    out->tempCount = 2;
-
-    // SoC: uint8, %
-    out->socPercent = buf[JK_SOC_OFFSET + offset];
-
+    out->packVoltageMilliVolts = jkGet32LE(buf, packPos);
+    out->packCurrentMilliAmps  = (int32_t)jkGet32LE(buf, packPos + JK_CURRENT_DELTA);
+    out->tempsCelsius[0]       = (int16_t)jkGet16LE(buf, packPos + JK_TEMP1_DELTA) / 10;
+    out->tempsCelsius[1]       = (int16_t)jkGet16LE(buf, packPos + JK_TEMP2_DELTA) / 10;
+    out->tempCount             = 2;
+    out->socPercent            = buf[packPos + JK_SOC_DELTA];
     out->valid = true;
     return true;
 }
