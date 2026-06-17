@@ -35,12 +35,11 @@ JkBms::JkBms()
       state_(Idle), enabled_(false), connected_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), lastCellDataMillis_(0),
       deviceInfoRequested_(false), hasCellData_(false),
-      rxLen_(0), protocol_(JkProtocol_32S), lastFrameLen_(0)
+      rxLen_(0), protocol_(JkProtocol_32S)
 {
     memset(hwVersion_, 0, sizeof(hwVersion_));
     memset(rxBuffer_, 0, sizeof(rxBuffer_));
     memset(&data_, 0, sizeof(data_));
-    memset(lastFrame_, 0, sizeof(lastFrame_));
 }
 
 // ---------------------------------------------------------------------------
@@ -427,10 +426,6 @@ void JkBms::processRxBuffer() {
             DEBUG_PRINT(" bytes): ");
             printFrameHex(rxBuffer_, JK_FRAME_LENGTH);
 #endif
-            // Capture the raw frame for the /api/bms/rawframe diagnostic.
-            memcpy(lastFrame_, rxBuffer_, JK_FRAME_LENGTH);
-            lastFrameLen_ = JK_FRAME_LENGTH;
-
             JkBmsData parsed = {};
             if (jkParseCellInfo(rxBuffer_, JK_FRAME_LENGTH, protocol_, &parsed)) {
                 data_ = parsed;
@@ -487,15 +482,6 @@ uint16_t JkBms::getCellMaxMilliVolts() const {
 uint16_t JkBms::getCellDeltaMilliVolts() const {
     if (!hasCellData_ || data_.cellCount == 0) return 0;
     return getCellMaxMilliVolts() - getCellMinMilliVolts();
-}
-
-size_t JkBms::copyLastFrame(uint8_t* out, size_t max) const {
-    if (out == nullptr || stateMutex_ == nullptr) return 0;
-    xSemaphoreTake(stateMutex_, portMAX_DELAY);
-    size_t n = (lastFrameLen_ < max) ? lastFrameLen_ : max;
-    memcpy(out, lastFrame_, n);
-    xSemaphoreGive(stateMutex_);
-    return n;
 }
 
 // ---------------------------------------------------------------------------

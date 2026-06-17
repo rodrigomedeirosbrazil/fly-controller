@@ -52,10 +52,6 @@ public:
     uint16_t getCellMaxMilliVolts()   const;
     uint16_t getCellDeltaMilliVolts() const;
 
-    // Diagnostic: copy the last validated cell-info frame as raw bytes.
-    // Returns the number of bytes written.
-    size_t copyLastFrame(uint8_t* out, size_t max) const;
-
 private:
     enum State { Idle, Connecting, Subscribed };
 
@@ -89,10 +85,6 @@ private:
     JkProtocol protocol_;
     char       hwVersion_[16];
     JkBmsData  data_;
-
-    // Last validated raw frame, for the /api/bms/rawframe diagnostic.
-    uint8_t   lastFrame_[JK_FRAME_LENGTH];
-    size_t    lastFrameLen_;
 
     void processRxBuffer();
     void sendCommand(uint8_t cmd);
