@@ -338,7 +338,10 @@ uint8_t Settings::getThrottleSource() const {
 }
 
 void Settings::setThrottleSource(uint8_t source) {
-    throttleSource = (source > ThrottleSourceWireless) ? ThrottleSourceWired : source;
+    if (source > ThrottleSourceWireless) {
+        source = ThrottleSourceWired;
+    }
+    throttleSource = source;
 }
 
 String Settings::getRemoteMac() const {
