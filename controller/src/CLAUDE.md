@@ -142,10 +142,10 @@ XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors o
 `BatteryVoltageSensor`: voltage divider via `ReadFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds (not Hobbywing, which gets voltage from CAN).
 
 ### BluetoothBms — `BluetoothBms/`
-BLE client for JBD or Daly BMS packs. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery.
+Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery and a live status feed (`GET /api/bms/status`).
 
-### DalyBms / JbdBms
-Serial BMS protocol implementations (wired UART). Objects are instantiated but routing is determined by `Settings::getBmsType()` at runtime.
+### DalyBms / JbdBms / JkBms
+Per-vendor BLE BMS protocol implementations behind the `BluetoothBms` facade. All three are instantiated; routing is by `Settings::getBmsType()` at runtime (`BmsTypeJbd`/`BmsTypeDaly`/`BmsTypeJk`). JK uses the JK02 BLE protocol — fixed 300-byte frames, header `55 AA EB 90`, cells at frame offset 6, checksum at the last byte. Frame decoding lives in the host-tested `JkBms/JkBmsParser.h` (`test/JkBmsParserTest.cpp`); the aggregate-field base offset (pack voltage / current / temps / SoC) varies by firmware (118/134/150 seen), so it is auto-located by scanning for the `uint32` matching the cell-voltage sum (pack voltage = sum of series cells) rather than hard-coded. The JK is kicked once and then streams cell-info frames on its own (re-requesting on each poll makes it beep).
 
 ### Xctod — `Xctod/`
 BLE server that broadcasts telemetry in XCTRACK-compatible format (for paragliding instruments). Sends battery, throttle, motor, ESC, and system status once per second.

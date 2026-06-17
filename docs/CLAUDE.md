@@ -24,7 +24,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 - MCU: ESP32-C3 (Lolin C3 Mini)
 - Battery: 14S LiPo pack; voltage thresholds configured per-cell in the web UI
 - Three supported ESC/motor builds: `lolin_c3_mini_hobbywing`, `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`
-- Optional BMS: JBD or Daly D2 BLE connected over Bluetooth
+- Optional BMS: JBD, Daly D2 BLE, or JK (JK02 BLE) connected over Bluetooth
 - Web server runs as a Wi-Fi AP at `192.168.4.1`; key API routes are `GET /api/telemetry`, `GET /config/values`, `POST /config/save`
 
 ## Documentation maintenance guidelines

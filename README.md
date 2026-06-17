@@ -159,7 +159,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 ### 10. **BMS Integration** - Battery Management Systems
 ```cpp
-// BLE client for smart battery pack monitoring (Daly and JBD)
+// BLE client for smart battery pack monitoring (Daly, JBD, and JK)
 - Cell voltage monitoring (min, max, delta)
 - Pack voltage, current, and state-of-charge (SoC)
 - Temperature sensors per pack
@@ -221,7 +221,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Real-time status
 - ✅ Event logging
 - ✅ Failure diagnosis
-- ✅ Battery Management System support (Daly, JBD via BLE)
+- ✅ Battery Management System support (Daly, JBD, JK via BLE)
 - ✅ Cell voltage and balance monitoring
 - ✅ State-of-charge (SoC) tracking
 - ✅ CSV flight logging to LittleFS (auto on arm/disarm)
@@ -501,9 +501,10 @@ src/
 ├── Button/               # User interface (AceButton)
 ├── Buzzer/               # Audible alerts (PWM)
 ├── Xctod/                # BLE telemetry (XCTRACK format)
-├── BluetoothBms/         # BLE BMS client (auto-detects Daly/JBD)
+├── BluetoothBms/         # BLE BMS facade (auto-detects Daly/JBD/JK)
 ├── DalyBms/              # Daly BMS protocol implementation
 ├── JbdBms/               # JBD BMS protocol implementation
+├── JkBms/                # JK BMS (JK02) protocol implementation + parser
 ├── Logger/               # CSV flight logging to LittleFS
 └── WebServer/            # WiFi AP, captive portal, OTA updates
     └── Pages/            # HTML/JS page handlers
