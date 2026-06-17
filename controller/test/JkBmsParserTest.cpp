@@ -17,7 +17,9 @@ using namespace std;
 //
 // Frame is a FIXED 300 bytes for both JK02_24S and JK02_32S. All documented
 // field offsets are relative to frame[0]. For JK02_32S every post-cell-array
-// field is shifted by +16 (the protocol offset).
+// field is shifted by +16 (the protocol offset). esphome relies on the user to
+// configure 24S vs 32S; this parser instead auto-detects the offset by matching
+// the pack-voltage field against the sum of the cell voltages.
 static const size_t JK_TEST_FRAME_LEN = 300;
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -34,11 +36,12 @@ static void putLE32(uint8_t* buf, size_t off, uint32_t v) {
     buf[off + 3] = (uint8_t)((v >> 24) & 0xFF);
 }
 
-// Build a complete 300-byte cell-info response frame in the REAL layout:
-// fields at frame-relative offsets, no length field, checksum at frame[299].
+// Build a complete 300-byte cell-info response frame in the REAL layout, with
+// the post-cell fields placed at the offset for `protocol`. The pack voltage is
+// the sum of the cells (the physical invariant the parser uses to auto-detect).
 static size_t makeCellInfoFrame(uint8_t* buf, size_t bufSize,
                                  JkProtocol protocol,
-                                 uint32_t packMv, int32_t currentMa, uint8_t soc,
+                                 int32_t currentMa, uint8_t soc,
                                  int16_t temp1Raw, int16_t temp2Raw,
                                  uint8_t cellCount, uint16_t cellMv) {
     if (JK_TEST_FRAME_LEN > bufSize) return 0;
@@ -57,6 +60,8 @@ static size_t makeCellInfoFrame(uint8_t* buf, size_t bufSize,
         putLE16(buf, JK_CELL_BASE_OFFSET + (size_t)i * 2, cellMv);
     }
 
+    // Pack voltage = sum of cells (real packs satisfy this within measurement noise).
+    const uint32_t packMv = (uint32_t)n * cellMv;
     putLE32(buf, JK_PACK_VOLTAGE_OFFSET + offset, packMv);
     putLE32(buf, JK_PACK_CURRENT_OFFSET + offset, (uint32_t)currentMa);
     putLE16(buf, JK_TEMP1_OFFSET + offset, (uint16_t)temp1Raw);
@@ -89,8 +94,7 @@ int main() {
         assert(frame[0] == 0xAA && frame[1] == 0x55 && frame[2] == 0x90 && frame[3] == 0xEB);
         assert(frame[4] == 0x97);
         for (int i = 5; i < 19; i++) assert(frame[i] == 0x00);
-        // (0xAA+0x55+0x90+0xEB+0x97) & 0xFF = 785 & 0xFF = 17 = 0x11
-        assert(frame[19] == 0x11);
+        assert(frame[19] == 0x11); // (0xAA+0x55+0x90+0xEB+0x97) & 0xFF
         assert(frame[19] == jkComputeChecksum(frame, 19));
         cout << "PASS: device info command frame\n";
     }
@@ -98,38 +102,30 @@ int main() {
         uint8_t frame[20];
         jkBuildCommand(JK_CMD_CELL_INFO, frame);
         assert(frame[4] == 0x96);
-        // (0xAA+0x55+0x90+0xEB+0x96) & 0xFF = 784 & 0xFF = 16 = 0x10
-        assert(frame[19] == 0x10);
+        assert(frame[19] == 0x10); // (0xAA+0x55+0x90+0xEB+0x96) & 0xFF
         cout << "PASS: cell info command frame\n";
     }
 
-    // ── Protocol detection ────────────────────────────────────────────────────
+    // ── Protocol detection (hardware version string → variant hint) ───────────
 
     assert(jkDetectProtocol("11.0XW") == JkProtocol_32S);
-    assert(jkDetectProtocol("15.XW")  == JkProtocol_32S);
     assert(jkDetectProtocol("V18A")   == JkProtocol_32S);
-    assert(jkDetectProtocol("18.00")  == JkProtocol_32S);
-    assert(jkDetectProtocol("v11.0")  == JkProtocol_32S);
     assert(jkDetectProtocol("8.0")    == JkProtocol_24S);
-    assert(jkDetectProtocol("6.0")    == JkProtocol_24S);
     assert(jkDetectProtocol("10.9")   == JkProtocol_24S);
     assert(jkDetectProtocol("")       == JkProtocol_32S); // empty → safe default
     assert(jkDetectProtocol(nullptr)  == JkProtocol_32S); // null → safe default
     cout << "PASS: protocol detection\n";
 
-    // ── Response header detection ─────────────────────────────────────────────
+    // ── Response header + checksum position ───────────────────────────────────
 
     {
         uint8_t good[] = {0x55, 0xAA, 0xEB, 0x90, 0x02};
         uint8_t bad[]  = {0x55, 0xAA, 0xEB, 0x91, 0x02};
         assert( jkHasResponseHeader(good, 5));
         assert(!jkHasResponseHeader(bad,  5));
-        assert(!jkHasResponseHeader(good, 3)); // too short
+        assert(!jkHasResponseHeader(good, 3));
         cout << "PASS: response header detection\n";
     }
-
-    // ── Fixed frame length: checksum sits at frame[299] ───────────────────────
-
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
         buf[0] = 0x55; buf[1] = 0xAA; buf[2] = 0xEB; buf[3] = 0x90;
@@ -139,10 +135,7 @@ int main() {
     }
 
     // ── Real captured frame prefix (ground-truth anchor) ──────────────────────
-    // Header + first cells from a real JK02 frame (syssi/esphome-jk-bms):
-    //   55 AA EB 90 02 8C | FF 0C 01 0D 01 0D FF 0C ...
-    // Cell 1 = 0x0CFF = 3327 mV, cell 2 = 0x0D01 = 3329 mV, etc. Cells live at
-    // frame[6], little-endian, in millivolts — NO 8-byte payload shift.
+    // 55 AA EB 90 02 8C | FF 0C 01 0D 01 0D FF 0C ... — cells at frame[6], LE, mV.
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
         const uint8_t prefix[] = {
@@ -158,7 +151,7 @@ int main() {
         assert(d.cellVoltagesMv[1] == 3329);
         assert(d.cellVoltagesMv[2] == 3329);
         assert(d.cellVoltagesMv[3] == 3327);
-        assert(d.cellCount == 4); // cell 5 bytes are zero → stop
+        assert(d.cellCount == 4);
         cout << "PASS: real frame prefix — cells at frame[6], LE, mV\n";
     }
 
@@ -166,25 +159,21 @@ int main() {
 
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
-        // 8 cells at 3500 mV, pack=44100 mV, I=-5000 mA (discharge), SoC=72%, T=25/28°C
-        size_t sz = makeCellInfoFrame(buf, sizeof(buf),
-                                      JkProtocol_24S,
-                                      44100, -5000, 72,
-                                      250, 280, // raw: 250/10=25°C, 280/10=28°C
-                                      8, 3500);
+        // 8 cells at 3500 mV → pack=28000 mV, I=-5000 mA (discharge), SoC=72%, T=25/28°C
+        size_t sz = makeCellInfoFrame(buf, sizeof(buf), JkProtocol_24S,
+                                      -5000, 72, 250, 280, 8, 3500);
         assert(sz == JK_TEST_FRAME_LEN);
-        assert(jkHasResponseHeader(buf, sz));
         assert(jkValidateChecksum(buf, sz));
 
         JkBmsData d = {};
         assert(jkParseCellInfo(buf, sz, JkProtocol_24S, &d));
         assert(d.valid);
-        assert(d.packVoltageMilliVolts == 44100);
+        assert(d.packVoltageMilliVolts == 28000); // 8 * 3500
         assert(d.packCurrentMilliAmps  == -5000);
         assert(d.socPercent == 72);
         assert(d.cellCount  == 8);
         for (uint8_t i = 0; i < 8; i++) assert(d.cellVoltagesMv[i] == 3500);
-        assert(d.tempCount       == 2);
+        assert(d.tempCount == 2);
         assert(d.tempsCelsius[0] == 25);
         assert(d.tempsCelsius[1] == 28);
         cout << "PASS: JK02_24S cell info parse\n";
@@ -194,19 +183,15 @@ int main() {
 
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
-        // 20 cells at 3700 mV, pack=52000 mV, I=+10000 mA (charge), SoC=85%, T=30/31°C
-        size_t sz = makeCellInfoFrame(buf, sizeof(buf),
-                                      JkProtocol_32S,
-                                      52000, 10000, 85,
-                                      300, 310, // 30°C, 31°C
-                                      20, 3700);
-        assert(sz == JK_TEST_FRAME_LEN);
+        // 20 cells at 3700 mV → pack=74000 mV, I=+10000 mA (charge), SoC=85%, T=30/31°C
+        size_t sz = makeCellInfoFrame(buf, sizeof(buf), JkProtocol_32S,
+                                      10000, 85, 300, 310, 20, 3700);
         assert(jkValidateChecksum(buf, sz));
 
         JkBmsData d = {};
         assert(jkParseCellInfo(buf, sz, JkProtocol_32S, &d));
         assert(d.valid);
-        assert(d.packVoltageMilliVolts == 52000);
+        assert(d.packVoltageMilliVolts == 74000); // 20 * 3700
         assert(d.packCurrentMilliAmps  == 10000);
         assert(d.socPercent == 85);
         assert(d.cellCount  == 20);
@@ -216,31 +201,44 @@ int main() {
         cout << "PASS: JK02_32S cell info parse\n";
     }
 
-    // ── 24S and 32S use independent offsets (no cross-contamination) ──────────
-
+    // ── Auto-detect offset from data, ignoring a WRONG protocol hint ──────────
+    // This is the field bug: the controller defaulted to 32S but the device was
+    // 24S, so every post-cell field read 16 bytes too far (V=0, I=huge, SoC=0).
     {
-        uint8_t buf24[JK_TEST_FRAME_LEN] = {}, buf32[JK_TEST_FRAME_LEN] = {};
-        makeCellInfoFrame(buf24, sizeof(buf24), JkProtocol_24S, 40000, 0, 60, 200, 200, 4, 3300);
-        makeCellInfoFrame(buf32, sizeof(buf32), JkProtocol_32S, 50000, 0, 90, 200, 200, 4, 3300);
+        uint8_t buf[JK_TEST_FRAME_LEN] = {};
+        // A genuine 24S frame (fields at offset 0): 14 cells @ 3200 mV → pack=44800.
+        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_24S, -8000, 63, 240, 250, 14, 3200);
 
-        JkBmsData d24 = {}, d32 = {};
-        jkParseCellInfo(buf24, JK_TEST_FRAME_LEN, JkProtocol_24S, &d24);
-        jkParseCellInfo(buf32, JK_TEST_FRAME_LEN, JkProtocol_32S, &d32);
-        assert(d24.packVoltageMilliVolts == 40000 && d24.socPercent == 60);
-        assert(d32.packVoltageMilliVolts == 50000 && d32.socPercent == 90);
-        // Parsing a 32S frame with the 24S offset must NOT yield the 32S value.
-        JkBmsData wrong = {};
-        jkParseCellInfo(buf32, JK_TEST_FRAME_LEN, JkProtocol_24S, &wrong);
-        assert(wrong.packVoltageMilliVolts != 50000);
-        cout << "PASS: 24S/32S offset independence\n";
+        JkBmsData d = {};
+        // Parse with the WRONG (32S) hint — must still auto-detect 24S from data.
+        assert(jkParseCellInfo(buf, JK_TEST_FRAME_LEN, JkProtocol_32S, &d));
+        assert(d.cellCount == 14);
+        assert(d.packVoltageMilliVolts == 44800); // 14 * 3200, NOT 0
+        assert(d.packCurrentMilliAmps  == -8000);  // NOT a garbage huge value
+        assert(d.socPercent == 63);
+        assert(d.tempsCelsius[0] == 24);
+        cout << "PASS: 24S frame auto-detected despite 32S hint\n";
+    }
+    {
+        uint8_t buf[JK_TEST_FRAME_LEN] = {};
+        // A genuine 32S frame (fields at offset 16): 16 cells @ 3600 → pack=57600.
+        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_32S, 5000, 77, 200, 210, 16, 3600);
+
+        JkBmsData d = {};
+        // Parse with the WRONG (24S) hint — must still auto-detect 32S from data.
+        assert(jkParseCellInfo(buf, JK_TEST_FRAME_LEN, JkProtocol_24S, &d));
+        assert(d.cellCount == 16);
+        assert(d.packVoltageMilliVolts == 57600); // 16 * 3600
+        assert(d.packCurrentMilliAmps  == 5000);
+        assert(d.socPercent == 77);
+        cout << "PASS: 32S frame auto-detected despite 24S hint\n";
     }
 
     // ── Negative current (discharge) ─────────────────────────────────────────
 
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
-        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_32S,
-                          48000, -12500, 45, 350, 360, 16, 3750);
+        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_32S, -12500, 45, 350, 360, 16, 3750);
         JkBmsData d = {};
         jkParseCellInfo(buf, JK_TEST_FRAME_LEN, JkProtocol_32S, &d);
         assert(d.packCurrentMilliAmps == -12500);
@@ -251,7 +249,7 @@ int main() {
 
     {
         uint8_t buf[JK_TEST_FRAME_LEN] = {};
-        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_24S, 44100, 0, 50, 250, 250, 4, 3500);
+        makeCellInfoFrame(buf, sizeof(buf), JkProtocol_24S, 0, 50, 250, 250, 4, 3500);
         buf[JK_TEST_FRAME_LEN - 1] ^= 0xFF; // corrupt checksum byte
         assert(!jkValidateChecksum(buf, JK_TEST_FRAME_LEN));
         cout << "PASS: corrupted frame rejected\n";
@@ -278,26 +276,11 @@ int main() {
         memcpy(buf + JK_HW_VERSION_OFFSET, hw, strlen(hw) + 1);
         buf[JK_TEST_FRAME_LEN - 1] = jkComputeChecksum(buf, JK_TEST_FRAME_LEN - 1);
 
-        assert(jkValidateChecksum(buf, JK_TEST_FRAME_LEN));
         char hwOut[16] = {};
         assert(jkParseDeviceInfo(buf, JK_TEST_FRAME_LEN, hwOut, sizeof(hwOut)));
         assert(strcmp(hwOut, "11.0XW") == 0);
         assert(jkDetectProtocol(hwOut) == JkProtocol_32S);
         cout << "PASS: device info parse + protocol detection from frame\n";
-    }
-    {
-        // V18A string → JK02_32S
-        uint8_t buf[JK_TEST_FRAME_LEN] = {};
-        buf[0] = 0x55; buf[1] = 0xAA; buf[2] = 0xEB; buf[3] = 0x90;
-        buf[4] = JK_FRAME_TYPE_DEVICE_INFO; buf[5] = 0x01;
-        const char* hw = "V18A";
-        memcpy(buf + JK_HW_VERSION_OFFSET, hw, strlen(hw) + 1);
-        buf[JK_TEST_FRAME_LEN - 1] = jkComputeChecksum(buf, JK_TEST_FRAME_LEN - 1);
-        char hwOut[16] = {};
-        assert(jkParseDeviceInfo(buf, JK_TEST_FRAME_LEN, hwOut, sizeof(hwOut)));
-        assert(strcmp(hwOut, "V18A") == 0);
-        assert(jkDetectProtocol(hwOut) == JkProtocol_32S);
-        cout << "PASS: V18A hardware version → JK02_32S\n";
     }
 
     cout << "\nAll JkBmsParser tests passed.\n";

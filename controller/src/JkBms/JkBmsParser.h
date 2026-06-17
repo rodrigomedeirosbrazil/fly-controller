@@ -10,6 +10,11 @@
 #define JK_MAX_CELLS 32
 #define JK_MAX_TEMPS  5
 
+// Plausible per-cell voltage band (mV) — used to find the end of the cell array
+// and to keep the cell-voltage sum (offset auto-detection) free of trailing fields.
+#define JK_CELL_MIN_MV 1000
+#define JK_CELL_MAX_MV 4500
+
 // ── Frame constants ───────────────────────────────────────────────────────────
 
 // Response sync header: 55 AA EB 90
@@ -147,24 +152,40 @@ static inline bool jkParseCellInfo(const uint8_t* buf, size_t frameSize,
                                     JkProtocol protocol, JkBmsData* out) {
     if (frameSize < JK_FRAME_LENGTH) return false;
 
-    const uint8_t offset   = jkProtocolOffset(protocol);
-    const uint8_t maxCells = jkMaxCells(protocol);
-
-    // Cell voltages: buf[JK_CELL_BASE_OFFSET + i*2], LE uint16, mV.
-    // Count present cells (< 1000 mV = no cell wired at this slot).
-    uint8_t cellCount = 0;
-    for (uint8_t i = 0; i < maxCells; i++) {
+    // Cell voltages: buf[JK_CELL_BASE_OFFSET + i*2], LE uint16, mV. The cell
+    // array always starts at offset 6 (no protocol offset). Scan until a value
+    // leaves the plausible per-cell band — that marks the end of the array.
+    uint8_t  cellCount = 0;
+    uint32_t cellSum   = 0;
+    for (uint8_t i = 0; i < JK_MAX_CELLS; i++) {
         size_t pos = JK_CELL_BASE_OFFSET + (size_t)i * 2;
         if (pos + 1 >= frameSize) break;
         uint16_t mv = jkGet16LE(buf, pos);
-        if (mv < 1000) break;
+        if (mv < JK_CELL_MIN_MV || mv > JK_CELL_MAX_MV) break;
         out->cellVoltagesMv[i] = mv;
+        cellSum += mv;
         cellCount++;
     }
     out->cellCount = cellCount;
 
+    // Auto-detect the 24S/32S field offset. Every post-cell field shifts by +16
+    // for 32S, and the controller cannot reliably learn the variant from device
+    // info. The pack-voltage field equals the sum of the series cells (a
+    // physical invariant), so pick the candidate position (24S: 118, 32S: 134)
+    // closest to that sum; fall back to the hint only when there are no cells.
+    const uint32_t packV0  = jkGet32LE(buf, JK_PACK_VOLTAGE_OFFSET);
+    const uint32_t packV16 = jkGet32LE(buf, JK_PACK_VOLTAGE_OFFSET + 16);
+    uint8_t offset;
+    if (cellSum == 0) {
+        offset = jkProtocolOffset(protocol);
+    } else {
+        const uint32_t d0  = (packV0  > cellSum) ? packV0  - cellSum : cellSum - packV0;
+        const uint32_t d16 = (packV16 > cellSum) ? packV16 - cellSum : cellSum - packV16;
+        offset = (d0 <= d16) ? 0 : 16;
+    }
+
     // Pack voltage: LE uint32, mV
-    out->packVoltageMilliVolts = jkGet32LE(buf, JK_PACK_VOLTAGE_OFFSET + offset);
+    out->packVoltageMilliVolts = (offset == 0) ? packV0 : packV16;
 
     // Pack current: LE int32, mA (negative = discharge)
     out->packCurrentMilliAmps = (int32_t)jkGet32LE(buf, JK_PACK_CURRENT_OFFSET + offset);
