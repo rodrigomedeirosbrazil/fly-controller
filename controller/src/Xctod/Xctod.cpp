@@ -9,6 +9,7 @@
 #include "../BluetoothBms/BluetoothBms.h"
 #include <cstdarg>
 #include <cstdio>
+#include <esp_bt.h>
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -66,6 +67,16 @@ Xctod::Xctod() {
 void Xctod::init() {
     // Create the BLE Device
     BLEDevice::init("FlyController");
+
+    // Cap BLE TX power. The ESP32-C3 Supermini browns out under full-power radio
+    // (WiFi TX is already pinned to 8.5 dBm), and the default BLE power compounds
+    // the current spike now that an always-on BMS connection shares the radio
+    // with the Xctod advertiser/notifier. All peers (BMS, phone, remote) sit
+    // within ~2 m, so 0 dBm leaves a large link-budget margin. DEFAULT also
+    // applies to connection handles that aren't set explicitly (e.g. the BMS).
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N0);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_N0);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_N0);
 
     // Create the BLE Server
     pServer = BLEDevice::createServer();
