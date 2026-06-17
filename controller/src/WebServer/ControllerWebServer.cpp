@@ -321,6 +321,25 @@ void ControllerWebServer::startAP() {
         sendBmsStatusResponse(request);
     });
 
+    // Diagnostic: dump the BMS's last raw frame as hex (helps decode unusual
+    // field offsets). Open http://192.168.4.1/api/bms/rawframe in a browser.
+    server.on("/api/bms/rawframe", HTTP_GET, [](AsyncWebServerRequest *request) {
+        uint8_t frame[300];
+        const size_t n = bluetoothBms.getActiveRawFrame(frame, sizeof(frame));
+        if (n == 0) {
+            request->send(404, "text/plain", "Sem frame (BMS JK conectado e recebendo dados?)");
+            return;
+        }
+        String hex;
+        hex.reserve(n * 3 + 1);
+        char b[4];
+        for (size_t i = 0; i < n; i++) {
+            snprintf(b, sizeof(b), "%02X ", frame[i]);
+            hex += b;
+        }
+        request->send(200, "text/plain", hex);
+    });
+
     server.on("/api/bms/scan/start", HTTP_POST, [](AsyncWebServerRequest *request) {
         logWebHeap("/api/bms/scan/start");
         if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }

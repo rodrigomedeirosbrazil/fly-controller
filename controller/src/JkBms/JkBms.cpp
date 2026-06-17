@@ -33,13 +33,14 @@ JkBms::JkBms()
       connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
       connectSessionId_(0),
       state_(Idle), enabled_(false), connected_(false),
-      lastConnectAttempt_(0), lastRequestMillis_(0),
+      lastConnectAttempt_(0), lastRequestMillis_(0), lastCellDataMillis_(0),
       deviceInfoRequested_(false), hasCellData_(false),
-      rxLen_(0), protocol_(JkProtocol_32S)
+      rxLen_(0), protocol_(JkProtocol_32S), lastFrameLen_(0)
 {
     memset(hwVersion_, 0, sizeof(hwVersion_));
     memset(rxBuffer_, 0, sizeof(rxBuffer_));
     memset(&data_, 0, sizeof(data_));
+    memset(lastFrame_, 0, sizeof(lastFrame_));
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +105,7 @@ void JkBms::applyResetConnectionLocked() {
     rxLen_               = 0;
     deviceInfoRequested_ = false;
     hasCellData_         = false;
+    lastCellDataMillis_  = 0;
     memset(&data_, 0, sizeof(data_));
     state_               = Idle;
 }
@@ -313,10 +315,18 @@ void JkBms::update() {
                 break;
             }
 
-            // Poll 0x96 cell info every REQUEST_INTERVAL_MS
-            if (millis() - lastRequestMillis_ >= REQUEST_INTERVAL_MS) {
-                lastRequestMillis_ = millis();
-                sendCommand(JK_CMD_CELL_INFO);
+            // Kick the cell-info stream with 0x96, then let the BMS push frames
+            // on its own (like the official app / esphome). Each 0x96 write makes
+            // the JK beep, so once frames are streaming we stop requesting and
+            // only re-kick if the stream stalls (no frame for CELL_STREAM_TIMEOUT_MS).
+            {
+                const unsigned long now = millis();
+                const bool streamStalled = (lastCellDataMillis_ == 0)
+                    || (now - lastCellDataMillis_ >= CELL_STREAM_TIMEOUT_MS);
+                if (streamStalled && (now - lastRequestMillis_ >= REQUEST_INTERVAL_MS)) {
+                    lastRequestMillis_ = now;
+                    sendCommand(JK_CMD_CELL_INFO);
+                }
             }
             break;
         }
@@ -417,10 +427,15 @@ void JkBms::processRxBuffer() {
             DEBUG_PRINT(" bytes): ");
             printFrameHex(rxBuffer_, JK_FRAME_LENGTH);
 #endif
+            // Capture the raw frame for the /api/bms/rawframe diagnostic.
+            memcpy(lastFrame_, rxBuffer_, JK_FRAME_LENGTH);
+            lastFrameLen_ = JK_FRAME_LENGTH;
+
             JkBmsData parsed = {};
             if (jkParseCellInfo(rxBuffer_, JK_FRAME_LENGTH, protocol_, &parsed)) {
                 data_ = parsed;
                 hasCellData_ = true;
+                lastCellDataMillis_ = millis();
                 DEBUG_PRINT("[JK] V=");
                 DEBUG_PRINT(data_.packVoltageMilliVolts);
                 DEBUG_PRINT("mV I=");
@@ -472,6 +487,15 @@ uint16_t JkBms::getCellMaxMilliVolts() const {
 uint16_t JkBms::getCellDeltaMilliVolts() const {
     if (!hasCellData_ || data_.cellCount == 0) return 0;
     return getCellMaxMilliVolts() - getCellMinMilliVolts();
+}
+
+size_t JkBms::copyLastFrame(uint8_t* out, size_t max) const {
+    if (out == nullptr || stateMutex_ == nullptr) return 0;
+    xSemaphoreTake(stateMutex_, portMAX_DELAY);
+    size_t n = (lastFrameLen_ < max) ? lastFrameLen_ : max;
+    memcpy(out, lastFrame_, n);
+    xSemaphoreGive(stateMutex_);
+    return n;
 }
 
 // ---------------------------------------------------------------------------

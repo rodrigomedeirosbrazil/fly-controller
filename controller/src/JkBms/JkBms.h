@@ -52,6 +52,10 @@ public:
     uint16_t getCellMaxMilliVolts()   const;
     uint16_t getCellDeltaMilliVolts() const;
 
+    // Diagnostic: copy the last validated cell-info frame as raw bytes.
+    // Returns the number of bytes written.
+    size_t copyLastFrame(uint8_t* out, size_t max) const;
+
 private:
     enum State { Idle, Connecting, Subscribed };
 
@@ -69,11 +73,15 @@ private:
     String            macAddress_;
     unsigned long     lastConnectAttempt_;
     unsigned long     lastRequestMillis_;
+    unsigned long     lastCellDataMillis_;
     bool              deviceInfoRequested_;
     bool              hasCellData_;
 
-    static const unsigned long CONNECT_RETRY_MS    = 10000;
-    static const unsigned long REQUEST_INTERVAL_MS = 2000;
+    static const unsigned long CONNECT_RETRY_MS      = 10000;
+    static const unsigned long REQUEST_INTERVAL_MS   = 2000;
+    // Once cell-info frames are streaming, the BMS pushes them on its own. Only
+    // re-request (which makes the JK beep on each command) if the stream stalls.
+    static const unsigned long CELL_STREAM_TIMEOUT_MS = 3000;
 
     uint8_t   rxBuffer_[JK_RX_BUFFER_SIZE];
     size_t    rxLen_;
@@ -81,6 +89,10 @@ private:
     JkProtocol protocol_;
     char       hwVersion_[16];
     JkBmsData  data_;
+
+    // Last validated raw frame, for the /api/bms/rawframe diagnostic.
+    uint8_t   lastFrame_[JK_FRAME_LENGTH];
+    size_t    lastFrameLen_;
 
     void processRxBuffer();
     void sendCommand(uint8_t cmd);

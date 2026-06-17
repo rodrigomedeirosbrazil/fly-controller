@@ -43,6 +43,9 @@ public:
     uint16_t getCellMaxMilliVolts() const;
     uint16_t getCellDeltaMilliVolts() const;
 
+    // Diagnostic: raw bytes of the active backend's last frame (JK only for now).
+    size_t getActiveRawFrame(uint8_t* out, size_t max) const;
+
     bool startWebScan();
     void clearWebScanResults();
     uint8_t getWebScanStatus() const;

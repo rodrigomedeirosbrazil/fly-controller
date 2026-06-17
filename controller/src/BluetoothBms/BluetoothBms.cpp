@@ -166,6 +166,13 @@ uint8_t BluetoothBms::getActiveType() const {
     return settings.getBmsType();
 }
 
+size_t BluetoothBms::getActiveRawFrame(uint8_t* out, size_t max) const {
+    if (getActiveType() == BmsTypeJk) {
+        return jkBms.copyLastFrame(out, max);
+    }
+    return 0;
+}
+
 bool BluetoothBms::startWebScan() {
     if (!BLEDevice::getInitialized()) {
         resetWebScanState(BluetoothBmsScanError);
