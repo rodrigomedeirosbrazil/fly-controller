@@ -72,6 +72,7 @@ void DalyBms::setMacAddress(const String& macAddress) {
 }
 
 void DalyBms::update() {
+    if (!initialized_) return;
     switch (state_) {
         case Idle:
             if (!enabled_ || macAddress_.length() < 17 || throttle.isArmed()) {

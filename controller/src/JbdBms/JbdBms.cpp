@@ -57,12 +57,12 @@ void JbdBms::init() {
         DEBUG_PRINTLN("[JBD] ERROR: mutex or connect queue create failed");
         return;
     }
-    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
-    xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     if (xTaskCreate(connectTask, "jbd_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[JBD] ERROR: connect task create failed");
         return;
     }
+    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
+    xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
     initialized_ = true;
     DEBUG_PRINTLN("[JBD] Init OK");
@@ -278,6 +278,7 @@ void JbdBms::txTask(void* arg) {
 // update — state machine, call from loop()
 // ---------------------------------------------------------------------------
 void JbdBms::update() {
+    if (!initialized_) return;
     switch (state_) {
 
         // ------------------------------------------------------------------

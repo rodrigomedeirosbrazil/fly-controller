@@ -54,12 +54,12 @@ void JkBms::init() {
         DEBUG_PRINTLN("[JK] ERROR: mutex or connect queue create failed");
         return;
     }
-    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
-    xTaskCreate(txTask, "jk_tx", 2048, this, 1, &txTaskHandle_);
     if (xTaskCreate(connectTask, "jk_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[JK] ERROR: connect task create failed");
         return;
     }
+    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
+    xTaskCreate(txTask, "jk_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
     initialized_ = true;
     DEBUG_PRINTLN("[JK] Init OK");
@@ -273,6 +273,7 @@ void JkBms::txTask(void* arg) {
 // update — state machine, call from loop()
 // ---------------------------------------------------------------------------
 void JkBms::update() {
+    if (!initialized_) return;
     switch (state_) {
 
         case Idle: {
