@@ -821,7 +821,7 @@ void ControllerWebServer::startAP() {
 
     server.on("/dashboard.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/dashboard.js");
-        request->send_P(200, "application/javascript; charset=utf-8", DASHBOARD_JS);
+        request->send(200, "application/javascript; charset=utf-8", DASHBOARD_JS);
     });
 
     server.on("/config-power.js", HTTP_GET, [](AsyncWebServerRequest *request){
