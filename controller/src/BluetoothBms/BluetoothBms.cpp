@@ -17,9 +17,6 @@ constexpr uint32_t WEB_SCAN_DURATION_SECONDS = 5;
 } // namespace
 
 void BluetoothBms::init() {
-    jbdBms.init();
-    dalyBms.init();
-    jkBms.init();
     clearWebScanResults();
 }
 
@@ -31,6 +28,16 @@ void BluetoothBms::update() {
     const uint8_t activeType = getActiveType();
     const String mac = settings.getBmsMac();
 
+    // Lazy-init the selected backend exactly once (init() is idempotent).
+    if (activeType == BmsTypeJbd) {
+        jbdBms.init();
+    } else if (activeType == BmsTypeDaly) {
+        dalyBms.init();
+    } else if (activeType == BmsTypeJk) {
+        jkBms.init();
+    }
+
+    // setEnabled() and update() are no-ops on uninitialized backends.
     jbdBms.setMacAddress(mac);
     jbdBms.setEnabled(activeType == BmsTypeJbd);
 

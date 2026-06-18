@@ -79,18 +79,3 @@ inline String renderPage(const PageSpec& spec) {
     page += "</body></html>";
     return page;
 }
-
-inline void applyCommonTokens(String& page, const char* appVersion, const char* buildDate, const char* buildTime, const char* controllerLabel) {
-    if (appVersion) {
-        page.replace("%APP_VERSION%", appVersion);
-    }
-    if (buildDate) {
-        page.replace("%BUILD_DATE%", buildDate);
-    }
-    if (buildTime) {
-        page.replace("%BUILD_TIME%", buildTime);
-    }
-    if (controllerLabel) {
-        page.replace("%CONTROLLER%", controllerLabel);
-    }
-}

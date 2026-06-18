@@ -32,7 +32,7 @@ JkBms::JkBms()
       txQueue_(nullptr), txTaskHandle_(nullptr),
       connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
       connectSessionId_(0),
-      state_(Idle), enabled_(false), connected_(false),
+      state_(Idle), initialized_(false), enabled_(false), connected_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), lastCellDataMillis_(0),
       deviceInfoRequested_(false), hasCellData_(false),
       rxLen_(0), protocol_(JkProtocol_32S)
@@ -46,6 +46,7 @@ JkBms::JkBms()
 // init
 // ---------------------------------------------------------------------------
 void JkBms::init() {
+    if (initialized_) return;
     s_jkBms = this;
     stateMutex_ = xSemaphoreCreateMutex();
     connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
@@ -53,18 +54,19 @@ void JkBms::init() {
         DEBUG_PRINTLN("[JK] ERROR: mutex or connect queue create failed");
         return;
     }
-    // pClient_ is created lazily in connectTask to avoid allocating BLE heap
-    // for inactive backends (all three BMS types are init'd at boot).
-    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
-    xTaskCreate(txTask, "jk_tx", 2048, this, 1, &txTaskHandle_);
     if (xTaskCreate(connectTask, "jk_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[JK] ERROR: connect task create failed");
+        return;
     }
+    txQueue_ = xQueueCreate(4, sizeof(BleFrame));
+    xTaskCreate(txTask, "jk_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
+    initialized_ = true;
     DEBUG_PRINTLN("[JK] Init OK");
 }
 
 void JkBms::setEnabled(bool enabled) {
+    if (!initialized_) return;
     enabled_ = enabled;
     if (!enabled_) {
         resetConnection();
@@ -271,6 +273,7 @@ void JkBms::txTask(void* arg) {
 // update — state machine, call from loop()
 // ---------------------------------------------------------------------------
 void JkBms::update() {
+    if (!initialized_) return;
     switch (state_) {
 
         case Idle: {

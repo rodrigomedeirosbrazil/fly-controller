@@ -64,6 +64,7 @@ private:
     SemaphoreHandle_t stateMutex_;
     uint32_t          connectSessionId_;
     State             state_;
+    bool              initialized_;
     bool              enabled_;
     bool              connected_;
     String            macAddress_;

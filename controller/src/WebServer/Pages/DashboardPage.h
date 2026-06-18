@@ -1,27 +1,43 @@
 #pragma once
 
-#include "CommonLayout.h"
+// Dashboard served as PROGMEM chunks streamed via AsyncResponseStream.
+// Tokens (APP_VERSION, BUILD_DATE, BUILD_TIME, CONTROLLER_LABEL) are
+// printed inline between static chunks — no heap String concatenation.
+//
+// Split points:
+//   P1 → up to APP_VERSION insertion
+//   P2 → between APP_VERSION and BUILD_DATE
+//   P3 → space between BUILD_DATE and BUILD_TIME
+//   P4 → between BUILD_TIME and CONTROLLER_LABEL
+//   P5 → from after CONTROLLER_LABEL to end of </html>
 
-inline String renderDashboardPage() {
-    const char* body = R"rawliteral(
+static const char DASHBOARD_HTML_P1[] PROGMEM = R"rawliteral(<!DOCTYPE html><html><head><title>FlyController Painel</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/config.css"><script src="/config-common.js" defer></script><script src="/dashboard.js" defer></script></head><body><div class="page"><div class="topbar"><a class="nav-btn active" href="/">Painel</a><a class="nav-btn" href="/telemetry">Telemetria</a><a class="nav-btn" href="/firmware">Firmware</a><a class="nav-btn" href="/logs-page">Registros</a><a class="nav-btn" href="/config">Configura&#xE7;&#xF5;es</a></div>
 <div class="panel">
     <h1>FlyController Painel</h1>
-    <div class="sub">Acesso rápido e status básico do dispositivo</div>
+    <div class="sub">Acesso r&#xE1;pido e status b&#xE1;sico do dispositivo</div>
 </div>
 
 <div class="grid">
     <div class="card">
-        <div class="label">Versão do Firmware</div>
-        <div class="value">%APP_VERSION%</div>
-        <div class="sub">Build: %BUILD_DATE% %BUILD_TIME%</div>
+        <div class="label">Vers&#xE3;o do Firmware</div>
+        <div class="value">)rawliteral";
+
+static const char DASHBOARD_HTML_P2[] PROGMEM = R"rawliteral(</div>
+        <div class="sub">Build: )rawliteral";
+
+static const char DASHBOARD_HTML_P3[] PROGMEM = " ";
+
+static const char DASHBOARD_HTML_P4[] PROGMEM = R"rawliteral(</div>
     </div>
     <div class="card">
         <div class="label">Tipo de Controlador</div>
-        <div class="value">%CONTROLLER%</div>
+        <div class="value">)rawliteral";
+
+static const char DASHBOARD_HTML_P5[] PROGMEM = R"rawliteral(</div>
         <div class="sub">Tempo ligado: <span id="uptime">--</span></div>
     </div>
     <div class="card">
-        <div class="label">Tensão da Bateria</div>
+        <div class="label">Tens&#xE3;o da Bateria</div>
         <div class="value" id="batteryVoltage">--</div>
         <div class="sub">Telemetria: <span id="freshness">--</span></div>
     </div>
@@ -36,9 +52,9 @@ inline String renderDashboardPage() {
         <div class="sub">Motor acumulado</div>
     </div>
 </div>
-)rawliteral";
+</div></body></html>)rawliteral";
 
-    const char* script = R"rawliteral(
+static const char DASHBOARD_JS[] PROGMEM = R"rawliteral(
 const formatVoltage = (mv) => `${(mv / 1000).toFixed(2)} V`;
 const fmtSeconds = s => {
     const h = Math.floor(s / 3600);
@@ -64,24 +80,10 @@ function loadDashboard() {
             setText('freshness', `${age} ms`);
         })
         .catch(() => {
-            setText('telemetryState', 'Indisponível');
+            setText('telemetryState', 'Indispon\xEDvel');
         });
 }
 
 loadDashboard();
 setInterval(loadDashboard, 1000);
 )rawliteral";
-
-    PageSpec spec = {
-        "FlyController Painel",
-        "/",
-        body,
-        nullptr,
-        script,
-        nullptr,
-        nullptr,
-        nullptr
-    };
-
-    return renderPage(spec);
-}
