@@ -922,27 +922,32 @@ void ControllerWebServer::startAP() {
 
     // List files API
     server.on("/list", HTTP_GET, [](AsyncWebServerRequest *request){
-        String json = "[";
-        File root = LittleFS.open("/");
-        if(root){
-            File file = root.openNextFile();
-            bool first = true;
-            while(file){
-                String fileName = String(file.name());
-                // Ensure leading slash for consistency
-                if(!fileName.startsWith("/")) fileName = "/" + fileName;
+        AsyncResponseStream* resp = request->beginResponseStream("application/json");
+        if (!resp) { request->send(500, "text/plain", "Sem memória"); return; }
 
-                // Only list log files
-                if(fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
-                    if(!first) json += ",";
+        resp->print('[');
+        File root = LittleFS.open("/");
+        bool first = true;
+        if (root) {
+            File file = root.openNextFile();
+            char entry[80];
+            while (file) {
+                const char* name = file.name();
+                size_t nameLen = strlen(name);
+                bool isCsv = nameLen > 4 && strcmp(name + nameLen - 4, ".csv") == 0;
+                bool isTxt = nameLen > 4 && strcmp(name + nameLen - 4, ".txt") == 0;
+                if (isCsv || isTxt) {
+                    if (!first) resp->print(',');
                     first = false;
-                    json += "{\"name\":\"" + fileName + "\",\"size\":" + String(file.size()) + "}";
+                    snprintf(entry, sizeof(entry), "{\"name\":\"/%s\",\"size\":%u}",
+                             name, (unsigned)file.size());
+                    resp->print(entry);
                 }
                 file = root.openNextFile();
             }
         }
-        json += "]";
-        request->send(200, "application/json", json);
+        resp->print(']');
+        request->send(resp);
     });
 
     // Delete file API
