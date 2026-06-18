@@ -32,7 +32,7 @@ JbdBms::JbdBms()
       txQueue_(nullptr), txTaskHandle_(nullptr),
       connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
       connectSessionId_(0),
-      state_(Idle), enabled_(false), connected_(false), hasData_(false),
+      state_(Idle), initialized_(false), enabled_(false), connected_(false), hasData_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), rxLen_(0),
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
       cellCount_(0), ntcCount_(0), cycleCount_(0),
@@ -49,6 +49,7 @@ JbdBms::JbdBms()
 // init
 // ---------------------------------------------------------------------------
 void JbdBms::init() {
+    if (initialized_) return;
     s_jbdBms = this;
     stateMutex_ = xSemaphoreCreateMutex();
     connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
@@ -56,19 +57,19 @@ void JbdBms::init() {
         DEBUG_PRINTLN("[JBD] ERROR: mutex or connect queue create failed");
         return;
     }
-    // BLEDevice::init() must have been called by the main system.
-    // pClient_ is created lazily in connectTask to avoid allocating BLE heap
-    // for inactive backends (all three BMS types are init'd at boot).
     txQueue_ = xQueueCreate(4, sizeof(BleFrame));
     xTaskCreate(txTask, "jbd_tx", 2048, this, 1, &txTaskHandle_);
     if (xTaskCreate(connectTask, "jbd_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[JBD] ERROR: connect task create failed");
+        return;
     }
     state_ = Idle;
+    initialized_ = true;
     DEBUG_PRINTLN("[JBD] Init OK");
 }
 
 void JbdBms::setEnabled(bool enabled) {
+    if (!initialized_) return;
     enabled_ = enabled;
     if (!enabled_) {
         resetConnection();

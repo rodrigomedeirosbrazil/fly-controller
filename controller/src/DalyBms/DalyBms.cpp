@@ -30,7 +30,7 @@ DalyBms::DalyBms()
     : pClient_(nullptr), pCharRx_(nullptr), pCharTx_(nullptr),
       connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
       connectSessionId_(0),
-      state_(Idle), enabled_(false), connected_(false), hasData_(false), hasCellData_(false),
+      state_(Idle), initialized_(false), enabled_(false), connected_(false), hasData_(false), hasCellData_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), rxLen_(0),
       packVoltageMilliVolts_(0), packCurrentMilliAmps_(0), socPercent_(0),
       remainingCapacityMilliAh_(0), cycleCount_(0), cellCount_(0), tempCount_(0),
@@ -41,6 +41,7 @@ DalyBms::DalyBms()
 }
 
 void DalyBms::init() {
+    if (initialized_) return;
     s_dalyBms = this;
     stateMutex_ = xSemaphoreCreateMutex();
     connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
@@ -48,16 +49,17 @@ void DalyBms::init() {
         DEBUG_PRINTLN("[Daly] ERROR: mutex or connect queue create failed");
         return;
     }
-    // pClient_ is created lazily in connectTask to avoid allocating BLE heap
-    // for inactive backends (all three BMS types are init'd at boot).
     if (xTaskCreate(connectTask, "daly_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
         DEBUG_PRINTLN("[Daly] ERROR: connect task create failed");
+        return;
     }
     state_ = Idle;
+    initialized_ = true;
     DEBUG_PRINTLN("[Daly] Init OK");
 }
 
 void DalyBms::setEnabled(bool enabled) {
+    if (!initialized_) return;
     enabled_ = enabled;
     if (!enabled_) {
         resetConnection();

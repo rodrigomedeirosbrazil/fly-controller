@@ -87,6 +87,7 @@ private:
     SemaphoreHandle_t stateMutex_;
     uint32_t      connectSessionId_; // incremented on resetConnection() to drop stale connect results
     State        state_;
+    bool         initialized_;
     bool         enabled_;
     bool         connected_;
     bool         hasData_;
