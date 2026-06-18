@@ -245,11 +245,20 @@ void ControllerWebServer::startAP() {
 
     dnsServer.start(53, "*", apIP);
 
-    // Handle root URL
+    // Handle root URL — served as PROGMEM chunks to avoid ~25 KB heap spike
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        String page = renderDashboardPage();
-        applyCommonTokens(page, APP_VERSION, __DATE__, __TIME__, CONTROLLER_LABEL);
-        request->send(200, "text/html", page);
+        AsyncResponseStream* resp = request->beginResponseStream("text/html; charset=utf-8");
+        if (!resp) { request->send(500, "text/plain", "Sem memória"); return; }
+        resp->print(FPSTR(DASHBOARD_HTML_P1));
+        resp->print(APP_VERSION);
+        resp->print(FPSTR(DASHBOARD_HTML_P2));
+        resp->print(__DATE__);
+        resp->print(FPSTR(DASHBOARD_HTML_P3));
+        resp->print(__TIME__);
+        resp->print(FPSTR(DASHBOARD_HTML_P4));
+        resp->print(CONTROLLER_LABEL);
+        resp->print(FPSTR(DASHBOARD_HTML_P5));
+        request->send(resp);
     });
 
     server.on("/api/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -802,6 +811,17 @@ void ControllerWebServer::startAP() {
     server.on("/config.css", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config.css");
         request->send(200, "text/css; charset=utf-8", reinterpret_cast<const uint8_t*>(COMMON_CSS), strlen(COMMON_CSS));
+    });
+
+    server.on("/config-common.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/config-common.js");
+        request->send(200, "application/javascript; charset=utf-8",
+            reinterpret_cast<const uint8_t*>(COMMON_JS), strlen(COMMON_JS));
+    });
+
+    server.on("/dashboard.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        logWebHeap("/dashboard.js");
+        request->send_P(200, "application/javascript; charset=utf-8", DASHBOARD_JS);
     });
 
     server.on("/config-power.js", HTTP_GET, [](AsyncWebServerRequest *request){
