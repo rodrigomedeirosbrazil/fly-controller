@@ -9,13 +9,8 @@
 #include "Temperature/Temperature.h"
 #if USES_CAN_BUS
 #include "Canbus/Canbus.h"
-#if IS_TMOTOR
 #include "Tmotor/TmotorCan.h"
 #include "Tmotor/TmotorTelemetry.h"
-#else
-#include "Hobbywing/HobbywingCan.h"
-#include "Hobbywing/HobbywingTelemetry.h"
-#endif
 #include <driver/twai.h>
 #endif
 #include "Power/Power.h"
@@ -58,13 +53,8 @@ extern Button button;
 extern Temperature motorTemp;
 #if USES_CAN_BUS
 extern Canbus canbus;
-#if IS_TMOTOR
 extern TmotorCan tmotorCan;
 extern TmotorTelemetry tmotorTelemetry;
-#else
-extern HobbywingCan hobbywingCan;
-extern HobbywingTelemetry hobbywingTelemetry;
-#endif
 extern twai_message_t canMsg;
 #endif
 #if IS_XAG
@@ -102,11 +92,7 @@ extern PowerAlert powerAlert;
 #if USES_CAN_BUS
 #define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
 #define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
-#if IS_TMOTOR
-#define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()
-#else
-#define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()
-#endif
+#define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()  // T-Motor UAVCAN
 #endif
 
 // ========== BATTERY PARAMETERS ==========

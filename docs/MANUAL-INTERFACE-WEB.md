@@ -42,7 +42,7 @@ No topo da tela há uma barra de navegação com os links:
 Exibe:
 
 - **Firmware Version** — Versão do firmware e data/hora da compilação.
-- **Controller Type** — Tipo de controlador (Hobbywing, Tmotor ou XAG).
+- **Controller Type** — Tipo de controlador (Tmotor ou XAG).
 - **Uptime** — Tempo de ligado do dispositivo em segundos.
 - **Battery Voltage** — Tensão da bateria (em V), quando há telemetria.
 - **Telemetry freshness** — Idade da última atualização de telemetria (em ms); indica se os dados estão atualizados.

@@ -22,13 +22,8 @@ Throttle throttle([]() -> int {
 });
 #if USES_CAN_BUS
 Canbus canbus;
-#if IS_TMOTOR
 TmotorCan tmotorCan;
 TmotorTelemetry tmotorTelemetry;
-#else
-HobbywingCan hobbywingCan;
-HobbywingTelemetry hobbywingTelemetry;
-#endif
 twai_message_t canMsg;
 #endif
 Button button(BUTTON_PIN);

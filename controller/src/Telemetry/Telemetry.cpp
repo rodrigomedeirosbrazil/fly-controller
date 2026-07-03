@@ -5,20 +5,7 @@
 
 static const TelemetryBackend* s_backend_ptr = nullptr;
 
-#if IS_HOBBYWING
-static void wrapUpdate() { hobbywingTelemetry.update(); }
-static bool wrapHasData() { return hobbywingTelemetry.hasData(); }
-static uint16_t wrapGetBatteryVoltageMilliVolts() { return hobbywingTelemetry.getBatteryVoltageMilliVolts(); }
-static uint32_t wrapGetBatteryCurrentMilliAmps() { return hobbywingTelemetry.getBatteryCurrentMilliAmps(); }
-static uint16_t wrapGetRpm() { return hobbywingTelemetry.getRpm(); }
-static int32_t wrapGetMotorTempMilliCelsius() { return hobbywingTelemetry.getMotorTempMilliCelsius(); }
-static int32_t wrapGetEscTempMilliCelsius() { return hobbywingTelemetry.getEscTempMilliCelsius(); }
-static unsigned long wrapGetLastUpdate() { return hobbywingTelemetry.getLastUpdate(); }
-static const TelemetryBackend s_backend = {
-    wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
-};
-#elif IS_TMOTOR
+#if IS_TMOTOR
 static void wrapUpdate() { tmotorTelemetry.update(); }
 static bool wrapHasData() { return tmotorTelemetry.hasData(); }
 static uint16_t wrapGetBatteryVoltageMilliVolts() { return tmotorTelemetry.getBatteryVoltageMilliVolts(); }
@@ -47,7 +34,7 @@ static const TelemetryBackend s_backend = {
 #endif
 
 void Telemetry::init() {
-#if IS_HOBBYWING || IS_TMOTOR || IS_XAG
+#if IS_TMOTOR || IS_XAG
     s_backend_ptr = &s_backend;
 #endif
 }

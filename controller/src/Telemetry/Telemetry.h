@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 /**
- * Unified telemetry facade: delegates to HobbywingTelemetry, TmotorTelemetry, or XagTelemetry.
+ * Unified telemetry facade: delegates to TmotorTelemetry or XagTelemetry.
  * Provides stable getter API for Power, BatteryMonitor, Xctod.
  */
 class Telemetry {

@@ -30,7 +30,7 @@
 ### Hardware Configuration
 - **Microcontroller:** ESP32-C3 Super Mini
 - **CAN Transceiver:** SN65HVD230 or similar
-- **CAN Bus Speed:** 500 kbps (Hobbywing), 1 Mbps (T-Motor)
+- **CAN Bus Speed:** 1 Mbps (T-Motor)
 - **PWM Output:** ESC control (1050-1950μs)
 - **Analog Inputs:**
   - GPIO 1: NTC temperature sensor (motor)
@@ -49,7 +49,7 @@ src/
 ├── main.h                # Function declarations for main
 ├── config.h              # Global configuration and pin definitions
 ├── config.cpp            # Global object instantiations
-├── config_controller.h   # Build type (IS_HOBBYWING, IS_TMOTOR, IS_XAG, USES_CAN_BUS)
+├── config_controller.h   # Build type (IS_TMOTOR, IS_XAG, USES_CAN_BUS)
 │
 ├── Button/               # User input handling
 ├── Buzzer/               # Audible feedback system (PWM)
@@ -57,10 +57,6 @@ src/
 ├── Power/                # Intelligent power management
 ├── BatteryMonitor/       # Coulomb counting, SoC from voltage
 ├── Settings/             # Persistent configuration (Preferences)
-│
-├── Hobbywing/            # DroneCAN (Hobbywing build)
-│   ├── HobbywingCan.h/cpp    # ESC protocol
-│   └── HobbywingTelemetry.h/cpp  # Telemetry aggregation
 │
 ├── Tmotor/               # UAVCAN (T-Motor build)
 │   ├── TmotorCan.h/cpp       # ESC protocol
@@ -79,7 +75,7 @@ src/
 │
 ├── Temperature/          # NTC sensor (ReadFn + adcVoltageRef)
 ├── Throttle/             # Throttle control (ReadFn)
-├── ADS1115/              # I2C ADC (Hobbywing/Tmotor)
+├── ADS1115/              # I2C ADC (Tmotor)
 ├── Xctod/                # Bluetooth LE telemetry output
 ├── WebServer/            # WiFi configuration
 └── Logger/               # CSV logging
@@ -105,7 +101,7 @@ Centralized configuration with all constants and global object instances.
 **Critical Constants:**
 - **Battery:** Min/max voltage managed by Settings (configurable).
 - **Motor:** Max temp, reduction start managed by Settings.
-- **ESC:** Max temp, reduction start managed by Settings. PWM range: 1050-1950μs (Hobbywing), 1100-1940μs (Tmotor), 1130-2000μs (XAG).
+- **ESC:** Max temp, reduction start managed by Settings. PWM range: 1100-1940μs (Tmotor), 1130-2000μs (XAG).
 - **Throttle:** ReadFn (ADS1115 or analogRead). Automatic calibration, no fixed range.
 
 **Global Objects:**
@@ -121,18 +117,10 @@ Manages throttle input via `ReadFn` (ADS1115 or analogRead) with automatic calib
 - **Cruise Control:** Maintains throttle position when activated.
 - **Sensor Validation:** Detects sensor failures and invalid readings.
 
-### 4. **HobbywingCan** - DroneCAN ESC Interface
-Implements the DroneCAN protocol for Hobbywing ESC communication.
+### 4. **TmotorCan** - UAVCAN ESC Interface
+Implements the TM-UAVCAN v2.3 protocol for T-Motor ESC communication: multi-frame transfer reassembly for ESC_STATUS (1034) and PUSHCAN (1039), Status 5 (1154) for motor temp, and RawCommand (1030) sent at 400 Hz.
 
-**Telemetry (Received from ESC):**
-- **Status Message 1 (0x4E52):** RPM, motor direction.
-- **Status Message 2 (0x4E53):** Voltage, current.
-- **Status Message 3 (0x4E54):** ESC temperature.
-
-**Control Commands (Sent to ESC):**
-- Announce, LED Control, Direction, Throttle Source, Raw Throttle, ESC ID Request.
-
-**HobbywingTelemetry** aggregates HobbywingCan + motorTemp (ADS1115). Similar: **TmotorCan**, **TmotorTelemetry** (UAVCAN); **XagTelemetry** (analog sensors).
+**TmotorTelemetry** aggregates TmotorCan + batterySensor (motor temp falls back to ADS1115 when CAN temp is stale). Similar: **XagTelemetry** (analog sensors).
 
 ### 5. **Power/** - Intelligent Power Management
 Calculates available power based on battery voltage, motor temperature, and ESC temperature. Uses `telemetry.getXxx()` (Telemetry facade).
@@ -154,14 +142,14 @@ Reads an NTC thermistor for motor temperature monitoring. Agnostic: uses `ReadFn
 **Specifications:**
 - **Sensor Type:** 10K NTC thermistor, Beta = 3950K.
 - **Filtering:** 10-sample moving average.
-- **ADC Source:** ADS1115 (Hobbywing/Tmotor) or ESP32 built-in (XAG).
+- **ADC Source:** ADS1115 (Tmotor) or ESP32 built-in (XAG).
 
 ### 7. **Canbus/** - CAN Bus Message Handler
-Provides `receive(twai_message_t* outMsg)` (non-blocking). Does not know HobbywingCan or TmotorCan.
+Provides `receive(twai_message_t* outMsg)` (non-blocking). Does not know TmotorCan.
 
 **Responsibilities:**
 - `twai_receive()` and process NodeStatus/GetNodeInfo internally.
-- Return raw ESC frames to caller. **main.cpp** routes frames to `hobbywingCan.parseEscMessage()` or `tmotorCan.parseEscMessage()`.
+- Return raw ESC frames to caller. **main.cpp** routes frames to `tmotorCan.parseEscMessage()`.
 
 ### 8. **Button/** - User Input Interface
 Handles single-button input using the AceButton library.
@@ -189,15 +177,14 @@ Outputs comprehensive system telemetry via Bluetooth LE. Uses `telemetry.getXxx(
 
 ### System Initialization (setup())
 1. **Buzzer & XCTOD Setup:** Initialize audio feedback and BLE telemetry.
-2. **CAN Bus (TWAI) Setup:** Configure the TWAI driver (500 kbps Hobbywing, 1 Mbps T-Motor).
-3. **ESC Configuration:** Announce controller presence, request ESC ID, set throttle source to PWM, and set LED to green.
-4. **ESC PWM:** Attach the servo object to the designated GPIO pin.
+2. **CAN Bus (TWAI) Setup:** Configure the TWAI driver (1 Mbps T-Motor).
+3. **ESC PWM:** Attach the servo object to the designated GPIO pin.
 
 ### Main Operation Loop (loop())
 1. **Button Check:** Process user input events.
-2. **CAN Bus Check:** `while (canbus.receive(&msg))` routes ESC frames to hobbywingCan/tmotorCan; calls handle(); `canbus.sendNodeStatus()`.
+2. **CAN Bus Check:** `while (canbus.receive(&msg))` routes ESC frames to tmotorCan; calls handle(); `canbus.sendNodeStatus()`.
 3. **Component Handling:** Update throttle, motorTemp, escTemp (XAG), batterySensor (XAG), buzzer.
-4. **Telemetry:** `telemetry.update()` (facade delegates to HobbywingTelemetry/TmotorTelemetry/XagTelemetry).
+4. **Telemetry:** `telemetry.update()` (facade delegates to TmotorTelemetry/XagTelemetry).
 5. **ESC Output:** Calculate and apply power limits, then write the PWM signal.
 
 ### Safety Features
@@ -222,15 +209,15 @@ Outputs comprehensive system telemetry via Bluetooth LE. Uses `telemetry.getXxx(
 
 **Build Process:**
 - The build system is configured in `platformio.ini`
-- Build outputs: `.pio/build/<env>/` (e.g., `lolin_c3_mini_hobbywing`)
+- Build outputs: `.pio/build/<env>/` (e.g., `lolin_c3_mini_tmotor`)
 - The project builds successfully when all dependencies are resolved
 - To verify compilation, check for build errors in the IDE output
 
 **Build Configuration:**
-- **Environments:** `lolin_c3_mini_hobbywing`, `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`
+- **Environments:** `lolin_c3_mini_tmotor` (default), `lolin_c3_mini_xag`
 - **Platform:** Espressif 32 (ESP32-C3)
 - **Framework:** Arduino
-- **Build flags:** `CONTROLLER_TYPE=1` (XAG), `2` (Hobbywing), `3` (Tmotor)
+- **Build flags:** `CONTROLLER_TYPE=1` (XAG), `3` (Tmotor)
 
 **When checking if code compiles:**
 - Use the linter to check for syntax errors (`read_lints` tool)
@@ -254,9 +241,9 @@ Outputs comprehensive system telemetry via Bluetooth LE. Uses `telemetry.getXxx(
 
 **ESC Not Responding:**
 - Check CAN bus wiring (H, L) to the transceiver.
-- Hobbywing: 500kbps; Tmotor: 1Mbps. Verify bitrate match.
-- Ensure the ESC is in DroneCAN (Hobbywing) or UAVCAN (Tmotor) mode.
-- Monitor `hobbywingCan.isReady()` or `tmotorCan.isReady()`.
+- Tmotor: 1Mbps. Verify bitrate match.
+- Ensure the ESC is in UAVCAN (Tmotor) mode.
+- Monitor `tmotorCan.isReady()`.
 
 **Throttle Not Calibrating:**
 - Ensure the Hall sensor is moved through its full range during startup.

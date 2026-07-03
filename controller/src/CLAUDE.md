@@ -10,7 +10,7 @@ This is the main source directory for an ESP32-C3 (LOLIN C3 Mini) Arduino/Platfo
 | `main.h` | Declarations for free functions in main.cpp (`handleEsc`, `checkCanbus`, etc.) |
 | `config.h` | All `extern` global object declarations, pin defines, and build constants |
 | `config.cpp` | Single translation unit that instantiates all global objects |
-| `config_controller.h` | Derives `IS_HOBBYWING`, `IS_TMOTOR`, `IS_XAG`, `USES_CAN_BUS` from `CONTROLLER_TYPE` |
+| `config_controller.h` | Derives `IS_TMOTOR`, `IS_XAG`, `USES_CAN_BUS` from `CONTROLLER_TYPE` |
 
 ## Build Targets
 
@@ -19,12 +19,13 @@ Defined via `-D CONTROLLER_TYPE=N` in `platformio.ini`:
 | `CONTROLLER_TYPE` | Env suffix | Macros set | CAN bus |
 |---|---|---|---|
 | 1 (`XAG`) | `_xag` | `IS_XAG=1` | No |
-| 2 (`HOBBYWING`) | `_hobbywing` (default) | `IS_HOBBYWING=1` | Yes (500 kbps) |
-| 3 (`TMOTOR`) | `_tmotor` | `IS_TMOTOR=1` | Yes (1 Mbps) |
+| 3 (`TMOTOR`) | `_tmotor` (default) | `IS_TMOTOR=1` | Yes (1 Mbps) |
 
-`USES_CAN_BUS` is 1 for Hobbywing and Tmotor, 0 for XAG. The XAG env also excludes `Hobbywing/`, `Tmotor/`, and `Canbus/` from the build via `build_src_filter`.
+Value `2` was the retired `HOBBYWING` type (removed; recoverable from pre-removal git tags) — the numeric gap is intentional.
 
-Build command (run from `controller/`): `~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing`
+`USES_CAN_BUS` is 1 for Tmotor, 0 for XAG. The XAG env also excludes `Tmotor/` and `Canbus/` from the build via `build_src_filter`.
+
+Build command (run from `controller/`): `~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor`
 
 Debug builds: add `_debug` suffix (e.g. `lolin_c3_mini_tmotor_debug`), which defines `DEBUG=1` and enables `DEBUG_PRINT` / `DEBUG_PRINTLN` macros from `config.h`.
 
@@ -83,7 +84,7 @@ Temperature motorTemp(
 - Capacity: milliamp-hours (`uint16_t` / `uint32_t`)
 
 ### Conditional compilation
-Use `#if IS_HOBBYWING`, `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — not `#ifdef`. These are always defined as 0 or 1 by `config_controller.h`.
+Use `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — not `#ifdef`. These are always defined as 0 or 1 by `config_controller.h`.
 
 ## Component Reference
 
@@ -120,17 +121,13 @@ Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integr
 Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, WiFi behavior, BMS type and MAC, config PIN, and buzzer volume (key `buzzVol`, 0-100%, default 85%). Initialized first in `setup()`.
 
 ### Telemetry — `Telemetry/`
-Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `hobbywingTelemetry` directly.
+Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `tmotorTelemetry` directly.
 
-- `HobbywingTelemetry`: aggregates `hobbywingCan` (CAN) + `motorTemp` (ADS1115)
 - `TmotorTelemetry`: aggregates `batterySensor` + `tmotorCan`; motor temp falls back to ADS1115 when CAN temp is stale
 - `XagTelemetry`: aggregates `motorTemp`, `escTemp`, `batterySensor` (all ADS1115)
 
 ### CAN Bus — `Canbus/`
-Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed DroneCAN protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `hobbywingCan.parseEscMessage()` or `tmotorCan.parseEscMessage()`.
-
-### Hobbywing — `Hobbywing/`
-DroneCAN ESC (Hobbywing X-Rotor). `HobbywingCan`: sends throttle, parses telemetry frames. `HobbywingTelemetry`: snapshot aggregator.
+Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `tmotorCan.parseEscMessage()`.
 
 ### Tmotor — `Tmotor/`
 TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for ESC_STATUS (1034) and PUSHCAN (1039); handles Status 5 (1154) for motor temp; sends RawCommand (1030) at 400 Hz. `TmotorTelemetry`: snapshot aggregator.
@@ -139,7 +136,7 @@ TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for E
 XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors only.
 
 ### Sensors — `Sensors/`
-`BatteryVoltageSensor`: voltage divider via `ReadFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds (not Hobbywing, which gets voltage from CAN).
+`BatteryVoltageSensor`: voltage divider via `ReadFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds.
 
 ### BluetoothBms — `BluetoothBms/`
 Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery and a live status feed (`GET /api/bms/status`).

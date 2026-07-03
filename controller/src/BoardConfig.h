@@ -9,7 +9,7 @@
  * Centralizes build-specific flags and defaults to reduce #if scattered across the codebase.
  */
 struct BoardConfig {
-    bool hasCurrentSensor;         // false=XAG, true=Hobbywing/Tmotor (Coulomb counting)
+    bool hasCurrentSensor;         // false=XAG, true=Tmotor (Coulomb counting)
     bool useSmoothStart;           // true=XAG
     bool useBatteryLimit;
     uint16_t defaultBatteryCapacity;

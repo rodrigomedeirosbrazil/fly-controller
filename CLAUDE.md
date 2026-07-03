@@ -1,6 +1,6 @@
 # Fly Controller — Claude Code Guide
 
-ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports three ESC types via three build targets.
+ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports two ESC types via two build targets.
 
 This is a monorepo. The controller firmware lives in `controller/` (its `platformio.ini` is there); the remote-throttle firmware lives in `throttle/`; `shared/` holds code used by both (e.g. the ESP-NOW protocol header). Run all `pio` commands below from `controller/`.
 
@@ -10,7 +10,6 @@ This is a monorepo. The controller firmware lives in `controller/` (its `platfor
 
 ```bash
 # Build (run from controller/)
-~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
 
@@ -28,17 +27,16 @@ Do NOT run `pio` without the full path — it may not be in PATH.
 
 ## Releases
 
-Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds all three controller targets plus the remote-throttle firmware and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `controller/src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
+Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds both controller targets plus the remote-throttle firmware and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `controller/src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
 
 ## Build Targets
 
 | Environment | `CONTROLLER_TYPE` | Macro | CAN Bus | Protocol |
 |---|---|---|---|---|
-| `lolin_c3_mini_hobbywing` | 2 | `IS_HOBBYWING` | 500 kbps | DroneCAN |
-| `lolin_c3_mini_tmotor` | 3 | `IS_TMOTOR` | 1 Mbps | UAVCAN |
+| `lolin_c3_mini_tmotor` (default) | 3 | `IS_TMOTOR` | 1 Mbps | UAVCAN |
 | `lolin_c3_mini_xag` | 1 | `IS_XAG` | None | PWM-only |
 
-`config_controller.h` derives `IS_HOBBYWING` / `IS_TMOTOR` / `IS_XAG` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_HOBBYWING` (not `#ifdef`).
+`config_controller.h` derives `IS_TMOTOR` / `IS_XAG` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_TMOTOR` (not `#ifdef`). (`CONTROLLER_TYPE=2` is a retired Hobbywing value — recoverable from pre-removal git tags if ever needed.)
 
 ## Project Structure
 
@@ -49,14 +47,13 @@ controller/src/
 ├── main.cpp / main.h         # setup() + loop(); routes CAN frames, calls all components
 ├── config.h / config.cpp     # All extern declarations + global object instantiations
 ├── config_controller.h       # Build-type macros derived from CONTROLLER_TYPE
-├── ADS1115/                  # I2C ADC (Hobbywing/Tmotor: throttle + motor temp)
+├── ADS1115/                  # I2C ADC (Tmotor: throttle + motor temp)
 ├── BatteryMonitor/           # Coulomb counting + SoC from voltage
 ├── BluetoothBms/             # BLE BMS integration
 ├── Button/                   # AceButton single-click (arm) + long-press (cruise)
 ├── Buzzer/                   # Non-blocking PWM beep patterns
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
-├── Hobbywing/                # HobbywingCan + HobbywingTelemetry
 ├── JbdBms/                   # JBD BMS (BLE) protocol
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS
@@ -86,13 +83,13 @@ controller/src/
 `Temperature` and `Throttle` accept a `ReadFn` (function pointer) for ADC reading — either `ADS1115` or `analogRead`. This keeps sensor logic hardware-agnostic.
 
 ### Telemetry Facade
-`telemetry.getXxx()` delegates to `HobbywingTelemetry` / `TmotorTelemetry` / `XagTelemetry` based on build target. Always use the facade — never access ESC objects directly for telemetry.
+`telemetry.getXxx()` delegates to `TmotorTelemetry` / `XagTelemetry` based on build target. Always use the facade — never access ESC objects directly for telemetry.
 
 ### CAN Bus Routing
 `Canbus::receive()` is non-blocking and returns raw frames. `main.cpp` routes them:
 ```cpp
 while (canbus.receive(&msg)) {
-    hobbywingCan.parseEscMessage(msg); // or tmotorCan
+    tmotorCan.parseEscMessage(msg);
 }
 ```
 `Canbus` handles NodeStatus/GetNodeInfo internally.
@@ -107,7 +104,7 @@ while (canbus.receive(&msg)) {
 - **No `delay()`** in main loop — use `millis()` for timing
 - **Naming:** camelCase for functions/variables, PascalCase for classes
 - **Constants:** `#define` or `const` — no magic numbers
-- **Build guards:** `#if IS_HOBBYWING` not `#ifdef IS_HOBBYWING`
+- **Build guards:** `#if IS_TMOTOR` not `#ifdef IS_TMOTOR`
 
 ## Pin Assignments
 
@@ -115,7 +112,7 @@ while (canbus.receive(&msg)) {
 |---|---|---|
 | 0 | Throttle (Hall sensor) | ADC / ADS1115 ch0 |
 | 1 | Motor temperature (NTC) | ADC / ADS1115 ch1 |
-| 2 | CAN TX (TWAI) | Hobbywing/Tmotor only |
+| 2 | CAN TX (TWAI) | Tmotor only |
 | 3 | CAN RX (TWAI) / Battery voltage | XAG: voltage divider |
 | 4 | ESC temperature (NTC) | XAG only |
 | 5 | Button | AceButton, interrupt |
