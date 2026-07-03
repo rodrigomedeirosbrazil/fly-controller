@@ -91,7 +91,7 @@ Use `#if IS_HOBBYWING`, `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — no
 I2C 16-bit ADC (Adafruit ADS1X15). All analog readings go through `ads1115.readChannel(N)`. Channels: 0=Throttle, 1=MotorTemp, 2=EscTemp (XAG), 3=Battery voltage (XAG/Tmotor). Initialized first in `setup()`.
 
 ### Throttle — `Throttle/`
-Hall sensor input. Accepts `ReadFn`. Handles arming state machine, calibration (3-second sweep), and oversampling (30 samples, 4 readings each). `throttle.isArmed()` gates ESC output.
+Hall sensor input. Accepts `ReadFn`. Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
 
 ### Temperature — `Temperature/`
 NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only).
@@ -107,7 +107,7 @@ Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and 
 `getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest first), each with fields `{seq, freq, onMs, offMs, reps, active}`, populated by `startBeep()` and cleared by `stop()`. The web server reads this to include a `buzzer` array in `/api/telemetry`. On the first successful poll the telemetry page primes `bzLastSeq` to the highest seq without playing anything (prevents stale replays); subsequent polls play all events with `seq > bzLastSeq` in order using an audio-time cursor so back-to-back one-shots don't overlap.
 
 ### Power — `Power/`
-Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, ESC temp limiting, and ramp rate control. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`.
+Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
 `getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Battery cause is only set when `telemetry.hasData()` (excludes the conservative 50% startup floor). Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
 
 ### PowerAlert — `PowerAlert/`

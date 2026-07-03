@@ -2,12 +2,13 @@
 #include "../config.h"
 
 BatteryVoltageSensor::BatteryVoltageSensor(ReadFn readFn, float dividerRatio, float adcVoltageRef)
-    : readFn(readFn), dividerRatio(dividerRatio), adcVoltageRef(adcVoltageRef), voltageMilliVolts(0), lastRead(0) {
+    : readFn(readFn), dividerRatio(dividerRatio), adcVoltageRef(adcVoltageRef), voltageMilliVolts(0),
+      lastRead(0), emaVoltageMilliVolts(0.0f), emaInitialized(false) {
 }
 
 void BatteryVoltageSensor::handle() {
     unsigned long now = millis();
-    if (now - lastRead < 100) {
+    if (now - lastRead < READ_INTERVAL_MS) {
         return;
     }
     lastRead = now;
@@ -15,11 +16,7 @@ void BatteryVoltageSensor::handle() {
 }
 
 void BatteryVoltageSensor::readVoltage() {
-    int oversampledValue = 0;
-    for (int i = 0; i < oversampleCount; i++) {
-        oversampledValue += readFn();
-    }
-    int adcValue = oversampledValue / oversampleCount;
+    int adcValue = readFn();
 
     // Convert ADC reading to voltage at sensor pin
     // adcVoltageRef: 3.3V for ESP32 ADC, 4.096V for ADS1115 GAIN_ONE
@@ -31,5 +28,14 @@ void BatteryVoltageSensor::readVoltage() {
 
     // Convert to millivolts
     // Maximum expected: 60.0V, so 60.0 * 1000 = 60000 mV < 65535 (uint16_t max)
-    voltageMilliVolts = (uint16_t)(batteryVoltage * 1000.0 + 0.5);
+    float rawMilliVolts = (float)(batteryVoltage * 1000.0);
+
+    if (!emaInitialized) {
+        emaVoltageMilliVolts = rawMilliVolts;
+        emaInitialized = true;
+    } else {
+        emaVoltageMilliVolts += EMA_ALPHA * (rawMilliVolts - emaVoltageMilliVolts);
+    }
+
+    voltageMilliVolts = (uint16_t)(emaVoltageMilliVolts + 0.5f);
 }
