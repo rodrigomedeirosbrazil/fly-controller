@@ -10,6 +10,13 @@
 // channel on the ESP32-C3's single radio. Matches the softAP default.
 #define REMOTE_LINK_CHANNEL 1
 
+// Bump this whenever the wire format (packet layout, field meaning, or beep
+// enum values) changes. This header is duplicated in both the fly-controller
+// and fly-throttle repos — a mismatch here is a bug. There is no runtime
+// negotiation; keep both copies byte-identical and bump this together with
+// every change on both sides.
+#define REMOTE_LINK_PROTOCOL_VERSION 1
+
 // Beep commands the controller asks the remote to play. Mapped to named
 // Buzzer patterns on the remote side.
 namespace RemoteBeep {

@@ -204,7 +204,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Direct ESC PWM control
 - ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
 - ✅ Bidirectional CAN bus communication (UAVCAN)
-- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in `throttle/`), with a hybrid link-loss failsafe (ramp to zero, then disarm), web-portal pairing, and status LEDs/buzzer on the remote
+- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), web-portal pairing, and status LEDs/buzzer on the remote
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -241,34 +241,22 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 ## 🚀 Installation and Configuration
 
-### Repository Layout (monorepo)
-
-| Path | Project |
-|------|---------|
-| `controller/` | Controller firmware (the main flight controller; `platformio.ini` lives here) |
-| `throttle/` | Remote wireless-throttle firmware (ESP-NOW) |
-| `shared/` | Code shared by both — e.g. `RemoteLinkProtocol.h` (the ESP-NOW wire contract) |
-
-Run the controller `pio` commands from `controller/` and the remote-throttle command from `throttle/`.
-
 ### Build Environments
 
-The project supports two controller types plus the optional wireless remote throttle:
+The project supports two controller types. An optional wireless remote throttle
+(firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle)
+repo) can replace the wired Hall sensor via ESP-NOW.
 
 | Firmware | Environment | Protocol | CAN Bus |
 |------------|-------------|----------|---------|
 | **T-Motor** (default) | `lolin_c3_mini_tmotor` | UAVCAN | ✅ Required |
 | **XAG** | `lolin_c3_mini_xag` | PWM-only | ❌ Not required |
-| **Remote throttle** | `remote_throttle` | ESP-NOW | ❌ Not required |
 
 **Quick Build Commands:**
 ```bash
-# Controller targets (run from controller/)
+# Controller targets
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
-
-# Remote wireless throttle (run from throttle/)
-~/.platformio/penv/bin/pio run -e remote_throttle
 ```
 
 ### 1. Prerequisites
@@ -401,7 +389,7 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 
 ### 8. Wireless Throttle (ESP-NOW) — Pairing
 
-The optional wireless throttle (remote firmware in `throttle/`) sends throttle + button to the controller over ESP-NOW. The controller keeps all logic; the remote just forwards its Hall reading and raw button state, and shows status on two LEDs (red = armed, green = disarmed). Both devices must be paired once before use.
+The optional wireless throttle (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) sends throttle + button to the controller over ESP-NOW. The controller keeps all logic; the remote just forwards its Hall reading and raw button state, and shows status on two LEDs (red = armed, green = disarmed). Both devices must be paired once before use.
 
 **Pairing steps:**
 1. Power on both devices. An **unpaired** remote shows the **red LED blinking**.

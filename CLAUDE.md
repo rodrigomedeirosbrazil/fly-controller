@@ -2,14 +2,15 @@
 
 ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports two ESC types via two build targets.
 
-This is a monorepo. The controller firmware lives in `controller/` (its `platformio.ini` is there); the remote-throttle firmware lives in `throttle/`; `shared/` holds code used by both (e.g. the ESP-NOW protocol header). Run all `pio` commands below from `controller/`.
+The wireless remote-throttle firmware that pairs with this controller lives in a separate
+repo, [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
 
 ## Build System
 
 **Platform:** PlatformIO · **Board:** `lolin_c3_mini` (ESP32-C3) · **Framework:** Arduino
 
 ```bash
-# Build (run from controller/)
+# Build
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
 
@@ -18,16 +19,13 @@ This is a monorepo. The controller firmware lives in `controller/` (its `platfor
 
 # Serial monitor
 ~/.platformio/penv/bin/pio device monitor -e <env>
-
-# Remote wireless throttle firmware (run from throttle/)
-~/.platformio/penv/bin/pio run -e remote_throttle
 ```
 
 Do NOT run `pio` without the full path — it may not be in PATH.
 
 ## Releases
 
-Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds both controller targets plus the remote-throttle firmware and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `controller/src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
+Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds both controller targets and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
 
 ## Build Targets
 
@@ -40,10 +38,8 @@ Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which buil
 
 ## Project Structure
 
-Monorepo layout: `controller/` (the controller firmware, tree below), `throttle/` (remote wireless-throttle firmware), and `shared/` (`RemoteLinkProtocol.h`, included by both).
-
 ```
-controller/src/
+src/
 ├── main.cpp / main.h         # setup() + loop(); routes CAN frames, calls all components
 ├── config.h / config.cpp     # All extern declarations + global object instantiations
 ├── config_controller.h       # Build-type macros derived from CONTROLLER_TYPE
@@ -74,7 +70,7 @@ controller/src/
 ## Key Patterns
 
 ### Adding a New Component
-1. Create `controller/src/ComponentName/ComponentName.h` and `.cpp`
+1. Create `src/ComponentName/ComponentName.h` and `.cpp`
 2. Add `extern ComponentName componentName;` to `config.h`
 3. Instantiate in `config.cpp`
 4. Call `componentName.setup()` in `setup()` and `componentName.handle()` in `loop()`
@@ -143,11 +139,11 @@ The `/api/telemetry` response also includes a `powerAlert` object (`{seq, causes
 
 ## Wireless Throttle (ESP-NOW)
 
-An optional second ESP32 (the **remote throttle**, firmware in `throttle/`) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with the WiFi AP + BLE on the C3's single radio). The wire contract is `shared/RemoteLinkProtocol.h`, included by both firmwares.
+An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with the WiFi AP + BLE on the C3's single radio). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
 
 - **Source selection:** `Settings::getThrottleSource()` (wired/wireless), set in the web portal. In wireless mode the controller's `Throttle` `ReadFn` returns the last Hall value received over the link, and the existing AceButton runs on the remote's forwarded **raw button state** (via `SourceSwitchButtonConfig::readButton`) — so calibration and the arming gesture are identical wired/wireless. The remote stays "dumb"; the controller owns all logic.
 - **Failsafe (`RemoteLink/RemoteLinkLogic.h`, host-tested):** wireless mode only. No packet for >500 ms → ramp throttle to 0 (stay armed, via the ReadFn feeding 0); >3 s → disarm.
 - **Pairing:** web portal "Parear remote" arms pairing; the next remote heard is saved (MAC in `Settings`). The remote persists the controller MAC in NVS and enters pairing by holding its button while unpaired.
-- **Component:** `controller/src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`.
+- **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`.
 
 Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red LED=GPIO7 (armed), green LED=GPIO10 (disarmed). Pure decision logic (LED state machine, link-loss, failsafe) lives in host-testable headers tested with `c++ -std=c++17` like `test/PowerTest.cpp`.
