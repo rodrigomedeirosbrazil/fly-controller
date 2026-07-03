@@ -94,7 +94,7 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 
 ### 6.3 Temperatura do ESC
 
-- A temperatura do ESC é lida via barramento CAN (em builds com Hobbywing/T-Motor) ou por sensor analógico (em builds como XAG).
+- A temperatura do ESC é lida via barramento CAN (em builds T-Motor) ou por sensor analógico (em builds como XAG).
 - Assim como no motor, há **temperatura de início de redução** e **temperatura máxima**.
 - Entre essa faixa, a **potência é reduzida gradualmente**.
 - Objetivo: proteger o ESC contra sobrecarga térmica.

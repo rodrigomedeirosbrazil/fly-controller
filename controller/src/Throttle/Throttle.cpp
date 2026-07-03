@@ -212,22 +212,10 @@ void Throttle::setArmed()
   }
 
   throttleArmed = true;
-#if USES_CAN_BUS && IS_HOBBYWING
-  extern HobbywingCan hobbywingCan;
-  if (hobbywingCan.isReady()) {
-    hobbywingCan.setLedColor(HobbywingCan::ledColorRed, HobbywingCan::ledBlink5Hz);
-  }
-#endif
 }
 
 void Throttle::setDisarmed()
 {
   throttleArmed = false;
   buzzer.beepDisarmed();
-#if USES_CAN_BUS && IS_HOBBYWING
-  extern HobbywingCan hobbywingCan;
-  if (hobbywingCan.isReady()) {
-    hobbywingCan.setLedColor(HobbywingCan::ledColorGreen);
-  }
-#endif
 }

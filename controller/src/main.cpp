@@ -22,9 +22,6 @@
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
 #include "RemoteLink/RemoteLink.h"
-#if USES_CAN_BUS && IS_HOBBYWING
-#include "Hobbywing/HobbywingCan.h"
-#endif
 #if USES_CAN_BUS && IS_TMOTOR
 #include "Tmotor/TmotorCan.h"
 #endif
@@ -119,13 +116,6 @@ void setup()
     DEBUG_PRINTLN(status_info.rx_error_counter);
   }
 
-  // Hobbywing-specific initialization
-  #if IS_HOBBYWING
-  extern HobbywingCan hobbywingCan;
-  hobbywingCan.requestEscId();
-  hobbywingCan.setThrottleSource(HobbywingCan::throttleSourcePWM);
-  hobbywingCan.setLedColor(HobbywingCan::ledColorGreen);
-  #endif
 #endif
 
   // ESP32Servo's attach() can force the LEDC low-speed clock to XTAL so the ESC
@@ -229,20 +219,14 @@ void checkCanbus()
     // Process received CAN frames with rate limiting to prevent starvation of other tasks
     while (frameCount < MAX_CAN_FRAMES_PER_TICK && canbus.receive(&msg)) {
         frameCount++;
-#if IS_HOBBYWING
-        extern HobbywingCan hobbywingCan;
-        hobbywingCan.parseEscMessage(&msg);
-#elif IS_TMOTOR
+#if IS_TMOTOR
         extern TmotorCan tmotorCan;
         tmotorCan.parseEscMessage(&msg);
 #endif
     }
 
     // Periodic ESC commands (400 Hz throttle for Tmotor, etc.)
-#if IS_HOBBYWING
-    extern HobbywingCan hobbywingCan;
-    hobbywingCan.handle();
-#elif IS_TMOTOR
+#if IS_TMOTOR
     extern TmotorCan tmotorCan;
     tmotorCan.handle();
 #endif

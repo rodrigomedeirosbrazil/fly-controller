@@ -155,7 +155,7 @@ void Xctod::writeBatteryInfo(char* data, size_t size, size_t& used) {
         return;
     }
 
-    // Get SoC from BatteryMonitor (coulomb counting for Hobbywing/Tmotor, voltage for XAG)
+    // Get SoC from BatteryMonitor (coulomb counting for Tmotor, voltage for XAG)
     uint8_t batteryPercentageCC = batteryMonitor.getSoC();
 
     // Get SoC based on voltage only
@@ -190,7 +190,7 @@ void Xctod::writeThrottleInfo(char* data, size_t size, size_t& used) {
 }
 
 void Xctod::writeMotorInfo(char* data, size_t size, size_t& used) {
-    // Motor temperature: all controllers use telemetry (Hobbywing/Tmotor from CAN+sensor, XAG from sensor)
+    // Motor temperature: all controllers use telemetry (Tmotor from CAN+sensor, XAG from sensor)
     if (!telemetry.hasData()) {
         appendToBuffer(data, size, used, ","); // motor temperature not available
     } else {

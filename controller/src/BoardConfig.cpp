@@ -7,12 +7,6 @@ static const BoardConfig s_config = {
     false, true, true,
     18000, 80000, 70000
 };
-#elif IS_HOBBYWING
-// Hobbywing: current from CAN, no smooth start, 65Ah, 110/80°C ESC
-static const BoardConfig s_config = {
-    true, false, true,
-    65000, 110000, 80000
-};
 #elif IS_TMOTOR
 // Tmotor: current via CAN, no smooth start, 18Ah, 110/80°C ESC
 static const BoardConfig s_config = {

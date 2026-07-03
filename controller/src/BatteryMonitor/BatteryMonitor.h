@@ -24,7 +24,7 @@ public:
 
 private:
     // Coulomb counting state
-    uint32_t batteryCapacityMilliAh;  // Capacity in mAh (65Ah for Hobbywing, 18Ah for others)
+    uint32_t batteryCapacityMilliAh;  // Capacity in mAh (18Ah default)
     uint32_t usableCapacityMilliAh;   // Usable capacity in mAh (internal reserve applied)
     uint32_t reserveMilliAh;          // Reserved capacity in mAh
     uint32_t remainingMilliAh;         // Remaining capacity in mAh

@@ -36,9 +36,7 @@ const char* SOFT_AP_SSID = "FlyController";
 IPAddress apIP(192, 168, 4, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
-#if IS_HOBBYWING
-const char* CONTROLLER_LABEL = "Hobbywing";
-#elif IS_TMOTOR
+#if IS_TMOTOR
 const char* CONTROLLER_LABEL = "Tmotor";
 #elif IS_XAG
 const char* CONTROLLER_LABEL = "XAG";

@@ -6,7 +6,7 @@
 
 /**
  * Centralized CAN bus utility functions
- * Eliminates code duplication between Hobbywing, Tmotor, and Canbus classes
+ * Eliminates code duplication between Tmotor and Canbus classes
  */
 class CanUtils {
 public:
