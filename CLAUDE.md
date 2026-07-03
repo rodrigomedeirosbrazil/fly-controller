@@ -127,8 +127,8 @@ while (canbus.receive(&msg)) {
 - **Battery voltage:** Progressive reduction below nominal (configurable via Settings)
 - **Motor temp:** Linear reduction 50°C → 60°C
 - **ESC temp:** Linear reduction 80°C → 110°C
-- **Throttle ramp:** `THROTTLE_RAMP_UP_US_PER_MS` (accel) / `THROTTLE_RAMP_DOWN_US_PER_MS` (decel)
-- **XAG wake-up:** 1.5 s at 5% PWM before ramp when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
+- **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
+- **XAG wake-up:** 1.5 s at 5% PWM before jumping directly to target when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
 
 ## Settings (Persistent)
 
