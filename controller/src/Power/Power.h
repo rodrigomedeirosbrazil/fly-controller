@@ -20,7 +20,7 @@ public:
     unsigned int getPower();
     uint8_t getActiveLimitCauses() const { return activeLimitCauses_; }
     void resetBatteryPowerFloor();
-    void resetRampLimiting();
+    void resetMotorState();
 
 private:
     enum class StartState {
@@ -33,13 +33,9 @@ private:
     unsigned int power;
     unsigned int batteryPowerFloor;
 
-    float outputPwm;
-    unsigned long lastTickMs;
-
     StartState startState;
     unsigned long startingBeganAt;
     unsigned long idleBeganAt;
-    float startingPwmCap;
 
     uint8_t activeLimitCauses_;
 

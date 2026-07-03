@@ -11,32 +11,21 @@ Power::Power() {
     power = 100;
     batteryPowerFloor = 100;
     activeLimitCauses_ = POWER_LIMIT_NONE;
-    outputPwm = (float)ESC_MIN_PWM;
-    lastTickMs = 0;
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
-    startingPwmCap = (float)ESC_MIN_PWM;
 }
 
 unsigned int Power::getPwm() {
     if (!throttle.isCalibrated()) {
-        resetRampLimiting();
-        return (unsigned int)outputPwm;
+        resetMotorState();
+        return ESC_MIN_PWM;
     }
-
-    unsigned long now = millis();
-
-    if (lastTickMs == 0) lastTickMs = now;
-
-    unsigned long dt = now - lastTickMs;
-    if (dt > 50) dt = 50;
-    lastTickMs = now;
 
     unsigned int powerLimit  = getPower();
     unsigned int throttleMin = throttle.getThrottlePinMin();
     unsigned int throttleMax = throttle.getThrottlePinMax();
-    unsigned int throttleRaw = throttle.getThrottleRaw();
+    unsigned int throttleRaw = throttle.isEngaged() ? throttle.getThrottleRaw() : throttleMin;
 
     unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
     unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
@@ -54,6 +43,7 @@ unsigned int Power::getPwm() {
     bool throttleActive = (targetPwm > (float)(ESC_MIN_PWM + THROTTLE_DEADBAND_US));
 
     if (getBoardConfig().useSmoothStart) {
+        unsigned long now = millis();
 
         switch (startState) {
 
@@ -62,26 +52,21 @@ unsigned int Power::getPwm() {
                 startState = StartState::STARTING;
                 startingBeganAt = now;
             }
-            outputPwm = (float)ESC_MIN_PWM;
             return ESC_MIN_PWM;
 
         case StartState::STARTING: {
             if (!throttleActive) {
                 startState = StartState::IDLE;
-                outputPwm = (float)ESC_MIN_PWM;
                 return ESC_MIN_PWM;
             }
             float wakeupPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * (float)XAG_WAKEUP_PWM_PERCENT / 100.0f;
             if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
                 startState = StartState::RUNNING;
-                outputPwm = wakeupPwm;
-                // intentional: transition to RUNNING on same tick — [[fallthrough]] below
-            } else {
-                outputPwm = wakeupPwm;
-                return (unsigned int)outputPwm;
+                return (unsigned int)targetPwm;
             }
-            [[fallthrough]]; // intentional: after delay expires, execute RUNNING logic immediately
+            return (unsigned int)wakeupPwm;
         }
+
         case StartState::RUNNING:
             if (!throttleActive) {
                 if (idleBeganAt == 0) idleBeganAt = now;
@@ -89,43 +74,22 @@ unsigned int Power::getPwm() {
                 if (now - idleBeganAt >= MOTOR_STOP_TIME_MS) {
                     startState = StartState::IDLE;
                     idleBeganAt = 0;
-                    outputPwm = (float)ESC_MIN_PWM;
                     return ESC_MIN_PWM;
                 }
             } else {
                 idleBeganAt = 0;
             }
-
-            {
-                float delta  = targetPwm - outputPwm;
-                float maxUp   = THROTTLE_RAMP_UP_US_PER_MS   * (float)dt;
-                float maxDown = THROTTLE_RAMP_DOWN_US_PER_MS  * (float)dt;
-                if (delta > 0.0f)      outputPwm += min(delta,  maxUp);
-                else if (delta < 0.0f) outputPwm += max(delta, -maxDown);
-            }
-            outputPwm = constrain(outputPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
-            return (unsigned int)outputPwm;
+            return (unsigned int)targetPwm;
         }
     }
 
-    {
-        float delta  = targetPwm - outputPwm;
-        float maxUp   = THROTTLE_RAMP_UP_US_PER_MS   * (float)dt;
-        float maxDown = THROTTLE_RAMP_DOWN_US_PER_MS  * (float)dt;
-        if (delta > 0.0f)      outputPwm += min(delta,  maxUp);
-        else if (delta < 0.0f) outputPwm += max(delta, -maxDown);
-    }
-    outputPwm = constrain(outputPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
-    return (unsigned int)outputPwm;
+    return (unsigned int)targetPwm;
 }
 
-void Power::resetRampLimiting() {
-    outputPwm  = (float)ESC_MIN_PWM;
-    lastTickMs = 0;
+void Power::resetMotorState() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
-    startingPwmCap = (float)ESC_MIN_PWM;
 }
 
 unsigned int Power::getPower() {
@@ -212,5 +176,5 @@ unsigned int Power::calcEscTempLimit() {
 
 void Power::resetBatteryPowerFloor() {
     batteryPowerFloor = 100;
-    resetRampLimiting();
+    resetMotorState();
 }

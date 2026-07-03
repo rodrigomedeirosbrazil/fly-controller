@@ -145,13 +145,11 @@ extern PowerAlert powerAlert;
 #define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
-// ========== THROTTLE RAMP LIMITING ==========
-#define THROTTLE_RAMP_UP_US_PER_MS     1.0f
-#define THROTTLE_RAMP_DOWN_US_PER_MS   4.0f
+// ========== THROTTLE ENGAGE / MOTOR START TIMING ==========
 #define THROTTLE_DEADBAND_US           20
 #define MOTOR_STOP_TIME_MS             800
 
-// XAG motor (useSmoothStart): 1.5s reaction delay when stopped. Send 5% PWM (wake-up) during that time; after 1.5s, ramp from 5% to target.
+// XAG motor (useSmoothStart): 1.5s reaction delay when stopped. Send 5% PWM (wake-up) during that time; after 1.5s, jump directly to target.
 // Only used when useSmoothStart is true (XAG build).
 #define XAG_MOTOR_REACTION_DELAY_MS    1500
 #define XAG_WAKEUP_PWM_PERCENT        5
