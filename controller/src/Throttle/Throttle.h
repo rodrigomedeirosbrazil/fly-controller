@@ -3,6 +3,7 @@
 
 #include "../Buzzer/Buzzer.h"
 #include "../config.h"
+#include "ThrottleEngagementLogic.h"
 
 class Throttle {
     public:
@@ -13,6 +14,7 @@ class Throttle {
         void setArmed();
         void setDisarmed();
         bool isCalibrated() { return calibrated; }
+        bool isEngaged() { return engagement.isEngaged(); }
 
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
@@ -28,6 +30,7 @@ class Throttle {
 
         int pinValues[samples];
         int pinValueFiltered;
+        ThrottleEngagementLogic engagement;
         unsigned long lastThrottleRead;
 
         volatile bool throttleArmed;

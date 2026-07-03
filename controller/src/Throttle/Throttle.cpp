@@ -32,6 +32,7 @@ void Throttle::handle()
 
   lastThrottleRead = now;
   readThrottlePin();
+  engagement.update(pinValueFiltered, throttlePinMin, throttlePinMax);
 
   // Handle calibration if not yet calibrated
   if (!calibrated) {
@@ -50,6 +51,7 @@ void Throttle::resetCalibration()
   calibrationCountMax = 0;
   calibrationSumMin = 0;
   calibrationCountMin = 0;
+  engagement.reset();
 }
 
 void Throttle::handleCalibration(unsigned long now)
