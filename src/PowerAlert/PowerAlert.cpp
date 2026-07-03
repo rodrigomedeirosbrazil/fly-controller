@@ -4,7 +4,7 @@
 #include "../Power/Power.h"
 #include "../Buzzer/Buzzer.h"
 #include "../RemoteLink/RemoteLink.h"
-#include "RemoteLinkProtocol.h"
+#include "../RemoteLink/RemoteLinkProtocol.h"
 
 extern Throttle throttle;
 extern Power power;

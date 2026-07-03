@@ -224,12 +224,12 @@ void test_getPwm() {
     p.throttle.max = 2000;
     p.throttle.raw = 2000;
     p.canbus.ready = true;
-    p.canbus.batteryVoltageMilliVolts = 42000;  // millivolts (42.0V)
+    p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE; // well above minimum: no battery limiting
     p.motorTemp.temp = 25;
     assert(p.getPwm() == ESC_MAX_PWM);
     p.throttle.raw = 1500;
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
-    p.canbus.batteryVoltageMilliVolts = 33000;  // millivolts (33.0V)
+    p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE + 1000; // still above minimum: PWM unaffected
     assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
     std::cout << "test_getPwm passed\n";
 }
