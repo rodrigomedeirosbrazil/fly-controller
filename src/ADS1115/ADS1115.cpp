@@ -58,8 +58,8 @@ int ADS1115::readChannel(uint8_t channel) {
     }
 
     if (!probeAck()) {
-        // Bus is unresponsive — do not call into the library. Its
-        // conversion-ready wait has no timeout and would hang loop().
+        // Bus is already dead — fast-fail before spending ~1.2ms on a
+        // conversion that cannot succeed.
         lastReadOk_[channel] = false;
         return lastValue[channel];
     }
