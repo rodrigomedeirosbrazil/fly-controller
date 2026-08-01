@@ -92,7 +92,11 @@ Use `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — not `#ifdef`. These ar
 I2C 16-bit ADC (Adafruit ADS1X15). All analog readings go through `ads1115.readChannel(N)`. Channels: 0=Throttle, 1=MotorTemp, 2=EscTemp (XAG), 3=Battery voltage (XAG/Tmotor). Initialized first in `setup()`.
 
 ### Throttle — `Throttle/`
-Hall sensor input. Accepts `ReadFn`. Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
+Hall sensor input. Accepts a `ReadFn` (value) and `ReadOkFn` (was the read good/fresh). Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
+
+Throttle signal validity is split into two host-tested pieces:
+- `ThrottleSignalLogic` (`test/ThrottleSignalLogicTest.cpp`) — the fault-escalation state machine shared by wired and wireless sources. Takes a per-tick "is this sample valid" bool plus a `ThrottleSignalConfig{debounceMs, disarmMs, recoveryMs}` and returns `Ok` / `ForceZero` / `Disarm`. Wired uses `{0,0,0}` (any invalid sample disarms immediately); wireless uses `{500,3000,200}` (ramp-to-zero at 500ms, disarm at 3s, plus a 200ms recovery guard against a flapping link).
+- `ThrottleWiredValidity` (`test/ThrottleWiredValidityTest.cpp`) — decides whether a *wired* sample itself is valid: the filtered reading must sit inside the calibrated band (asymmetric -20%/+10% margin, clamped inside `[1, adcMaxValue-1]` so it can still catch an open-circuit or short-to-rail reading regardless of calibration span), and the I2C read must not have failed 3+ times in a row (small tolerance for a transient bus glitch).
 
 ### Temperature — `Temperature/`
 NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only).

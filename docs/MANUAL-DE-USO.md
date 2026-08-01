@@ -56,7 +56,21 @@ Se você soltar o acelerador antes dos 3 segundos em qualquer passo, esse passo 
 
 ---
 
-## 4. Não consigo armar — acelerador não está em zero
+## 4. Desarme automático por falha no acelerador
+
+O sistema desarma automaticamente, sem intervenção do piloto, se a leitura do acelerador deixar de ser confiável:
+
+- **Acelerador com fio:** qualquer leitura fora da faixa calibrada (por exemplo, cabo do sensor Hall rompido ou solto) ou falha de comunicação com o ADS1115 desarma **imediatamente**.
+- **Acelerador sem fio (remote):** perda de sinal do remote por mais de 3 segundos desarma o sistema. Entre 500 ms e 3 s sem sinal, a potência é reduzida gradualmente a zero, mas o sistema continua armado.
+
+Em qualquer um dos dois casos:
+- O buzzer toca um padrão de alarme contínuo, diferente do beep de desarme manual.
+- A página de Telemetria mostra um aviso permanente na tela informando o motivo (não desaparece sozinho).
+- Para voltar a voar, primeiro corrija o problema (verifique a conexão do sensor/cabo, ou o link do remote) e depois arme novamente pelo procedimento normal.
+
+---
+
+## 5. Não consigo armar — acelerador não está em zero
 
 O sistema **só permite armar com o acelerador na posição mínima** (0%). É uma proteção para evitar aceleração involuntária ao armar.
 
@@ -67,7 +81,7 @@ O sistema **só permite armar com o acelerador na posição mínima** (0%). É u
 
 ---
 
-## 5. Alerta quando armado e motor parado
+## 6. Alerta quando armado e motor parado
 
 Se o sistema estiver **armado** e o **motor estiver parado** (acelerador em zero), o buzzer emite um **alerta contínuo** (dois tons alternados). Isso avisa que o equipamento está pronto para acelerar e que o motor está parado.
 
@@ -75,24 +89,24 @@ Se o sistema estiver **armado** e o **motor estiver parado** (acelerador em zero
 
 ---
 
-## 6. Controle de potência pelos sensores
+## 7. Controle de potência pelos sensores
 
 O controlador **reduz automaticamente a potência máxima** enviada ao motor com base em três fontes: **tensão da bateria**, **temperatura do motor** e **temperatura do ESC**. O limite efetivo é o **mais restritivo** entre os três (o que permitir menor potência “ganha”).
 
-### 6.1 Bateria (tensão baixa)
+### 7.1 Bateria (tensão baixa)
 
 - Quando a **tensão da bateria** fica **abaixo do mínimo configurado**, o sistema começa a **reduzir a potência** de forma progressiva.
 - Objetivo: proteger a bateria contra descarga excessiva e alongar a vida útil.
 - Ao **armar**, o “piso” de potência da bateria é reajustado (permite uso normal até que a tensão caia de novo).
 
-### 6.2 Temperatura do motor
+### 7.2 Temperatura do motor
 
 - O controlador lê a temperatura do motor (por exemplo, via sensor NTC).
 - Existe uma **temperatura de início de redução** e uma **temperatura máxima** (definidas nas configurações).
 - Entre essa faixa, a **potência é reduzida gradualmente** (quanto mais quente, menos potência permitida).
 - Objetivo: evitar superaquecimento do motor.
 
-### 6.3 Temperatura do ESC
+### 7.3 Temperatura do ESC
 
 - A temperatura do ESC é lida via barramento CAN (em builds T-Motor) ou por sensor analógico (em builds como XAG).
 - Assim como no motor, há **temperatura de início de redução** e **temperatura máxima**.
