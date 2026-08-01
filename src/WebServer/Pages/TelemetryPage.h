@@ -52,6 +52,13 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                 <button type="button" class="power-alert-close" id="powerAlertClose" aria-label="Fechar alerta">&#x2715;</button>
             </div>
 
+            <div class="power-alert-panel" id="faultDisarmPanel">
+                <div style="flex:1;">
+                    <div class="power-alert-title">&#x26A0; Desarmado por falha no sinal do acelerador</div>
+                    <div class="power-alert-causes" id="faultDisarmReason"></div>
+                </div>
+            </div>
+
             <div class="grid telemetry-grid">
                 <div class="card" id="cardBattery">
                     <div class="label">Tens&#xE3;o</div>
@@ -717,6 +724,7 @@ const renderTelemetry = (data) => {
 
     bzProcessEvents(data.buzzer);
     renderPowerAlert(data.powerAlert);
+    renderFaultDisarm(data);
 };
 
 // ============ Power Alert ============
@@ -779,6 +787,28 @@ const renderPowerAlert = (pa) => {
         paLastSeq = seq;
         causesEl.textContent = causes.map(c => PA_CAUSE_LABELS[c] || c).join(' · ');
         panel.classList.add('open');
+    }
+};
+
+// ============ Fault Disarm ============
+const FAULT_DISARM_LABELS = {
+    'THR ERR':  'Acelerador com fio: leitura fora da faixa calibrada ou falha de leitura do ADS1115.',
+    'LINK ERR': 'Acelerador sem fio: link com o remote perdido por mais de 3 segundos.',
+};
+
+const renderFaultDisarm = (data) => {
+    const panel = $('faultDisarmPanel');
+    const reasonEl = $('faultDisarmReason');
+    if (!panel || !reasonEl) return;
+
+    const reason = data.disarmReason || '';
+    const isFault = !data.armed && reason !== '' && reason !== 'MANUAL';
+
+    if (isFault) {
+        reasonEl.textContent = FAULT_DISARM_LABELS[reason] || `Código: ${reason}`;
+        panel.classList.add('open');
+    } else {
+        panel.classList.remove('open');
     }
 };
 
