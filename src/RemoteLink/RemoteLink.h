@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include "RemoteLinkProtocol.h"
-#include "RemoteLinkLogic.h"
 
 class RemoteLink {
   public:
@@ -16,9 +15,24 @@ class RemoteLink {
     uint32_t lastRxMs() const { return lastRxMs_; }
     bool hasState() const { return hasState_; }
 
-    // Failsafe convenience (wireless flag comes from Settings at the call site).
-    FailsafeAction failsafe(bool wireless, uint32_t nowMs) const {
-        return computeFailsafe(wireless, lastRxMs_, nowMs);
+    // Raw per-tick freshness of the throttle link: true only if we have ever
+    // heard from the remote AND the last packet arrived within the last
+    // kFreshWindowMs. The remote sends ~50 Hz (one packet every ~20 ms), so
+    // 100 ms tolerates a handful of dropped packets — comfortably smaller
+    // than ThrottleSignalLogic's 500 ms debounce, so feeding this in every
+    // ~10 ms Throttle::handle() tick tracks the real packet gap closely.
+    // This replaces the old computeFailsafe()/FailsafeAction split: the
+    // 500 ms/3 s decision now lives in ThrottleSignalLogic's wireless config.
+    bool isLinkFresh(uint32_t nowMs) const {
+        if (!hasState_) return false;
+        uint32_t gap = nowMs - lastRxMs_;
+        // Guard against the ISR race: the ESP-NOW recv callback can update
+        // the volatile lastRxMs_ between the caller's millis() snapshot and
+        // this read, making lastRxMs_ > nowMs. The unsigned subtraction would
+        // then underflow to a huge value; treat that as "just received",
+        // not as a multi-year-old packet.
+        if (gap > 0x80000000UL) return true;
+        return gap < kFreshWindowMs;
     }
 
     // Controller -> remote state.
@@ -36,6 +50,8 @@ class RemoteLink {
   private:
     void addPeer(const uint8_t mac[6]);
     void sendState();
+
+    static const uint32_t kFreshWindowMs = 100;
 
     ThrottleToControllerPacket rx_{};
     ControllerToThrottlePacket tx_{};
