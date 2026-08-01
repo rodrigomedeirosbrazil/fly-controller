@@ -20,10 +20,15 @@ class Throttle {
         bool isCalibrated() { return calibrated; }
         bool isEngaged() { return engagement.isEngaged(); }
 
-        // True while an invalid throttle signal is being held at zero before
-        // the disarm threshold is reached. Wireless can spend real time here
-        // (up to disarmMs); wired passes through it only for the single tick
-        // that triggers Disarm, since its own disarmMs is 0.
+        // True whenever ThrottleSignalLogic's last action was ForceZero or
+        // Disarm. Wireless can spend real time here pre-disarm (up to
+        // disarmMs) and stays true afterward too, for as long as it remains
+        // disarmed. Wired's ThrottleSignalLogic action is always Disarm, never
+        // ForceZero (its disarmMs is 0), but this flag is set on Disarm as
+        // well and — same as wireless — stays true for as long as it remains
+        // disarmed, not just for a single tick. It has no consumer outside
+        // this class; wired's readThrottlePin() never acts on it (see the
+        // comment there for why that matters).
         bool isSignalForcedZero() const { return signalForcedZero; }
         DisarmReason getDisarmReason() const { return lastDisarmReason; }
 

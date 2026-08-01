@@ -222,8 +222,10 @@ void Throttle::readThrottlePin()
   // ForceZero only ever needs to override the fed value for the wireless
   // source: it's the "ramp to zero while armed, signal invalid but not yet
   // disarmed" state, and the moving average must reflect that so motor
-  // output ramps down smoothly. Wired's ForceZero is a single tick on its
-  // way to an immediate Disarm (disarmMs=0) — poisoning pinValueFiltered
+  // output ramps down smoothly. Wired's ThrottleSignalAction is always
+  // Disarm, never ForceZero (its disarmMs=0) — but signalForcedZero is set
+  // on Disarm too and, like wireless, stays true for as long as the system
+  // remains disarmed, not just for one tick. Poisoning pinValueFiltered
   // there would corrupt wiredValidity's own input (which reads
   // pinValueFiltered) and getThrottlePercentage()'s arm-blocking check,
   // creating a self-latching lockout: the moving average would never
