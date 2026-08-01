@@ -5,6 +5,7 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
+#include "../DisarmReason.h"
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -743,6 +744,7 @@ void ControllerWebServer::startAP() {
         }
         doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
         doc["armed"] = throttle.isArmed();
+        doc["disarmReason"] = disarmReasonCode(throttle.getDisarmReason());
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
         doc["hourMeterSec"] = hourMeter.getHourMeterSec();
