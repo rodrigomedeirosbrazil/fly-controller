@@ -2,6 +2,7 @@
 
 ADS1115::ADS1115() {
     initialized = false;
+    lastReadOk_ = false;
     for (int i = 0; i < 4; i++) {
         lastValue[i] = 0;
         lastVoltage[i] = 0.0;
@@ -33,10 +34,19 @@ bool ADS1115::begin(uint8_t sdaPin, uint8_t sclPin) {
 
 int ADS1115::readChannel(uint8_t channel) {
     if (channel > 3) {
+        lastReadOk_ = false;
         return 0;  // Invalid channel — array has only 4 elements [0..3]
     }
 
     if (!initialized) {
+        lastReadOk_ = false;
+        return lastValue[channel];
+    }
+
+    if (!probeAck()) {
+        // Bus is unresponsive — do not call into the library. Its
+        // conversion-ready wait has no timeout and would hang loop().
+        lastReadOk_ = false;
         return lastValue[channel];
     }
 
@@ -47,8 +57,11 @@ int ADS1115::readChannel(uint8_t channel) {
     // For single-ended, values should be 0-32767, but let's be safe
     if (rawValue < 0) {
         // If we get a negative value in single-ended mode, use last valid value
+        lastReadOk_ = false;
         return lastValue[channel];
     }
+
+    lastReadOk_ = true;
 
     // Calculate voltage from raw value (for accurate calculations)
     double voltage = (rawValue * ADS1115_VREF) / ADS1115_MAX_VALUE;
@@ -76,6 +89,11 @@ double ADS1115::readVoltage(uint8_t channel) {
     readChannel(channel);
 
     return lastVoltage[channel];
+}
+
+bool ADS1115::probeAck() {
+    Wire.beginTransmission(ADS1X15_ADDRESS);
+    return Wire.endTransmission() == 0;
 }
 
 int ADS1115::convertTo12Bit(int adsValue) {
