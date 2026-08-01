@@ -94,6 +94,7 @@ public:
   void beepArmedAlert();
   void beepVolumePreview();
   void beepPowerAlert();
+  void beepFaultDisarm();
 
   // Stops playback and logs an active:false event if something was playing.
   void stop();

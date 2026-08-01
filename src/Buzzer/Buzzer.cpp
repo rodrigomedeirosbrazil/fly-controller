@@ -274,6 +274,15 @@ void Buzzer::beepPowerAlert() {
   startBeep(100, 3, 60, 2500);
 }
 
+void Buzzer::beepFaultDisarm() {
+  // Continuous rapid double-beep at 2500 Hz — distinct from beepArmedAlert
+  // (200/200 continuous at 2000 Hz) and beepPowerAlert (100/60, 3 reps,
+  // 2500 Hz, not continuous). This one repeats until stop() is called on the
+  // next arm/disarm transition, so it cannot be mistaken for a transient
+  // warning — the system needs the pilot's attention now.
+  startBeep(80, 255, 300, 2500);
+}
+
 void Buzzer::setPwmOn() {
   ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel, pwmDutyCycle);
   ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel);
