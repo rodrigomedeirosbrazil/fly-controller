@@ -4,6 +4,17 @@
 #include <stdint.h>
 #include "RemoteLinkProtocol.h"
 
+// Host-testable: true if lastRxMs is within windowMs of nowMs.
+// gap > 0x80000000UL means the recv callback updated lastRxMs after the
+// caller's millis() snapshot (an ISR race, since lastRxMs is volatile and
+// written from the ESP-NOW receive callback); treat that as "just received",
+// not as an underflowed multi-year-old gap.
+inline bool isGapFresh(uint32_t lastRxMs, uint32_t nowMs, uint32_t windowMs) {
+    uint32_t gap = nowMs - lastRxMs;
+    if (gap > 0x80000000UL) return true;
+    return gap < windowMs;
+}
+
 class RemoteLink {
   public:
     void setup();   // init ESP-NOW on the AP channel; load paired peer from Settings
@@ -24,15 +35,7 @@ class RemoteLink {
     // This replaces the old computeFailsafe()/FailsafeAction split: the
     // 500 ms/3 s decision now lives in ThrottleSignalLogic's wireless config.
     bool isLinkFresh(uint32_t nowMs) const {
-        if (!hasState_) return false;
-        uint32_t gap = nowMs - lastRxMs_;
-        // Guard against the ISR race: the ESP-NOW recv callback can update
-        // the volatile lastRxMs_ between the caller's millis() snapshot and
-        // this read, making lastRxMs_ > nowMs. The unsigned subtraction would
-        // then underflow to a huge value; treat that as "just received",
-        // not as a multi-year-old packet.
-        if (gap > 0x80000000UL) return true;
-        return gap < kFreshWindowMs;
+        return hasState_ && isGapFresh(lastRxMs_, nowMs, kFreshWindowMs);
     }
 
     // Controller -> remote state.
