@@ -54,7 +54,7 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
 
             <div class="power-alert-panel" id="faultDisarmPanel">
                 <div style="flex:1;">
-                    <div class="power-alert-title">&#x26A0; Desarmado por falha no sinal do acelerador</div>
+                    <div class="power-alert-title" id="faultDisarmTitle">&#x26A0; Desarmado por falha</div>
                     <div class="power-alert-causes" id="faultDisarmReason"></div>
                 </div>
             </div>
@@ -791,21 +791,24 @@ const renderPowerAlert = (pa) => {
 };
 
 // ============ Fault Disarm ============
-const FAULT_DISARM_LABELS = {
-    'THR ERR':  'Acelerador com fio: leitura fora da faixa calibrada ou falha de leitura do ADS1115.',
-    'LINK ERR': 'Acelerador sem fio: link com o remote perdido por mais de 3 segundos.',
+const FAULT_DISARM_INFO = {
+    'THR ERR':  { title: 'Desarmado: falha no acelerador (com fio)', detail: 'Leitura fora da faixa calibrada ou falha de leitura do ADS1115.' },
+    'LINK ERR': { title: 'Desarmado: falha no acelerador (sem fio)', detail: 'Link com o remote perdido por mais de 3 segundos.' },
 };
 
 const renderFaultDisarm = (data) => {
     const panel = $('faultDisarmPanel');
+    const titleEl = $('faultDisarmTitle');
     const reasonEl = $('faultDisarmReason');
-    if (!panel || !reasonEl) return;
+    if (!panel || !titleEl || !reasonEl) return;
 
     const reason = data.disarmReason || '';
     const isFault = !data.armed && reason !== '' && reason !== 'MANUAL';
 
     if (isFault) {
-        reasonEl.textContent = FAULT_DISARM_LABELS[reason] || `Código: ${reason}`;
+        const info = FAULT_DISARM_INFO[reason];
+        titleEl.textContent = info ? `⚠ ${info.title}` : '⚠ Desarmado por falha';
+        reasonEl.textContent = info ? info.detail : `Código: ${reason}`;
         panel.classList.add('open');
     } else {
         panel.classList.remove('open');
