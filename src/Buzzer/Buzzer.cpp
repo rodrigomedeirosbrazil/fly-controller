@@ -13,6 +13,7 @@ namespace {
 // the armed alert so it remains distinct while staying in the loud range.
 constexpr uint16_t kDefaultBeepFrequencyHz = 2300;
 constexpr uint16_t kAlertBeepFrequencyHz = 2000;
+constexpr uint16_t kFaultBeepFrequencyHz = 2500;
 constexpr uint8_t kDefaultDutyCycle = 217;  // 85%
 }
 
@@ -271,16 +272,17 @@ void Buzzer::beepVolumePreview() {
 
 void Buzzer::beepPowerAlert() {
   // 3 rapid beeps at 2500 Hz — distinct power-reduction warning
-  startBeep(100, 3, 60, 2500);
+  startBeep(100, 3, 60, kFaultBeepFrequencyHz);
 }
 
 void Buzzer::beepFaultDisarm() {
-  // Continuous rapid double-beep at 2500 Hz — distinct from beepArmedAlert
+  // Short chirp every 380 ms at 2500 Hz — distinct from beepArmedAlert
   // (200/200 continuous at 2000 Hz) and beepPowerAlert (100/60, 3 reps,
-  // 2500 Hz, not continuous). This one repeats until stop() is called on the
-  // next arm/disarm transition, so it cannot be mistaken for a transient
-  // warning — the system needs the pilot's attention now.
-  startBeep(80, 255, 300, 2500);
+  // 2500 Hz, not continuous). reps=255 self-stops after ~97s (255 cycles);
+  // the caller must re-fire this on an interval while the fault persists
+  // (the same pattern PowerAlert uses for its 10s re-fire) so an unattended
+  // fault doesn't fall silent after a minute and a half.
+  startBeep(80, 255, 300, kFaultBeepFrequencyHz);
 }
 
 void Buzzer::setPwmOn() {
