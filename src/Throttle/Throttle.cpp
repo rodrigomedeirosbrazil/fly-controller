@@ -69,6 +69,7 @@ void Throttle::updateSignalValidity(unsigned long now)
     // tolerance, so a stale streak would disarm on the very first tick back.
     signalLogic.reset();
     wiredValidity.reset();
+    memset(pinValues, 0, sizeof(pinValues));
     wasWireless = wireless;
   }
 
@@ -213,7 +214,13 @@ void Throttle::readThrottlePin()
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  int oversampledValue = readFn();
+  // Always call readFn() — even while forced to zero — so the underlying
+  // sensor/link keeps being polled and lastSampleOk stays live. Only the
+  // value fed into the moving average is overridden; this makes ForceZero
+  // an invariant Throttle enforces unconditionally, not something each
+  // ReadFn source has to remember to check itself.
+  int rawValue = readFn();
+  int oversampledValue = signalForcedZero ? 0 : rawValue;
   pinValues[samples - 1] = oversampledValue;
   // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
   // only needs to observe the same channel readFn() just read — no ordering

@@ -244,7 +244,12 @@ void handleArmedBeep()
     if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
         buzzer.beepArmedAlert();
     }
-    if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning) {
+    // Don't stop() a fault-disarm alarm the instant it starts — setDisarmed()
+    // just started beepFaultDisarm() a few lines up in this same loop tick,
+    // and startBeep() would otherwise silence its own freshly-started pattern.
+    // Manual disarm is unaffected: this only special-cases a non-Manual reason.
+    bool justFaultDisarmed = !isArmed && throttle.getDisarmReason() != DisarmReason::Manual;
+    if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning && !justFaultDisarmed) {
         buzzer.stop();
     }
 

@@ -15,11 +15,6 @@ Servo esc;
 Throttle throttle(
     []() -> int {
         if (settings.getThrottleSource() == ThrottleSourceWireless) {
-            // Ramp to zero while the signal is invalid but not yet disarmed
-            // (ThrottleSignalLogic's ForceZero state) — feeds the existing
-            // moving average so the motor winds down smoothly instead of
-            // cutting abruptly.
-            if (throttle.isSignalForcedZero()) return 0;
             return (int)remoteLink.lastHallRaw();
         }
         return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
