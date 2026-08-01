@@ -3,18 +3,27 @@
 
 #include "../Buzzer/Buzzer.h"
 #include "../config.h"
+#include "../DisarmReason.h"
 #include "ThrottleEngagementLogic.h"
+#include "ThrottleSignalLogic.h"
 
 class Throttle {
     public:
         typedef int (*ReadFn)();
-        Throttle(ReadFn readFn);
+        typedef bool (*ReadOkFn)();
+        Throttle(ReadFn readFn, ReadOkFn readOkFn);
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
-        void setDisarmed();
+        void setDisarmed(DisarmReason reason = DisarmReason::Manual);
         bool isCalibrated() { return calibrated; }
         bool isEngaged() { return engagement.isEngaged(); }
+
+        // True while an invalid throttle signal is being held at zero before
+        // the disarm threshold is reached (wireless only — wired disarms
+        // immediately, so it never spends time in this state).
+        bool isSignalForcedZero() const { return signalForcedZero_; }
+        DisarmReason getDisarmReason() const { return lastDisarmReason_; }
 
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
@@ -51,10 +60,17 @@ class Throttle {
         int throttlePinMax;
 
         ReadFn readFn;
+        ReadOkFn readOkFn;
+        bool lastSampleOk_;
+
+        ThrottleSignalLogic signalLogic;
+        bool signalForcedZero_;
+        DisarmReason lastDisarmReason_;
 
         void readThrottlePin();
         void resetCalibration();
         void handleCalibration(unsigned long now);
+        void updateSignalValidity(unsigned long now);
 };
 
 #endif

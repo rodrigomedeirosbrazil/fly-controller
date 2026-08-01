@@ -3,7 +3,7 @@
 
 #include "../config.h"
 
-Throttle::Throttle(ReadFn readFn) : readFn(readFn) {
+Throttle::Throttle(ReadFn readFn, ReadOkFn readOkFn) : readFn(readFn), readOkFn(readOkFn) {
   memset(
     &pinValues,
     0,
@@ -14,6 +14,9 @@ Throttle::Throttle(ReadFn readFn) : readFn(readFn) {
   lastThrottleRead = 0;
 
   throttleArmed = false;
+  lastSampleOk_ = true;
+  signalForcedZero_ = false;
+  lastDisarmReason_ = DisarmReason::None;
   resetCalibration();
 
   throttlePinMin = 0;
@@ -37,6 +40,54 @@ void Throttle::handle()
   // Handle calibration if not yet calibrated
   if (!calibrated) {
     handleCalibration(now);
+    return; // band isn't established yet — signal-validity checks need it
+  }
+
+  updateSignalValidity(now);
+}
+
+void Throttle::updateSignalValidity(unsigned long now)
+{
+  bool wireless = settings.getThrottleSource() == ThrottleSourceWireless;
+  bool valid;
+
+  if (wireless) {
+    // Wireless validity is the raw link-freshness signal; the debounce/
+    // disarm tolerance lives entirely in the wireless ThrottleSignalConfig
+    // below, not in what counts as "valid" here.
+    valid = lastSampleOk_;
+  } else {
+    // Wired validity: the filtered (8-sample averaged) reading must fall
+    // within the calibrated band, with an asymmetric margin — reading low
+    // only costs power, reading high is the side that becomes unintended
+    // acceleration, so it gets a tighter margin. The moving average already
+    // absorbs a single spurious sample (see ThrottleSignalLogic's header
+    // comment), so debounceMs=0 below is still safe against normal ADC noise.
+    int range = throttlePinMax - throttlePinMin;
+    int marginLow  = (range * 20) / 100;
+    int marginHigh = (range * 10) / 100;
+    bool inBand = pinValueFiltered >= (throttlePinMin - marginLow) &&
+                  pinValueFiltered <= (throttlePinMax + marginHigh);
+    valid = lastSampleOk_ && inBand;
+  }
+
+  ThrottleSignalConfig cfg = wireless
+      ? ThrottleSignalConfig{500, 3000, 200}
+      : ThrottleSignalConfig{0, 0, 0};
+
+  ThrottleSignalAction action = signalLogic.update(valid, now, cfg);
+
+  switch (action) {
+    case ThrottleSignalAction::Ok:
+      signalForcedZero_ = false;
+      break;
+    case ThrottleSignalAction::ForceZero:
+      signalForcedZero_ = true;
+      break;
+    case ThrottleSignalAction::Disarm:
+      signalForcedZero_ = true;
+      setDisarmed(wireless ? DisarmReason::ThrottleLinkLost : DisarmReason::ThrottleWiredInvalid);
+      break;
   }
 }
 
@@ -52,6 +103,8 @@ void Throttle::resetCalibration()
   calibrationSumMin = 0;
   calibrationCountMin = 0;
   engagement.reset();
+  signalLogic.reset();
+  signalForcedZero_ = false;
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -149,6 +202,10 @@ void Throttle::readThrottlePin()
 
   int oversampledValue = readFn();
   pinValues[samples - 1] = oversampledValue;
+  // Must be read immediately after readFn(), before any other ADS1115
+  // channel is read elsewhere in loop() — lastReadOk() reflects whichever
+  // channel was read most recently.
+  lastSampleOk_ = readOkFn();
 
   // Calculate moving average
   int sum = 0;
@@ -211,11 +268,24 @@ void Throttle::setArmed()
     return;
   }
 
+  signalLogic.reset();
+  signalForcedZero_ = false;
+  lastDisarmReason_ = DisarmReason::None;
   throttleArmed = true;
 }
 
-void Throttle::setDisarmed()
+void Throttle::setDisarmed(DisarmReason reason)
 {
+  if (!throttleArmed) {
+    return;
+  }
+
   throttleArmed = false;
-  buzzer.beepDisarmed();
+  lastDisarmReason_ = reason;
+
+  if (reason == DisarmReason::Manual) {
+    buzzer.beepDisarmed();
+  } else {
+    buzzer.beepFaultDisarm();
+  }
 }
