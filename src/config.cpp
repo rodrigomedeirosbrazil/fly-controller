@@ -12,14 +12,25 @@
 
 Buzzer buzzer(BUZZER_PIN);
 Servo esc;
-Throttle throttle([]() -> int {
-    if (settings.getThrottleSource() == ThrottleSourceWireless) {
-        // Failsafe ramp: feed 0 so the existing ramp-down drives the motor to idle.
-        if (remoteLink.failsafe(true, millis()) != FailsafeAction::None) return 0;
-        return (int)remoteLink.lastHallRaw();
+Throttle throttle(
+    []() -> int {
+        if (settings.getThrottleSource() == ThrottleSourceWireless) {
+            // Ramp to zero while the signal is invalid but not yet disarmed
+            // (ThrottleSignalLogic's ForceZero state) — feeds the existing
+            // moving average so the motor winds down smoothly instead of
+            // cutting abruptly.
+            if (throttle.isSignalForcedZero()) return 0;
+            return (int)remoteLink.lastHallRaw();
+        }
+        return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
+    },
+    []() -> bool {
+        if (settings.getThrottleSource() == ThrottleSourceWireless) {
+            return remoteLink.isLinkFresh(millis());
+        }
+        return ads1115.lastReadOk(ADS1115_THROTTLE_CHANNEL);
     }
-    return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
-});
+);
 #if USES_CAN_BUS
 Canbus canbus;
 TmotorCan tmotorCan;
