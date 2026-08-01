@@ -83,7 +83,7 @@ void test_wireless_never_disarms_a_currently_valid_sample() {
     // even though elapsed-since-first-invalid crosses disarmMs (3000) there.
     assert(logic.update(true, 2850, kWireless) == ThrottleSignalAction::ForceZero);
     assert(logic.update(true, 2950, kWireless) == ThrottleSignalAction::ForceZero);
-    assert(logic.update(true, 3000, kWireless) != ThrottleSignalAction::Disarm);
+    assert(logic.update(true, 3000, kWireless) == ThrottleSignalAction::ForceZero);
     assert(logic.update(true, 3050, kWireless) == ThrottleSignalAction::Ok); // recovered at 200ms sustained
     cout << "PASS: never disarms while the current sample is valid\n";
 }

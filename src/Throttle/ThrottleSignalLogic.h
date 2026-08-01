@@ -29,9 +29,14 @@ struct ThrottleSignalConfig {
 };
 
 // Ok: signal trustworthy. ForceZero: hold output at zero, still armed.
-// Disarm: latch a full disarm — this is an idempotent level, not an edge:
-// callers will see it returned on every tick the fault persists, not just
-// the first.
+// Disarm: the fault has exceeded disarmMs on this tick. This is NOT a latch —
+// update()'s return value reflects only the current tick, and nothing in
+// this class remembers "we already returned Disarm once". If the signal
+// recovers before the caller acts on it, later ticks will walk back through
+// ForceZero and then Ok on their own. A caller that needs a true one-way
+// latch (stay disarmed until manually re-armed) must implement that itself —
+// see Throttle's own armed/disarmed bool, which only clears via an explicit
+// setArmed() that calls reset() here.
 enum class ThrottleSignalAction : uint8_t { Ok, ForceZero, Disarm };
 
 class ThrottleSignalLogic {
