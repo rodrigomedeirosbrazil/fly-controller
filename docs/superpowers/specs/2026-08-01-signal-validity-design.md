@@ -220,10 +220,25 @@ with per-field states using single-letter codes, because `StaticJsonDocument<204
 
 `v` = valid, `s` = stale, `i` = invalid, `a` = absent.
 
-New latched `disarmReason` field, cleared only on re-arm. Manual button disarm records `Manual`;
-signal faults record their specific cause. The fault-disarm warning panel reuses the `PowerAlert`
-panel styling but **does not** auto-dismiss — it is the record the operator needs in order to
-diagnose.
+New latched `disarmReason` field, cleared only on re-arm. It carries a `DisarmReason` enum plus a
+short fixed-width code string (≤ 8 chars, matching XCTRACK's status field width) used identically
+on the telemetry page, in the CSV log, and on the XCTRACK system-status field:
+
+| `DisarmReason` | Code | Meaning |
+|---|---|---|
+| `Manual` | `MANUAL` | button disarm, no fault |
+| `ThrottleWiredInvalid` | `THR ERR` | wired throttle out of band or I2C read failure |
+| `ThrottleLinkLost` | `LINK ERR` | wireless throttle link timeout (3 s) |
+| `MotorTempLost` | `MOT ERR` | motor temp was valid at arm, went invalid in flight |
+| `EscTempLost` | `ESC ERR` | ESC temp was valid at arm, went invalid in flight |
+| `BatteryVoltageLost` | `BATT ERR` | battery voltage was valid at arm, went invalid in flight |
+
+One code, one place it's defined (`DisarmReason.h`, alongside the enum) — the web page, the log,
+and Xctod all format from the same table, so a new reason cannot drift out of sync between
+surfaces.
+
+The fault-disarm warning panel reuses the `PowerAlert` panel styling but **does not**
+auto-dismiss — it is the record the operator needs in order to diagnose.
 
 A distinct buzzer pattern marks fault disarm, separate from manual disarm.
 
@@ -261,12 +276,10 @@ Same empty-field rule. Worth noting that XCTRACK is the surface most likely to b
 field of view in flight — more so than the web page, which was the argument for disarming rather
 than merely alerting.
 
-`writeSystemStatus` (`src/Xctod/Xctod.cpp:229`) currently sends only `YES`/`NO`. It could carry
-the disarm reason so the pilot sees on the instrument why the motor stopped. **This is not yet
-safe to assert**: the format is consumed by a third-party app and it is unknown whether its parser
-tolerates an extra field or a value other than `YES`/`NO`. Verify against XCTRACK before
-implementing. If it does not tolerate it, the field stays as is and the reason appears only on the
-web page and in the log.
+`writeSystemStatus` (`src/Xctod/Xctod.cpp:229`) currently sends only `YES`/`NO`. Confirmed:
+XCTRACK's status field can display a short error code, so on fault disarm it sends the
+`DisarmReason` code (e.g. `THR ERR`) instead of `NO`. Plain manual disarm still sends `NO` — the
+code only appears when there is something to diagnose.
 
 ## Testing
 
@@ -302,7 +315,6 @@ Two independent slices, separate PRs.
    the `signals` object in the API, per-field gating in `Xctod` and `TelemetryLogger`, the two new
    CSV columns.
 
-## To verify during implementation
+## Open items
 
-- Whether the XCTRACK parser tolerates the disarm reason in the system-status field. If not, the
-  field stays `YES`/`NO`.
+None.
