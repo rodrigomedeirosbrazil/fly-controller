@@ -76,6 +76,18 @@ void test_recovery_actually_clears_the_episode() {
     cout << "PASS: recovery fully resets the episode clock for the next fault\n";
 }
 
+void test_wireless_never_disarms_a_currently_valid_sample() {
+    ThrottleSignalLogic logic;
+    logic.update(false, 0, kWireless); // episode starts
+    // Valid continuously from t=2850, recovery (200ms) not yet met at t=3000
+    // even though elapsed-since-first-invalid crosses disarmMs (3000) there.
+    assert(logic.update(true, 2850, kWireless) == ThrottleSignalAction::ForceZero);
+    assert(logic.update(true, 2950, kWireless) == ThrottleSignalAction::ForceZero);
+    assert(logic.update(true, 3000, kWireless) != ThrottleSignalAction::Disarm);
+    assert(logic.update(true, 3050, kWireless) == ThrottleSignalAction::Ok); // recovered at 200ms sustained
+    cout << "PASS: never disarms while the current sample is valid\n";
+}
+
 void test_reset_clears_state() {
     ThrottleSignalLogic logic;
     logic.update(false, 0, kWired); // Disarm
@@ -92,6 +104,7 @@ int main() {
     test_wireless_flapping_link_does_not_reset_the_clock();
     test_wireless_recovers_after_sustained_validity();
     test_recovery_actually_clears_the_episode();
+    test_wireless_never_disarms_a_currently_valid_sample();
     test_reset_clears_state();
     cout << "ThrottleSignalLogicTest: all passed" << endl;
     return 0;

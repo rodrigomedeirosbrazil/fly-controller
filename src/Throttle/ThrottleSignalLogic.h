@@ -18,13 +18,20 @@
 // recoveryMs guards against a flapping signal: the invalid-episode clock only
 // resets after recoveryMs of *consecutive* valid samples. Without it, a link
 // delivering one isolated good packet every couple of seconds would look
-// "recovered" on every good packet and never reach Disarm.
+// "recovered" on every good packet and never reach Disarm. Note that the
+// elapsed-since-first-invalid clock is NOT paused while a recovery run is
+// pending — it keeps advancing in the background — but `update()` never
+// returns Disarm while the current sample is valid; see the downgrade below.
 struct ThrottleSignalConfig {
     uint32_t debounceMs; // invalid duration before ForceZero
     uint32_t disarmMs;   // invalid duration before Disarm (must be >= debounceMs)
     uint32_t recoveryMs; // consecutive valid duration before the episode clears
 };
 
+// Ok: signal trustworthy. ForceZero: hold output at zero, still armed.
+// Disarm: latch a full disarm — this is an idempotent level, not an edge:
+// callers will see it returned on every tick the fault persists, not just
+// the first.
 enum class ThrottleSignalAction : uint8_t { Ok, ForceZero, Disarm };
 
 class ThrottleSignalLogic {
@@ -45,7 +52,17 @@ public:
                 validRunStartMs_ = 0;
                 return ThrottleSignalAction::Ok;
             }
-            return actionForElapsed(nowMs - firstInvalidMs_, cfg);
+            ThrottleSignalAction action = actionForElapsed(nowMs - firstInvalidMs_, cfg);
+            if (action == ThrottleSignalAction::Disarm) {
+                // Never disarm on a tick where the current sample is valid —
+                // the elapsed-since-first-invalid clock can cross disarmMs
+                // while a recovery run is still in progress (hasn't hit
+                // recoveryMs yet). The signal is fine right now; ForceZero
+                // (not Ok, since we haven't confirmed recovery) is the
+                // correct action, not Disarm.
+                action = ThrottleSignalAction::ForceZero;
+            }
+            return action;
         }
 
         validRunStartMs_ = 0;
@@ -63,6 +80,10 @@ public:
     }
 
 private:
+    // Assumes cfg.disarmMs >= cfg.debounceMs. Violating that invariant makes
+    // ForceZero unreachable for this config — Disarm wins in the `if`
+    // ordering below since elapsedMs crosses disarmMs before it ever gets a
+    // chance to be checked against the (larger) debounceMs.
     static ThrottleSignalAction actionForElapsed(uint32_t elapsedMs, const ThrottleSignalConfig& cfg) {
         if (elapsedMs >= cfg.disarmMs)   return ThrottleSignalAction::Disarm;
         if (elapsedMs >= cfg.debounceMs) return ThrottleSignalAction::ForceZero;
