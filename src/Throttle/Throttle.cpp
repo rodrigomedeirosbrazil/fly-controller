@@ -69,7 +69,6 @@ void Throttle::updateSignalValidity(unsigned long now)
     // tolerance, so a stale streak would disarm on the very first tick back.
     signalLogic.reset();
     wiredValidity.reset();
-    memset(pinValues, 0, sizeof(pinValues));
     wasWireless = wireless;
   }
 
@@ -220,7 +219,22 @@ void Throttle::readThrottlePin()
   // an invariant Throttle enforces unconditionally, not something each
   // ReadFn source has to remember to check itself.
   int rawValue = readFn();
-  int oversampledValue = signalForcedZero ? 0 : rawValue;
+  // ForceZero only ever needs to override the fed value for the wireless
+  // source: it's the "ramp to zero while armed, signal invalid but not yet
+  // disarmed" state, and the moving average must reflect that so motor
+  // output ramps down smoothly. Wired's ForceZero is a single tick on its
+  // way to an immediate Disarm (disarmMs=0) — poisoning pinValueFiltered
+  // there would corrupt wiredValidity's own input (which reads
+  // pinValueFiltered) and getThrottlePercentage()'s arm-blocking check,
+  // creating a self-latching lockout: the moving average would never
+  // recover from being fed zeros, so the wired band check could never
+  // report "valid" again even after the real fault clears, and every
+  // re-arm attempt would immediately re-disarm. Wired keeps feeding the
+  // real reading unconditionally — nothing downstream needs it to be zero,
+  // since the motor is already forced to ESC_MIN_PWM by handleEsc()'s
+  // throttle.isArmed() check the instant it disarms.
+  bool wireless = settings.getThrottleSource() == ThrottleSourceWireless;
+  int oversampledValue = (wireless && signalForcedZero) ? 0 : rawValue;
   pinValues[samples - 1] = oversampledValue;
   // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
   // only needs to observe the same channel readFn() just read — no ordering

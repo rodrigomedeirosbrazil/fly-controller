@@ -278,10 +278,11 @@ void Buzzer::beepPowerAlert() {
 void Buzzer::beepFaultDisarm() {
   // Short chirp every 380 ms at 2500 Hz — distinct from beepArmedAlert
   // (200/200 continuous at 2000 Hz) and beepPowerAlert (100/60, 3 reps,
-  // 2500 Hz, not continuous). reps=255 self-stops after ~97s (255 cycles);
-  // the caller must re-fire this on an interval while the fault persists
-  // (the same pattern PowerAlert uses for its 10s re-fire) so an unattended
-  // fault doesn't fall silent after a minute and a half.
+  // 2500 Hz, not continuous). reps=255 self-stops after ~97s (255 cycles)
+  // with no re-fire — the motor is already stopped by the time this plays,
+  // so this is meant to get immediate attention, not sound indefinitely.
+  // The telemetry page's persistent warning (once built) is the channel
+  // for anyone who doesn't hear it in time.
   startBeep(80, 255, 300, kFaultBeepFrequencyHz);
 }
 
