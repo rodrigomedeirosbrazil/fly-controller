@@ -13,30 +13,33 @@ class ADS1115 {
         double readVoltage(uint8_t channel); // Read voltage directly (for accurate temperature calculation)
         bool isReady() { return initialized; }
 
-        // True if the most recent readChannel() call completed a real I2C
-        // transaction; false if the bus was unresponsive and a cached value
-        // was returned instead. Shared across channels — reflects overall bus
-        // health at the time of the last read, not a per-channel state.
-        // Callers that need the health of a specific channel's read must call
-        // this immediately after that channel's readChannel(), before any
-        // other channel is read.
-        bool lastReadOk() const { return lastReadOk_; }
+        // True if the most recent readChannel(channel) call for this specific
+        // channel completed a real I2C transaction within the conversion
+        // timeout and returned a value ADS1115 could plausibly produce.
+        // Tracked per channel — safe to call at any point after that
+        // channel's own readChannel(), regardless of what other channels
+        // were read in between.
+        bool lastReadOk(uint8_t channel) const {
+            if (channel > 3) return false;
+            return lastReadOk_[channel];
+        }
 
     private:
         Adafruit_ADS1115 ads;
         bool initialized;
-        bool lastReadOk_;
+        bool lastReadOk_[4];
         int lastValue[4]; // Store last valid value for each channel (0-3)
         double lastVoltage[4]; // Store last valid voltage for each channel (0-3)
 
         // Convert 16-bit ADS1115 value (0-32767) to 12-bit equivalent (0-4095)
         int convertTo12Bit(int adsValue);
 
-        // Cheap I2C presence probe. Wire::endTransmission() has its own
-        // internal bus timeout, unlike Adafruit_ADS1X15::readADC_SingleEnded's
-        // conversion-ready wait (`while (!conversionComplete());`), which has
-        // none. Probing first means a wedged bus returns false here instead of
-        // hanging loop() inside the library call.
+        // Cheap first-pass I2C presence check — catches an already-dead bus
+        // before spending time starting a conversion. readChannel() also
+        // bounds the conversion-ready wait itself (see kConversionTimeoutMs
+        // in the .cpp), since a bus that ACKs here can still wedge
+        // mid-conversion; the probe narrows the window, it doesn't replace
+        // the bound.
         bool probeAck();
 
         // ADS1115 reference voltage for GAIN_ONE
