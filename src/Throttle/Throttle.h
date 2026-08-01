@@ -20,10 +20,11 @@ class Throttle {
         bool isEngaged() { return engagement.isEngaged(); }
 
         // True while an invalid throttle signal is being held at zero before
-        // the disarm threshold is reached (wireless only — wired disarms
-        // immediately, so it never spends time in this state).
-        bool isSignalForcedZero() const { return signalForcedZero_; }
-        DisarmReason getDisarmReason() const { return lastDisarmReason_; }
+        // the disarm threshold is reached. Wireless can spend real time here
+        // (up to disarmMs); wired passes through it only for the single tick
+        // that triggers Disarm, since its own disarmMs is 0.
+        bool isSignalForcedZero() const { return signalForcedZero; }
+        DisarmReason getDisarmReason() const { return lastDisarmReason; }
 
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
@@ -36,6 +37,9 @@ class Throttle {
         const static int samples = 8;
         const unsigned int calibrationTime = 3000; // 3 seconds for calibration
         const int calibrationThreshold = 2000; // Threshold for detecting throttle movement
+        const static int WIRED_BAND_MARGIN_LOW_PERCENT = 20;
+        const static int WIRED_BAND_MARGIN_HIGH_PERCENT = 10;
+        const static unsigned int WIRED_I2C_FAIL_STREAK_THRESHOLD = 3;
 
         int pinValues[samples];
         int pinValueFiltered;
@@ -61,11 +65,16 @@ class Throttle {
 
         ReadFn readFn;
         ReadOkFn readOkFn;
-        bool lastSampleOk_;
+        bool lastSampleOk;
+        unsigned int i2cFailStreak;
 
         ThrottleSignalLogic signalLogic;
-        bool signalForcedZero_;
-        DisarmReason lastDisarmReason_;
+        bool signalForcedZero;
+        DisarmReason lastDisarmReason;
+        bool wasWireless;
+
+        static constexpr ThrottleSignalConfig kWiredSignalConfig{0, 0, 0};
+        static constexpr ThrottleSignalConfig kWirelessSignalConfig{500, 3000, 200};
 
         void readThrottlePin();
         void resetCalibration();

@@ -14,9 +14,11 @@ Throttle::Throttle(ReadFn readFn, ReadOkFn readOkFn) : readFn(readFn), readOkFn(
   lastThrottleRead = 0;
 
   throttleArmed = false;
-  lastSampleOk_ = true;
-  signalForcedZero_ = false;
-  lastDisarmReason_ = DisarmReason::None;
+  lastSampleOk = true;
+  i2cFailStreak = 0;
+  signalForcedZero = false;
+  lastDisarmReason = DisarmReason::None;
+  wasWireless = settings.getThrottleSource() == ThrottleSourceWireless;
   resetCalibration();
 
   throttlePinMin = 0;
@@ -49,13 +51,21 @@ void Throttle::handle()
 void Throttle::updateSignalValidity(unsigned long now)
 {
   bool wireless = settings.getThrottleSource() == ThrottleSourceWireless;
+  if (wireless != wasWireless) {
+    // Source changed since the last tick — an in-progress invalid episode
+    // was measured against the other source's tolerance and no longer means
+    // anything.
+    signalLogic.reset();
+    wasWireless = wireless;
+  }
+
   bool valid;
 
   if (wireless) {
     // Wireless validity is the raw link-freshness signal; the debounce/
     // disarm tolerance lives entirely in the wireless ThrottleSignalConfig
     // below, not in what counts as "valid" here.
-    valid = lastSampleOk_;
+    valid = lastSampleOk;
   } else {
     // Wired validity: the filtered (8-sample averaged) reading must fall
     // within the calibrated band, with an asymmetric margin — reading low
@@ -64,28 +74,44 @@ void Throttle::updateSignalValidity(unsigned long now)
     // absorbs a single spurious sample (see ThrottleSignalLogic's header
     // comment), so debounceMs=0 below is still safe against normal ADC noise.
     int range = throttlePinMax - throttlePinMin;
-    int marginLow  = (range * 20) / 100;
-    int marginHigh = (range * 10) / 100;
-    bool inBand = pinValueFiltered >= (throttlePinMin - marginLow) &&
-                  pinValueFiltered <= (throttlePinMax + marginHigh);
-    valid = lastSampleOk_ && inBand;
+    int marginLow  = (range * WIRED_BAND_MARGIN_LOW_PERCENT) / 100;
+    int marginHigh = (range * WIRED_BAND_MARGIN_HIGH_PERCENT) / 100;
+    int lowBound  = throttlePinMin - marginLow;
+    int highBound = throttlePinMax + marginHigh;
+    // A wide calibrated span can make the percentage margin larger than the
+    // distance to a physical ADC rail. Clamp strictly inside [0, ADC_MAX_VALUE]
+    // so the two most common wired faults — an open circuit (reads ~0) and a
+    // short to the rail (reads ~ADC_MAX_VALUE) — are never classified valid,
+    // no matter how wide the calibrated span is relative to the margins.
+    if (lowBound <= 0) lowBound = 1;
+    if (highBound >= ADC_MAX_VALUE) highBound = ADC_MAX_VALUE - 1;
+    bool inBand = pinValueFiltered >= lowBound && pinValueFiltered <= highBound;
+
+    // The I2C-health flag is a single un-averaged bool per tick, unlike
+    // pinValueFiltered — a lone conversion-timeout or bus NAK next to a
+    // running motor is a plausible transient, not proof of a dead sensor.
+    // Require WIRED_I2C_FAIL_STREAK_THRESHOLD consecutive bad reads before
+    // it counts against validity — the same one-sample tolerance the moving
+    // average already gives inBand, extended to a signal that can't be
+    // averaged. A truly dead bus still disarms immediately once the streak
+    // crosses the threshold (~30ms at the 10ms read cadence).
+    bool i2cOk = i2cFailStreak < WIRED_I2C_FAIL_STREAK_THRESHOLD;
+    valid = i2cOk && inBand;
   }
 
-  ThrottleSignalConfig cfg = wireless
-      ? ThrottleSignalConfig{500, 3000, 200}
-      : ThrottleSignalConfig{0, 0, 0};
+  ThrottleSignalConfig cfg = wireless ? kWirelessSignalConfig : kWiredSignalConfig;
 
   ThrottleSignalAction action = signalLogic.update(valid, now, cfg);
 
   switch (action) {
     case ThrottleSignalAction::Ok:
-      signalForcedZero_ = false;
+      signalForcedZero = false;
       break;
     case ThrottleSignalAction::ForceZero:
-      signalForcedZero_ = true;
+      signalForcedZero = true;
       break;
     case ThrottleSignalAction::Disarm:
-      signalForcedZero_ = true;
+      signalForcedZero = true;
       setDisarmed(wireless ? DisarmReason::ThrottleLinkLost : DisarmReason::ThrottleWiredInvalid);
       break;
   }
@@ -104,7 +130,8 @@ void Throttle::resetCalibration()
   calibrationCountMin = 0;
   engagement.reset();
   signalLogic.reset();
-  signalForcedZero_ = false;
+  signalForcedZero = false;
+  i2cFailStreak = 0;
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -202,10 +229,15 @@ void Throttle::readThrottlePin()
 
   int oversampledValue = readFn();
   pinValues[samples - 1] = oversampledValue;
-  // Must be read immediately after readFn(), before any other ADS1115
-  // channel is read elsewhere in loop() — lastReadOk() reflects whichever
-  // channel was read most recently.
-  lastSampleOk_ = readOkFn();
+  // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
+  // only needs to observe the same channel readFn() just read — no ordering
+  // dependency on other components reading other channels.
+  lastSampleOk = readOkFn();
+  if (lastSampleOk) {
+    i2cFailStreak = 0;
+  } else if (i2cFailStreak < 0xFFFFu) {
+    i2cFailStreak++;
+  }
 
   // Calculate moving average
   int sum = 0;
@@ -269,8 +301,9 @@ void Throttle::setArmed()
   }
 
   signalLogic.reset();
-  signalForcedZero_ = false;
-  lastDisarmReason_ = DisarmReason::None;
+  signalForcedZero = false;
+  lastDisarmReason = DisarmReason::None;
+  i2cFailStreak = 0;
   throttleArmed = true;
 }
 
@@ -281,7 +314,7 @@ void Throttle::setDisarmed(DisarmReason reason)
   }
 
   throttleArmed = false;
-  lastDisarmReason_ = reason;
+  lastDisarmReason = reason;
 
   if (reason == DisarmReason::Manual) {
     buzzer.beepDisarmed();
