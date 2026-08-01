@@ -63,8 +63,12 @@ void Throttle::updateSignalValidity(unsigned long now)
   if (wireless != wasWireless) {
     // Source changed since the last tick — an in-progress invalid episode
     // was measured against the other source's tolerance and no longer means
-    // anything.
+    // anything. wiredValidity's I2C fail streak keeps accumulating while
+    // switched to wireless (no ADC reads happen then), so it's equally
+    // stale by the time a switch back to wired occurs — and wired has zero
+    // tolerance, so a stale streak would disarm on the very first tick back.
     signalLogic.reset();
+    wiredValidity.reset();
     wasWireless = wireless;
   }
 

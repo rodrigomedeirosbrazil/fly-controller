@@ -16,13 +16,23 @@
 //      This is a single un-averaged bool per tick, unlike the filtered
 //      reading (already protected by an 8-sample moving average) — a lone
 //      conversion-timeout or bus NAK next to a running motor is a plausible
-//      transient, not proof of a dead sensor, so it gets the same one-shot
-//      tolerance the moving average already gives the analog value.
+//      transient, not proof of a dead sensor, so it gets a similar small
+//      tolerance (two consecutive failures) before it counts against
+//      validity.
+//
+// Precondition: assumes the calibrated band doesn't already touch a rail
+// (0 < calMin < calMax < adcMaxValue) — a calibration that idles at exactly
+// 0 would be permanently invalid; that's a calibration-routine concern, not
+// something this class can detect.
 class ThrottleWiredValidity {
 public:
-    static const int MARGIN_LOW_PERCENT = 20;
-    static const int MARGIN_HIGH_PERCENT = 10;
-    static const unsigned int I2C_FAIL_STREAK_THRESHOLD = 3;
+    // Unnamed enums, not `static const` data members — an in-class
+    // `static const` needs an out-of-line definition the moment it's
+    // ODR-used (bound to a reference, etc.), which silently fails to link
+    // under this project's C++11 build. An enum has no storage and can
+    // never hit that trap.
+    enum : int { MARGIN_LOW_PERCENT = 20, MARGIN_HIGH_PERCENT = 10 };
+    enum : unsigned int { I2C_FAIL_STREAK_THRESHOLD = 3 };
 
     ThrottleWiredValidity() : i2cFailStreak_(0) {}
 
