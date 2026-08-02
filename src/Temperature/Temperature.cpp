@@ -3,8 +3,8 @@
 #include "../config.h"
 #include "Temperature.h"
 
-Temperature::Temperature(ReadFn readFn, float adcVoltageRef) {
-  this->readFn = readFn;
+Temperature::Temperature(ReadFn readFn, ReadOkFn readOkFn, float adcVoltageRef)
+    : readFn(readFn), readOkFn(readOkFn) {
   this->adcVoltageRef = adcVoltageRef;
 
   memset(
@@ -14,6 +14,7 @@ Temperature::Temperature(ReadFn readFn, float adcVoltageRef) {
   );
 
   temperature = 0;
+  valid = false;
   lastPinRead = 0;
 }
 
@@ -38,12 +39,16 @@ void Temperature::readTemperature() {
 
   int oversampledValue = readFn();
   pinValues[samples - 1] = oversampledValue;
+  validity.recordSample(readOkFn());
 
   // Calculate moving average
   int sum = 0;
   for (int i = 0; i < samples; i++) {
     sum += pinValues[i];
   }
+  int averagedCounts = sum / samples;
+
+  valid = validity.isValid(averagedCounts, NTC_VALID_COUNTS_LOW, NTC_VALID_COUNTS_HIGH);
 
   // Voltage at the divider point: ReadFn returns 0-4095, scale by adcVoltageRef
   float v = (adcVoltageRef * (float)sum) / (samples * 4095.0f);
