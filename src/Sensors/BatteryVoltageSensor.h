@@ -23,8 +23,13 @@ private:
     // path from the battery once R1 opens); no real 14S LiPo pack reads
     // above ~65.8V even during an abusive overcharge. The upper bound is
     // also capped below the uint16_t ceiling (65535) that
-    // voltageMilliVolts's storage type imposes, so it stays reachable —
-    // see docs/superpowers/specs/2026-08-01-signal-validity-design.md.
+    // voltageMilliVolts's storage type imposes, so it stays reachable.
+    // This sensor's physical ceiling (dividerRatio * ADS1115 full scale)
+    // can exceed 65535mV at the default ratio (23.13 * 4.096V ≈ 94.7V), so
+    // readVoltage() clamps to [0, 65535] before narrowing to uint16_t —
+    // narrowing an over-range reading first would silently wrap it back
+    // into this valid band instead of correctly failing the check. See
+    // docs/superpowers/specs/2026-08-01-signal-validity-design.md.
     enum : int { VALID_MIN_MV = 5000, VALID_MAX_MV = 65000 };
 
     ReadFn readFn;
