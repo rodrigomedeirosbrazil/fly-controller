@@ -35,8 +35,17 @@ public:
     // AsyncWebServer/AsyncTCP task (via /api/telemetry) as well as the main
     // loop (via handleEsc(), Xctod, TelemetryLogger), so the disarm side
     // effect (which mutates Throttle/Buzzer state with no synchronization)
-    // cannot safely live inside calc*Limit() — those stay pure reads,
-    // callable from any task; this method is the only place that acts.
+    // cannot safely live inside calc*Limit() — this method is the only
+    // place that triggers it.
+    //
+    // calc*Limit()/getPower() themselves are NOT fully pure with respect to
+    // this class's own state — calcBatteryLimit() still decrements
+    // batteryPowerFloor, and getPower()'s 500ms cache is a plain
+    // check-then-write on lastPowerCalculationTime/power/activeLimitCauses_.
+    // That race is pre-existing (it predates this file's signal-validity
+    // work and is reachable from the same AsyncTCP path today) and is out
+    // of scope here; only the disarm decision was moved out to close the
+    // hazard this change is responsible for.
     void checkSignalLoss();
 
 private:
