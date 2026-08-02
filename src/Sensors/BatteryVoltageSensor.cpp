@@ -1,9 +1,9 @@
 #include "BatteryVoltageSensor.h"
 #include "../config.h"
 
-BatteryVoltageSensor::BatteryVoltageSensor(ReadFn readFn, float dividerRatio, float adcVoltageRef)
-    : readFn(readFn), dividerRatio(dividerRatio), adcVoltageRef(adcVoltageRef), voltageMilliVolts(0),
-      lastRead(0), emaVoltageMilliVolts(0.0f), emaInitialized(false) {
+BatteryVoltageSensor::BatteryVoltageSensor(ReadFn readFn, ReadOkFn readOkFn, float dividerRatio, float adcVoltageRef)
+    : readFn(readFn), readOkFn(readOkFn), dividerRatio(dividerRatio), adcVoltageRef(adcVoltageRef),
+      voltageMilliVolts(0), valid(false), lastRead(0), emaVoltageMilliVolts(0.0f), emaInitialized(false) {
 }
 
 void BatteryVoltageSensor::handle() {
@@ -17,6 +17,7 @@ void BatteryVoltageSensor::handle() {
 
 void BatteryVoltageSensor::readVoltage() {
     int adcValue = readFn();
+    validity.recordSample(readOkFn());
 
     // Convert ADC reading to voltage at sensor pin
     // adcVoltageRef: 3.3V for ESP32 ADC, 4.096V for ADS1115 GAIN_ONE
@@ -38,4 +39,5 @@ void BatteryVoltageSensor::readVoltage() {
     }
 
     voltageMilliVolts = (uint16_t)(emaVoltageMilliVolts + 0.5f);
+    valid = validity.isValid((int)voltageMilliVolts, VALID_MIN_MV, VALID_MAX_MV);
 }
