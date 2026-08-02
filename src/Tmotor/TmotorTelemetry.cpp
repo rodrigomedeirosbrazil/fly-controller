@@ -2,22 +2,12 @@
 #include "../config_controller.h"
 #if IS_TMOTOR
 #include "../config.h"
+#include "MotorTempSourceLogic.h"
 
 extern TmotorCan tmotorCan;
 extern Temperature motorTemp;
 extern BatteryVoltageSensor batterySensor;
 
-struct MotorTempReading {
-    int32_t milliCelsius;
-    SignalState state;
-};
-
-// Redundant sources: CAN (Status 5 / PUSHCAN) when fresh, plausible, and not
-// overridden by settings, or the NTC fallback. The state always reflects
-// whichever source actually produced the returned value — never a
-// different source's health than the one backing the number — see
-// docs/superpowers/specs/2026-08-01-signal-validity-design.md.
-//
 // Known gap, not fixed here: TmotorCan clamps/truncates a corrupt CAN
 // temperature into its uint8_t storage range before this function ever
 // sees it, which can hide a garbage reading that happens to land inside
@@ -27,16 +17,15 @@ struct MotorTempReading {
 // TmotorCan decode layer is not currently detectable here.
 static MotorTempReading readMotorTemp() {
     const bool forceNtc = settings.getMotorTempSource() == MotorTempSourceAds1115;
-    const bool canOk = !forceNtc &&
-                        tmotorCan.hasRecentMotorTempFromCan() &&
-                        tmotorCan.getMotorTemperature() <= (MOTOR_TEMP_MAX_VALID / 1000);
-    if (canOk) {
-        return { (int32_t)tmotorCan.getMotorTemperature() * 1000, SignalState::Valid };
-    }
-    return {
-        (int32_t)(motorTemp.getTemperature() * 1000.0),
-        motorTemp.isValid() ? SignalState::Valid : SignalState::Invalid
-    };
+    const bool canFreshAndPlausible = tmotorCan.hasRecentMotorTempFromCan() &&
+                                       tmotorCan.getMotorTemperature() <= (MOTOR_TEMP_MAX_VALID / 1000);
+    return selectMotorTempReading(
+        forceNtc,
+        canFreshAndPlausible,
+        (int32_t)tmotorCan.getMotorTemperature() * 1000,
+        motorTemp.getTemperature(),
+        motorTemp.isValid()
+    );
 }
 
 // CAN-only (no NTC on the ESC for Tmotor): stale when no fresh ESC_STATUS
