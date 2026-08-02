@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <Arduino.h>
+#include "../Telemetry/SignalState.h"
 
 /**
  * XAG telemetry aggregator: motorTemp, escTemp, batterySensor (all ADC/ADS1115)
@@ -18,6 +19,10 @@ public:
     int32_t getMotorTempMilliCelsius() const;
     int32_t getEscTempMilliCelsius() const;
     unsigned long getLastUpdate() const;
+
+    SignalState getMotorTempState() const;
+    SignalState getEscTempState() const;
+    SignalState getBatteryVoltageState() const;
 
 private:
     bool cachedHasData = false;

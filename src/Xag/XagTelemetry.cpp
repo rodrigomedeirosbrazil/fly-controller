@@ -20,4 +20,7 @@ uint16_t XagTelemetry::getBatteryVoltageMilliVolts() const { return cachedBatter
 int32_t XagTelemetry::getMotorTempMilliCelsius() const { return cachedMotorTempMilliCelsius; }
 int32_t XagTelemetry::getEscTempMilliCelsius() const { return cachedEscTempMilliCelsius; }
 unsigned long XagTelemetry::getLastUpdate() const { return cachedLastUpdate; }
+SignalState XagTelemetry::getMotorTempState() const { return motorTemp.isValid() ? SignalState::Valid : SignalState::Invalid; }
+SignalState XagTelemetry::getEscTempState() const { return escTemp.isValid() ? SignalState::Valid : SignalState::Invalid; }
+SignalState XagTelemetry::getBatteryVoltageState() const { return batterySensor.isValid() ? SignalState::Valid : SignalState::Invalid; }
 #endif
