@@ -310,6 +310,7 @@ void Throttle::setArmed()
   lastDisarmReason = DisarmReason::None;
   wiredValidity.reset();
   throttleArmed = true;
+  power.onArmed();
 }
 
 void Throttle::setDisarmed(DisarmReason reason)
