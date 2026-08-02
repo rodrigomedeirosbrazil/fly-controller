@@ -817,9 +817,9 @@ const renderPowerAlert = (pa) => {
 const FAULT_DISARM_INFO = {
     'THR ERR':  { title: 'Desarmado: falha no acelerador (com fio)', detail: 'Leitura fora da faixa calibrada ou falha de leitura do ADS1115.' },
     'LINK ERR': { title: 'Desarmado: falha no acelerador (sem fio)', detail: 'Link com o remote perdido por mais de 3 segundos.' },
-    'MOT ERR':  { title: 'Desarmado: sensor de temperatura do motor', detail: 'A leitura de temperatura do motor, válida no momento em que o sistema foi armado, tornou-se inválida durante o voo.' },
-    'ESC ERR':  { title: 'Desarmado: sensor de temperatura do ESC', detail: 'A leitura de temperatura do ESC, válida no momento em que o sistema foi armado, tornou-se inválida durante o voo.' },
-    'BATT ERR': { title: 'Desarmado: sensor de tensão da bateria', detail: 'A leitura de tensão da bateria, válida no momento em que o sistema foi armado, tornou-se inválida durante o voo.' },
+    'MOT ERR':  { title: 'Desarmado: falha no sensor de temperatura do motor', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+    'ESC ERR':  { title: 'Desarmado: falha no sensor de temperatura do ESC', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+    'BATT ERR': { title: 'Desarmado: falha no sensor de tensão da bateria', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
 };
 
 const renderFaultDisarm = (data) => {
