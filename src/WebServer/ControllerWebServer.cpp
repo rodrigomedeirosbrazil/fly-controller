@@ -5,6 +5,7 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
+#include "../Telemetry/SignalState.h"
 #include "../DisarmReason.h"
 #include <Update.h>
 #include <LittleFS.h>
@@ -723,6 +724,16 @@ void ControllerWebServer::startAP() {
         availability["powerKw"] = isPowerKwAvailable();
         availability["bms"] = isBmsDataAvailable();
         availability["bmsCells"] = isBmsCellDataAvailable();
+
+        // Signal validity for the three power-limiting sensors — see
+        // docs/superpowers/specs/2026-08-01-signal-validity-design.md.
+        JsonObject signals = doc.createNestedObject("signals");
+        char motorTempCode[2] = { signalStateCode(telemetry.getMotorTempState()), '\0' };
+        char escTempCode[2]   = { signalStateCode(telemetry.getEscTempState()), '\0' };
+        char battVCode[2]     = { signalStateCode(telemetry.getBatteryVoltageState()), '\0' };
+        signals["motorTemp"] = motorTempCode;
+        signals["escTemp"] = escTempCode;
+        signals["battV"] = battVCode;
 
         doc["hasTelemetry"] = hasTelemetry;
         doc["batteryPercentCc"] = batteryMonitor.getSoC();
