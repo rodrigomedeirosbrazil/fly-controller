@@ -20,9 +20,14 @@ public:
     int32_t getEscTempMilliCelsius() const;
     unsigned long getLastUpdate() const;
 
-    SignalState getMotorTempState() const;
-    SignalState getEscTempState() const;
-    SignalState getBatteryVoltageState() const;
+    // Bare passthroughs of each sensor's own isValid() — no CAN on this
+    // build, so there's no redundancy to arbitrate between (contrast
+    // TmotorTelemetry, which has to pick between a CAN and an NTC source for
+    // motor temp) and no Stale state (each signal is backed by a physically
+    // present ADS1115 channel, not a frame that can stop arriving).
+    SignalState getMotorTempState() const { return cachedMotorTempState; }
+    SignalState getEscTempState() const { return cachedEscTempState; }
+    SignalState getBatteryVoltageState() const { return cachedBatteryVoltageState; }
 
 private:
     bool cachedHasData = false;
@@ -30,6 +35,9 @@ private:
     int32_t cachedMotorTempMilliCelsius = 0;
     int32_t cachedEscTempMilliCelsius = 0;
     unsigned long cachedLastUpdate = 0;
+    SignalState cachedMotorTempState = SignalState::Invalid;
+    SignalState cachedEscTempState = SignalState::Invalid;
+    SignalState cachedBatteryVoltageState = SignalState::Invalid;
 };
 
 #endif
