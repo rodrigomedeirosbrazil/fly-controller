@@ -35,6 +35,7 @@ private:
     unsigned long cachedLastUpdate = 0;
     SignalState cachedMotorTempState = SignalState::Invalid;
     SignalState cachedEscTempState = SignalState::Invalid;
+    SignalState cachedBatteryVoltageState = SignalState::Invalid;
 };
 
 #endif
