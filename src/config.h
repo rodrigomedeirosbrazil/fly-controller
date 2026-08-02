@@ -111,7 +111,6 @@ extern PowerAlert powerAlert;
 
 // ========== MOTOR PARAMETERS ==========
 // MOTOR_MAX_TEMP and MOTOR_TEMP_REDUCTION_START are now managed by Settings class
-#define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
 #define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
 
 // ========== ESC PARAMETERS ==========
@@ -128,7 +127,6 @@ extern PowerAlert powerAlert;
 
 // ESC_MAX_TEMP and ESC_TEMP_REDUCTION_START are now managed by Settings class
 
-#define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
 // ========== THROTTLE ENGAGE / MOTOR START TIMING ==========

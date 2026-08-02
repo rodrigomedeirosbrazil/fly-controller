@@ -23,6 +23,18 @@ void Power::onArmed() {
     batteryContract_.onArmed(telemetry.isBatteryVoltageValid());
 }
 
+void Power::checkSignalLoss() {
+    if (motorTempContract_.shouldDisarmOnLoss(telemetry.isMotorTempValid())) {
+        throttle.setDisarmed(DisarmReason::MotorTempLost);
+    }
+    if (escTempContract_.shouldDisarmOnLoss(telemetry.isEscTempValid())) {
+        throttle.setDisarmed(DisarmReason::EscTempLost);
+    }
+    if (batteryContract_.shouldDisarmOnLoss(telemetry.isBatteryVoltageValid())) {
+        throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
+    }
+}
+
 unsigned int Power::getPwm() {
     if (!throttle.isCalibrated()) {
         resetMotorState();
@@ -109,6 +121,10 @@ unsigned int Power::getPower() {
 }
 
 unsigned int Power::calcPower() {
+    // Note: disabling power control here only stops the percentage-based
+    // limiting below — disarm-on-signal-loss is a separate safety behavior
+    // handled by checkSignalLoss(), called independently every loop tick,
+    // and is not affected by this setting.
     if (!settings.getPowerControlEnabled()) {
         activeLimitCauses_ = POWER_LIMIT_NONE;
         return 100;
@@ -129,11 +145,7 @@ unsigned int Power::calcPower() {
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
 
-    bool validNow = telemetry.isBatteryVoltageValid();
-    if (batteryContract_.shouldDisarmOnLoss(validNow)) {
-        throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
-    }
-    if (!batteryContract_.shouldLimit(validNow)) return 100;
+    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid())) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -150,11 +162,7 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    bool validNow = telemetry.isMotorTempValid();
-    if (motorTempContract_.shouldDisarmOnLoss(validNow)) {
-        throttle.setDisarmed(DisarmReason::MotorTempLost);
-    }
-    if (!motorTempContract_.shouldLimit(validNow)) return 100;
+    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid())) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
     int32_t reductionStart = settings.getMotorTempReductionStart();
@@ -167,11 +175,7 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    bool validNow = telemetry.isEscTempValid();
-    if (escTempContract_.shouldDisarmOnLoss(validNow)) {
-        throttle.setDisarmed(DisarmReason::EscTempLost);
-    }
-    if (!escTempContract_.shouldLimit(validNow)) return 100;
+    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid())) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     int32_t reductionStart = settings.getEscTempReductionStart();

@@ -14,10 +14,10 @@
 // promise broken mid-flight — that disarms.
 //
 // This class only decides; it does not gate itself on "are we currently
-// armed" — the caller (Power) only ever asks these questions while armed,
-// since Power::getPwm() is itself only invoked while armed (see
-// main.cpp's handleEsc()). onArmed() is called exactly once per arm, taking
-// a fresh snapshot each time.
+// armed" or on which task is asking. shouldLimit() is safe to call from
+// anywhere (pure read). shouldDisarmOnLoss()'s result must only be acted on
+// from the main loop task — see Power::checkSignalLoss(). onArmed() is
+// called exactly once per arm, taking a fresh snapshot each time.
 class SignalArmContract {
 public:
     SignalArmContract() : validAtArm_(false) {}

@@ -28,6 +28,17 @@ public:
     // arm — see SignalArmContract.h.
     void onArmed();
 
+    // Evaluates each power-limiting signal's arm-time contract and disarms
+    // if a signal that was valid at arm has since gone invalid. Must be
+    // called ONLY from the main loop task (main.cpp's loop()) — never from
+    // an async context. getPower()/calcPower() are reachable from the
+    // AsyncWebServer/AsyncTCP task (via /api/telemetry) as well as the main
+    // loop (via handleEsc(), Xctod, TelemetryLogger), so the disarm side
+    // effect (which mutates Throttle/Buzzer state with no synchronization)
+    // cannot safely live inside calc*Limit() — those stay pure reads,
+    // callable from any task; this method is the only place that acts.
+    void checkSignalLoss();
+
 private:
     enum class StartState {
         IDLE,
