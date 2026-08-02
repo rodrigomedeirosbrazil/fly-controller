@@ -1,6 +1,7 @@
 #include "Power.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "../DisarmReason.h"
 #include "../Throttle/Throttle.h"
 
 extern Throttle throttle;
@@ -14,6 +15,12 @@ Power::Power() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+}
+
+void Power::onArmed() {
+    motorTempContract_.onArmed(telemetry.isMotorTempValid());
+    escTempContract_.onArmed(telemetry.isEscTempValid());
+    batteryContract_.onArmed(telemetry.isBatteryVoltageValid());
 }
 
 unsigned int Power::getPwm() {
@@ -111,8 +118,7 @@ unsigned int Power::calcPower() {
     unsigned int escTempLimit   = calcEscTempLimit();
 
     uint8_t causes = POWER_LIMIT_NONE;
-    // Battery: only when telemetry is valid (excludes conservative startup floor)
-    if (batteryLimit < 100 && telemetry.hasData()) causes |= POWER_LIMIT_BATTERY;
+    if (batteryLimit < 100)   causes |= POWER_LIMIT_BATTERY;
     if (motorTempLimit < 100) causes |= POWER_LIMIT_MOTOR_TEMP;
     if (escTempLimit < 100)   causes |= POWER_LIMIT_ESC_TEMP;
     activeLimitCauses_ = causes;
@@ -122,9 +128,12 @@ unsigned int Power::calcPower() {
 
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
-    // Return conservative 50% when telemetry is not yet available — avoids a
-    // full motor cutoff at startup before the ESC sends its first CAN frame.
-    if (!telemetry.hasData()) return 50;
+
+    bool validNow = telemetry.isBatteryVoltageValid();
+    if (batteryContract_.shouldDisarmOnLoss(validNow)) {
+        throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
+    }
+    if (!batteryContract_.shouldLimit(validNow)) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -141,13 +150,13 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    if (!telemetry.hasData()) return 100;
+    bool validNow = telemetry.isMotorTempValid();
+    if (motorTempContract_.shouldDisarmOnLoss(validNow)) {
+        throttle.setDisarmed(DisarmReason::MotorTempLost);
+    }
+    if (!motorTempContract_.shouldLimit(validNow)) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
-
-    if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID)
-        return 100;
-
     int32_t reductionStart = settings.getMotorTempReductionStart();
     int32_t maxTemp        = settings.getMotorMaxTemp();
 
@@ -158,13 +167,13 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!telemetry.hasData()) return 100;
+    bool validNow = telemetry.isEscTempValid();
+    if (escTempContract_.shouldDisarmOnLoss(validNow)) {
+        throttle.setDisarmed(DisarmReason::EscTempLost);
+    }
+    if (!escTempContract_.shouldLimit(validNow)) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
-
-    if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID)
-        return 100;
-
     int32_t reductionStart = settings.getEscTempReductionStart();
     int32_t maxTemp        = settings.getEscMaxTemp();
 

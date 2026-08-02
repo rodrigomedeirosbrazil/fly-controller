@@ -2,6 +2,7 @@
 #define POWER_H
 
 #include <Arduino.h>
+#include "SignalArmContract.h"
 
 enum PowerLimitCause : uint8_t {
     POWER_LIMIT_NONE       = 0,
@@ -22,6 +23,11 @@ public:
     void resetBatteryPowerFloor();
     void resetMotorState();
 
+    // Snapshots each power-limiting signal's current validity for the
+    // arm-time contract. Called by Throttle::setArmed() on a successful
+    // arm — see SignalArmContract.h.
+    void onArmed();
+
 private:
     enum class StartState {
         IDLE,
@@ -38,6 +44,10 @@ private:
     unsigned long idleBeganAt;
 
     uint8_t activeLimitCauses_;
+
+    SignalArmContract motorTempContract_;
+    SignalArmContract escTempContract_;
+    SignalArmContract batteryContract_;
 
     unsigned int calcPower();
     unsigned int calcBatteryLimit();
