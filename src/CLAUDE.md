@@ -99,7 +99,7 @@ Throttle signal validity is split into two host-tested pieces:
 - `ThrottleWiredValidity` (`test/ThrottleWiredValidityTest.cpp`) — decides whether a *wired* sample itself is valid: the filtered reading must sit inside the calibrated band (asymmetric -20%/+10% margin, clamped inside `[1, adcMaxValue-1]` so it can still catch an open-circuit or short-to-rail reading regardless of calibration span), and the I2C read must not have failed 3+ times in a row (small tolerance for a transient bus glitch).
 
 ### Temperature — `Temperature/`
-NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only).
+NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `ReadOkFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only). `isValid()` checks the averaged raw ADC counts against a fixed physical band (91-2954, i.e. -20..150°C) plus I2C read health, via the shared `SensorReadingValidity` (`src/ADS1115/SensorReadingValidity.h`) — also used by `BatteryVoltageSensor`.
 
 ### Buzzer — `Buzzer/`
 Passive buzzer via LEDC PWM. Non-blocking: `setup()` once, then `handle()` every loop tick. Named methods: `beepSystemStart()`, `beepCalibrationStep()`, `beepArmedAlert()`, etc. Supports melodies (sequences of `Note` structs).
@@ -113,7 +113,8 @@ Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and 
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
-`getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Battery cause is only set when `telemetry.hasData()` (excludes the conservative 50% startup floor). Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
+`getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
+Owns the arm-time contract for the three power-limiting signals (motor temp, ESC temp, battery voltage) via `SignalArmContract` (`src/Power/SignalArmContract.h`, host-tested in `test/SignalArmContractTest.cpp`): `onArmed()` (called by `Throttle::setArmed()` on a successful arm) snapshots each signal's current validity. A signal valid at arm that goes invalid mid-flight disarms the system (`throttle.setDisarmed(DisarmReason::MotorTempLost)` etc., via `Power::checkSignalLoss()` — called once per main-loop iteration, never from the async web-server task, since it has side effects that aren't safe to run concurrently with the loop); a signal already invalid at arm has its limiting disabled for the whole session, even if it later reads valid again.
 
 ### PowerAlert — `PowerAlert/`
 Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `buzzer.beepPowerAlert()` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
@@ -140,7 +141,7 @@ TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for E
 XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors only.
 
 ### Sensors — `Sensors/`
-`BatteryVoltageSensor`: voltage divider via `ReadFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds.
+`BatteryVoltageSensor`: voltage divider via `ReadFn` + `ReadOkFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds. `isValid()` checks the EMA-smoothed millivolt reading against a fixed plausible range (5000-65000 mV) plus I2C read health, via `SensorReadingValidity`.
 
 ### BluetoothBms — `BluetoothBms/`
 Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery and a live status feed (`GET /api/bms/status`).

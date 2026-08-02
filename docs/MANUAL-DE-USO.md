@@ -119,6 +119,15 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 - Quando qualquer um dos três entra na faixa de proteção, o sistema **limita o teto de potência**; você pode abrir o acelerador todo, mas o valor enviado ao ESC será limitado pelo sensor que estiver mais restritivo.
 - Os pontos exatos de tensão mínima e temperaturas podem ser configurados (por exemplo, via servidor web ou configurações do firmware, conforme sua versão do Fly Controller).
 
+### Sensor inválido ou perdido
+
+Se a leitura de um sensor (temperatura do motor, temperatura do ESC ou tensão da bateria) for fisicamente impossível (por exemplo, sensor desconectado ou falha de comunicação), o sistema trata isso de duas formas, dependendo de quando o problema aparece:
+
+- **Sensor já inválido no momento em que você arma:** a proteção daquele sensor específico fica desabilitada durante todo o voo — a potência não é limitada por ele, mesmo que a leitura volte ao normal depois. A tela mostra um aviso permanente indicando qual sensor está com problema.
+- **Sensor válido ao armar, e fica inválido durante o voo:** o sistema **desarma automaticamente**, com o mesmo alarme sonoro contínuo e aviso permanente na tela usados para falha do acelerador. Isso porque uma proteção que você esperava estar ativa deixou de funcionar no meio do voo, sem aviso — o sistema prefere parar o motor a continuar voando com uma proteção que parou de existir silenciosamente.
+
+Em ambos os casos, para voltar a operar normalmente, corrija o problema do sensor e desarme/arme novamente.
+
 ---
 
 *Fly Controller — Controlador de voo paramotores elétricos*
