@@ -15,6 +15,7 @@ Temperature::Temperature(ReadFn readFn, ReadOkFn readOkFn, float adcVoltageRef)
 
   temperature = 0;
   valid = false;
+  filledSamples = 0;
   lastPinRead = 0;
 }
 
@@ -48,7 +49,13 @@ void Temperature::readTemperature() {
   }
   int averagedCounts = sum / samples;
 
-  valid = validity.isValid(averagedCounts, NTC_VALID_COUNTS_LOW, NTC_VALID_COUNTS_HIGH);
+  if (filledSamples < (unsigned int)samples) filledSamples++;
+  // The moving average is meaningless until the buffer holds `samples` real
+  // readings — a partially-filled average (diluted by the zero-filled
+  // startup buffer) lands arbitrarily inside or below the valid band and
+  // must not be reported as either valid or invalid based on real data.
+  valid = (filledSamples >= (unsigned int)samples) &&
+          validity.isValid(averagedCounts, NTC_VALID_COUNTS_LOW, NTC_VALID_COUNTS_HIGH);
 
   // Voltage at the divider point: ReadFn returns 0-4095, scale by adcVoltageRef
   float v = (adcVoltageRef * (float)sum) / (samples * 4095.0f);
