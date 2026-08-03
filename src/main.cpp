@@ -238,6 +238,12 @@ void checkCanbus()
 #if USES_CAN_BUS
     extern Canbus canbus;
     twai_message_t msg;
+
+    // Must run before anything touches the bus: after a bus-off (cable pulled
+    // while we transmit at 400 Hz) the driver is detached and both receive()
+    // and transmit are no-ops until recovery is initiated and completed.
+    canbus.handleBusRecovery();
+
     // Matches CAN_RX_QUEUE_LEN so a full queue can be drained in a single
     // tick. A cap below the queue depth would let the backlog grow across
     // ticks and overflow anyway, defeating the deeper queue — and a dropped

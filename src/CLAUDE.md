@@ -187,6 +187,10 @@ Unified facade over build-specific telemetry sources. `telemetry.getXxx()` deleg
 ### CAN Bus — `Canbus/`
 Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `tmotorCan.parseEscMessage()`.
 
+The RX queue is set to `CAN_RX_QUEUE_LEN` (32) instead of the driver default of 5, and `MAX_CAN_FRAMES_PER_TICK` matches it — an ESC_STATUS is a 3-frame transfer that is discarded whole if any one frame is dropped, so a shallow queue plus a slow loop iteration silently costs entire telemetry updates.
+
+`canbus.handleBusRecovery()` runs first in `checkCanbus()` and is **required**, not defensive. Transmitting with nothing to acknowledge (CAN cable unplugged, ESC unpowered) adds 8 TEC per attempt and the driver auto-retransmits, so at 400 Hz RawCommand this controller crosses the 256-count bus-off threshold within milliseconds. Bus-off is latching: the peripheral detaches and stops **both** TX and RX until software calls `twai_initiate_recovery()`, then `twai_start()` once the state reaches `TWAI_STATE_STOPPED`. Without this, unplugging the CAN cable killed the bus permanently — reconnecting never restored telemetry, because the driver had already given up. While the cable is out, recovery completes against the idle-recessive line and immediately re-faults; that cycling is intended (see the comment in `Canbus.cpp`), and is what makes reconnection recover within a few hundred ms.
+
 ### Tmotor — `Tmotor/`
 TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for ESC_STATUS (1034) and PUSHCAN (1039); handles Status 5 (1154) for motor temp; sends RawCommand (1030) at 400 Hz. `TmotorTelemetry`: snapshot aggregator.
 
