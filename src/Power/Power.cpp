@@ -27,7 +27,7 @@ void Power::checkSignalLoss() {
     // All three contracts are checked unconditionally, even if an earlier
     // one in this same call already disarmed — relies on
     // Throttle::setDisarmed() early-returning once already disarmed, so at
-    // most one DisarmReason/beepFaultDisarm() actually takes effect per
+    // most one DisarmReason/FaultDisarm sound actually takes effect per
     // tick regardless of how many signals are lost simultaneously.
     if (motorTempContract_.shouldDisarmOnLoss(telemetry.isMotorTempValid())) {
         throttle.setDisarmed(DisarmReason::MotorTempLost);

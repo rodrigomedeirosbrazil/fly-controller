@@ -102,14 +102,52 @@ Throttle signal validity is split into two host-tested pieces:
 NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `ReadOkFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only). `isValid()` checks the averaged raw ADC counts against a fixed physical band (91-2954, i.e. -20..150°C) plus I2C read health, via the shared `SensorReadingValidity` (`src/ADS1115/SensorReadingValidity.h`) — also used by `BatteryVoltageSensor`.
 
 ### Buzzer — `Buzzer/`
-Passive buzzer via LEDC PWM. Non-blocking: `setup()` once, then `handle()` every loop tick. Named methods: `beepSystemStart()`, `beepCalibrationStep()`, `beepArmedAlert()`, etc. Supports melodies (sequences of `Note` structs).
-Volume is configurable at runtime: `setVolume(percent)` maps 0-100% directly to the 8-bit duty cycle (0 = silent). The saved volume is applied in `setup()` from `Settings::getBuzzerVolume()`, and `beepVolumePreview()` plays a short beep at the current level for live feedback while adjusting (see the web "Sistema" config page).
-Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and passive piezo buzzer:
-- Duty-cycle sweep found the highest perceived volume at about 85% (`217/255`) — this is the default volume; higher duty cycles actually sound quieter on this piezo.
+Pure LEDC PWM tone driver: `toneOn(freqHz)`, `toneOff()`, `setVolume(percent)`,
+`recalibrate()`. No timing, no patterns, no priority -- that all lives in `Sound/`.
+Volume is configurable at runtime and maps 0-100% directly to the 8-bit duty cycle (0 =
+silent); the saved volume is applied in `setup()` from `Settings::getBuzzerVolume()`.
+Empirical tuning for the current 3.3 V hardware with BC337 transistor stage and passive
+piezo buzzer:
+- Duty-cycle sweep found the highest perceived volume at about 85% (`217/255`) -- this is
+  the default volume; higher duty cycles actually sound quieter on this piezo.
 - Frequency sweep found the loudest useful range between `2000 Hz` and `2500 Hz`.
-- Current defaults use `2300 Hz` for general beeps and `2000 Hz` for the armed alert.
 
-`getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest first), each with fields `{seq, freq, onMs, offMs, reps, active}`, populated by `startBeep()` and cleared by `stop()`. The web server reads this to include a `buzzer` array in `/api/telemetry`. On the first successful poll the telemetry page primes `bzLastSeq` to the highest seq without playing anything (prevents stale replays); subsequent polls play all events with `seq > bzLastSeq` in order using an audio-time cursor so back-to-back one-shots don't overlap.
+### Sound — `Sound/`
+Layered audio policy on top of `Buzzer`. Two layers, resolved every `handle()` tick:
+- **Events** (`SoundEvent`, `sound.play(id)`) -- momentary, finite, queued (ring of 4;
+  overflow drops the newest so an in-flight sequence is never truncated).
+- **State** (`SoundState`, `sound.setState(id)`) -- exactly one persistent sound, declared
+  every loop tick from current system state rather than triggered on an edge. Calling
+  `setState()` with the same id every tick is a no-op; only a transition restarts the
+  cycle. An active event always preempts the state sound immediately; the state resumes
+  from the start of its cycle once the queue drains.
+
+`Sound/SoundLogic.h` is the pure decision engine (no Arduino deps, host-tested in
+`test/SoundLogicTest.cpp`, same pattern as `PowerAlertLogic.h`/`RemoteLinkLogic.h`).
+`SoundPattern.reps == 0` means genuinely continuous -- there is no counter that can
+expire mid-flight (a fixed repeat count doing exactly that, at `reps=255`, once caused the
+armed alert to silence itself after ~102s). `Sound/PeriodicTrigger.h` is the shared
+periodic-fire timing used by both `PowerAlertLogic` and the wireless link-loss warning
+(`SoundEvent::LinkLoss`, fired from `main.cpp` while `throttle.isSignalForcedZero()` --
+i.e. during the wireless ramp-to-zero window, before the 3 s disarm lands).
+
+`SoundEvent::FaultDisarm` is the alarm for an *unrequested* disarm -- throttle out of
+band, link lost, or a power-limiting sensor lost mid-flight. `Throttle::setDisarmed()`
+picks it over `SoundEvent::Disarmed` for any non-`Manual` `DisarmReason`. Its finite
+`reps=255` (~97 s) is deliberate rather than the bug PR #70 fixed: the motor is already
+stopped when it plays, so it exists to get attention on the way down, not to sound
+forever. Because it is a queued event, it preempts the state layer on its own -- the
+declarative `sound.setState()` in `updateSoundState()` needs no fault-disarm special case.
+
+`sound.getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest
+first), each `{seq, frequency, onMs, offMs, reps, layer, active}` -- `layer` is 0 for a
+queued event, 1 for the state layer. The web server reads this to include a `buzzer`
+array in `/api/telemetry`. The state layer only publishes on a real transition (one entry
+starting it, one stopping it), never repeatedly. On the first successful poll the
+telemetry page primes `bzLastSeq` to the highest seq (skipping queued-event replay) but
+still applies the most recent state event, so the page starts in sync with whatever the
+device is already doing. Subsequent polls play fresh queued events immediately and toggle
+the state loop on transition, pausing/resuming it around queued events.
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
@@ -117,7 +155,7 @@ Computes ESC PWM from throttle position, applying battery voltage limiting, moto
 Owns the arm-time contract for the three power-limiting signals (motor temp, ESC temp, battery voltage) via `SignalArmContract` (`src/Power/SignalArmContract.h`, host-tested in `test/SignalArmContractTest.cpp`): `onArmed()` (called by `Throttle::setArmed()` on a successful arm) snapshots each signal's current validity. A signal valid at arm that goes invalid mid-flight disarms the system (`throttle.setDisarmed(DisarmReason::MotorTempLost)` etc., via `Power::checkSignalLoss()` — called once per main-loop iteration, never from the async web-server task, since it has side effects that aren't safe to run concurrently with the loop); a signal already invalid at arm has its limiting disabled for the whole session, even if it later reads valid again.
 
 ### PowerAlert — `PowerAlert/`
-Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `buzzer.beepPowerAlert()` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
+Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
 
 ### BatteryMonitor — `BatteryMonitor/`
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.

@@ -9,37 +9,17 @@ namespace {
 // - Sounder: passive piezo buzzer
 // Device testing showed the strongest output near 85% duty cycle. A sweep also
 // showed that 2000-2500 Hz stays in the loudest range, while higher
-// frequencies lose volume. We use 2300 Hz for general UX beeps and 2000 Hz for
-// the armed alert so it remains distinct while staying in the loud range.
-constexpr uint16_t kDefaultBeepFrequencyHz = 2300;
-constexpr uint16_t kAlertBeepFrequencyHz = 2000;
-constexpr uint16_t kFaultBeepFrequencyHz = 2500;
+// frequencies lose volume.
+constexpr uint16_t kDefaultFrequencyHz = 2300;
 constexpr uint8_t kDefaultDutyCycle = 217;  // 85%
 }
 
 Buzzer::Buzzer(uint8_t buzzerPin) :
   pin(buzzerPin),
   pwmChannel(1),       // Use channel 1 to avoid conflict with ESP32Servo (uses timer 0)
-  pwmFrequency(kDefaultBeepFrequencyHz),
+  pwmFrequency(kDefaultFrequencyHz),
   pwmResolution(8),    // 8-bit resolution (0-255)
-  pwmDutyCycle(kDefaultDutyCycle),
-  playing(false),
-  startTime(0),
-  beepDuration(0),
-  pauseDuration(0),
-  repetitions(0),
-  currentRepetition(0),
-  isOn(false),
-  playingMelody(false),
-  currentMelody(nullptr),
-  currentNoteIndex(0),
-  noteStartTime(0),
-  noteIsOn(false),
-  melodyRepeat(false),
-  beepRing_{},
-  beepWriteIdx_(0),
-  beepCount_(0),
-  beepSeq_(0) {
+  pwmDutyCycle(kDefaultDutyCycle) {
 }
 
 void Buzzer::setup() {
@@ -65,33 +45,6 @@ void Buzzer::setup() {
   setPwmOff();
 }
 
-void Buzzer::silence() {
-  playing = false;
-  playingMelody = false;
-  isOn = false;
-  noteIsOn = false;
-  repetitions = 0;
-  currentMelody = nullptr;
-  currentNoteIndex = 0;
-  melodyRepeat = false;
-  setPwmOff();
-}
-
-void Buzzer::pushBeepEvent(uint16_t freq, uint16_t onMs, uint16_t offMs, uint8_t reps, bool active) {
-  beepRing_[beepWriteIdx_] = { ++beepSeq_, freq, onMs, offMs, reps, active };
-  beepWriteIdx_ = (beepWriteIdx_ + 1) % kRingSize;
-  if (beepCount_ < kRingSize) beepCount_++;
-}
-
-uint8_t Buzzer::getBeepEvents(BeepEvent* buf, uint8_t maxCount) const {
-  uint8_t count = (beepCount_ < maxCount) ? beepCount_ : maxCount;
-  uint8_t start = (beepWriteIdx_ + kRingSize - beepCount_) % kRingSize;
-  for (uint8_t i = 0; i < count; i++) {
-    buf[i] = beepRing_[(start + i) % kRingSize];
-  }
-  return count;
-}
-
 void Buzzer::recalibrate() {
   // ESP32Servo's esc.attach() can force the LEDC low-speed clock to XTAL
   // (40 MHz) so it can hit 50 Hz at 16-bit. Our timer was configured under
@@ -99,112 +52,6 @@ void Buzzer::recalibrate() {
   // frequency. Re-apply pwmFrequency so the divider is recomputed against
   // the current clock.
   ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, pwmFrequency);
-}
-
-void Buzzer::handle() {
-  uint32_t currentTime = millis();
-
-  // Handle melody/sequence playback
-  if (playingMelody && currentMelody) {
-    if (noteIsOn) {
-      // Currently playing a note
-      uint32_t elapsed = currentTime - noteStartTime;
-      if (elapsed >= currentMelody->notes[currentNoteIndex].duration) {
-        // Note finished, turn off
-        setPwmOff();
-        noteIsOn = false;
-        noteStartTime = currentTime;
-        currentNoteIndex++; // Move to next note
-      }
-    } else {
-      // In pause between notes or before first note
-      uint32_t elapsed = currentTime - noteStartTime;
-      uint16_t pauseTime = (currentNoteIndex == 0) ? 0 : currentMelody->pauseBetweenNotes;
-
-      if (elapsed >= pauseTime) {
-        // Start next note
-        if (currentNoteIndex < currentMelody->noteCount) {
-          setFrequency(currentMelody->notes[currentNoteIndex].frequency);
-          setPwmOn();
-          noteIsOn = true;
-          noteStartTime = currentTime;
-        } else {
-          // Melody finished - repeat if needed
-          if (melodyRepeat) {
-            currentNoteIndex = 0;  // Restart melody
-            noteStartTime = currentTime;
-          } else {
-            silence();
-            return;
-          }
-        }
-      }
-    }
-    return;
-  }
-
-  // Handle simple beep playback
-  if (!playing) {
-    if (isOn) {
-      isOn = false;
-      setPwmOff();
-    }
-    return;
-  }
-
-  uint32_t elapsed = currentTime - startTime;
-
-  if (isOn) {
-    if (elapsed >= beepDuration) {
-      setPwmOff();
-      isOn = false;
-      startTime = currentTime;
-      if (++currentRepetition >= repetitions) {
-        silence();
-        return;
-      }
-    }
-    return;
-  }
-
-  if (elapsed >= pauseDuration) {
-    setPwmOn();
-    isOn = true;
-    startTime = currentTime;
-  }
-}
-
-void Buzzer::startBeep(uint16_t duration, uint8_t reps, uint16_t pause, uint16_t frequency) {
-  if (playing || playingMelody) {
-    silence();
-  }
-
-  if (frequency > 0) {
-    setFrequency(frequency);
-  }
-
-  beepDuration = duration;
-  pauseDuration = pause;
-  repetitions = reps;
-  currentRepetition = 0;
-  playing = true;
-  isOn = true;
-  setPwmOn();
-  startTime = millis();
-  pushBeepEvent(pwmFrequency, duration, pause, reps, true);
-}
-
-void Buzzer::startMelody(const Melody* melody, bool repeat) {
-  if (playing || playingMelody) {
-    silence();
-  }
-
-  currentMelody = melody;
-  currentNoteIndex = 0;
-  playingMelody = true;
-  noteIsOn = false;
-  noteStartTime = millis();
-  melodyRepeat = repeat;
 }
 
 void Buzzer::setVolume(uint8_t percent) {
@@ -215,75 +62,19 @@ void Buzzer::setVolume(uint8_t percent) {
   pwmDutyCycle = (uint32_t)percent * 255 / 100;
 }
 
-void Buzzer::setFrequency(uint16_t frequency) {
-  if (frequency == 0) {
-    frequency = pwmFrequency; // Use default if 0
+void Buzzer::toneOn(uint16_t frequencyHz) {
+  if (frequencyHz == 0) {
+    frequencyHz = pwmFrequency;
   }
-
-  // Update frequency if it changed
-  if (frequency != pwmFrequency) {
-    pwmFrequency = frequency;
+  if (frequencyHz != pwmFrequency) {
+    pwmFrequency = frequencyHz;
     ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, pwmFrequency);
   }
+  setPwmOn();
 }
 
-// General UX beeps use the tuned default frequency and duty cycle.
-// The armed alert uses a slightly lower tone so it stands out immediately.
-
-void Buzzer::beepSystemStart() {
-  // 3 beeps — friendly startup confirmation
-  startBeep(150, 3, 80, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepCalibrationStep() {
-  // 2 short beeps — step acknowledgement
-  startBeep(80, 2, 60, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepCalibrationComplete() {
-  // 3 longer beeps — positive confirmation
-  startBeep(200, 3, 80, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepDisarmed() {
-  // 2 slow beeps — relaxed, disarmed state
-  startBeep(250, 2, 150, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepArmingBlocked() {
-  // 5 rapid beeps — urgent warning
-  startBeep(60, 5, 40, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepButtonClick() {
-  // 1 short beep — tactile click feedback
-  startBeep(50, 1, 0, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepArmedAlert() {
-  // Fast continuous beep — repeating armed alert
-  startBeep(200, 255, 200, kAlertBeepFrequencyHz);
-}
-
-void Buzzer::beepVolumePreview() {
-  // 1 short beep at the current volume — live feedback while adjusting
-  startBeep(120, 1, 0, kDefaultBeepFrequencyHz);
-}
-
-void Buzzer::beepPowerAlert() {
-  // 3 rapid beeps at 2500 Hz — distinct power-reduction warning
-  startBeep(100, 3, 60, kFaultBeepFrequencyHz);
-}
-
-void Buzzer::beepFaultDisarm() {
-  // Short chirp every 380 ms at 2500 Hz — distinct from beepArmedAlert
-  // (200/200 continuous at 2000 Hz) and beepPowerAlert (100/60, 3 reps,
-  // 2500 Hz, not continuous). reps=255 self-stops after ~97s (255 cycles)
-  // with no re-fire — the motor is already stopped by the time this plays,
-  // so this is meant to get immediate attention, not sound indefinitely.
-  // The telemetry page's persistent warning (once built) is the channel
-  // for anyone who doesn't hear it in time.
-  startBeep(80, 255, 300, kFaultBeepFrequencyHz);
+void Buzzer::toneOff() {
+  setPwmOff();
 }
 
 void Buzzer::setPwmOn() {
@@ -294,12 +85,4 @@ void Buzzer::setPwmOn() {
 void Buzzer::setPwmOff() {
   ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel, 0);
   ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)pwmChannel);
-}
-
-void Buzzer::stop() {
-  bool wasPlaying = playing || playingMelody;
-  silence();
-  if (wasPlaying) {
-    pushBeepEvent(pwmFrequency, 0, 0, 0, false);
-  }
 }

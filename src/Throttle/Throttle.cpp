@@ -147,7 +147,7 @@ void Throttle::handleCalibration(unsigned long now)
         // Set the max throttle value as the average
         throttlePinMax = calibrationSumMax / calibrationCountMax;
 
-        buzzer.beepCalibrationStep();
+        sound.play(SoundEvent::CalibrationStep);
 
         // Move to next step
         calibratingStep = 1;
@@ -190,7 +190,7 @@ void Throttle::handleCalibration(unsigned long now)
 
         // Calibration complete
         calibrated = true;
-        buzzer.beepCalibrationComplete();
+        sound.play(SoundEvent::CalibrationComplete);
         return;
       }
 
@@ -289,12 +289,12 @@ void Throttle::setArmed()
 
   // Don't allow arming if not calibrated
   if (!calibrated) {
-    buzzer.beepArmingBlocked();  // Warning: must calibrate throttle first
+    sound.play(SoundEvent::ArmingBlocked);  // Warning: must calibrate throttle first
     return;
   }
 
   if (getThrottlePercentage() > 0) {
-    buzzer.beepArmingBlocked();
+    sound.play(SoundEvent::ArmingBlocked);
     armingTries++;
 
     if (armingTries > 2) {
@@ -322,9 +322,6 @@ void Throttle::setDisarmed(DisarmReason reason)
   throttleArmed = false;
   lastDisarmReason = reason;
 
-  if (reason == DisarmReason::Manual) {
-    buzzer.beepDisarmed();
-  } else {
-    buzzer.beepFaultDisarm();
-  }
+  sound.play(reason == DisarmReason::Manual ? SoundEvent::Disarmed
+                                            : SoundEvent::FaultDisarm);
 }

@@ -11,6 +11,7 @@
 #include "Settings/Settings.h"
 
 Buzzer buzzer(BUZZER_PIN);
+Sound sound;
 Servo esc;
 Throttle throttle(
     []() -> int {

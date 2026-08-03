@@ -4,6 +4,7 @@
 #include "config_controller.h"
 #include <ESP32Servo.h>
 #include "Buzzer/Buzzer.h"
+#include "Sound/Sound.h"
 #include "Throttle/Throttle.h"
 #include "Button/Button.h"
 #include "Temperature/Temperature.h"
@@ -47,6 +48,7 @@ class JkBms;
 class TelemetryLogger;
 
 extern Buzzer buzzer;
+extern Sound sound;
 extern Servo esc;
 extern Throttle throttle;
 extern Button button;
@@ -140,6 +142,12 @@ extern PowerAlert powerAlert;
 
 // ========== POWER ALERT ==========
 #define POWER_ALERT_BEEP_INTERVAL_MS 10000
+
+// ========== SOUND ==========
+// Repeat interval for the audible warning during the wireless failsafe ramp
+// window (500ms-3s of link loss). Short enough to give several warnings
+// before the 3s disarm.
+#define SOUND_LINK_LOSS_INTERVAL_MS 500
 
 // ========== WATCHDOG ==========
 // Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()

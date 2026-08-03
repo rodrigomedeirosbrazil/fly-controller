@@ -47,7 +47,7 @@ src/
 ├── BatteryMonitor/           # Coulomb counting + SoC from voltage
 ├── BluetoothBms/             # BLE BMS integration
 ├── Button/                   # AceButton single-click (arm) + long-press (cruise)
-├── Buzzer/                   # Non-blocking PWM beep patterns
+├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
 ├── JbdBms/                   # JBD BMS (BLE) protocol
@@ -57,6 +57,7 @@ src/
 ├── RemoteLink/               # ESP-NOW remote-throttle link + host-tested failsafe logic
 ├── Sensors/                  # BatteryVoltageSensor (XAG voltage divider)
 ├── Settings/                 # Persistent config via ESP32 Preferences
+├── Sound/                    # Layered audio policy: event queue + persistent state
 ├── Telemetry/                # Facade (delegates to *Telemetry) + TelemetryData struct
 ├── Temperature/              # NTC thermistor via ReadFn
 ├── Throttle/                 # Hall sensor via ReadFn + calibration + cruise
@@ -134,7 +135,7 @@ Available on all builds. Connects to WiFi AP, serves config pages at `192.168.4.
 
 WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).
 
-The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer beeps in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `active`) — the browser replays all events with `seq > bzLastSeq` in order using a Web Audio time cursor. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
+The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer sounds in the browser via Web Audio API. The `buzzer` field in the JSON response is an **array** of up to 8 `BeepEvent` entries (ring buffer, oldest→newest: `seq`, `freq`, `onMs`, `offMs`, `reps`, `layer`, `active`) — `layer` is 0 for a queued event, 1 for the persistent state layer. The browser plays fresh queued events (`seq > bzLastSeq`) immediately and toggles a looping oscillator on state transitions only (repeated `active:true`/`active:false` for an already-running/stopped state is ignored); an event pauses the state loop and resumes it afterward. A 🔔/🔇 toggle button in the status bar unlocks the `AudioContext` (browser autoplay policy) and controls mute.
 
 The `/api/telemetry` response also includes a `powerAlert` object (`{seq, causes: [...]}`) driven by the `PowerAlert` component. When any power limiter is active while armed, the telemetry page highlights the affected metric cards in red (persistent while limiting) and shows a dismissible alert panel synced to the `seq` counter (reopens on every 10 s re-fire after dismissal). See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
 
@@ -145,6 +146,6 @@ An optional second ESP32 (the **remote throttle**, firmware in the separate [fly
 - **Source selection:** `Settings::getThrottleSource()` (wired/wireless), set in the web portal. In wireless mode the controller's `Throttle` `ReadFn` returns the last Hall value received over the link, and the existing AceButton runs on the remote's forwarded **raw button state** (via `SourceSwitchButtonConfig::readButton`) — so calibration and the arming gesture are identical wired/wireless. The remote stays "dumb"; the controller owns all logic.
 - **Signal validity & failsafe (`Throttle/ThrottleSignalLogic.h`, host-tested):** a single fault-escalation state machine shared by both wired and wireless throttle sources, parameterized per source. Wireless: no packet for >500 ms → ramp throttle to 0 (stay armed, via the ReadFn feeding 0); >3 s → disarm. Wired: zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately, no ramp-to-zero step. `RemoteLink::isLinkFresh()` supplies the raw "packet arrived recently" signal that feeds the wireless config; `RemoteLink/RemoteLinkLogic.h` no longer exists (absorbed into `ThrottleSignalLogic`). A disarm from either path is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `/api/telemetry` and shown as a persistent warning on the Telemetry page until the pilot fixes the fault and re-arms.
 - **Pairing:** web portal "Parear remote" arms pairing; the next remote heard is saved (MAC in `Settings`). The remote persists the controller MAC in NVS and enters pairing by holding its button while unpaired.
-- **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`.
+- **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`. The remote's `Armed`/`Stop`/`Disarmed` commands now mirror the controller's own armed+stopped state (`updateSoundState()` in `main.cpp`, using the same `throttle.isEngaged()` hysteresis as `Sound`'s `ArmedIdle` state) — the two used to disagree, with the remote beeping on armed alone.
 
 Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red LED=GPIO7 (armed), green LED=GPIO10 (disarmed). Pure decision logic (LED state machine, link-loss, failsafe) lives in host-testable headers tested with `c++ -std=c++17` like `test/PowerTest.cpp`.

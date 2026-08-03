@@ -15,6 +15,8 @@
 #include "Throttle/Throttle.h"
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
+#include "Sound/Sound.h"
+#include "Sound/PeriodicTrigger.h"
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
@@ -126,7 +128,7 @@ void setup()
   esc.writeMicroseconds(ESC_MIN_PWM);
   buzzer.recalibrate();
   buzzer.setVolume(settings.getBuzzerVolume());
-  buzzer.beepSystemStart();
+  sound.play(SoundEvent::SystemStart);
   remoteLink.requestBeep(RemoteBeep::SystemStart);
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
@@ -138,9 +140,9 @@ void setup()
 
 void loop()
 {
-  // buzzer.handle() runs first so a beep that finished during the previous
+  // sound.handle() runs first so a tone that finished during the previous
   // iteration is silenced before any potentially slow component runs.
-  buzzer.handle();
+  sound.handle();
 
   button.check();
   bluetoothBms.update();
@@ -155,6 +157,24 @@ void loop()
   remoteLink.setArmed(throttle.isArmed());
   remoteLink.setCalibrating(!throttle.isCalibrated());
   remoteLink.handle();
+
+  // Audible warning during the wireless ramp-to-zero window (500ms-3s of link
+  // loss), where there would otherwise be silence -- so a pilot not looking at
+  // the remote still knows something is wrong before the 3s disarm lands.
+  //
+  // The failsafe itself no longer lives here: both the ramp and the disarm are
+  // now driven by Throttle::updateSignalValidity() via ThrottleSignalLogic, so
+  // wired and wireless share one escalation path. isSignalForcedZero() is that
+  // state machine's ForceZero output, which for wireless means exactly the old
+  // FailsafeAction::RampToZero.
+  static PeriodicTrigger linkLossTrigger;
+  bool wirelessRampingToZero = settings.getThrottleSource() == ThrottleSourceWireless
+                               && throttle.isArmed()
+                               && throttle.isSignalForcedZero();
+  if (linkLossTrigger.update(wirelessRampingToZero, millis(), SOUND_LINK_LOSS_INTERVAL_MS)) {
+    sound.play(SoundEvent::LinkLoss);
+  }
+
 
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
@@ -179,7 +199,7 @@ void loop()
   batteryMonitor.update();
 
   handleEsc();
-  handleArmedBeep();
+  updateSoundState();
   powerAlert.handle();
 
   webServer.handleClient();
@@ -234,42 +254,47 @@ void checkCanbus()
 
 bool isMotorRunning()
 {
-    return throttle.getThrottlePercentage() > 1 && throttle.isArmed();
+    // Uses the same 2%/1% engage hysteresis Power already gates on
+    // (ThrottleEngagementLogic), instead of a raw 1% threshold. The raw
+    // threshold let Hall-sensor noise at idle flip this repeatedly, which
+    // re-triggered the armed alert from scratch on every flip.
+    return throttle.isArmed() && throttle.isEngaged();
 }
 
-void handleArmedBeep()
+void updateSoundState()
 {
     static bool wasArmed = false;
-    static bool wasMotorRunning = false;
+    static bool wasArmedIdle = false;
 
     bool isArmed = throttle.isArmed();
-    bool motorRunning = isMotorRunning();
+    bool armedIdle = isArmed && !isMotorRunning();
 
-    // Controller buzzer: beep when armed + motor stopped (local safety alert).
-    if (isArmed && !motorRunning && (!wasArmed || wasMotorRunning)) {
-        buzzer.beepArmedAlert();
-    }
-    // Don't stop() a fault-disarm alarm the instant it starts — setDisarmed()
-    // may have just started beepFaultDisarm() earlier this same loop tick
-    // (from Throttle::handle()'s own signal check, or from
-    // power.checkSignalLoss() further up in loop()), and startBeep() would
-    // otherwise silence its own freshly-started pattern. Manual disarm is
-    // unaffected: this only special-cases a non-Manual reason.
-    bool justFaultDisarmed = !isArmed && throttle.getDisarmReason() != DisarmReason::Manual;
-    if ((!isArmed || motorRunning) && wasArmed && !wasMotorRunning && !justFaultDisarmed) {
-        buzzer.stop();
-    }
+    // Controller buzzer: declarative -- recalculated every tick from the
+    // current state, so a preempting event (button click, power alert,
+    // ...) can never permanently silence it. See Sound/SoundLogic.h.
+    //
+    // This also removes the need for the old fault-disarm special case: the
+    // imperative version had to guard against buzzer.stop() silencing a
+    // fault alarm started earlier in the same tick. Here a disarm simply
+    // stops declaring ArmedIdle, and the queued FaultDisarm event preempts
+    // the state layer on its own.
+    sound.setState(armedIdle ? SoundState::ArmedIdle : SoundState::None);
 
-    // Remote buzzer: beep continuously while armed, stop on disarm.
-    // Decoupled from motor state to avoid Stop/Armed oscillation from
-    // throttle noise crossing the isMotorRunning threshold.
-    if (isArmed && !wasArmed) {
+    // Remote buzzer: requestBeep() is a one-shot command, so it still needs
+    // edge detection. Now mirrors the same armed+stopped rule as the
+    // controller (isMotorRunning() uses the same engage hysteresis), so the
+    // two buzzers agree on when to sound -- previously the remote beeped on
+    // armed alone, ignoring motor state.
+    if (armedIdle && !wasArmedIdle) {
         remoteLink.requestBeep(RemoteBeep::Armed);
+    }
+    if (!armedIdle && wasArmedIdle && isArmed) {
+        remoteLink.requestBeep(RemoteBeep::Stop);
     }
     if (!isArmed && wasArmed) {
         remoteLink.requestBeep(RemoteBeep::Disarmed);
     }
 
     wasArmed = isArmed;
-    wasMotorRunning = motorRunning;
+    wasArmedIdle = armedIdle;
 }

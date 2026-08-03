@@ -13,7 +13,7 @@ void handleEsc();
 void checkCanbus();
 void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState);
 bool isMotorRunning();
-void handleArmedBeep();
+void updateSoundState();
 
 extern ControllerWebServer webServer;
 extern Logger logger;
