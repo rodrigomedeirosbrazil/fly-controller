@@ -35,18 +35,16 @@ Sound::Sound() :
   // of link loss), where today there is silence. Short and sharp so it's
   // unmistakably different from every other pattern.
   logic_.setEventPattern(SoundEvent::LinkLoss,            {kPowerFreqHz,   80,  60,  2});
-  // Disarm caused by a signal fault (throttle out of band, link lost, or a
-  // power-limiting sensor lost mid-flight) -- as opposed to the pilot asking
-  // for it. A short chirp every 380ms, long enough to be impossible to miss.
-  // Unlike ArmedIdle, the finite repeat count here is deliberate, not the
-  // reps=255 bug PR #70 fixed: the motor is already stopped by the time this
-  // plays, so it exists to get immediate attention on the way down, not to
-  // sound forever. 255 reps is ~97s.
-  logic_.setEventPattern(SoundEvent::FaultDisarm,         {kPowerFreqHz,   80,  300, 255});
 
   // reps=0: genuinely continuous. This is the fix for the bug where
   // reps=255 was a literal repeat count and silenced itself after ~102s.
-  logic_.setStatePattern(SoundState::ArmedIdle, {kArmedFreqHz, 200, 200, 0});
+  logic_.setStatePattern(SoundState::ArmedIdle,   {kArmedFreqHz, 200, 200, 0});
+  // A faster, higher chirp than ArmedIdle so an unrequested disarm is
+  // immediately distinguishable from the ordinary armed-and-stopped alert.
+  // Also continuous: main.cpp stops declaring this state on re-arm or after
+  // SOUND_FAULT_DISARM_ALARM_MS, so the bound lives in the condition rather
+  // than in a repeat counter that could expire while the fault is still live.
+  logic_.setStatePattern(SoundState::FaultDisarm, {kPowerFreqHz, 80,  300, 0});
 }
 
 void Sound::play(SoundEvent id) {

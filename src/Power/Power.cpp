@@ -36,8 +36,8 @@ void Power::checkSignalLoss() {
 
     // All three contracts are updated unconditionally, even if an earlier
     // one in this same call already disarmed — every contract must see this
-    // tick's sample to keep its own debounce timer honest. At most one
-    // DisarmReason/FaultDisarm sound actually takes effect, since
+    // tick's sample to keep its own debounce timer honest. Only the first
+    // one to fire actually latches a DisarmReason, since
     // Throttle::setDisarmed() early-returns once already disarmed.
     bool motorLost = motorTempContract_.update(telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS);
     bool escLost   = escTempContract_.update(telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);

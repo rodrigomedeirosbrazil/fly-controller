@@ -322,6 +322,11 @@ void Throttle::setDisarmed(DisarmReason reason)
   throttleArmed = false;
   lastDisarmReason = reason;
 
-  sound.play(reason == DisarmReason::Manual ? SoundEvent::Disarmed
-                                            : SoundEvent::FaultDisarm);
+  // Only the manual disarm gets an event. A fault disarm is announced by
+  // SoundState::FaultDisarm, declared from lastDisarmReason in main.cpp's
+  // updateSoundState() -- it has to persist until the pilot re-arms, and an
+  // event cannot be stopped once started.
+  if (reason == DisarmReason::Manual) {
+    sound.play(SoundEvent::Disarmed);
+  }
 }

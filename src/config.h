@@ -165,6 +165,12 @@ extern PowerAlert powerAlert;
 // before the 3s disarm.
 #define SOUND_LINK_LOSS_INTERVAL_MS 500
 
+// How long SoundState::FaultDisarm keeps sounding after an unrequested
+// disarm. Re-arming clears it immediately (setArmed() resets the latched
+// DisarmReason); this is only the ceiling for a fault the pilot can't clear
+// where they're standing, so the buzzer doesn't run until the pack is flat.
+#define SOUND_FAULT_DISARM_ALARM_MS 60000
+
 // ========== WATCHDOG ==========
 // Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()
 // within this window or the system will reboot. 10 s is generous for a loop that

@@ -131,13 +131,22 @@ periodic-fire timing used by both `PowerAlertLogic` and the wireless link-loss w
 (`SoundEvent::LinkLoss`, fired from `main.cpp` while `throttle.isSignalForcedZero()` --
 i.e. during the wireless ramp-to-zero window, before the 3 s disarm lands).
 
-`SoundEvent::FaultDisarm` is the alarm for an *unrequested* disarm -- throttle out of
+`SoundState::FaultDisarm` is the alarm for an *unrequested* disarm -- throttle out of
 band, link lost, or a power-limiting sensor lost mid-flight. `Throttle::setDisarmed()`
-picks it over `SoundEvent::Disarmed` for any non-`Manual` `DisarmReason`. Its finite
-`reps=255` (~97 s) is deliberate rather than the bug PR #70 fixed: the motor is already
-stopped when it plays, so it exists to get attention on the way down, not to sound
-forever. Because it is a queued event, it preempts the state layer on its own -- the
-declarative `sound.setState()` in `updateSoundState()` needs no fault-disarm special case.
+plays `SoundEvent::Disarmed` only for a `Manual` reason; every other reason is announced
+by this **state**, declared in `updateSoundState()` from the latched `DisarmReason`.
+
+It has to be a state, not an event. An in-flight event cannot be cancelled and calls
+`stateRunner_.stop()` on every tick it runs, so a long fault alarm on the event layer
+kept sounding straight through a successful re-arm and queued every other beep behind
+itself (the pattern was `reps=255`, ~97 s). As a state it stops on the very next tick
+once the condition clears -- and `setArmed()` resets `lastDisarmReason` to `None`, so
+re-arming silences it immediately. The pattern is continuous (`reps=0`); the bound is
+`SOUND_FAULT_DISARM_ALARM_MS` (60 s) applied to the *condition* in `updateSoundState()`,
+so a fault the pilot can't clear on the spot doesn't sound until the pack is flat.
+
+General rule this illustrates: a sound that must stop when a condition clears belongs on
+the state layer. The event layer is for momentary, finite, fire-and-forget sounds only.
 
 `sound.getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest
 first), each `{seq, frequency, onMs, offMs, reps, layer, active}` -- `layer` is 0 for a

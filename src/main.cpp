@@ -278,20 +278,47 @@ void updateSoundState()
 {
     static bool wasArmed = false;
     static bool wasArmedIdle = false;
+    static bool wasFaultDisarmed = false;
+    static unsigned long faultDisarmedAtMs = 0;
 
     bool isArmed = throttle.isArmed();
     bool armedIdle = isArmed && !isMotorRunning();
 
+    // A disarm the pilot did not ask for stays latched in lastDisarmReason
+    // until the next successful arm clears it, so this is a level, not an
+    // edge. setArmed() resets the reason to None, which is what silences the
+    // alarm the instant the pilot re-arms.
+    DisarmReason reason = throttle.getDisarmReason();
+    bool faultDisarmed = !isArmed
+                         && reason != DisarmReason::None
+                         && reason != DisarmReason::Manual;
+
+    if (faultDisarmed && !wasFaultDisarmed) {
+        faultDisarmedAtMs = millis();
+    }
+    wasFaultDisarmed = faultDisarmed;
+
+    // Bounded so a fault that can't be cleared on the ground (a cable the
+    // pilot has to go fix) doesn't sound until the battery dies. Re-arming
+    // still silences it immediately -- this is only the give-up timer.
+    bool faultAlarm = faultDisarmed
+                      && (millis() - faultDisarmedAtMs) < SOUND_FAULT_DISARM_ALARM_MS;
+
     // Controller buzzer: declarative -- recalculated every tick from the
     // current state, so a preempting event (button click, power alert,
-    // ...) can never permanently silence it. See Sound/SoundLogic.h.
+    // ...) can never permanently silence it, and dropping a condition
+    // silences its sound on the very next tick. See Sound/SoundLogic.h.
     //
-    // This also removes the need for the old fault-disarm special case: the
-    // imperative version had to guard against buzzer.stop() silencing a
-    // fault alarm started earlier in the same tick. Here a disarm simply
-    // stops declaring ArmedIdle, and the queued FaultDisarm event preempts
-    // the state layer on its own.
-    sound.setState(armedIdle ? SoundState::ArmedIdle : SoundState::None);
+    // faultAlarm and armedIdle are mutually exclusive by construction (a
+    // fault disarm implies !isArmed); the explicit ordering just documents
+    // which would win.
+    SoundState desiredState = SoundState::None;
+    if (faultAlarm) {
+        desiredState = SoundState::FaultDisarm;
+    } else if (armedIdle) {
+        desiredState = SoundState::ArmedIdle;
+    }
+    sound.setState(desiredState);
 
     // Remote buzzer: requestBeep() is a one-shot command, so it still needs
     // edge detection. Now mirrors the same armed+stopped rule as the

@@ -64,7 +64,7 @@ O sistema desarma automaticamente, sem intervenção do piloto, se a leitura do 
 - **Acelerador sem fio (remote):** perda de sinal do remote por mais de 3 segundos desarma o sistema. Entre 500 ms e 3 s sem sinal, a potência é reduzida gradualmente a zero, mas o sistema continua armado.
 
 Em qualquer um dos dois casos:
-- O buzzer toca um padrão de alarme contínuo, diferente do beep de desarme manual.
+- O buzzer toca um padrão de alarme contínuo, mais rápido e mais agudo que o beep de desarme manual. Ele **para assim que você arma o sistema de novo**; se você não conseguir corrigir a falha no lugar, ele se cala sozinho depois de 1 minuto.
 - A página de Telemetria mostra um aviso permanente na tela informando o motivo (não desaparece sozinho).
 - Para voltar a voar, primeiro corrija o problema (verifique a conexão do sensor/cabo, ou o link do remote) e depois arme novamente pelo procedimento normal.
 
