@@ -13,14 +13,20 @@
 Buzzer buzzer(BUZZER_PIN);
 Sound sound;
 Servo esc;
-Throttle throttle([]() -> int {
-    if (settings.getThrottleSource() == ThrottleSourceWireless) {
-        // Failsafe ramp: feed 0 so the existing ramp-down drives the motor to idle.
-        if (remoteLink.failsafe(true, millis()) != FailsafeAction::None) return 0;
-        return (int)remoteLink.lastHallRaw();
+Throttle throttle(
+    []() -> int {
+        if (settings.getThrottleSource() == ThrottleSourceWireless) {
+            return (int)remoteLink.lastHallRaw();
+        }
+        return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
+    },
+    []() -> bool {
+        if (settings.getThrottleSource() == ThrottleSourceWireless) {
+            return remoteLink.isLinkFresh(millis());
+        }
+        return ads1115.lastReadOk(ADS1115_THROTTLE_CHANNEL);
     }
-    return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
-});
+);
 #if USES_CAN_BUS
 Canbus canbus;
 TmotorCan tmotorCan;
@@ -31,31 +37,37 @@ Button button(BUTTON_PIN);
 #if IS_XAG
 BatteryVoltageSensor batterySensor(
     []() { return ads1115.readChannel(ADS1115_BATTERY_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_BATTERY_CHANNEL); },
     BATTERY_DIVIDER_RATIO,
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 Temperature motorTemp(
     []() { return ads1115.readChannel(ADS1115_MOTOR_TEMP_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_MOTOR_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 XagTelemetry xagTelemetry;
 Temperature escTemp(
     []() { return ads1115.readChannel(ADS1115_ESC_TEMP_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_ESC_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 #elif IS_TMOTOR
 BatteryVoltageSensor batterySensor(
     []() { return ads1115.readChannel(ADS1115_BATTERY_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_BATTERY_CHANNEL); },
     BATTERY_DIVIDER_RATIO,
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 Temperature motorTemp(
     []() { return ads1115.readChannel(ADS1115_MOTOR_TEMP_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_MOTOR_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 #else
 Temperature motorTemp(
     []() { return ads1115.readChannel(ADS1115_MOTOR_TEMP_CHANNEL); },
+    []() -> bool { return ads1115.lastReadOk(ADS1115_MOTOR_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
 #endif

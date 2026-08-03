@@ -2,18 +2,34 @@
 #define Throttle_h
 
 #include "../config.h"
+#include "../DisarmReason.h"
 #include "ThrottleEngagementLogic.h"
+#include "ThrottleSignalLogic.h"
+#include "ThrottleWiredValidity.h"
 
 class Throttle {
     public:
         typedef int (*ReadFn)();
-        Throttle(ReadFn readFn);
+        typedef bool (*ReadOkFn)();
+        Throttle(ReadFn readFn, ReadOkFn readOkFn);
         void handle();
         bool isArmed() { return throttleArmed; }
         void setArmed();
-        void setDisarmed();
+        void setDisarmed(DisarmReason reason = DisarmReason::Manual);
         bool isCalibrated() { return calibrated; }
         bool isEngaged() { return engagement.isEngaged(); }
+
+        // True whenever ThrottleSignalLogic's last action was ForceZero or
+        // Disarm. Wireless can spend real time here pre-disarm (up to
+        // disarmMs) and stays true afterward too, for as long as it remains
+        // disarmed. Wired's ThrottleSignalLogic action is always Disarm, never
+        // ForceZero (its disarmMs is 0), but this flag is set on Disarm as
+        // well and — same as wireless — stays true for as long as it remains
+        // disarmed, not just for a single tick. It has no consumer outside
+        // this class; wired's readThrottlePin() never acts on it (see the
+        // comment there for why that matters).
+        bool isSignalForcedZero() const { return signalForcedZero; }
+        DisarmReason getDisarmReason() const { return lastDisarmReason; }
 
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
@@ -50,10 +66,19 @@ class Throttle {
         int throttlePinMax;
 
         ReadFn readFn;
+        ReadOkFn readOkFn;
+        bool lastSampleOk;
+        ThrottleWiredValidity wiredValidity;
+
+        ThrottleSignalLogic signalLogic;
+        bool signalForcedZero;
+        DisarmReason lastDisarmReason;
+        bool wasWireless;
 
         void readThrottlePin();
         void resetCalibration();
         void handleCalibration(unsigned long now);
+        void updateSignalValidity(unsigned long now);
 };
 
 #endif

@@ -52,9 +52,16 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                 <button type="button" class="power-alert-close" id="powerAlertClose" aria-label="Fechar alerta">&#x2715;</button>
             </div>
 
+            <div class="power-alert-panel" id="faultDisarmPanel">
+                <div style="flex:1;">
+                    <div class="power-alert-title" id="faultDisarmTitle">&#x26A0; Desarmado por falha</div>
+                    <div class="power-alert-causes" id="faultDisarmReason"></div>
+                </div>
+            </div>
+
             <div class="grid telemetry-grid">
                 <div class="card" id="cardBattery">
-                    <div class="label">Tens&#xE3;o</div>
+                    <div class="label">Tens&#xE3;o <span class="status" id="battVBadge" style="display:none;"></span></div>
                     <div class="value" id="batteryVoltage">--</div>
                     <div class="armed-pill disarmed" id="armedPill">
                         <span class="armed-dot"></span>
@@ -87,12 +94,12 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     </div>
                 </div>
                 <div class="card" id="cardMotorTemp">
-                    <div class="label">Motor</div>
+                    <div class="label">Motor <span class="status" id="motorTempBadge" style="display:none;"></span></div>
                     <div class="value" id="motorTemp">--</div>
                     <div class="sub" id="rpm">--</div>
                 </div>
                 <div class="card" id="cardEscTemp">
-                    <div class="label">ESC</div>
+                    <div class="label">ESC <span class="status" id="escTempBadge" style="display:none;"></span></div>
                     <div class="value" id="escTemp">--</div>
                     <div class="sub" id="escCurrent">--</div>
                 </div>
@@ -693,6 +700,28 @@ const setStatus = (kind) => {
     badge.textContent = kind === 'live' ? 'AO VIVO' : (kind === 'stale' ? 'DESATUALIZADO' : 'SEM DADOS');
 };
 
+const SIGNAL_BADGE_TEXT = { s: 'DESATUALIZADO', i: 'INVÁLIDO', a: 'SEM DADO' };
+const SIGNAL_BADGE_CLASS = { s: 'stale', i: 'nodata', a: 'status-secondary' };
+
+// Shows formattedValue and hides the badge when the signal is valid;
+// otherwise shows "—" and a badge describing why — never a fabricated
+// number for a signal that isn't valid.
+const renderSignalBadge = (badgeId, valueId, code, formattedValue) => {
+    const badge = $(badgeId);
+    const valueEl = $(valueId);
+    if (!badge || !valueEl) return;
+
+    if (!code || code === 'v') {
+        badge.style.display = 'none';
+        valueEl.textContent = formattedValue;
+    } else {
+        badge.style.display = '';
+        badge.className = `status ${SIGNAL_BADGE_CLASS[code] || 'status-secondary'}`;
+        badge.textContent = SIGNAL_BADGE_TEXT[code] || code;
+        valueEl.textContent = '—'; // —
+    }
+};
+
 const renderTelemetry = (data) => {
     const av = data.availability || {};
 
@@ -703,16 +732,17 @@ const renderTelemetry = (data) => {
         setStatus(age > 3000 ? 'stale' : 'live');
     }
 
-    setText('batteryVoltage', fmtV(data.batteryVoltageMv || 0));
+    const signals = data.signals || {};
+    renderSignalBadge('battVBadge', 'batteryVoltage', signals.battV, fmtV(data.batteryVoltageMv || 0));
     setText('soc', `${data.batteryPercentCc ?? 0} %`);
     setText('socVoltage', `${data.batteryPercentVoltage || 0} %`);
     setText('powerKw', av.powerKw ? fmtKw(data.powerKwX10 ?? 0) : 'N/A');
     setText('powerPercent', `${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
     setText('throttleRaw', `${data.throttleRaw || 0}`);
-    setText('motorTemp', fmtC(data.motorTempMc || 0));
+    renderSignalBadge('motorTempBadge', 'motorTemp', signals.motorTemp, fmtC(data.motorTempMc || 0));
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
-    setText('escTemp', fmtC(data.escTempMc || 0));
+    renderSignalBadge('escTempBadge', 'escTemp', signals.escTemp, fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');
 
     const armedPill = $('armedPill');
@@ -761,6 +791,7 @@ const renderTelemetry = (data) => {
 
     bzProcessEvents(data.buzzer);
     renderPowerAlert(data.powerAlert);
+    renderFaultDisarm(data);
 };
 
 // ============ Power Alert ============
@@ -823,6 +854,34 @@ const renderPowerAlert = (pa) => {
         paLastSeq = seq;
         causesEl.textContent = causes.map(c => PA_CAUSE_LABELS[c] || c).join(' · ');
         panel.classList.add('open');
+    }
+};
+
+// ============ Fault Disarm ============
+const FAULT_DISARM_INFO = {
+    'THR ERR':  { title: 'Desarmado: falha no acelerador (com fio)', detail: 'Leitura fora da faixa calibrada ou falha de leitura do ADS1115.' },
+    'LINK ERR': { title: 'Desarmado: falha no acelerador (sem fio)', detail: 'Link com o remote perdido por mais de 3 segundos.' },
+    'MOT ERR':  { title: 'Desarmado: falha no sensor de temperatura do motor', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+    'ESC ERR':  { title: 'Desarmado: falha no sensor de temperatura do ESC', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+    'BATT ERR': { title: 'Desarmado: falha no sensor de tensão da bateria', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+};
+
+const renderFaultDisarm = (data) => {
+    const panel = $('faultDisarmPanel');
+    const titleEl = $('faultDisarmTitle');
+    const reasonEl = $('faultDisarmReason');
+    if (!panel || !titleEl || !reasonEl) return;
+
+    const reason = data.disarmReason || '';
+    const isFault = !data.armed && reason !== '' && reason !== 'MANUAL';
+
+    if (isFault) {
+        const info = FAULT_DISARM_INFO[reason];
+        titleEl.textContent = info ? `⚠ ${info.title}` : '⚠ Desarmado por falha';
+        reasonEl.textContent = info ? info.detail : `Código: ${reason}`;
+        panel.classList.add('open');
+    } else {
+        panel.classList.remove('open');
     }
 };
 

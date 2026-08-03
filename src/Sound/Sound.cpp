@@ -38,7 +38,13 @@ Sound::Sound() :
 
   // reps=0: genuinely continuous. This is the fix for the bug where
   // reps=255 was a literal repeat count and silenced itself after ~102s.
-  logic_.setStatePattern(SoundState::ArmedIdle, {kArmedFreqHz, 200, 200, 0});
+  logic_.setStatePattern(SoundState::ArmedIdle,   {kArmedFreqHz, 200, 200, 0});
+  // A faster, higher chirp than ArmedIdle so an unrequested disarm is
+  // immediately distinguishable from the ordinary armed-and-stopped alert.
+  // Also continuous: main.cpp stops declaring this state on re-arm or after
+  // SOUND_FAULT_DISARM_ALARM_MS, so the bound lives in the condition rather
+  // than in a repeat counter that could expire while the fault is still live.
+  logic_.setStatePattern(SoundState::FaultDisarm, {kPowerFreqHz, 80,  300, 0});
 }
 
 void Sound::play(SoundEvent id) {

@@ -92,10 +92,14 @@ Use `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — not `#ifdef`. These ar
 I2C 16-bit ADC (Adafruit ADS1X15). All analog readings go through `ads1115.readChannel(N)`. Channels: 0=Throttle, 1=MotorTemp, 2=EscTemp (XAG), 3=Battery voltage (XAG/Tmotor). Initialized first in `setup()`.
 
 ### Throttle — `Throttle/`
-Hall sensor input. Accepts `ReadFn`. Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
+Hall sensor input. Accepts a `ReadFn` (value) and `ReadOkFn` (was the read good/fresh). Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
+
+Throttle signal validity is split into two host-tested pieces:
+- `ThrottleSignalLogic` (`test/ThrottleSignalLogicTest.cpp`) — the fault-escalation state machine shared by wired and wireless sources. Takes a per-tick "is this sample valid" bool plus a `ThrottleSignalConfig{debounceMs, disarmMs, recoveryMs}` and returns `Ok` / `ForceZero` / `Disarm`. Wired uses `{0,0,0}` (any invalid sample disarms immediately); wireless uses `{500,3000,200}` (ramp-to-zero at 500ms, disarm at 3s, plus a 200ms recovery guard against a flapping link).
+- `ThrottleWiredValidity` (`test/ThrottleWiredValidityTest.cpp`) — decides whether a *wired* sample itself is valid: the filtered reading must sit inside the calibrated band (asymmetric -20%/+10% margin, clamped inside `[1, adcMaxValue-1]` so it can still catch an open-circuit or short-to-rail reading regardless of calibration span), and the I2C read must not have failed 3+ times in a row (small tolerance for a transient bus glitch).
 
 ### Temperature — `Temperature/`
-NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only).
+NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `ReadOkFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only). `isValid()` checks the averaged raw ADC counts against a fixed physical band (91-2954, i.e. -20..150°C) plus I2C read health, via the shared `SensorReadingValidity` (`src/ADS1115/SensorReadingValidity.h`) — also used by `BatteryVoltageSensor`.
 
 ### Buzzer — `Buzzer/`
 Pure LEDC PWM tone driver: `toneOn(freqHz)`, `toneOff()`, `setVolume(percent)`,
@@ -124,7 +128,25 @@ Layered audio policy on top of `Buzzer`. Two layers, resolved every `handle()` t
 expire mid-flight (a fixed repeat count doing exactly that, at `reps=255`, once caused the
 armed alert to silence itself after ~102s). `Sound/PeriodicTrigger.h` is the shared
 periodic-fire timing used by both `PowerAlertLogic` and the wireless link-loss warning
-(`SoundEvent::LinkLoss`, fired via `PeriodicTrigger` in `main.cpp`'s failsafe block).
+(`SoundEvent::LinkLoss`, fired from `main.cpp` while `throttle.isSignalForcedZero()` --
+i.e. during the wireless ramp-to-zero window, before the 3 s disarm lands).
+
+`SoundState::FaultDisarm` is the alarm for an *unrequested* disarm -- throttle out of
+band, link lost, or a power-limiting sensor lost mid-flight. `Throttle::setDisarmed()`
+plays `SoundEvent::Disarmed` only for a `Manual` reason; every other reason is announced
+by this **state**, declared in `updateSoundState()` from the latched `DisarmReason`.
+
+It has to be a state, not an event. An in-flight event cannot be cancelled and calls
+`stateRunner_.stop()` on every tick it runs, so a long fault alarm on the event layer
+kept sounding straight through a successful re-arm and queued every other beep behind
+itself (the pattern was `reps=255`, ~97 s). As a state it stops on the very next tick
+once the condition clears -- and `setArmed()` resets `lastDisarmReason` to `None`, so
+re-arming silences it immediately. The pattern is continuous (`reps=0`); the bound is
+`SOUND_FAULT_DISARM_ALARM_MS` (60 s) applied to the *condition* in `updateSoundState()`,
+so a fault the pilot can't clear on the spot doesn't sound until the pack is flat.
+
+General rule this illustrates: a sound that must stop when a condition clears belongs on
+the state layer. The event layer is for momentary, finite, fire-and-forget sounds only.
 
 `sound.getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest
 first), each `{seq, frequency, onMs, offMs, reps, layer, active}` -- `layer` is 0 for a
@@ -138,7 +160,14 @@ the state loop on transition, pausing/resuming it around queued events.
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
-`getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Battery cause is only set when `telemetry.hasData()` (excludes the conservative 50% startup floor). Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
+`getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
+Owns the arm-time contract for the three power-limiting signals (motor temp, ESC temp, battery voltage) via `SignalArmContract` (`src/Power/SignalArmContract.h`, host-tested in `test/SignalArmContractTest.cpp`): `onArmed()` (called by `Throttle::setArmed()` on a successful arm) opens the contract; `Power::checkSignalLoss()` advances it once per main-loop iteration — never from the async web-server task, since disarming isn't safe to run concurrently with the loop. A signal valid at arm that goes invalid mid-flight disarms the system (`throttle.setDisarmed(DisarmReason::MotorTempLost)` etc.); a signal already invalid at arm has its limiting disabled for the whole session, even if it later reads valid again.
+
+Two properties keep that disarm off noise, both host-tested:
+- **The arm snapshot is deferred.** `onArmed()` takes no validity argument — it only marks a snapshot as due, and the first `checkSignalLoss()` captures it. Arming runs in `button.check()` at the top of `loop()` while the telemetry cache is refreshed near the bottom, so a snapshot taken inside `onArmed()` reads the *previous* iteration's sample and is then compared against the current one, with every slow component in between (BLE, web server) widening the gap. On Tmotor, where ESC temp validity is a 1 s CAN freshness window, that straddle alone was enough to disarm on the very tick after arming.
+- **Loss is debounced by `SIGNAL_LOSS_GRACE_MS` (2 s).** The signal must read invalid continuously for the full window; any valid sample resets the timer. `shouldLimit()` is *not* debounced — an invalid sample stops that signal from driving the limiter immediately; the grace only delays the disarm.
+
+`checkSignalLoss()` early-returns when disarmed so the debounce timers don't accumulate across sessions.
 
 ### PowerAlert — `PowerAlert/`
 Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
@@ -158,6 +187,10 @@ Unified facade over build-specific telemetry sources. `telemetry.getXxx()` deleg
 ### CAN Bus — `Canbus/`
 Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `tmotorCan.parseEscMessage()`.
 
+The RX queue is set to `CAN_RX_QUEUE_LEN` (32) instead of the driver default of 5, and `MAX_CAN_FRAMES_PER_TICK` matches it — an ESC_STATUS is a 3-frame transfer that is discarded whole if any one frame is dropped, so a shallow queue plus a slow loop iteration silently costs entire telemetry updates.
+
+`canbus.handleBusRecovery()` runs first in `checkCanbus()` and is **required**, not defensive. Transmitting with nothing to acknowledge (CAN cable unplugged, ESC unpowered) adds 8 TEC per attempt and the driver auto-retransmits, so at 400 Hz RawCommand this controller crosses the 256-count bus-off threshold within milliseconds. Bus-off is latching: the peripheral detaches and stops **both** TX and RX until software calls `twai_initiate_recovery()`, then `twai_start()` once the state reaches `TWAI_STATE_STOPPED`. Without this, unplugging the CAN cable killed the bus permanently — reconnecting never restored telemetry, because the driver had already given up. While the cable is out, recovery completes against the idle-recessive line and immediately re-faults; that cycling is intended (see the comment in `Canbus.cpp`), and is what makes reconnection recover within a few hundred ms.
+
 ### Tmotor — `Tmotor/`
 TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for ESC_STATUS (1034) and PUSHCAN (1039); handles Status 5 (1154) for motor temp; sends RawCommand (1030) at 400 Hz. `TmotorTelemetry`: snapshot aggregator.
 
@@ -165,7 +198,7 @@ TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for E
 XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors only.
 
 ### Sensors — `Sensors/`
-`BatteryVoltageSensor`: voltage divider via `ReadFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds.
+`BatteryVoltageSensor`: voltage divider via `ReadFn` + `ReadOkFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds. `isValid()` checks the EMA-smoothed millivolt reading against a fixed plausible range (5000-65000 mV) plus I2C read health, via `SensorReadingValidity`.
 
 ### BluetoothBms — `BluetoothBms/`
 Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery and a live status feed (`GET /api/bms/status`).

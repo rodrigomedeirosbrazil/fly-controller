@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "SignalState.h"
 
 /**
  * Unified telemetry facade: delegates to TmotorTelemetry or XagTelemetry.
@@ -20,6 +21,13 @@ public:
     int32_t getMotorTempMilliCelsius() const;
     int32_t getEscTempMilliCelsius() const;
     unsigned long getLastUpdate() const;
+
+    SignalState getMotorTempState() const;
+    SignalState getEscTempState() const;
+    SignalState getBatteryVoltageState() const;
+    bool isMotorTempValid() const { return getMotorTempState() == SignalState::Valid; }
+    bool isEscTempValid() const { return getEscTempState() == SignalState::Valid; }
+    bool isBatteryVoltageValid() const { return getBatteryVoltageState() == SignalState::Valid; }
 };
 
 extern Telemetry telemetry;

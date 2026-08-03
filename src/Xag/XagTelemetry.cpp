@@ -13,6 +13,13 @@ void XagTelemetry::update() {
     cachedEscTempMilliCelsius = (int32_t)(escTemp.getTemperature() * 1000.0);
     cachedLastUpdate = millis();
     cachedHasData = true;
+
+    // Cached in the same instant as the values above, so a single snapshot
+    // (e.g. one /api/telemetry response) can't pair a value from this tick
+    // with a validity flag from a different one.
+    cachedMotorTempState = motorTemp.isValid() ? SignalState::Valid : SignalState::Invalid;
+    cachedEscTempState = escTemp.isValid() ? SignalState::Valid : SignalState::Invalid;
+    cachedBatteryVoltageState = batterySensor.isValid() ? SignalState::Valid : SignalState::Invalid;
 }
 
 bool XagTelemetry::hasData() const { return cachedHasData; }

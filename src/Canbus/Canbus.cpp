@@ -3,8 +3,54 @@
 #include "CanUtils.h"
 #include "../config_controller.h"
 #if USES_CAN_BUS
+#include "../config.h"
 #include <driver/twai.h>
 #include <string.h>
+
+// Note on the disconnected-cable case: an idle bus reads as recessive, so
+// recovery can complete even with nothing plugged in. The driver then
+// restarts, transmits, gets no acknowledgement and drops back to bus-off —
+// this cycles for as long as the cable is out. That is intended, not a bug to
+// optimize away: it is what guarantees the driver is RUNNING within a few
+// hundred milliseconds of the cable coming back, instead of waiting for
+// something to notice and kick it.
+void Canbus::handleBusRecovery() {
+    twai_status_info_t status;
+    if (twai_get_status_info(&status) != ESP_OK) {
+        return;
+    }
+
+    switch (status.state) {
+    case TWAI_STATE_BUS_OFF:
+        // Latched until we ask for recovery. This also flushes the TX queue,
+        // which by now is full of RawCommand frames nobody ever acknowledged.
+        DEBUG_PRINTLN("[Canbus] Bus-off detected — initiating recovery");
+        twai_initiate_recovery();
+        busRecovering = true;
+        break;
+
+    case TWAI_STATE_RECOVERING:
+        // Hardware is counting the 128 sequences of 11 recessive bits the CAN
+        // spec requires before a bus-off node may rejoin. Nothing to do but
+        // wait.
+        break;
+
+    case TWAI_STATE_STOPPED:
+        // Recovery finished (or the driver was never started). Either way the
+        // driver will not touch the bus until restarted.
+        if (busRecovering) {
+            DEBUG_PRINTLN("[Canbus] Recovery complete — restarting driver");
+        }
+        if (twai_start() == ESP_OK) {
+            busRecovering = false;
+        }
+        break;
+
+    case TWAI_STATE_RUNNING:
+        busRecovering = false;
+        break;
+    }
+}
 
 bool Canbus::receive(twai_message_t *outMsg) {
     twai_message_t msg;

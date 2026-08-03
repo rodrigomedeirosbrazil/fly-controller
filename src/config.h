@@ -95,6 +95,10 @@ extern PowerAlert powerAlert;
 #define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
 #define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
 #define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()  // T-Motor UAVCAN
+
+// TWAI RX queue depth, overriding the driver default of 5. See the rationale
+// where it's applied in main.cpp's setup(). ~32 bytes/frame of DMA-capable RAM.
+#define CAN_RX_QUEUE_LEN 32
 #endif
 
 // ========== BATTERY PARAMETERS ==========
@@ -113,7 +117,6 @@ extern PowerAlert powerAlert;
 
 // ========== MOTOR PARAMETERS ==========
 // MOTOR_MAX_TEMP and MOTOR_TEMP_REDUCTION_START are now managed by Settings class
-#define MOTOR_TEMP_MIN_VALID -10000 // -10000 millicelsius = -10.000°C - Minimum valid temperature reading
 #define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
 
 // ========== ESC PARAMETERS ==========
@@ -130,8 +133,19 @@ extern PowerAlert powerAlert;
 
 // ESC_MAX_TEMP and ESC_TEMP_REDUCTION_START are now managed by Settings class
 
-#define ESC_TEMP_MIN_VALID 0 // 0 millicelsius = 0.000°C - Minimum valid temperature reading
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
+
+// How long a power-limiting signal (motor temp, ESC temp, battery voltage)
+// that was valid at arm must read invalid CONTINUOUSLY before the arm-time
+// contract disarms. See SignalArmContract.h.
+//
+// These signals are legitimately intermittent — on Tmotor the ESC temp comes
+// only from CAN, whose validity is a 1 s freshness window fed by multi-frame
+// ESC_STATUS transfers that are dropped whole if any single frame is lost, so
+// brief Stale flickers are normal. A temperature or pack voltage cannot change
+// dangerously in 2 s, so debouncing here costs no real protection; a genuinely
+// disconnected sensor still disarms well before it matters.
+#define SIGNAL_LOSS_GRACE_MS 2000
 
 // ========== THROTTLE ENGAGE / MOTOR START TIMING ==========
 #define THROTTLE_DEADBAND_US           20
@@ -150,6 +164,12 @@ extern PowerAlert powerAlert;
 // window (500ms-3s of link loss). Short enough to give several warnings
 // before the 3s disarm.
 #define SOUND_LINK_LOSS_INTERVAL_MS 500
+
+// How long SoundState::FaultDisarm keeps sounding after an unrequested
+// disarm. Re-arming clears it immediately (setArmed() resets the latched
+// DisarmReason); this is only the ceiling for a fault the pilot can't clear
+// where they're standing, so the buzzer doesn't run until the pack is flat.
+#define SOUND_FAULT_DISARM_ALARM_MS 60000
 
 // ========== WATCHDOG ==========
 // Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()

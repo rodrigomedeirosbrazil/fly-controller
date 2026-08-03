@@ -577,6 +577,17 @@ th {
         line-height: 1.05;
     }
 
+    /* The signal-validity badge sits inline in the label on cards that can
+       show one (battery/motor/ESC temp). At the base .status size (12px +
+       4px/10px padding) it's taller than the label and can wrap the label
+       onto a second line, pushing .value/.sub into the card's overflow:
+       hidden clip — precisely during the fault it exists to announce. */
+    .telemetry-grid .label .status {
+        font-size: 9px;
+        padding: 2px 6px;
+        white-space: nowrap;
+    }
+
     .telemetry-grid .value {
         margin-top: 6px;
         font-size: clamp(22px, 6vw, 34px);

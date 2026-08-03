@@ -88,6 +88,14 @@ void setup()
     (gpio_num_t)CAN_RX_PIN,
     TWAI_MODE_NORMAL
   );
+  // TWAI_GENERAL_CONFIG_DEFAULT leaves rx_queue_len at 5 frames, which is too
+  // shallow here: a single ESC_STATUS is a 3-frame transfer, and PUSHCAN,
+  // Status 5 and NodeStatus share the same queue. Any loop iteration slow
+  // enough to let 5 frames accumulate (BLE work, a web request) overflows it,
+  // and one dropped frame discards the whole ESC_STATUS transfer — which
+  // stalls lastReadEscStatus and makes hasTelemetry() flicker Stale.
+  g_config.rx_queue_len = CAN_RX_QUEUE_LEN;
+
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
@@ -158,20 +166,23 @@ void loop()
   remoteLink.setCalibrating(!throttle.isCalibrated());
   remoteLink.handle();
 
-  // Wireless failsafe: prolonged link loss disarms (the ramp-to-zero case is
-  // handled in the throttle ReadFn feeding 0). See RemoteLinkLogic. The ramp
-  // window (500ms-3s) also gets an audible warning -- previously silent --
-  // so a pilot not looking at the remote still knows something is wrong.
+  // Audible warning during the wireless ramp-to-zero window (500ms-3s of link
+  // loss), where there would otherwise be silence -- so a pilot not looking at
+  // the remote still knows something is wrong before the 3s disarm lands.
+  //
+  // The failsafe itself no longer lives here: both the ramp and the disarm are
+  // now driven by Throttle::updateSignalValidity() via ThrottleSignalLogic, so
+  // wired and wireless share one escalation path. isSignalForcedZero() is that
+  // state machine's ForceZero output, which for wireless means exactly the old
+  // FailsafeAction::RampToZero.
   static PeriodicTrigger linkLossTrigger;
-  if (settings.getThrottleSource() == ThrottleSourceWireless && throttle.isArmed()) {
-    FailsafeAction action = remoteLink.failsafe(true, millis());
-    if (linkLossTrigger.update(action == FailsafeAction::RampToZero, millis(), SOUND_LINK_LOSS_INTERVAL_MS)) {
-      sound.play(SoundEvent::LinkLoss);
-    }
-    if (action == FailsafeAction::Disarm) {
-      throttle.setDisarmed();
-    }
+  bool wirelessRampingToZero = settings.getThrottleSource() == ThrottleSourceWireless
+                               && throttle.isArmed()
+                               && throttle.isSignalForcedZero();
+  if (linkLossTrigger.update(wirelessRampingToZero, millis(), SOUND_LINK_LOSS_INTERVAL_MS)) {
+    sound.play(SoundEvent::LinkLoss);
   }
+
 
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
@@ -185,6 +196,11 @@ void loop()
 
   // Update telemetry data
   telemetry.update();
+
+  // Detect a power-limiting signal that was valid at arm going invalid, and
+  // disarm if so. Must run here (main loop task) rather than inside
+  // Power::getPower() — see Power::checkSignalLoss()'s doc comment.
+  power.checkSignalLoss();
 
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
@@ -222,7 +238,18 @@ void checkCanbus()
 #if USES_CAN_BUS
     extern Canbus canbus;
     twai_message_t msg;
-    const unsigned int MAX_CAN_FRAMES_PER_TICK = 10;
+
+    // Must run before anything touches the bus: after a bus-off (cable pulled
+    // while we transmit at 400 Hz) the driver is detached and both receive()
+    // and transmit are no-ops until recovery is initiated and completed.
+    canbus.handleBusRecovery();
+
+    // Matches CAN_RX_QUEUE_LEN so a full queue can be drained in a single
+    // tick. A cap below the queue depth would let the backlog grow across
+    // ticks and overflow anyway, defeating the deeper queue — and a dropped
+    // frame costs a whole multi-frame ESC_STATUS transfer. receive() is
+    // non-blocking, so this is a ceiling, not a fixed cost.
+    const unsigned int MAX_CAN_FRAMES_PER_TICK = CAN_RX_QUEUE_LEN;
     unsigned int frameCount = 0;
 
     // Process received CAN frames with rate limiting to prevent starvation of other tasks
@@ -257,14 +284,47 @@ void updateSoundState()
 {
     static bool wasArmed = false;
     static bool wasArmedIdle = false;
+    static bool wasFaultDisarmed = false;
+    static unsigned long faultDisarmedAtMs = 0;
 
     bool isArmed = throttle.isArmed();
     bool armedIdle = isArmed && !isMotorRunning();
 
+    // A disarm the pilot did not ask for stays latched in lastDisarmReason
+    // until the next successful arm clears it, so this is a level, not an
+    // edge. setArmed() resets the reason to None, which is what silences the
+    // alarm the instant the pilot re-arms.
+    DisarmReason reason = throttle.getDisarmReason();
+    bool faultDisarmed = !isArmed
+                         && reason != DisarmReason::None
+                         && reason != DisarmReason::Manual;
+
+    if (faultDisarmed && !wasFaultDisarmed) {
+        faultDisarmedAtMs = millis();
+    }
+    wasFaultDisarmed = faultDisarmed;
+
+    // Bounded so a fault that can't be cleared on the ground (a cable the
+    // pilot has to go fix) doesn't sound until the battery dies. Re-arming
+    // still silences it immediately -- this is only the give-up timer.
+    bool faultAlarm = faultDisarmed
+                      && (millis() - faultDisarmedAtMs) < SOUND_FAULT_DISARM_ALARM_MS;
+
     // Controller buzzer: declarative -- recalculated every tick from the
     // current state, so a preempting event (button click, power alert,
-    // ...) can never permanently silence it. See Sound/SoundLogic.h.
-    sound.setState(armedIdle ? SoundState::ArmedIdle : SoundState::None);
+    // ...) can never permanently silence it, and dropping a condition
+    // silences its sound on the very next tick. See Sound/SoundLogic.h.
+    //
+    // faultAlarm and armedIdle are mutually exclusive by construction (a
+    // fault disarm implies !isArmed); the explicit ordering just documents
+    // which would win.
+    SoundState desiredState = SoundState::None;
+    if (faultAlarm) {
+        desiredState = SoundState::FaultDisarm;
+    } else if (armedIdle) {
+        desiredState = SoundState::ArmedIdle;
+    }
+    sound.setState(desiredState);
 
     // Remote buzzer: requestBeep() is a one-shot command, so it still needs
     // edge detection. Now mirrors the same armed+stopped rule as the

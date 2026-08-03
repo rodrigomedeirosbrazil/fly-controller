@@ -83,6 +83,61 @@ void test_setstate_idempotent_and_none_silences_immediately() {
     cout << "PASS: setState is idempotent; None silences immediately\n";
 }
 
+// Regression: a long-running *event* cannot be cancelled and calls
+// stateRunner_.stop() on every tick it runs, so a fault-disarm alarm modelled
+// as an event kept sounding through a successful re-arm and queued every
+// other beep behind itself. These two tests pin down why the fault alarm has
+// to live on the state layer.
+void test_a_long_event_cannot_be_cancelled_or_yield_to_a_state() {
+    SoundLogic logic;
+    logic.setEventPattern(SoundEvent::PowerAlert, {2500, 80, 300, 255}); // ~97s
+    logic.setStatePattern(SoundState::ArmedIdle,  {2000, 200, 200, 0});
+
+    logic.pushEvent(SoundEvent::PowerAlert);
+    logic.update(0);
+
+    // Declaring a state while the long event runs achieves nothing: the event
+    // owns the output and re-stops the state runner every tick.
+    logic.setState(SoundState::ArmedIdle);
+    for (uint32_t t = 100; t <= 30000; t += 100) {
+        logic.update(t);
+        assert(!logic.stateActive());
+    }
+    assert(logic.currentEvent() == SoundEvent::PowerAlert);
+
+    // Even setState(None) can't silence it -- there is no cancel path.
+    logic.setState(SoundState::None);
+    logic.update(30100);
+    assert(logic.currentEvent() == SoundEvent::PowerAlert);
+
+    cout << "PASS: a long event is uncancellable and starves the state layer\n";
+}
+
+void test_fault_disarm_state_stops_the_moment_the_condition_clears() {
+    SoundLogic logic;
+    logic.setStatePattern(SoundState::FaultDisarm, {2500, 80,  300, 0});
+    logic.setStatePattern(SoundState::ArmedIdle,   {2000, 200, 200, 0});
+
+    // Fault disarm: alarm sounds, and keeps sounding (reps=0, no expiry).
+    logic.setState(SoundState::FaultDisarm);
+    assert(logic.update(0).toneOn == true);
+    for (uint32_t t = 1000; t <= 200000; t += 1000) {
+        logic.update(t);
+        assert(logic.currentStateId() == SoundState::FaultDisarm);
+    }
+
+    // Pilot re-arms: the condition clears, and the alarm must hand straight
+    // over to the armed-idle alert -- this is what the event version could
+    // not do.
+    logic.setState(SoundState::ArmedIdle);
+    SoundOutput out = logic.update(200001);
+    assert(logic.currentStateId() == SoundState::ArmedIdle);
+    assert(out.freqHz == 2000);
+    assert(out.toneOn == true);
+
+    cout << "PASS: the fault-disarm state yields immediately on re-arm\n";
+}
+
 void test_four_queued_events_play_in_order_no_gap() {
     SoundLogic logic;
     logic.setEventPattern(SoundEvent::SystemStart,     {1000, 10, 0, 1});
@@ -187,6 +242,8 @@ int main() {
     test_continuous_state_never_expires();
     test_event_preempts_state_and_resumes_from_start();
     test_setstate_idempotent_and_none_silences_immediately();
+    test_a_long_event_cannot_be_cancelled_or_yield_to_a_state();
+    test_fault_disarm_state_stops_the_moment_the_condition_clears();
     test_four_queued_events_play_in_order_no_gap();
     test_queue_full_drops_newest_preserves_inflight();
     test_millis_rollover_state_and_event();

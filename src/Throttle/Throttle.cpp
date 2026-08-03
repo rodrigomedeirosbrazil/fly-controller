@@ -3,7 +3,12 @@
 
 #include "../config.h"
 
-Throttle::Throttle(ReadFn readFn) : readFn(readFn) {
+namespace {
+constexpr ThrottleSignalConfig kWiredSignalConfig{0, 0, 0};
+constexpr ThrottleSignalConfig kWirelessSignalConfig{500, 3000, 200};
+}
+
+Throttle::Throttle(ReadFn readFn, ReadOkFn readOkFn) : readFn(readFn), readOkFn(readOkFn) {
   memset(
     &pinValues,
     0,
@@ -14,6 +19,15 @@ Throttle::Throttle(ReadFn readFn) : readFn(readFn) {
   lastThrottleRead = 0;
 
   throttleArmed = false;
+  lastSampleOk = true;
+  signalForcedZero = false;
+  lastDisarmReason = DisarmReason::None;
+  // `settings` may not be constructed yet at this point (global constructor
+  // order across translation units is unspecified) — default to wired
+  // rather than reading a not-yet-initialized object. If the real source is
+  // wireless, the first updateSignalValidity() tick corrects this via one
+  // harmless no-op reset().
+  wasWireless = false;
   resetCalibration();
 
   throttlePinMin = 0;
@@ -37,6 +51,55 @@ void Throttle::handle()
   // Handle calibration if not yet calibrated
   if (!calibrated) {
     handleCalibration(now);
+    return; // band isn't established yet — signal-validity checks need it
+  }
+
+  updateSignalValidity(now);
+}
+
+void Throttle::updateSignalValidity(unsigned long now)
+{
+  bool wireless = settings.getThrottleSource() == ThrottleSourceWireless;
+  if (wireless != wasWireless) {
+    // Source changed since the last tick — an in-progress invalid episode
+    // was measured against the other source's tolerance and no longer means
+    // anything. wiredValidity's I2C fail streak keeps accumulating while
+    // switched to wireless (no ADC reads happen then), so it's equally
+    // stale by the time a switch back to wired occurs — and wired has zero
+    // tolerance, so a stale streak would disarm on the very first tick back.
+    signalLogic.reset();
+    wiredValidity.reset();
+    wasWireless = wireless;
+  }
+
+  bool valid;
+
+  if (wireless) {
+    // Wireless validity is the raw link-freshness signal; the debounce/
+    // disarm tolerance lives entirely in the wireless ThrottleSignalConfig
+    // below, not in what counts as "valid" here.
+    valid = lastSampleOk;
+  } else {
+    // Wired validity: band-clamped calibrated range plus I2C-fault
+    // debouncing — see ThrottleWiredValidity.h for the full rationale.
+    valid = wiredValidity.isValid(pinValueFiltered, throttlePinMin, throttlePinMax, ADC_MAX_VALUE);
+  }
+
+  ThrottleSignalConfig cfg = wireless ? kWirelessSignalConfig : kWiredSignalConfig;
+
+  ThrottleSignalAction action = signalLogic.update(valid, now, cfg);
+
+  switch (action) {
+    case ThrottleSignalAction::Ok:
+      signalForcedZero = false;
+      break;
+    case ThrottleSignalAction::ForceZero:
+      signalForcedZero = true;
+      break;
+    case ThrottleSignalAction::Disarm:
+      signalForcedZero = true;
+      setDisarmed(wireless ? DisarmReason::ThrottleLinkLost : DisarmReason::ThrottleWiredInvalid);
+      break;
   }
 }
 
@@ -52,6 +115,9 @@ void Throttle::resetCalibration()
   calibrationSumMin = 0;
   calibrationCountMin = 0;
   engagement.reset();
+  signalLogic.reset();
+  signalForcedZero = false;
+  wiredValidity.reset();
 }
 
 void Throttle::handleCalibration(unsigned long now)
@@ -147,8 +213,36 @@ void Throttle::readThrottlePin()
     sizeof(pinValues[0]) * (samples - 1)
   );
 
-  int oversampledValue = readFn();
+  // Always call readFn() — even while forced to zero — so the underlying
+  // sensor/link keeps being polled and lastSampleOk stays live. Only the
+  // value fed into the moving average is overridden; this makes ForceZero
+  // an invariant Throttle enforces unconditionally, not something each
+  // ReadFn source has to remember to check itself.
+  int rawValue = readFn();
+  // ForceZero only ever needs to override the fed value for the wireless
+  // source: it's the "ramp to zero while armed, signal invalid but not yet
+  // disarmed" state, and the moving average must reflect that so motor
+  // output ramps down smoothly. Wired's ThrottleSignalAction is always
+  // Disarm, never ForceZero (its disarmMs=0) — but signalForcedZero is set
+  // on Disarm too and, like wireless, stays true for as long as the system
+  // remains disarmed, not just for one tick. Poisoning pinValueFiltered
+  // there would corrupt wiredValidity's own input (which reads
+  // pinValueFiltered) and getThrottlePercentage()'s arm-blocking check,
+  // creating a self-latching lockout: the moving average would never
+  // recover from being fed zeros, so the wired band check could never
+  // report "valid" again even after the real fault clears, and every
+  // re-arm attempt would immediately re-disarm. Wired keeps feeding the
+  // real reading unconditionally — nothing downstream needs it to be zero,
+  // since the motor is already forced to ESC_MIN_PWM by handleEsc()'s
+  // throttle.isArmed() check the instant it disarms.
+  bool wireless = settings.getThrottleSource() == ThrottleSourceWireless;
+  int oversampledValue = (wireless && signalForcedZero) ? 0 : rawValue;
   pinValues[samples - 1] = oversampledValue;
+  // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
+  // only needs to observe the same channel readFn() just read — no ordering
+  // dependency on other components reading other channels.
+  lastSampleOk = readOkFn();
+  wiredValidity.recordSample(lastSampleOk);
 
   // Calculate moving average
   int sum = 0;
@@ -211,11 +305,28 @@ void Throttle::setArmed()
     return;
   }
 
+  signalLogic.reset();
+  signalForcedZero = false;
+  lastDisarmReason = DisarmReason::None;
+  wiredValidity.reset();
   throttleArmed = true;
+  power.onArmed();
 }
 
-void Throttle::setDisarmed()
+void Throttle::setDisarmed(DisarmReason reason)
 {
+  if (!throttleArmed) {
+    return;
+  }
+
   throttleArmed = false;
-  sound.play(SoundEvent::Disarmed);
+  lastDisarmReason = reason;
+
+  // Only the manual disarm gets an event. A fault disarm is announced by
+  // SoundState::FaultDisarm, declared from lastDisarmReason in main.cpp's
+  // updateSoundState() -- it has to persist until the pilot re-arms, and an
+  // event cannot be stopped once started.
+  if (reason == DisarmReason::Manual) {
+    sound.play(SoundEvent::Disarmed);
+  }
 }

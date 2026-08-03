@@ -1,6 +1,7 @@
 #include "Power.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "../DisarmReason.h"
 #include "../Throttle/Throttle.h"
 
 extern Throttle throttle;
@@ -14,6 +15,43 @@ Power::Power() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+}
+
+void Power::onArmed() {
+    motorTempContract_.onArmed();
+    escTempContract_.onArmed();
+    batteryContract_.onArmed();
+}
+
+void Power::checkSignalLoss() {
+    // Only advance the contracts while armed. They carry timing state now
+    // (the loss debounce), and letting it run while disarmed would leave a
+    // stale in-progress invalid episode to be re-measured against the next
+    // session. onArmed() re-opens them on the next arm anyway.
+    if (!throttle.isArmed()) {
+        return;
+    }
+
+    const uint32_t now = millis();
+
+    // All three contracts are updated unconditionally, even if an earlier
+    // one in this same call already disarmed — every contract must see this
+    // tick's sample to keep its own debounce timer honest. Only the first
+    // one to fire actually latches a DisarmReason, since
+    // Throttle::setDisarmed() early-returns once already disarmed.
+    bool motorLost = motorTempContract_.update(telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+    bool escLost   = escTempContract_.update(telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+    bool battLost  = batteryContract_.update(telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
+
+    if (motorLost) {
+        throttle.setDisarmed(DisarmReason::MotorTempLost);
+    }
+    if (escLost) {
+        throttle.setDisarmed(DisarmReason::EscTempLost);
+    }
+    if (battLost) {
+        throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
+    }
 }
 
 unsigned int Power::getPwm() {
@@ -102,6 +140,10 @@ unsigned int Power::getPower() {
 }
 
 unsigned int Power::calcPower() {
+    // Note: disabling power control here only stops the percentage-based
+    // limiting below — disarm-on-signal-loss is a separate safety behavior
+    // handled by checkSignalLoss(), called independently every loop tick,
+    // and is not affected by this setting.
     if (!settings.getPowerControlEnabled()) {
         activeLimitCauses_ = POWER_LIMIT_NONE;
         return 100;
@@ -111,8 +153,7 @@ unsigned int Power::calcPower() {
     unsigned int escTempLimit   = calcEscTempLimit();
 
     uint8_t causes = POWER_LIMIT_NONE;
-    // Battery: only when telemetry is valid (excludes conservative startup floor)
-    if (batteryLimit < 100 && telemetry.hasData()) causes |= POWER_LIMIT_BATTERY;
+    if (batteryLimit < 100)   causes |= POWER_LIMIT_BATTERY;
     if (motorTempLimit < 100) causes |= POWER_LIMIT_MOTOR_TEMP;
     if (escTempLimit < 100)   causes |= POWER_LIMIT_ESC_TEMP;
     activeLimitCauses_ = causes;
@@ -122,9 +163,8 @@ unsigned int Power::calcPower() {
 
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
-    // Return conservative 50% when telemetry is not yet available — avoids a
-    // full motor cutoff at startup before the ESC sends its first CAN frame.
-    if (!telemetry.hasData()) return 50;
+
+    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid())) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -141,13 +181,9 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    if (!telemetry.hasData()) return 100;
+    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid())) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
-
-    if (motorTempMilliCelsius < MOTOR_TEMP_MIN_VALID || motorTempMilliCelsius > MOTOR_TEMP_MAX_VALID)
-        return 100;
-
     int32_t reductionStart = settings.getMotorTempReductionStart();
     int32_t maxTemp        = settings.getMotorMaxTemp();
 
@@ -158,13 +194,9 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!telemetry.hasData()) return 100;
+    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid())) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
-
-    if (escTempMilliCelsius < ESC_TEMP_MIN_VALID || escTempMilliCelsius > ESC_TEMP_MAX_VALID)
-        return 100;
-
     int32_t reductionStart = settings.getEscTempReductionStart();
     int32_t maxTemp        = settings.getEscMaxTemp();
 

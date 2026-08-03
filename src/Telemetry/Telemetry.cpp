@@ -14,9 +14,13 @@ static uint16_t wrapGetRpm() { return tmotorTelemetry.getRpm(); }
 static int32_t wrapGetMotorTempMilliCelsius() { return tmotorTelemetry.getMotorTempMilliCelsius(); }
 static int32_t wrapGetEscTempMilliCelsius() { return tmotorTelemetry.getEscTempMilliCelsius(); }
 static unsigned long wrapGetLastUpdate() { return tmotorTelemetry.getLastUpdate(); }
+static SignalState wrapGetMotorTempState() { return tmotorTelemetry.getMotorTempState(); }
+static SignalState wrapGetEscTempState() { return tmotorTelemetry.getEscTempState(); }
+static SignalState wrapGetBatteryVoltageState() { return tmotorTelemetry.getBatteryVoltageState(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
+    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState
 };
 #elif IS_XAG
 static void wrapUpdate() { xagTelemetry.update(); }
@@ -27,9 +31,13 @@ static uint16_t wrapGetRpm() { return xagTelemetry.getRpm(); }
 static int32_t wrapGetMotorTempMilliCelsius() { return xagTelemetry.getMotorTempMilliCelsius(); }
 static int32_t wrapGetEscTempMilliCelsius() { return xagTelemetry.getEscTempMilliCelsius(); }
 static unsigned long wrapGetLastUpdate() { return xagTelemetry.getLastUpdate(); }
+static SignalState wrapGetMotorTempState() { return xagTelemetry.getMotorTempState(); }
+static SignalState wrapGetEscTempState() { return xagTelemetry.getEscTempState(); }
+static SignalState wrapGetBatteryVoltageState() { return xagTelemetry.getBatteryVoltageState(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
-    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
+    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState
 };
 #endif
 
@@ -83,6 +91,18 @@ int32_t Telemetry::getEscTempMilliCelsius() const {
 
 unsigned long Telemetry::getLastUpdate() const {
     return s_backend_ptr && s_backend_ptr->getLastUpdate ? s_backend_ptr->getLastUpdate() : 0;
+}
+
+SignalState Telemetry::getMotorTempState() const {
+    return s_backend_ptr && s_backend_ptr->getMotorTempState ? s_backend_ptr->getMotorTempState() : SignalState::Absent;
+}
+
+SignalState Telemetry::getEscTempState() const {
+    return s_backend_ptr && s_backend_ptr->getEscTempState ? s_backend_ptr->getEscTempState() : SignalState::Absent;
+}
+
+SignalState Telemetry::getBatteryVoltageState() const {
+    return s_backend_ptr && s_backend_ptr->getBatteryVoltageState ? s_backend_ptr->getBatteryVoltageState() : SignalState::Absent;
 }
 
 Telemetry telemetry;
