@@ -5,6 +5,8 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 ## Contents
 
 - `PowerTest.cpp` - Unit tests for the `Power` class, covering battery limit calculation, motor temperature limiting, combined power limiting, and PWM output mapping.
+- `PeriodicTriggerTest.cpp` - Unit tests for `PeriodicTrigger` (`src/Sound/PeriodicTrigger.h`), covering fire-on-entry, periodic re-fire, reset-on-clear, and millis() rollover.
+- `SoundLogicTest.cpp` - Unit tests for `SoundLogic` (`src/Sound/SoundLogic.h`), covering the continuous state layer never expiring, event preemption and state resumption, `setState()` idempotency, queued-event ordering, queue-overflow drop policy, and millis() rollover across both layers.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

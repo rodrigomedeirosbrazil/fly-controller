@@ -4,13 +4,13 @@
 #include "../config.h"
 #include "Button.h"
 #include "../Throttle/Throttle.h"
-#include "../Buzzer/Buzzer.h"
+#include "../Sound/Sound.h"
 #include "../RemoteLink/RemoteLink.h"
 #include "../Settings/Settings.h"
 #include "../main.h"
 
 extern Throttle throttle;
-extern Buzzer buzzer;
+extern Sound sound;
 extern Settings settings;
 
 int SourceSwitchButtonConfig::readButton(uint8_t pin) {
@@ -55,7 +55,7 @@ void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t button
       break;
     case AceButton::kEventReleased:
       if (buttonWasClicked) {
-        buzzer.beepButtonClick();
+        sound.play(SoundEvent::ButtonClick);
 
         releaseButtonTime = millis();
         buttonWasClicked = false;

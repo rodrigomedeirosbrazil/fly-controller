@@ -1,7 +1,6 @@
 #ifndef Throttle_h
 #define Throttle_h
 
-#include "../Buzzer/Buzzer.h"
 #include "../config.h"
 #include "ThrottleEngagementLogic.h"
 

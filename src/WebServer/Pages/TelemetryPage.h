@@ -156,6 +156,8 @@ let bzActiveGain = null;
 let bzLastSeq = -1;
 let bzPrimed = false;
 let bzLoopIsRunning = false;
+let bzStateOn = false;       // is the state-layer (continuous) loop currently playing
+let bzStatePattern = null;   // {freq, onMs, offMs} of the active state, for resuming after an event
 
 const bzInitCtx = () => {
     if (audioCtx) return;
@@ -241,27 +243,69 @@ const bzStartLoop = (freq, onMs, offMs) => {
 const bzPlayQueue = (events) => {
     if (!audioCtx) return;
     let t = audioCtx.currentTime;
+    let interruptedState = false;
+
     for (const ev of events) {
-        if (!ev.active) {
-            bzStopLoop();
-            t = audioCtx.currentTime;
-        } else if (ev.reps === 255) {
-            bzStartLoop(ev.freq, ev.onMs, ev.offMs);
-            t = audioCtx.currentTime;
-        } else {
-            if (bzLoopIsRunning) {
+        if (ev.layer === 1) {
+            // State layer: only act on a real transition. A repeated
+            // "active:true" for an already-running state (or a repeated
+            // "active:false" for an already-stopped one) is ignored so the
+            // loop is never restarted mid-cycle.
+            if (ev.active && !bzStateOn) {
+                bzStartLoop(ev.freq, ev.onMs, ev.offMs);
+                bzStateOn = true;
+                bzStatePattern = { freq: ev.freq, onMs: ev.onMs, offMs: ev.offMs };
+                t = audioCtx.currentTime;
+            } else if (!ev.active && bzStateOn) {
                 bzStopLoop();
+                bzStateOn = false;
+                bzStatePattern = null;
                 t = audioCtx.currentTime;
             }
-            t = bzScheduleOnce(ev.freq, ev.onMs, ev.offMs, ev.reps, t);
+            continue;
         }
+
+        // Event layer: a queued, finite pattern. If the state loop is
+        // running, pause it so the event can be heard, then resume it
+        // after (see below) -- accepting a small timing imprecision on the
+        // resume rather than trying to reproduce the firmware's exact
+        // sample-accurate preemption in the browser.
+        if (bzLoopIsRunning) {
+            bzStopLoop();
+            interruptedState = true;
+            t = audioCtx.currentTime;
+        }
+        t = bzScheduleOnce(ev.freq, ev.onMs, ev.offMs, ev.reps, t);
+    }
+
+    if (bzStateOn && (interruptedState || !bzLoopIsRunning)) {
+        const pattern = bzStatePattern;
+        const delayMs = Math.max(0, (t - audioCtx.currentTime) * 1000);
+        setTimeout(() => {
+            if (bzStateOn && !bzLoopIsRunning) bzStartLoop(pattern.freq, pattern.onMs, pattern.offMs);
+        }, delayMs);
     }
 };
 
 const bzProcessEvents = (events) => {
     if (!bzPrimed) {
-        bzLastSeq = (events && events.length > 0) ? events[events.length - 1].seq : -1;
         bzPrimed = true;
+        if (events && events.length) {
+            bzLastSeq = events[events.length - 1].seq;
+            // Skip replaying queued (layer 0) history, but apply the last
+            // known state (layer 1) so the page starts in sync with
+            // whatever the device is already doing -- e.g. opening the
+            // page while armed and stopped should start the continuous
+            // alert immediately instead of staying silent.
+            for (let i = events.length - 1; i >= 0; i--) {
+                if (events[i].layer === 1) {
+                    bzPlayQueue([events[i]]);
+                    break;
+                }
+            }
+        } else {
+            bzLastSeq = -1;
+        }
         return;
     }
     if (!events || !events.length) return;
