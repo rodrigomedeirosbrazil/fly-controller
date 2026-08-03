@@ -88,6 +88,14 @@ void setup()
     (gpio_num_t)CAN_RX_PIN,
     TWAI_MODE_NORMAL
   );
+  // TWAI_GENERAL_CONFIG_DEFAULT leaves rx_queue_len at 5 frames, which is too
+  // shallow here: a single ESC_STATUS is a 3-frame transfer, and PUSHCAN,
+  // Status 5 and NodeStatus share the same queue. Any loop iteration slow
+  // enough to let 5 frames accumulate (BLE work, a web request) overflows it,
+  // and one dropped frame discards the whole ESC_STATUS transfer — which
+  // stalls lastReadEscStatus and makes hasTelemetry() flicker Stale.
+  g_config.rx_queue_len = CAN_RX_QUEUE_LEN;
+
   twai_timing_config_t t_config = CAN_BITRATE;
   twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
@@ -230,7 +238,12 @@ void checkCanbus()
 #if USES_CAN_BUS
     extern Canbus canbus;
     twai_message_t msg;
-    const unsigned int MAX_CAN_FRAMES_PER_TICK = 10;
+    // Matches CAN_RX_QUEUE_LEN so a full queue can be drained in a single
+    // tick. A cap below the queue depth would let the backlog grow across
+    // ticks and overflow anyway, defeating the deeper queue — and a dropped
+    // frame costs a whole multi-frame ESC_STATUS transfer. receive() is
+    // non-blocking, so this is a ceiling, not a fixed cost.
+    const unsigned int MAX_CAN_FRAMES_PER_TICK = CAN_RX_QUEUE_LEN;
     unsigned int frameCount = 0;
 
     // Process received CAN frames with rate limiting to prevent starvation of other tasks

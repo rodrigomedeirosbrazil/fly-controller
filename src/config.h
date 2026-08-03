@@ -95,6 +95,10 @@ extern PowerAlert powerAlert;
 #define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
 #define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
 #define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()  // T-Motor UAVCAN
+
+// TWAI RX queue depth, overriding the driver default of 5. See the rationale
+// where it's applied in main.cpp's setup(). ~32 bytes/frame of DMA-capable RAM.
+#define CAN_RX_QUEUE_LEN 32
 #endif
 
 // ========== BATTERY PARAMETERS ==========
@@ -130,6 +134,18 @@ extern PowerAlert powerAlert;
 // ESC_MAX_TEMP and ESC_TEMP_REDUCTION_START are now managed by Settings class
 
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
+
+// How long a power-limiting signal (motor temp, ESC temp, battery voltage)
+// that was valid at arm must read invalid CONTINUOUSLY before the arm-time
+// contract disarms. See SignalArmContract.h.
+//
+// These signals are legitimately intermittent — on Tmotor the ESC temp comes
+// only from CAN, whose validity is a 1 s freshness window fed by multi-frame
+// ESC_STATUS transfers that are dropped whole if any single frame is lost, so
+// brief Stale flickers are normal. A temperature or pack voltage cannot change
+// dangerously in 2 s, so debouncing here costs no real protection; a genuinely
+// disconnected sensor still disarms well before it matters.
+#define SIGNAL_LOSS_GRACE_MS 2000
 
 // ========== THROTTLE ENGAGE / MOTOR START TIMING ==========
 #define THROTTLE_DEADBAND_US           20

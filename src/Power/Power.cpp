@@ -18,24 +18,38 @@ Power::Power() {
 }
 
 void Power::onArmed() {
-    motorTempContract_.onArmed(telemetry.isMotorTempValid());
-    escTempContract_.onArmed(telemetry.isEscTempValid());
-    batteryContract_.onArmed(telemetry.isBatteryVoltageValid());
+    motorTempContract_.onArmed();
+    escTempContract_.onArmed();
+    batteryContract_.onArmed();
 }
 
 void Power::checkSignalLoss() {
-    // All three contracts are checked unconditionally, even if an earlier
-    // one in this same call already disarmed — relies on
-    // Throttle::setDisarmed() early-returning once already disarmed, so at
-    // most one DisarmReason/FaultDisarm sound actually takes effect per
-    // tick regardless of how many signals are lost simultaneously.
-    if (motorTempContract_.shouldDisarmOnLoss(telemetry.isMotorTempValid())) {
+    // Only advance the contracts while armed. They carry timing state now
+    // (the loss debounce), and letting it run while disarmed would leave a
+    // stale in-progress invalid episode to be re-measured against the next
+    // session. onArmed() re-opens them on the next arm anyway.
+    if (!throttle.isArmed()) {
+        return;
+    }
+
+    const uint32_t now = millis();
+
+    // All three contracts are updated unconditionally, even if an earlier
+    // one in this same call already disarmed — every contract must see this
+    // tick's sample to keep its own debounce timer honest. At most one
+    // DisarmReason/FaultDisarm sound actually takes effect, since
+    // Throttle::setDisarmed() early-returns once already disarmed.
+    bool motorLost = motorTempContract_.update(telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+    bool escLost   = escTempContract_.update(telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+    bool battLost  = batteryContract_.update(telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
+
+    if (motorLost) {
         throttle.setDisarmed(DisarmReason::MotorTempLost);
     }
-    if (escTempContract_.shouldDisarmOnLoss(telemetry.isEscTempValid())) {
+    if (escLost) {
         throttle.setDisarmed(DisarmReason::EscTempLost);
     }
-    if (batteryContract_.shouldDisarmOnLoss(telemetry.isBatteryVoltageValid())) {
+    if (battLost) {
         throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
     }
 }

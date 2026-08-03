@@ -23,13 +23,16 @@ public:
     void resetBatteryPowerFloor();
     void resetMotorState();
 
-    // Snapshots each power-limiting signal's current validity for the
-    // arm-time contract. Called by Throttle::setArmed() on a successful
-    // arm — see SignalArmContract.h.
+    // Opens the arm-time contract for each power-limiting signal. Called by
+    // Throttle::setArmed() on a successful arm. Deliberately does NOT read
+    // validity here: the snapshot is taken by the first checkSignalLoss()
+    // after arming, so it comes from the same telemetry sample the first
+    // loss check compares against — see SignalArmContract.h.
     void onArmed();
 
     // Evaluates each power-limiting signal's arm-time contract and disarms
-    // if a signal that was valid at arm has since gone invalid. Must be
+    // if a signal that was valid at arm has since read invalid continuously
+    // for SIGNAL_LOSS_GRACE_MS. Must be
     // called ONLY from the main loop task (main.cpp's loop()) — never from
     // an async context. getPower()/calcPower() are reachable from the
     // AsyncWebServer/AsyncTCP task (via /api/telemetry) as well as the main
