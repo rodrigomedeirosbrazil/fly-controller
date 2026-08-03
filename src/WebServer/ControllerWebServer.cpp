@@ -293,7 +293,7 @@ void ControllerWebServer::startAP() {
             request->send(400, "text/plain", "Volume fora do intervalo (0-100)"); return;
         }
         buzzer.setVolume((uint8_t)volume);
-        buzzer.beepVolumePreview();
+        sound.play(SoundEvent::VolumePreview);
         request->send(200, "application/json", "{\"ok\":true}");
     });
 
@@ -782,8 +782,8 @@ void ControllerWebServer::startAP() {
         }
 
         {
-            BeepEvent evBuf[Buzzer::kRingSize];
-            uint8_t evCount = buzzer.getBeepEvents(evBuf, Buzzer::kRingSize);
+            BeepEvent evBuf[Sound::kRingSize];
+            uint8_t evCount = sound.getBeepEvents(evBuf, Sound::kRingSize);
             JsonArray buzzerArr = doc.createNestedArray("buzzer");
             for (uint8_t i = 0; i < evCount; i++) {
                 JsonObject buzzerObj = buzzerArr.createNestedObject();
@@ -792,6 +792,7 @@ void ControllerWebServer::startAP() {
                 buzzerObj["onMs"]   = evBuf[i].onMs;
                 buzzerObj["offMs"]  = evBuf[i].offMs;
                 buzzerObj["reps"]   = evBuf[i].reps;
+                buzzerObj["layer"]  = evBuf[i].layer;
                 buzzerObj["active"] = evBuf[i].active;
             }
         }
