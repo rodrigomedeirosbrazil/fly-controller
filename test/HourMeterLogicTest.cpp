@@ -1,6 +1,6 @@
 // test/HourMeterLogicTest.cpp
 // Host-only unit test for the pure flight-time state machine. Compile with:
-//   g++ -std=c++17 test/HourMeterLogicTest.cpp -o /tmp/hourmeter_test
+//   c++ -std=c++17 test/HourMeterLogicTest.cpp -o /tmp/hourmeter_test
 #include <iostream>
 #include <cassert>
 #include "../src/HourMeter/HourMeterLogic.h"
@@ -42,7 +42,7 @@ void test_pauses_on_motor_stop_while_armed() {
     cout << "PASS: pauses on motor stop, resumes on restart\n";
 }
 
-void test_survives_disarm_ream_cycles() {
+void test_survives_disarm_rearm_cycles() {
     HourMeterLogic l;
     l.tick(true, true, 0);
     l.tick(false, true, 1000);        // disarm after 1s
@@ -112,17 +112,52 @@ void test_survives_millis_rollover() {
     cout << "PASS: survives millis() rollover\n";
 }
 
+void test_carries_subsecond_remainder_across_folds() {
+    HourMeterLogic l;
+    l.tick(true, true, 0);
+    l.tick(true, false, 1500);        // fold: commit 1s, keep 500ms remainder
+    assert(l.getSessionSec(2000) == 1);
+    l.tick(true, true, 2500);         // resume
+    assert(l.getSessionSec(3000) == 2);  // 500ms carry + 500ms live = 1s
+    l.tick(true, false, 3000);        // fold the 2nd 500ms
+    assert(l.getSessionSec(3500) == 2);  // committed 2s, nothing lost
+    cout << "PASS: carries sub-second remainder across folds\n";
+}
+
+void test_reset_on_the_same_tick_as_a_pause() {
+    HourMeterLogic l;
+    l.tick(true, true, 0);
+    l.tick(true, true, 2000);
+    l.requestReset();
+    l.tick(false, true, 2500);        // reset + running->paused on the same tick
+    assert(l.getSessionSec(9000) == 0);
+    assert(l.getHourMeterSec(2500) == 2);
+    cout << "PASS: reset landing on the same tick as a pause\n";
+}
+
+void test_hour_meter_survives_millis_rollover() {
+    HourMeterLogic l;
+    uint32_t nearMax = 0xFFFFF000u;   // 4096ms before wraparound
+    l.tick(true, true, nearMax);
+    l.tick(true, false, 2000u);       // real elapsed: 6096ms
+    assert(l.getHourMeterSec(2000u) == 6);
+    cout << "PASS: hour meter survives millis() rollover\n";
+}
+
 int main() {
     test_initial_state();
     test_counts_only_while_running();
     test_pauses_on_disarm();
     test_pauses_on_motor_stop_while_armed();
-    test_survives_disarm_ream_cycles();
+    test_survives_disarm_rearm_cycles();
     test_manual_reset_while_running();
     test_manual_reset_while_paused();
     test_reset_does_not_touch_hour_meter();
     test_hour_meter_accumulates_running_time();
     test_survives_millis_rollover();
+    test_carries_subsecond_remainder_across_folds();
+    test_reset_on_the_same_tick_as_a_pause();
+    test_hour_meter_survives_millis_rollover();
     cout << "HourMeterLogicTest: all passed" << endl;
     return 0;
 }

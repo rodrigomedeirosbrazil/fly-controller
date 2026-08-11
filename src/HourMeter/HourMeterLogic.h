@@ -28,11 +28,14 @@
 // deferral pattern as Throttle::setArmed()/setDisarmed().
 struct HourMeterLogic {
     uint32_t sessionSec = 0;        // committed session seconds (folded intervals)
+    uint32_t sessionMsRem = 0;      // sub-second remainder carried across session folds
     uint32_t hourMeterSec = 0;      // committed motor-run seconds (persistent)
-    uint32_t sessionStartMs = 0;    // running interval start; 0 == paused
-    uint32_t motorRunStartMs = 0;   // running motor interval start; 0 == stopped
+    uint32_t sessionStartMs = 0;    // start of the running session interval
+    uint32_t motorRunStartMs = 0;   // start of the running motor interval
     bool wasRunning = false;        // previous running predicate
-    bool resetRequested = false;
+    // Set from the AsyncWebServer task, cleared from loop() — cross-task, so
+    // volatile (same as Throttle::throttleArmed / RemoteLink::hasState_).
+    volatile bool resetRequested = false;
 
     // Request the session counter be cleared. Applied on the next tick().
     void requestReset() { resetRequested = true; }
@@ -43,6 +46,7 @@ struct HourMeterLogic {
         // re-added on the very next tick.
         if (resetRequested) {
             sessionSec = 0;
+            sessionMsRem = 0;
             sessionStartMs = wasRunning ? nowMs : 0;
             resetRequested = false;
         }
@@ -52,7 +56,11 @@ struct HourMeterLogic {
             sessionStartMs = nowMs;
             motorRunStartMs = nowMs;
         } else if (!nowRunning && wasRunning) {
-            sessionSec += (nowMs - sessionStartMs) / 1000;
+            // Fold with a carried remainder so repeated pause cycles don't
+            // accumulate sub-second truncation (drift would only go downward).
+            uint32_t sessionElapsed = (nowMs - sessionStartMs) + sessionMsRem;
+            sessionSec += sessionElapsed / 1000;
+            sessionMsRem = sessionElapsed % 1000;
             sessionStartMs = 0;
             hourMeterSec += (nowMs - motorRunStartMs) / 1000;
             motorRunStartMs = 0;
@@ -62,7 +70,7 @@ struct HourMeterLogic {
 
     uint32_t getSessionSec(uint32_t nowMs) const {
         if (wasRunning) {
-            return sessionSec + (nowMs - sessionStartMs) / 1000;
+            return sessionSec + (sessionMsRem + (nowMs - sessionStartMs)) / 1000;
         }
         return sessionSec;
     }

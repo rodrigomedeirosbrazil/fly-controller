@@ -904,14 +904,30 @@ const initSessionReset = () => {
     if (!btn) return;
     btn.addEventListener('click', () => {
         if (!confirm('Tem certeza que deseja resetar o tempo de voo?')) return;
+        // This page is self-contained (no COMMON_JS, no PIN field), so on a
+        // fresh load cfgPin may be empty. On 403 we prompt for the PIN, cache
+        // it (same key the config pages use) and retry once. The server replies
+        // 403 text/plain for a bad PIN, so we must not assume JSON here.
         const headers = { 'X-Config-Pin': sessionStorage.getItem('cfgPin') || '' };
         fetch('/api/session/reset', { method: 'POST', headers })
-            .then((r) => r.json())
-            .then((res) => {
-                if (res.ok) {
-                    setText('sessionTime', fmtSeconds(0));
-                } else {
+            .then((r) => {
+                if (r.status !== 403) return r;
+                const pin = prompt('PIN de configuração:');
+                if (!pin) return null;
+                sessionStorage.setItem('cfgPin', pin);
+                return fetch('/api/session/reset', {
+                    method: 'POST',
+                    headers: { 'X-Config-Pin': pin },
+                });
+            })
+            .then((r) => {
+                if (!r) return;
+                if (r.status === 403) {
+                    alert('PIN inválido');
+                } else if (!r.ok) {
                     alert('Falha ao resetar o tempo de voo');
+                } else {
+                    setText('sessionTime', fmtSeconds(0));
                 }
             })
             .catch(() => alert('Erro ao comunicar com o servidor'));
