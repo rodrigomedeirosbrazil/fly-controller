@@ -68,8 +68,8 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <span id="armedLabel">DESARMADO</span>
                     </div>
                     <div class="sub flight-time">
-                        <span>Tempo de v&#xF4;o:</span>
-                        <span id="sessionTime">0:00:00</span>
+                        <span class="ft-label">Tempo de v&#xF4;o</span>
+                        <span class="ft-value" id="sessionTime">0:00:00</span>
                         <button type="button" class="btn btn-sm" id="resetSessionButton" title="Resetar tempo de voo">Reset</button>
                     </div>
                 </div>
