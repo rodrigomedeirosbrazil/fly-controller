@@ -28,7 +28,6 @@
 // deferral pattern as Throttle::setArmed()/setDisarmed().
 struct HourMeterLogic {
     uint32_t sessionSec = 0;        // committed session seconds (folded intervals)
-    uint32_t sessionMsRem = 0;      // sub-second remainder carried across session folds
     uint32_t hourMeterSec = 0;      // committed motor-run seconds (persistent)
     uint32_t sessionStartMs = 0;    // start of the running session interval
     uint32_t motorRunStartMs = 0;   // start of the running motor interval
@@ -46,7 +45,6 @@ struct HourMeterLogic {
         // re-added on the very next tick.
         if (resetRequested) {
             sessionSec = 0;
-            sessionMsRem = 0;
             sessionStartMs = wasRunning ? nowMs : 0;
             resetRequested = false;
         }
@@ -56,11 +54,13 @@ struct HourMeterLogic {
             sessionStartMs = nowMs;
             motorRunStartMs = nowMs;
         } else if (!nowRunning && wasRunning) {
-            // Fold with a carried remainder so repeated pause cycles don't
-            // accumulate sub-second truncation (drift would only go downward).
-            uint32_t sessionElapsed = (nowMs - sessionStartMs) + sessionMsRem;
-            sessionSec += sessionElapsed / 1000;
-            sessionMsRem = sessionElapsed % 1000;
+            // The (nowMs - sessionStartMs) / 1000 fold discards the sub-second
+            // remainder. That drift is accepted by design: this is a coarse
+            // "Tempo de voo" display, so losing under 1 s per pause cycle (a
+            // glide) is immaterial, and it only ever rounds down. Carrying the
+            // remainder would need an extra field + getter math for no visible
+            // gain at this granularity.
+            sessionSec += (nowMs - sessionStartMs) / 1000;
             sessionStartMs = 0;
             hourMeterSec += (nowMs - motorRunStartMs) / 1000;
             motorRunStartMs = 0;
@@ -70,7 +70,7 @@ struct HourMeterLogic {
 
     uint32_t getSessionSec(uint32_t nowMs) const {
         if (wasRunning) {
-            return sessionSec + (sessionMsRem + (nowMs - sessionStartMs)) / 1000;
+            return sessionSec + (nowMs - sessionStartMs) / 1000;
         }
         return sessionSec;
     }
