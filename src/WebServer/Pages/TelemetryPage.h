@@ -67,7 +67,11 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <span class="armed-dot"></span>
                         <span id="armedLabel">DESARMADO</span>
                     </div>
-                    <div class="sub" id="sessionTime">0:00:00</div>
+                    <div class="sub flight-time">
+                        <span>Tempo de v&#xF4;o:</span>
+                        <span id="sessionTime">0:00:00</span>
+                        <button type="button" class="btn btn-sm" id="resetSessionButton" title="Resetar tempo de voo">Reset</button>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Bateria</div>
@@ -895,6 +899,25 @@ const initPowerAlert = () => {
     }
 };
 
+const initSessionReset = () => {
+    const btn = $('resetSessionButton');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (!confirm('Tem certeza que deseja resetar o tempo de voo?')) return;
+        const headers = { 'X-Config-Pin': sessionStorage.getItem('cfgPin') || '' };
+        fetch('/api/session/reset', { method: 'POST', headers })
+            .then((r) => r.json())
+            .then((res) => {
+                if (res.ok) {
+                    setText('sessionTime', fmtSeconds(0));
+                } else {
+                    alert('Falha ao resetar o tempo de voo');
+                }
+            })
+            .catch(() => alert('Erro ao comunicar com o servidor'));
+    });
+};
+
 const loadTelemetry = () => {
     fetchJson('/api/telemetry')
         .then(renderTelemetry)
@@ -905,6 +928,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTelemetryWake();
     initBuzzerSound();
     initPowerAlert();
+    initSessionReset();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

@@ -116,6 +116,17 @@ body {
     font-size: 13px;
 }
 
+.flight-time {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.flight-time .btn-sm {
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
 /* Telemetry page: larger cards on desktop only (avoid overriding mobile telemetry rules) */
 @media (min-width: 769px) and (min-height: 501px) {
     .page-telemetry .telemetry-grid .label {

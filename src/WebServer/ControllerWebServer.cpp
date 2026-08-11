@@ -632,6 +632,15 @@ void ControllerWebServer::startAP() {
         request->send(200, "text/plain", "Remote esquecido");
     });
 
+    // Reset the flight-time session counter. Deferred to the loop task via a
+    // flag — never touch HourMeter state directly from this async task.
+    server.on("/api/session/reset", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
+        hourMeter.requestReset();
+        // Optimistic response; the next telemetry poll reflects sessionSec 0.
+        request->send(200, "application/json", "{\"ok\":true, \"sessionSec\":0}");
+    });
+
     // PIN management — GET: check if pin is "0000" (default); POST: change pin.
     // The POST body must be { "currentPin": "xxxx", "newPin": "yyyy" }.
     // newPin must be 4-8 characters. Current PIN is validated before applying.
