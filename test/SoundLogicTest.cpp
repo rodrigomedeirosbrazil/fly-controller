@@ -280,6 +280,28 @@ void test_setstatefreq_does_not_leak_across_states() {
     cout << "PASS: a stale setStateFreq never leaks into another state\n";
 }
 
+void test_setstatefreq_does_not_persist_across_sessions() {
+    // Regression: the retune used to mutate the catalog pattern, so after one
+    // disarm ramp DisarmRamping was stuck at the bottom of the sweep and the
+    // next disarm started low then jumped up — inverting the descending cue.
+    SoundLogic logic;
+    logic.setStatePattern(SoundState::DisarmRamping, {2500, 60, 40, 0});
+    logic.setState(SoundState::DisarmRamping);
+    logic.setStateFreq(1800);   // pilot holds until near powerScale 0
+    logic.update(0);            // on, 2500
+    logic.update(60);           // on->off -> runtime freq 1800
+    assert(logic.update(100).freqHz == 1800);
+
+    // Next session must start from the catalog default and sweep again.
+    logic.setState(SoundState::None);
+    logic.update(200);
+    logic.setState(SoundState::DisarmRamping);
+    logic.update(300);          // start -> freq 2500 (default)
+    SoundOutput o = logic.update(360); // first on->off edge of the new session
+    assert(o.freqHz == 2500);          // default, not the swept 1800
+    cout << "PASS: a retune never persists into a later session\n";
+}
+
 int main() {
     test_continuous_state_never_expires();
     test_event_preempts_state_and_resumes_from_start();
@@ -292,5 +314,6 @@ int main() {
     test_tone_transition();
     test_setstatefreq_applies_at_on_off_edge();
     test_setstatefreq_does_not_leak_across_states();
+    test_setstatefreq_does_not_persist_across_sessions();
     return 0;
 }

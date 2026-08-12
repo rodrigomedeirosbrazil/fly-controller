@@ -111,7 +111,7 @@ public:
     SoundLogic() :
       queueHead_(0), queueCount_(0), currentEvent_(SoundEvent::kCount),
       stateId_(SoundState::None), droppedEvents_(0), pendingStateFreq_(0),
-      pendingStateId_(SoundState::None), stateWasOn_(false) {
+      pendingStateId_(SoundState::None), stateWasOn_(false), stateFreqHz_(0) {
         for (uint8_t i = 0; i < kQueueSize; i++) queue_[i] = SoundEvent::kCount;
         SoundPattern zero = {0, 0, 0, 0};
         for (uint8_t i = 0; i < static_cast<uint8_t>(SoundEvent::kCount); i++) eventPatterns_[i] = zero;
@@ -190,21 +190,27 @@ public:
 
         if (stateId_ == SoundState::None) return { false, 0 };
 
-        if (!stateRunner_.active) stateRunner_.start(nowMs);
+        if (!stateRunner_.active) {
+            stateRunner_.start(nowMs);
+            // Each session starts from the catalog default so the sweep is
+            // identical every time (a ramp tone must not begin mid-sweep).
+            stateFreqHz_ = statePatterns_[idx(stateId_)].freqHz;
+        }
 
         bool toneOn = false;
         stateRunner_.tick(statePatterns_[idx(stateId_)], nowMs, &toneOn);
 
         // Stepping frequency during the silent phase avoids the retune click
         // entirely. The pending frequency is consumed on the on->off edge, so
-        // the next on-phase starts on it.
+        // the next on-phase starts on it. Only the runtime frequency changes;
+        // the catalog pattern is never mutated.
         if (pendingStateFreq_ != 0 && pendingStateId_ == stateId_ && stateWasOn_ && !toneOn) {
-            statePatterns_[idx(stateId_)].freqHz = pendingStateFreq_;
+            stateFreqHz_ = pendingStateFreq_;
             pendingStateFreq_ = 0;
         }
         stateWasOn_ = toneOn;
 
-        return { toneOn, statePatterns_[idx(stateId_)].freqHz };
+        return { toneOn, stateFreqHz_ };
     }
 
 private:
@@ -279,4 +285,5 @@ private:
     uint16_t pendingStateFreq_;
     SoundState pendingStateId_;
     bool stateWasOn_;
+    uint16_t stateFreqHz_;  // runtime state frequency; catalog stays immutable
 };

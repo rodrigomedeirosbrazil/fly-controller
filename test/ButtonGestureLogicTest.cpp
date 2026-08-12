@@ -233,6 +233,74 @@ void test_debounce_suppresses_short_pulses() {
     cout << "PASS: pulses shorter than the debounce produce no intent\n";
 }
 
+void test_ramp_progresses_with_small_ticks() {
+    // Regression: the ramp used a whole-percent per-tick accumulator. With the
+    // real loop iterating every 2-10 ms (RawCommand needs >=400 Hz), each tick
+    // truncates to 0 and the button could never disarm. The integrator now runs
+    // in 0.01% fixed point, so a 2 ms loop still disarms on schedule.
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(1, false, true, engaged);    // armed
+    logic.update(2, true, true, engaged);     // raw press
+
+    uint8_t scaleAtHalf = 0;
+    uint32_t disarmAtMs = 0;
+    for (uint32_t t = 4; t <= 2600; t += 2) {
+        ButtonGestureOutput o = logic.update(t, true, true, engaged);
+        if (t == 1022) scaleAtHalf = o.powerScale; // 1000 ms after the press edge
+        if (o.intent == ButtonIntent::Disarm) {
+            disarmAtMs = t;
+            break;
+        }
+    }
+    assert(scaleAtHalf == 50);
+    assert(disarmAtMs >= 2020 && disarmAtMs <= 2030);
+    cout << "PASS: a 2 ms loop ramps down to disarm on schedule (no truncation freeze)\n";
+}
+
+void test_engagement_drop_during_recovery_does_not_disarm() {
+    // Regression: an engagement drop during recovery (button already released)
+    // used to count as an immediate disarm. The pilot taps, lets go, and
+    // closing the throttle is a normal reaction — the ramp exists precisely to
+    // make this recoverable, so it must not disarm.
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(1, false, true, engaged);      // armed
+    logic.update(10, true, true, engaged);      // raw press
+    logic.update(30, true, true, engaged);      // press edge
+    logic.update(1000, false, true, engaged);   // raw release
+    logic.update(1020, false, true, engaged);   // release edge -> recovery
+    ButtonGestureOutput o = logic.update(2000, false, true, false); // throttle closed mid-recovery
+    assert(o.intent != ButtonIntent::Disarm);
+    assert(o.powerScale > 0);                   // ramp keeps recovering
+    cout << "PASS: closing the throttle during recovery does not disarm\n";
+}
+
+void test_short_click_during_window_resets_arm_charge() {
+    // Regression: a short click on the ArmCharging path used to leave a stale
+    // non-zero armCharge behind, so SoundState::ArmCharging (reps=0) would
+    // keep playing forever. The charge must reset on every release.
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, true, false, engaged);
+    logic.update(20, true, false, engaged);
+    logic.update(100, false, false, engaged);
+    logic.update(120, false, false, engaged);   // Click, window open
+    logic.update(200, true, false, engaged);
+    logic.update(220, true, false, engaged);    // press edge -> ArmCharging
+    ButtonGestureOutput o = logic.update(260, true, false, engaged);
+    assert(o.armCharge > 0);                    // charging...
+    o = logic.update(300, false, false, engaged);
+    o = logic.update(320, false, false, engaged); // release edge -> short click
+    assert(o.intent == ButtonIntent::Click);
+    assert(o.armCharge == 0);                   // reset on release
+    o = logic.update(10000, false, false, engaged);
+    assert(o.armCharge == 0);                   // and stays 0
+    cout << "PASS: a short click inside the window resets armCharge to 0\n";
+}
+
 void test_millis_rollover() {
     ButtonGestureLogic logic;
     const bool engaged = true;
@@ -265,6 +333,9 @@ int main() {
     test_external_disarm_mid_ramp_resets_scale();
     test_debounce_suppresses_short_pulses();
     test_millis_rollover();
+    test_ramp_progresses_with_small_ticks();
+    test_engagement_drop_during_recovery_does_not_disarm();
+    test_short_click_during_window_resets_arm_charge();
     cout << "ButtonGestureLogicTest: all passed" << endl;
     return 0;
 }

@@ -58,6 +58,13 @@ public:
     static constexpr uint32_t BUTTON_DISARM_RAMP_DOWN_MS = 2000;
     static constexpr uint32_t BUTTON_DISARM_RAMP_UP_MS   = 2000;
 
+    // Fixed-point scale of 100% in 0.01% units. The ramp integrator runs in
+    // these units and only truncates at the output, so a real loop ticking
+    // every 2-10 ms never loses the sub-percent progress of a single tick —
+    // a whole-percent accumulator would need >=20 ms ticks and would freeze
+    // the ramp entirely on this board.
+    static constexpr uint32_t SCALE_ONE = 10000;
+
     ButtonGestureLogic()
         : debouncedPressed_(false),
           debouncedPrev_(false),
@@ -68,7 +75,7 @@ public:
           chargeStartMs_(0),
           state_(GestureState::Idle),
           armCharge_(0),
-          powerScale_(100),
+          powerScale_(SCALE_ONE),
           rampAnchorMs_(0),
           pressConsumed_(false),
           prevArmed_(false) {}
@@ -89,7 +96,7 @@ public:
         if (armed) {
             // -- Armed: disarm ramp -----------------------------------------
             if (!prevArmed_) {
-                powerScale_ = 100;
+                powerScale_ = SCALE_ONE;
                 rampAnchorMs_ = nowMs;
                 if (debouncedPressed_) pressConsumed_ = true;
             }
@@ -99,35 +106,43 @@ public:
 
             // 3.2, continuous: no power, no ramp. A press with the throttle
             // un-engaged disarms immediately; so does engagement dropping while
-            // a ramp is actually in progress. powerScale never leaves 100 here.
-            if (!engaged && (pressEdge || powerScale_ < 100)) {
+            // that press is still held (mid ramp-down). Recovery — the button
+            // already released — never disarms: the pilot closed the throttle
+            // on their own, and the ramp's whole point is that this is
+            // recoverable. powerScale never leaves 100 here.
+            if (!engaged && debouncedPressed_ && !pressConsumed_) {
                 out.intent = ButtonIntent::Disarm;
-                powerScale_ = 100;
-                if (debouncedPressed_) pressConsumed_ = true;
+                powerScale_ = SCALE_ONE;
+                pressConsumed_ = true;
             } else if (debouncedPressed_ && !pressConsumed_) {
                 // Falls while held. Reaching 0 disarms (latch) and resets.
                 uint32_t fall = scaleStep(elapsed, BUTTON_DISARM_RAMP_DOWN_MS);
                 if (fall >= powerScale_) {
                     out.intent     = ButtonIntent::Disarm;
                     out.powerScale = 0;
-                    powerScale_    = 100;
+                    powerScale_    = SCALE_ONE;
                     pressConsumed_ = true;
                 } else {
                     powerScale_ -= fall;
                 }
-            } else if (!debouncedPressed_ && powerScale_ < 100) {
+            } else if (!debouncedPressed_ && powerScale_ < SCALE_ONE) {
                 // Symmetric recovery. Never instantaneous: restoring full
                 // thrust in one tick with the throttle open is the one way
                 // this feature could hurt someone.
                 uint32_t rise = scaleStep(elapsed, BUTTON_DISARM_RAMP_UP_MS);
-                powerScale_ = (powerScale_ + rise >= 100) ? 100 : (powerScale_ + rise);
+                powerScale_ = (powerScale_ + rise >= SCALE_ONE) ? SCALE_ONE : (powerScale_ + rise);
             }
             // A ramp reaching 0 reports 0 on the disarm tick even though the
-            // internal integrator is already reset for the next session.
-            out.powerScale = (out.intent == ButtonIntent::Disarm) ? out.powerScale : powerScale_;
+            // internal integrator is already reset for the next session. The
+            // integrator runs in 0.01% units so sub-tick progress survives
+            // integer truncation (a real loop iterates every 2-10 ms, far
+            // below the 20 ms a whole-percent accumulator would need).
+            out.powerScale = (out.intent == ButtonIntent::Disarm)
+                ? out.powerScale
+                : (uint8_t)(powerScale_ / 100);
         } else {
             // -- Disarmed: click + arm charge -------------------------------
-            powerScale_ = 100;
+            powerScale_ = SCALE_ONE;
 
             // An external (fault) disarm mid-ramp resets the ramp and consumes
             // the held press so it cannot immediately start a fresh gesture.
@@ -163,13 +178,14 @@ public:
                     // Released before the charge completed. A press this short
                     // is a click and re-opens the arming window; anything
                     // longer just resets the charge — two partial holds do not
-                    // sum.
+                    // sum. Either way the charge resets, so the charge tone
+                    // stops the instant the button is released (a stuck non-zero
+                    // armCharge would keep SoundState::ArmCharging playing).
                     if (nowMs - pressStartMs_ <= BUTTON_CLICK_MAX_MS) {
                         out.intent      = ButtonIntent::Click;
                         clickReleaseMs_ = nowMs;
-                    } else {
-                        armCharge_ = 0;
                     }
+                    armCharge_ = 0;
                     state_ = GestureState::ClickPending;
                 } else if (nowMs - chargeStartMs_ >= BUTTON_ARM_CHARGE_MS) {
                     out.intent     = ButtonIntent::Arm;
@@ -202,7 +218,9 @@ private:
 
     static uint32_t scaleStep(uint32_t elapsedMs, uint32_t spanMs) {
         if (spanMs == 0) return 0;
-        return (uint32_t)((uint64_t)elapsedMs * 100 / spanMs);
+        // SCALE_ONE * elapsedMs fits comfortably in 64-bit even at the full
+        // uint32_t rollover span.
+        return (uint32_t)((uint64_t)elapsedMs * SCALE_ONE / spanMs);
     }
 
     // Standard level debounce: the debounced value only follows the raw value
@@ -231,7 +249,7 @@ private:
     uint32_t     chargeStartMs_;
     GestureState state_;
     uint8_t      armCharge_;
-    uint8_t      powerScale_;
+    uint32_t     powerScale_;  // 0.01% fixed point, SCALE_ONE = 100%
     uint32_t     rampAnchorMs_;
     bool         pressConsumed_;
     bool         prevArmed_;
