@@ -1,0 +1,270 @@
+// test/ButtonGestureLogicTest.cpp
+#include <cassert>
+#include <iostream>
+#include <stdint.h>
+#include "../src/Button/ButtonGestureLogic.h"
+using namespace std;
+
+// Timestamps are debounced-edge-relative: each raw level change is held >= the
+// 20 ms debounce before the edge commits. The integration anchor is reset on
+// every edge, so values are exact as long as update() is ticked at the anchor
+// and at the measurement point.
+
+void test_parity_arm_gesture() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+
+    // Short click: 100 ms press + release.
+    ButtonGestureOutput o = logic.update(0, true, false, engaged);    // raw press
+    o = logic.update(20, true, false, engaged);                       // press edge
+    o = logic.update(100, false, false, engaged);                     // raw release
+    o = logic.update(120, false, false, engaged);                     // release edge
+    assert(o.intent == ButtonIntent::Click);
+    assert(o.armCharge == 0);
+
+    // Hold 2000 ms starting inside the 3500 ms window.
+    o = logic.update(200, true, false, engaged);                      // raw press
+    o = logic.update(220, true, false, engaged);                      // press edge @220
+    assert(o.intent == ButtonIntent::None);
+    o = logic.update(2220, true, false, engaged);                     // 2000 ms of hold
+    assert(o.intent == ButtonIntent::Arm);
+    cout << "PASS: click + hold within window arms\n";
+
+    // Hold started outside the window (after it expired) does nothing.
+    ButtonGestureLogic logic2;
+    logic2.update(0, true, false, engaged);
+    logic2.update(20, true, false, engaged);
+    logic2.update(100, false, false, engaged);
+    logic2.update(120, false, false, engaged);                        // click, window to t=3620
+    logic2.update(4000, false, false, engaged);                       // window expired
+    logic2.update(4100, true, false, engaged);                        // raw press from Idle
+    o = logic2.update(4120, true, false, engaged);                    // press edge
+    o = logic2.update(6120, true, false, engaged);                    // held 2000 ms -> nothing
+    assert(o.intent == ButtonIntent::None);
+    o = logic2.update(6200, false, false, engaged);
+    o = logic2.update(6220, false, false, engaged);                   // release, not a click
+    assert(o.intent == ButtonIntent::None);
+    cout << "PASS: hold started outside the window never arms\n";
+}
+
+void test_partial_holds_do_not_sum() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+
+    logic.update(0, true, false, engaged);
+    logic.update(20, true, false, engaged);
+    logic.update(100, false, false, engaged);
+    logic.update(120, false, false, engaged);                         // click, window open
+
+    // First partial hold: 1000 ms, then release.
+    logic.update(200, true, false, engaged);
+    logic.update(220, true, false, engaged);                          // charge starts
+    ButtonGestureOutput o = logic.update(1220, true, false, engaged);
+    assert(o.armCharge == 50);                                        // half charged
+    o = logic.update(1240, false, false, engaged);                    // raw release
+    o = logic.update(1260, false, false, engaged);                    // release edge
+    assert(o.armCharge == 0);                                         // resets on release
+
+    // Second partial hold: another 1000 ms. Same charge, never sums to Arm.
+    logic.update(1500, true, false, engaged);
+    logic.update(1520, true, false, engaged);                         // charge starts fresh
+    o = logic.update(2520, true, false, engaged);
+    assert(o.armCharge == 50);
+    assert(o.intent != ButtonIntent::Arm);
+    cout << "PASS: releasing the arm charge resets it; partial holds do not sum\n";
+}
+
+void test_disarm_ramp_timing() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(5, false, true, engaged);                            // armed
+
+    logic.update(20, true, true, engaged);                            // raw press
+    logic.update(40, true, true, engaged);                            // press edge @40
+    ButtonGestureOutput o = logic.update(1040, true, true, engaged);  // 1000 ms in
+    assert(o.powerScale == 50);
+    assert(o.intent == ButtonIntent::None);
+
+    o = logic.update(2040, true, true, engaged);                      // 2000 ms in
+    assert(o.intent == ButtonIntent::Disarm);
+    assert(o.powerScale == 0);
+    cout << "PASS: ramp is 50 at 1000 ms, 0 and Disarm at 2000 ms\n";
+}
+
+void test_disarm_ramp_recovery_and_inversion() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(1, false, true, engaged);                            // armed
+
+    logic.update(10, true, true, engaged);                            // raw press
+    logic.update(30, true, true, engaged);                            // press edge @30
+    logic.update(1230, false, true, engaged);                         // raw release
+    ButtonGestureOutput o = logic.update(1250, false, true, engaged); // release edge
+    assert(o.powerScale == 40);                                       // 1200 ms of pressed time
+
+    o = logic.update(2450, false, true, engaged);                     // 1200 ms of recovery
+    assert(o.powerScale == 100);                                      // symmetric: same span up
+    cout << "PASS: release at 1200 ms rises from 40 and reaches 100 in 1200 ms\n";
+
+    // Press mid-recovery: the rate inverts from the current value.
+    o = logic.update(2600, false, true, engaged);                     // still 100, no drift
+    assert(o.powerScale == 100);
+    o = logic.update(3200, true, true, engaged);                      // raw press
+    logic.update(3220, true, true, engaged);                          // press edge @3220
+    o = logic.update(3420, true, true, engaged);                      // 200 ms later: fell 10
+    assert(o.powerScale == 90);
+    cout << "PASS: pressing mid-recovery inverts the ramp from the current value\n";
+}
+
+void test_no_power_disarms_immediately() {
+    ButtonGestureLogic logic;
+    logic.update(0, false, false, false);                             // not engaged
+    logic.update(5, false, true, false);                              // armed, not engaged
+    ButtonGestureOutput o = logic.update(20, true, true, false);      // raw press
+    o = logic.update(40, true, true, false);                          // press edge
+    assert(o.intent == ButtonIntent::Disarm);
+    assert(o.powerScale == 100);                                      // never leaves 100
+    cout << "PASS: un-engaged press disarms immediately, no ramp\n";
+}
+
+void test_engagement_drop_mid_ramp_disarms() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(5, false, true, engaged);                            // armed
+    logic.update(20, true, true, engaged);
+    logic.update(40, true, true, engaged);                            // press edge
+    ButtonGestureOutput o = logic.update(1040, true, true, engaged);  // mid-ramp
+    assert(o.powerScale == 50);
+
+    o = logic.update(1500, true, true, false);                        // throttle closed mid-ramp
+    assert(o.intent == ButtonIntent::Disarm);
+    assert(o.powerScale == 100);
+    cout << "PASS: engagement drop mid-ramp disarms immediately\n";
+}
+
+void test_release_after_disarm_and_stuck_button() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(1, false, true, engaged);                            // armed
+    logic.update(10, true, true, engaged);                            // raw press
+    logic.update(30, true, true, engaged);                            // press edge @30
+    ButtonGestureOutput o = logic.update(2030, true, true, engaged);  // ramp to 0
+    assert(o.intent == ButtonIntent::Disarm);
+
+    // Letting go after the latch must not open ClickPending (no fresh press).
+    logic.update(2040, true, false, engaged);                         // disarmed, still held
+    o = logic.update(4000, false, false, engaged);                    // raw release
+    o = logic.update(4020, false, false, engaged);                    // release edge
+    assert(o.intent != ButtonIntent::Click);
+
+    // A fresh short tap afterwards works normally.
+    logic.update(4100, true, false, engaged);
+    logic.update(4120, true, false, engaged);
+    logic.update(4200, false, false, engaged);
+    o = logic.update(4220, false, false, engaged);
+    assert(o.intent == ButtonIntent::Click);
+    cout << "PASS: release after a disarm does not re-open the arming window\n";
+
+    // A button that sticks down while armed ramps to zero, disarms, and stays
+    // disarmed — it can never re-arm because a stuck press never produces a
+    // fresh click.
+    ButtonGestureLogic stuck;
+    stuck.update(0, false, false, engaged);
+    stuck.update(1, false, true, engaged);                          // armed
+    stuck.update(1000, true, true, engaged);                        // button sticks down
+    stuck.update(1020, true, true, engaged);                        // press edge -> ramp starts
+    o = stuck.update(3020, true, true, engaged);                    // 2000 ms ramp -> disarm
+    assert(o.intent == ButtonIntent::Disarm);
+    o = stuck.update(60000, true, false, engaged);                  // still held, disarmed
+    assert(o.intent == ButtonIntent::None);
+    cout << "PASS: a permanently-held button ramps down, disarms, and never re-arms\n";
+
+    // Arming while the button is held must not immediately start a disarm
+    // ramp: the press that armed is consumed for the duration of that hold.
+    ButtonGestureLogic holdArm;
+    holdArm.update(0, false, false, engaged);
+    holdArm.update(5, true, false, engaged);                        // raw press
+    holdArm.update(25, true, false, engaged);                       // press edge
+    holdArm.update(2025, true, true, engaged);                      // armed while held
+    o = holdArm.update(4025, true, true, engaged);                  // 2 s later, still held
+    assert(o.intent == ButtonIntent::None);
+    assert(o.powerScale == 100);
+    cout << "PASS: arming while held consumes the press (no instant disarm)\n";
+}
+
+void test_external_disarm_mid_ramp_resets_scale() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    logic.update(0, false, false, engaged);
+    logic.update(5, false, true, engaged);                            // armed
+    logic.update(20, true, true, engaged);
+    logic.update(40, true, true, engaged);                            // press edge
+    ButtonGestureOutput o = logic.update(1040, true, true, engaged);  // mid-ramp
+    assert(o.powerScale == 50);
+
+    // Fault disarm (e.g. signal loss) while the ramp is in progress.
+    o = logic.update(2000, true, false, engaged);
+    assert(o.powerScale == 100);                                      // reset
+    assert(o.intent == ButtonIntent::None);
+    cout << "PASS: armed going false externally resets powerScale to 100\n";
+}
+
+void test_debounce_suppresses_short_pulses() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+
+    // A 15 ms press pulse never commits an edge -> no intent.
+    ButtonGestureOutput o = logic.update(0, true, false, engaged);
+    o = logic.update(10, true, false, engaged);
+    o = logic.update(15, false, false, engaged);                      // released before 20 ms
+    o = logic.update(100, false, false, engaged);
+    assert(o.intent == ButtonIntent::None);
+
+    // A real tap afterwards still works.
+    logic.update(200, true, false, engaged);
+    logic.update(220, true, false, engaged);
+    logic.update(300, false, false, engaged);
+    o = logic.update(320, false, false, engaged);
+    assert(o.intent == ButtonIntent::Click);
+    cout << "PASS: pulses shorter than the debounce produce no intent\n";
+}
+
+void test_millis_rollover() {
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+    const uint32_t nearMax = 0xFFFFFFE0u;
+
+    // Click across the wraparound: raw press just before it, edges straddle it.
+    logic.update(nearMax, true, false, engaged);
+    logic.update(nearMax + 20, true, false, engaged);                 // press edge
+    logic.update(nearMax + 60, false, false, engaged);                // raw release
+    ButtonGestureOutput o = logic.update(nearMax + 80, false, false, engaged); // release edge -> Click
+    assert(o.intent == ButtonIntent::Click);
+
+    // Arm window computed with unsigned subtraction still spans correctly.
+    uint32_t pressRaw = 0x200u;
+    logic.update(pressRaw, true, false, engaged);
+    logic.update(pressRaw + 20, true, false, engaged);                // press edge (within window)
+    o = logic.update(pressRaw + 20 + 2000, true, false, engaged);     // 2000 ms charge
+    assert(o.intent == ButtonIntent::Arm);
+    cout << "PASS: unsigned timing survives millis() rollover\n";
+}
+
+int main() {
+    test_parity_arm_gesture();
+    test_partial_holds_do_not_sum();
+    test_disarm_ramp_timing();
+    test_disarm_ramp_recovery_and_inversion();
+    test_no_power_disarms_immediately();
+    test_engagement_drop_mid_ramp_disarms();
+    test_release_after_disarm_and_stuck_button();
+    test_external_disarm_mid_ramp_resets_scale();
+    test_debounce_suppresses_short_pulses();
+    test_millis_rollover();
+    cout << "ButtonGestureLogicTest: all passed" << endl;
+    return 0;
+}

@@ -47,6 +47,14 @@ enum class SoundState : uint8_t {
     // every tick, so a long fault alarm kept sounding through a successful
     // re-arm and queued every other beep behind itself.
     FaultDisarm,
+    // The button gesture: a pulsed ~60/40 pattern whose frequency tracks the
+    // gesture scalar (armCharge rising, or powerScale falling/rising). main.cpp
+    // computes the frequency each tick and pushes it via setStateFreq(); the
+    // rising pitch in the buzzer's loud band reinforces the charging/draining
+    // reading. Both must stop the instant the condition clears, so they live on
+    // the state layer.
+    ArmCharging,
+    DisarmRamping,
     kCount,
 };
 
@@ -102,7 +110,8 @@ public:
 
     SoundLogic() :
       queueHead_(0), queueCount_(0), currentEvent_(SoundEvent::kCount),
-      stateId_(SoundState::None), droppedEvents_(0) {
+      stateId_(SoundState::None), droppedEvents_(0), pendingStateFreq_(0),
+      pendingStateId_(SoundState::None), stateWasOn_(false) {
         for (uint8_t i = 0; i < kQueueSize; i++) queue_[i] = SoundEvent::kCount;
         SoundPattern zero = {0, 0, 0, 0};
         for (uint8_t i = 0; i < static_cast<uint8_t>(SoundEvent::kCount); i++) eventPatterns_[i] = zero;
@@ -131,6 +140,20 @@ public:
         if (id == stateId_) return;
         stateId_ = id;
         stateRunner_.stop();
+        stateWasOn_ = false;
+    }
+
+    // Requests the state layer's frequency for the next on-phase. Applied only
+    // at the on->off phase edge, so a live retune is never realized as a
+    // same-tick Retune -- an audible click on this piezo (see
+    // computeToneTransition). The caller (main.cpp) computes the frequency as a
+    // pure function of the gesture scalar and calls this every tick, so each
+    // edge picks up the latest value. The pending value is tagged with the
+    // state it was requested for, so a stale request can never leak into a
+    // different state.
+    void setStateFreq(uint16_t freqHz) {
+        pendingStateFreq_ = freqHz;
+        pendingStateId_   = stateId_;
     }
 
     uint32_t droppedEvents() const { return droppedEvents_; }
@@ -171,6 +194,16 @@ public:
 
         bool toneOn = false;
         stateRunner_.tick(statePatterns_[idx(stateId_)], nowMs, &toneOn);
+
+        // Stepping frequency during the silent phase avoids the retune click
+        // entirely. The pending frequency is consumed on the on->off edge, so
+        // the next on-phase starts on it.
+        if (pendingStateFreq_ != 0 && pendingStateId_ == stateId_ && stateWasOn_ && !toneOn) {
+            statePatterns_[idx(stateId_)].freqHz = pendingStateFreq_;
+            pendingStateFreq_ = 0;
+        }
+        stateWasOn_ = toneOn;
+
         return { toneOn, statePatterns_[idx(stateId_)].freqHz };
     }
 
@@ -243,4 +276,7 @@ private:
     SoundPattern statePatterns_[static_cast<uint8_t>(SoundState::kCount)];
 
     uint32_t droppedEvents_;
+    uint16_t pendingStateFreq_;
+    SoundState pendingStateId_;
+    bool stateWasOn_;
 };

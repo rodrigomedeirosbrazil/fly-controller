@@ -32,6 +32,10 @@ public:
   // Declares the desired persistent state sound. Idempotent.
   void setState(SoundState id);
 
+  // Requests the state layer's frequency for its next on-phase (the variable
+  // arm-charge / disarm-ramp tones). See SoundLogic::setStateFreq.
+  void setStateFreq(uint16_t freqHz);
+
   // Returns events in ascending seq order (oldest first), up to maxCount.
   // Returns the number written into buf.
   uint8_t getBeepEvents(BeepEvent* buf, uint8_t maxCount) const;

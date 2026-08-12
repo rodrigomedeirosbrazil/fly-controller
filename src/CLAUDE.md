@@ -213,7 +213,9 @@ BLE server that broadcasts telemetry in XCTRACK-compatible format (for paraglidi
 WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTML headers in `Pages/`. Handles dashboard, telemetry, config (power, thermal, BMS, system), logs, and OTA firmware updates.
 
 ### Button — `Button/`
-AceButton wrapper on GPIO5. Short click arms/disarms throttle. Long click (3.5s) triggers calibration. Event callback is `handleButtonEvent()` in `main.cpp`.
+Thin wrapper on GPIO5 over `ButtonGestureLogic` (pure, host-tested in `test/ButtonGestureLogicTest.cpp`). Reads the source — `digitalRead(pin)` wired, `remoteLink.remoteButtonPressed()` wireless, selected by `settings.getThrottleSource()`; wireless `rawPressed` is ANDed with `remoteLink.isLinkFresh()` so a stale link reads as released. Feeds the gesture every `check()` and translates intents: `Click` → beep, `Arm` → `throttle.setArmed()`, `Disarm` → `throttle.setDisarmed(Manual)`.
+
+Arming: short click → release → hold 2000 ms within a 3500 ms window (`armCharge` 0→100). Disarming: a hold ramps power down (`powerScale` 100→0 over 2000 ms, symmetric recovery); with the throttle un-engaged a press disarms immediately. `main.cpp` reads `getPowerScale()`/`getArmCharge()` each loop to drive the disarm ramp (`power.setDisarmScale()`) and the gesture tones.
 
 ### Logger — `Logger/`
 LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. Web UI can download or delete logs.
