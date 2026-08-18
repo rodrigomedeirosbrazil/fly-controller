@@ -67,7 +67,11 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                         <span class="armed-dot"></span>
                         <span id="armedLabel">DESARMADO</span>
                     </div>
-                    <div class="sub" id="sessionTime">0:00:00</div>
+                    <div class="sub flight-time">
+                        <span class="ft-label">Tempo de v&#xF4;o</span>
+                        <span class="ft-value" id="sessionTime">0:00:00</span>
+                        <button type="button" class="btn btn-sm" id="resetSessionButton" title="Resetar tempo de voo">Reset</button>
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">Bateria</div>
@@ -895,6 +899,41 @@ const initPowerAlert = () => {
     }
 };
 
+const initSessionReset = () => {
+    const btn = $('resetSessionButton');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (!confirm('Tem certeza que deseja resetar o tempo de voo?')) return;
+        // This page is self-contained (no COMMON_JS, no PIN field), so on a
+        // fresh load cfgPin may be empty. On 403 we prompt for the PIN, cache
+        // it (same key the config pages use) and retry once. The server replies
+        // 403 text/plain for a bad PIN, so we must not assume JSON here.
+        const headers = { 'X-Config-Pin': sessionStorage.getItem('cfgPin') || '' };
+        fetch('/api/session/reset', { method: 'POST', headers })
+            .then((r) => {
+                if (r.status !== 403) return r;
+                const pin = prompt('PIN de configuração:');
+                if (!pin) return null;
+                sessionStorage.setItem('cfgPin', pin);
+                return fetch('/api/session/reset', {
+                    method: 'POST',
+                    headers: { 'X-Config-Pin': pin },
+                });
+            })
+            .then((r) => {
+                if (!r) return;
+                if (r.status === 403) {
+                    alert('PIN inválido');
+                } else if (!r.ok) {
+                    alert('Falha ao resetar o tempo de voo');
+                } else {
+                    setText('sessionTime', fmtSeconds(0));
+                }
+            })
+            .catch(() => alert('Erro ao comunicar com o servidor'));
+    });
+};
+
 const loadTelemetry = () => {
     fetchJson('/api/telemetry')
         .then(renderTelemetry)
@@ -905,6 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTelemetryWake();
     initBuzzerSound();
     initPowerAlert();
+    initSessionReset();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

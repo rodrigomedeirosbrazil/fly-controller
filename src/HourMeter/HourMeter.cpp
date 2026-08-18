@@ -6,66 +6,42 @@ static const unsigned long SAVE_INTERVAL_MS = 60000;
 
 void HourMeter::init() {
     prefs_.begin(NVS_NAMESPACE, false);
-    hourMeterSec_ = prefs_.getUInt(NVS_KEY, 0);
+    logic_.hourMeterSec = prefs_.getUInt(NVS_KEY, 0);
     lastNvsSaveMs_ = millis();
 }
 
 void HourMeter::handle(bool isArmed, bool motorRunning) {
     unsigned long now = millis();
+    logic_.tick(isArmed, motorRunning, now);
 
-    // Session timer
-    if (isArmed && !wasArmed_) {
-        sessionStartMs_ = now;
-        sessionSec_ = 0;
-    }
-    if (isArmed) {
-        sessionSec_ = (uint32_t)((now - sessionStartMs_) / 1000);
-    }
-
-    // Hour meter — motor started
-    if (motorRunning && !wasMotorRunning_) {
-        motorRunStartMs_ = now;
-    }
-
-    // Hour meter — motor stopped
-    if (!motorRunning && wasMotorRunning_) {
-        hourMeterSec_ += (uint32_t)((now - motorRunStartMs_) / 1000);
-        motorRunStartMs_ = 0;
+    // Flush the persistent total on motor stop or disarm — logic_ has just
+    // folded the running interval into hourMeterSec.
+    if ((wasMotorRunning_ && !motorRunning) || (wasArmed_ && !isArmed)) {
         saveToNvs();
     }
 
-    // Disarm — flush and save
-    if (!isArmed && wasArmed_) {
-        if (wasMotorRunning_) {
-            hourMeterSec_ += (uint32_t)((now - motorRunStartMs_) / 1000);
-            motorRunStartMs_ = 0;
-        }
-        saveToNvs();
-    }
-
-    // Periodic save every 60s while motor is running
+    // Periodic save while the motor runs, so a power loss loses at most 60 s.
     if (motorRunning && (now - lastNvsSaveMs_) >= SAVE_INTERVAL_MS) {
-        uint32_t liveValue = hourMeterSec_ + (uint32_t)((now - motorRunStartMs_) / 1000);
-        prefs_.putUInt(NVS_KEY, liveValue);
-        lastNvsSaveMs_ = now;
+        saveToNvs();
     }
 
     wasArmed_ = isArmed;
     wasMotorRunning_ = motorRunning;
 }
 
+void HourMeter::requestReset() {
+    logic_.requestReset();
+}
+
 uint32_t HourMeter::getHourMeterSec() const {
-    if (motorRunStartMs_ != 0) {
-        return hourMeterSec_ + (uint32_t)((millis() - motorRunStartMs_) / 1000);
-    }
-    return hourMeterSec_;
+    return logic_.getHourMeterSec(millis());
 }
 
 uint32_t HourMeter::getSessionSec() const {
-    return sessionSec_;
+    return logic_.getSessionSec(millis());
 }
 
 void HourMeter::saveToNvs() {
-    prefs_.putUInt(NVS_KEY, hourMeterSec_);
+    prefs_.putUInt(NVS_KEY, logic_.getHourMeterSec(millis()));
     lastNvsSaveMs_ = millis();
 }

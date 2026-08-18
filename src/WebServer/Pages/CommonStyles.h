@@ -116,6 +116,38 @@ body {
     font-size: 13px;
 }
 
+.flight-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 6px;
+    white-space: normal;
+    overflow: visible;
+}
+
+.ft-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.8;
+}
+
+.ft-value {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.flight-time .btn-sm {
+    font-size: 12px;
+    padding: 2px 10px;
+    margin-top: 3px;
+}
+
 /* Telemetry page: larger cards on desktop only (avoid overriding mobile telemetry rules) */
 @media (min-width: 769px) and (min-height: 501px) {
     .page-telemetry .telemetry-grid .label {
