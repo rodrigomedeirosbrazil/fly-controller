@@ -52,40 +52,46 @@ void test_arm_window_boundary() {
     // the hold. Expiry is checked before the press edge in the same tick, so a
     // press landing exactly at the boundary is already too late.
     const bool engaged = true;
+    const uint32_t clickReleaseAt = 120;
+    const uint32_t windowCloses   = clickReleaseAt + ButtonGestureLogic::BUTTON_ARM_WINDOW_MS;
 
-    // Inside: click release edge @120, press edge @700 (580 ms gap) -> arms.
+    // Inside: press edge commits one debounce tick (20 ms) before the window
+    // closes -> arms.
     ButtonGestureLogic inside;
     inside.update(0,   true,  false, engaged);
     inside.update(20,  true,  false, engaged);                        // press edge
     inside.update(100, false, false, engaged);
-    ButtonGestureOutput o = inside.update(120, false, false, engaged); // release edge -> Click
+    ButtonGestureOutput o = inside.update(clickReleaseAt, false, false, engaged); // release edge -> Click
     assert(o.intent == ButtonIntent::Click);
-    inside.update(680, true, false, engaged);                         // raw press
-    inside.update(700, true, false, engaged);                         // press edge @700
-    o = inside.update(2700, true, false, engaged);                    // 2000 ms of charge
+    inside.update(windowCloses - 40, true, false, engaged);           // raw press
+    inside.update(windowCloses - 20, true, false, engaged);           // press edge, just inside
+    o = inside.update(windowCloses - 20 + ButtonGestureLogic::BUTTON_ARM_CHARGE_MS, true, false, engaged);
     assert(o.intent == ButtonIntent::Arm);
 
-    // Outside: same click, press edge @720 (600 ms gap) -> window already gone.
+    // Outside: press edge commits exactly at the boundary tick, which the
+    // expiry check catches first -> never arms.
     ButtonGestureLogic outside;
     outside.update(0,   true,  false, engaged);
     outside.update(20,  true,  false, engaged);
     outside.update(100, false, false, engaged);
-    o = outside.update(120, false, false, engaged);                   // release edge -> Click
+    o = outside.update(clickReleaseAt, false, false, engaged);        // release edge -> Click
     assert(o.intent == ButtonIntent::Click);
-    outside.update(700, true, false, engaged);                        // raw press
-    outside.update(720, true, false, engaged);                        // press edge @720
-    o = outside.update(2720, true, false, engaged);                   // held 2000 ms
+    outside.update(windowCloses - 20, true, false, engaged);          // raw press
+    outside.update(windowCloses,      true, false, engaged);          // press edge, just outside
+    const uint32_t heldCheckAt = windowCloses + ButtonGestureLogic::BUTTON_ARM_CHARGE_MS;
+    o = outside.update(heldCheckAt, true, false, engaged);
     assert(o.intent == ButtonIntent::None);                           // never arms
-    o = outside.update(2800, false, false, engaged);
-    o = outside.update(2820, false, false, engaged);                  // release, not a click
+    o = outside.update(heldCheckAt + 100, false, false, engaged);
+    o = outside.update(heldCheckAt + 120, false, false, engaged);     // release, not a click
     assert(o.intent == ButtonIntent::None);
     cout << "PASS: the arming window closes at BUTTON_ARM_WINDOW_MS\n";
 }
 
-void test_partial_holds_do_not_sum() {
+void test_aborted_hold_denies_immediate_rearm() {
     // An abort resets the whole gesture to Idle, so a second press-and-hold
-    // right after does not even start charging — there is no window left to
-    // be inside of.
+    // right after does not even start charging: there is no window left to be
+    // inside of, and armCharge cannot sum across separate attempts because the
+    // second attempt never begins.
     ButtonGestureLogic logic;
     const bool engaged = true;
 
@@ -389,10 +395,11 @@ void test_engagement_drop_during_recovery_does_not_disarm() {
     cout << "PASS: closing the throttle during recovery does not disarm\n";
 }
 
-void test_short_click_during_window_resets_arm_charge() {
-    // Regression: a short click on the ArmCharging path used to leave a stale
+void test_aborted_hold_resets_arm_charge() {
+    // Regression: a short release out of ArmCharging used to leave a stale
     // non-zero armCharge behind, so SoundState::ArmCharging (reps=0) would
-    // keep playing forever. The charge must reset on every release.
+    // keep playing forever. The charge must reset on every abort, however
+    // briefly the button was held.
     ButtonGestureLogic logic;
     const bool engaged = true;
     logic.update(0, true, false, engaged);
@@ -409,7 +416,7 @@ void test_short_click_during_window_resets_arm_charge() {
     assert(o.armCharge == 0);                   // reset on release
     o = logic.update(10000, false, false, engaged);
     assert(o.armCharge == 0);                   // and stays 0
-    cout << "PASS: a short click inside the window resets armCharge to 0\n";
+    cout << "PASS: an aborted hold resets armCharge to 0, even after a brief release\n";
 }
 
 void test_millis_rollover() {
@@ -436,7 +443,7 @@ void test_millis_rollover() {
 int main() {
     test_parity_arm_gesture();
     test_arm_window_boundary();
-    test_partial_holds_do_not_sum();
+    test_aborted_hold_denies_immediate_rearm();
     test_aborted_hold_requires_new_click();
     test_short_abort_does_not_reopen_window();
     test_disarm_ramp_timing();
@@ -449,7 +456,7 @@ int main() {
     test_millis_rollover();
     test_ramp_progresses_with_small_ticks();
     test_engagement_drop_during_recovery_does_not_disarm();
-    test_short_click_during_window_resets_arm_charge();
+    test_aborted_hold_resets_arm_charge();
     cout << "ButtonGestureLogicTest: all passed" << endl;
     return 0;
 }

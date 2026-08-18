@@ -55,9 +55,8 @@ public:
     // Double-click feel: the hold must start within 600 ms of the click. The
     // old 3500 ms was inherited from the pre-redesign `longClickThreshold` and
     // left the controller armable for 3.5 s after any stray tap. Do not go
-    // below ~500 ms: the 20 ms debounce on each edge starts to eat a
-    // noticeable slice of the window, and the gesture gets frustrating with
-    // gloves on.
+    // below ~500 ms: shorter windows get uncomfortable to hit reliably with
+    // gloves on or cold fingers.
     static constexpr uint32_t BUTTON_ARM_WINDOW_MS       = 600;
     static constexpr uint32_t BUTTON_ARM_CHARGE_MS       = 2000;
     static constexpr uint32_t BUTTON_DISARM_RAMP_DOWN_MS = 2000;
@@ -218,7 +217,7 @@ public:
 private:
     enum class GestureState : uint8_t {
         Idle,          // disarmed, no arming window open
-        ClickPending,  // disarmed, within 3500 ms of the last qualifying click
+        ClickPending,  // disarmed, within BUTTON_ARM_WINDOW_MS of the last qualifying click
         ArmCharging,   // disarmed, holding to charge the arm
     };
 
