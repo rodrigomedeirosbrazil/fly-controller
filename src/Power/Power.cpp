@@ -56,7 +56,10 @@ void Power::checkSignalLoss() {
 }
 
 unsigned int Power::getPwm() {
-    unsigned int resultPwm;
+    // Every path below assigns before use; the initializer only silences
+    // -Wmaybe-uninitialized, which can't prove the switch over StartState
+    // (no default: case) is exhaustive.
+    unsigned int resultPwm = ESC_MIN_PWM;
     if (!throttle.isCalibrated()) {
         resetMotorState();
         resultPwm = ESC_MIN_PWM;
