@@ -83,10 +83,9 @@ void test_arm_window_boundary() {
 }
 
 void test_partial_holds_do_not_sum() {
-    // A release out of ArmCharging that doesn't itself qualify as a click
-    // leaves clickReleaseMs_ untouched (stale, from the original click) — so
-    // both partial holds below have to land inside the *original* 600 ms
-    // window, not just close to each other.
+    // An abort resets the whole gesture to Idle, so a second press-and-hold
+    // right after does not even start charging — there is no window left to
+    // be inside of.
     ButtonGestureLogic logic;
     const bool engaged = true;
 
@@ -95,22 +94,95 @@ void test_partial_holds_do_not_sum() {
     logic.update(100, false, false, engaged);
     logic.update(120, false, false, engaged);                         // click, window open (closes @720)
 
-    // First partial hold: 400 ms, then release.
+    // First partial hold: 400 ms, then release -> abort, back to Idle.
     logic.update(140, true, false, engaged);
     logic.update(160, true, false, engaged);                          // charge starts
     ButtonGestureOutput o = logic.update(560, true, false, engaged);
     assert(o.armCharge == 20);                                        // 400/2000 ms charged
     o = logic.update(580, false, false, engaged);                     // raw release
-    o = logic.update(600, false, false, engaged);                     // release edge (not a click: 440 ms held)
+    o = logic.update(600, false, false, engaged);                     // release edge -> abort
     assert(o.armCharge == 0);                                         // resets on release
 
-    // Second partial hold: same 400 ms, still inside the original window. Same charge, never sums to Arm.
+    // Second partial hold: the abort closed the window, so it never charges at
+    // all — partial holds cannot sum, and they cannot even restart.
     logic.update(620, true, false, engaged);
-    logic.update(640, true, false, engaged);                          // charge starts fresh
+    logic.update(640, true, false, engaged);
     o = logic.update(1040, true, false, engaged);
-    assert(o.armCharge == 20);
+    assert(o.armCharge == 0);
     assert(o.intent != ButtonIntent::Arm);
     cout << "PASS: releasing the arm charge resets it; partial holds do not sum\n";
+}
+
+void test_aborted_hold_requires_new_click() {
+    // Releasing before the charge completes throws the whole gesture away.
+    // Re-arming needs a fresh first click, not just another hold.
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+
+    logic.update(0,   true,  false, engaged);
+    logic.update(20,  true,  false, engaged);
+    logic.update(100, false, false, engaged);
+    ButtonGestureOutput o = logic.update(120, false, false, engaged);  // Click, window open
+    assert(o.intent == ButtonIntent::Click);
+
+    logic.update(200, true, false, engaged);
+    logic.update(220, true, false, engaged);                           // charge starts
+    o = logic.update(1220, true, false, engaged);
+    assert(o.armCharge == 50);                                         // half charged
+    logic.update(1240, false, false, engaged);                         // raw release
+    o = logic.update(1260, false, false, engaged);                     // release edge -> abort
+    assert(o.intent == ButtonIntent::None);                            // not a click
+    assert(o.armCharge == 0);
+
+    // A full 2000 ms hold right after the abort must NOT arm: no click, no window.
+    logic.update(1300, true, false, engaged);
+    logic.update(1320, true, false, engaged);
+    o = logic.update(3320, true, false, engaged);
+    assert(o.intent == ButtonIntent::None);
+    assert(o.armCharge == 0);                                          // never even charges
+    logic.update(3400, false, false, engaged);
+    o = logic.update(3420, false, false, engaged);                     // release, not a click
+    assert(o.intent == ButtonIntent::None);
+
+    // A fresh click + hold arms normally.
+    logic.update(3500, true,  false, engaged);
+    logic.update(3520, true,  false, engaged);
+    logic.update(3600, false, false, engaged);
+    o = logic.update(3620, false, false, engaged);                     // Click, window open
+    assert(o.intent == ButtonIntent::Click);
+    logic.update(3700, true, false, engaged);
+    logic.update(3720, true, false, engaged);                          // charge starts
+    o = logic.update(5720, true, false, engaged);
+    assert(o.intent == ButtonIntent::Arm);
+    cout << "PASS: an aborted hold resets the gesture; re-arming needs a new click\n";
+}
+
+void test_short_abort_does_not_reopen_window() {
+    // A sub-300 ms release out of ArmCharging used to count as a brand new
+    // click and rewrite the window deadline, so chained taps kept the window
+    // alive forever. It must now be swallowed entirely.
+    ButtonGestureLogic logic;
+    const bool engaged = true;
+
+    logic.update(0,   true,  false, engaged);
+    logic.update(20,  true,  false, engaged);
+    logic.update(100, false, false, engaged);
+    ButtonGestureOutput o = logic.update(120, false, false, engaged);  // Click, window open
+    assert(o.intent == ButtonIntent::Click);
+
+    logic.update(200, true, false, engaged);
+    logic.update(220, true, false, engaged);                           // charge starts
+    logic.update(300, false, false, engaged);                          // raw release @80 ms held
+    o = logic.update(320, false, false, engaged);                      // release edge
+    assert(o.intent == ButtonIntent::None);                            // swallowed, no beep
+
+    // The window is gone: a hold started well within the old deadline does nothing.
+    logic.update(400, true, false, engaged);
+    logic.update(420, true, false, engaged);
+    o = logic.update(2420, true, false, engaged);
+    assert(o.intent == ButtonIntent::None);
+    assert(o.armCharge == 0);
+    cout << "PASS: a short abort does not re-open the arming window\n";
 }
 
 void test_disarm_ramp_timing() {
@@ -332,8 +404,8 @@ void test_short_click_during_window_resets_arm_charge() {
     ButtonGestureOutput o = logic.update(260, true, false, engaged);
     assert(o.armCharge > 0);                    // charging...
     o = logic.update(300, false, false, engaged);
-    o = logic.update(320, false, false, engaged); // release edge -> short click
-    assert(o.intent == ButtonIntent::Click);
+    o = logic.update(320, false, false, engaged); // release edge -> aborted hold
+    assert(o.intent == ButtonIntent::None);     // swallowed, not a fresh click
     assert(o.armCharge == 0);                   // reset on release
     o = logic.update(10000, false, false, engaged);
     assert(o.armCharge == 0);                   // and stays 0
@@ -365,6 +437,8 @@ int main() {
     test_parity_arm_gesture();
     test_arm_window_boundary();
     test_partial_holds_do_not_sum();
+    test_aborted_hold_requires_new_click();
+    test_short_abort_does_not_reopen_window();
     test_disarm_ramp_timing();
     test_disarm_ramp_recovery_and_inversion();
     test_no_power_disarms_immediately();

@@ -180,18 +180,19 @@ public:
 
             case GestureState::ArmCharging:
                 if (!debouncedPressed_) {
-                    // Released before the charge completed. A press this short
-                    // is a click and re-opens the arming window; anything
-                    // longer just resets the charge — two partial holds do not
-                    // sum. Either way the charge resets, so the charge tone
-                    // stops the instant the button is released (a stuck non-zero
-                    // armCharge would keep SoundState::ArmCharging playing).
-                    if (nowMs - pressStartMs_ <= BUTTON_CLICK_MAX_MS) {
-                        out.intent      = ButtonIntent::Click;
-                        clickReleaseMs_ = nowMs;
-                    }
+                    // Released before the charge completed: the whole gesture
+                    // is thrown away. Back to Idle, not ClickPending — the
+                    // arming window closes with it, so re-arming takes a fresh
+                    // first click and never just another hold. The release
+                    // emits nothing even when it is short enough to look like
+                    // a click: the pilot's intent was a hold, and letting it
+                    // re-open the window is exactly the chained-tap loophole
+                    // this rule removes. Resetting the charge here also stops
+                    // the charge tone the instant the button comes up (a stuck
+                    // non-zero armCharge would keep SoundState::ArmCharging
+                    // playing forever).
                     armCharge_ = 0;
-                    state_ = GestureState::ClickPending;
+                    state_ = GestureState::Idle;
                 } else if (nowMs - chargeStartMs_ >= BUTTON_ARM_CHARGE_MS) {
                     out.intent     = ButtonIntent::Arm;
                     armCharge_    = 0;
