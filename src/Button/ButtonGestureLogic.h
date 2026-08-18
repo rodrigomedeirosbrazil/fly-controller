@@ -18,11 +18,13 @@
 //                        recovery). Reaching 0 disarms. While disarmed it is
 //                        always 100.
 //
-// Arming gesture (unchanged from today): a qualifying short click (press +
-// release within 300 ms) opens a 3500 ms arming window; a press starting inside
-// that window and held 2000 ms emits Arm. Every qualifying click emits Click —
-// including the one that opens the window — so the click beeps, then the hold
-// arms, exactly as before.
+// Arming gesture: a qualifying short click (press + release within 300 ms)
+// opens a BUTTON_ARM_WINDOW_MS arming window; a press starting inside that
+// window and held 2000 ms emits Arm. The click beeps, then the hold arms.
+// Letting go before the charge completes throws the gesture away entirely —
+// back to Idle, window closed — so re-arming always takes a fresh first
+// click. That abort release emits no Click even when it is short enough to
+// qualify as one on its own.
 //
 // No power, no ramp (3.2): with throttle un-engaged a press disarms
 // immediately, and engagement dropping while a ramp is in progress also

@@ -215,7 +215,7 @@ WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTM
 ### Button — `Button/`
 Thin wrapper on GPIO5 over `ButtonGestureLogic` (pure, host-tested in `test/ButtonGestureLogicTest.cpp`). Reads the source — `digitalRead(pin)` wired, `remoteLink.remoteButtonPressed()` wireless, selected by `settings.getThrottleSource()`; wireless `rawPressed` is ANDed with `remoteLink.isLinkFresh()` so a stale link reads as released. Feeds the gesture every `check()` and translates intents: `Click` → beep, `Arm` → `throttle.setArmed()`, `Disarm` → `throttle.setDisarmed(Manual)`.
 
-Arming: short click → release → hold 2000 ms within a 3500 ms window (`armCharge` 0→100). Disarming: a hold ramps power down (`powerScale` 100→0 over 2000 ms, symmetric recovery); with the throttle un-engaged a press disarms immediately. `main.cpp` reads `getPowerScale()`/`getArmCharge()` each loop to drive the disarm ramp (`power.setDisarmScale()`) and the gesture tones.
+Arming: short click → release → hold 2000 ms, with the hold starting within 600 ms of the click (`armCharge` 0→100). Releasing before the charge completes aborts the whole gesture back to `Idle` — the window closes and re-arming needs a fresh click, so a stray tap can never leave the controller one hold away from armed. Disarming: a hold ramps power down (`powerScale` 100→0 over 2000 ms, symmetric recovery); with the throttle un-engaged a press disarms immediately. `main.cpp` reads `getPowerScale()`/`getArmCharge()` each loop to drive the disarm ramp (`power.setDisarmScale()`) and the gesture tones.
 
 ### Logger — `Logger/`
 LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. Web UI can download or delete logs.
