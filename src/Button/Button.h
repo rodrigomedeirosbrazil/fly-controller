@@ -1,37 +1,35 @@
 #ifndef Button_h
 #define Button_h
 
-#include <AceButton.h>
+#include <stdint.h>
 #include "../config.h"
+#include "ButtonGestureLogic.h"
 
 class Throttle;
-class Buzzer;
+class Sound;
 
-using namespace ace_button;
-
-// Reads the physical pin in wired mode, or the remote's forwarded button
-// state in wireless mode — so the same AceButton arming gesture works for both.
-class SourceSwitchButtonConfig : public ButtonConfig {
-  protected:
-    int readButton(uint8_t pin) override;
-};
-
+// Thin wrapper over ButtonGestureLogic: reads the raw button source (physical
+// pin wired, remote-forwarded state wireless — selected by
+// settings.getThrottleSource()), feeds the gesture logic every check(), and
+// translates the resulting intents into the throttle/sound calls. All policy
+// lives in ButtonGestureLogic.h so it is host-testable.
 class Button
 {
     public:
         Button(uint8_t pin);
         void check();
-        void handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState);
+
+        // Current gesture scalars, for the disarm ramp and the charge tone.
+        uint8_t getPowerScale() const { return powerScale_; }
+        uint8_t getArmCharge() const { return armCharge_; }
 
     private:
-        const static unsigned long longClickThreshold = 3500;
+        bool readRawPressed(uint32_t nowMs);
 
-        AceButton aceButton;
-        SourceSwitchButtonConfig sourceConfig;
         uint8_t pin;
-        ButtonConfig* buttonConfig;
-        unsigned long releaseButtonTime;
-        bool buttonWasClicked;
+        ButtonGestureLogic logic_;
+        uint8_t powerScale_;
+        uint8_t armCharge_;
 };
 
 #endif

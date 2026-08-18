@@ -45,6 +45,14 @@ Sound::Sound() :
   // SOUND_FAULT_DISARM_ALARM_MS, so the bound lives in the condition rather
   // than in a repeat counter that could expire while the fault is still live.
   logic_.setStatePattern(SoundState::FaultDisarm, {kPowerFreqHz, 80,  300, 0});
+
+  // Button-gesture tones. The base frequency is the scalar's starting point
+  // (armCharge 0 -> 1800 Hz; powerScale 100 -> 2500 Hz); main.cpp retunes the
+  // pattern via setStateFreq() at every on->off phase edge so the pitch rises
+  // and falls with the charge/power. Pulsed ~60/40 so it is unmistakably
+  // different from the steady ArmedIdle alert.
+  logic_.setStatePattern(SoundState::ArmCharging,   {1800, 60, 40, 0});
+  logic_.setStatePattern(SoundState::DisarmRamping, {2500, 60, 40, 0});
 }
 
 void Sound::play(SoundEvent id) {
@@ -53,6 +61,10 @@ void Sound::play(SoundEvent id) {
 
 void Sound::setState(SoundState id) {
   logic_.setState(id);
+}
+
+void Sound::setStateFreq(uint16_t freqHz) {
+  logic_.setStateFreq(freqHz);
 }
 
 void Sound::handle() {

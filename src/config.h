@@ -171,6 +171,13 @@ extern PowerAlert powerAlert;
 // where they're standing, so the buzzer doesn't run until the pack is flat.
 #define SOUND_FAULT_DISARM_ALARM_MS 60000
 
+// Button-gesture tone range. The pitch is a pure function of the gesture
+// scalar, mapped into the buzzer's loud band (2000-2500 Hz per the Buzzer/
+// tuning notes) so perceived loudness rises with pitch and reinforces the
+// charging/draining reading.
+#define SOUND_GESTURE_FREQ_MIN 1800
+#define SOUND_GESTURE_FREQ_MAX 2500
+
 // ========== WATCHDOG ==========
 // Task Watchdog timeout in seconds. The main loop must call esp_task_wdt_reset()
 // within this window or the system will reboot. 10 s is generous for a loop that

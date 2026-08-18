@@ -765,6 +765,8 @@ void ControllerWebServer::startAP() {
         doc["escTempMc"] = telemetry.getEscTempMilliCelsius();
         doc["armed"] = throttle.isArmed();
         doc["disarmReason"] = disarmReasonCode(throttle.getDisarmReason());
+        doc["powerScale"] = button.getPowerScale();
+        doc["armCharge"] = button.getArmCharge();
         doc["uptimeMs"] = millis();
         doc["lastTelemetryUpdateMs"] = telemetry.getLastUpdate();
         doc["hourMeterSec"] = hourMeter.getHourMeterSec();

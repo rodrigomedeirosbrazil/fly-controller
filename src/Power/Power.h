@@ -23,6 +23,12 @@ public:
     void resetBatteryPowerFloor();
     void resetMotorState();
 
+    // Scales the final PWM by the button's disarm ramp (0..100). Applied at
+    // the single exit of getPwm(), over the span above ESC_MIN_PWM. Not part
+    // of activeLimitCauses_ — including it would make a normal disarm beep
+    // the limiter alert and paint the telemetry cards red.
+    void setDisarmScale(uint8_t scale) { disarmScale_ = scale; }
+
     // Opens the arm-time contract for each power-limiting signal. Called by
     // Throttle::setArmed() on a successful arm. Deliberately does NOT read
     // validity here: the snapshot is taken by the first checkSignalLoss()
@@ -67,6 +73,7 @@ private:
     unsigned long idleBeganAt;
 
     uint8_t activeLimitCauses_;
+    uint8_t disarmScale_;
 
     SignalArmContract motorTempContract_;
     SignalArmContract escTempContract_;
@@ -76,6 +83,7 @@ private:
     unsigned int calcBatteryLimit();
     unsigned int calcMotorTempLimit();
     unsigned int calcEscTempLimit();
+    unsigned int applyDisarmScale(unsigned int pwm);
 };
 
 #endif // POWER_H

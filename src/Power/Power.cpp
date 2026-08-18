@@ -12,6 +12,7 @@ Power::Power() {
     power = 100;
     batteryPowerFloor = 100;
     activeLimitCauses_ = POWER_LIMIT_NONE;
+    disarmScale_ = 100;
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
@@ -55,73 +56,98 @@ void Power::checkSignalLoss() {
 }
 
 unsigned int Power::getPwm() {
+    // Every path below assigns before use; the initializer only silences
+    // -Wmaybe-uninitialized, which can't prove the switch over StartState
+    // (no default: case) is exhaustive.
+    unsigned int resultPwm = ESC_MIN_PWM;
     if (!throttle.isCalibrated()) {
         resetMotorState();
-        return ESC_MIN_PWM;
-    }
-
-    unsigned int powerLimit  = getPower();
-    unsigned int throttleMin = throttle.getThrottlePinMin();
-    unsigned int throttleMax = throttle.getThrottlePinMax();
-    unsigned int throttleRaw = throttle.isEngaged() ? throttle.getThrottleRaw() : throttleMin;
-
-    unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
-    unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
-
-    unsigned int range = throttleMax - throttleMin;
-    float targetPwm;
-    if (range == 0) {
-        targetPwm = (float)ESC_MIN_PWM;
+        resultPwm = ESC_MIN_PWM;
     } else {
-        float norm = (float)(clampedRaw - throttleMin) / (float)range;
-        targetPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * norm;
-    }
-    targetPwm = constrain(targetPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
+        unsigned int powerLimit  = getPower();
+        unsigned int throttleMin = throttle.getThrottlePinMin();
+        unsigned int throttleMax = throttle.getThrottlePinMax();
+        unsigned int throttleRaw = throttle.isEngaged() ? throttle.getThrottleRaw() : throttleMin;
 
-    bool throttleActive = (targetPwm > (float)(ESC_MIN_PWM + THROTTLE_DEADBAND_US));
+        unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+        unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
-    if (getBoardConfig().useSmoothStart) {
-        unsigned long now = millis();
-
-        switch (startState) {
-
-        case StartState::IDLE:
-            if (throttleActive) {
-                startState = StartState::STARTING;
-                startingBeganAt = now;
-            }
-            return ESC_MIN_PWM;
-
-        case StartState::STARTING: {
-            if (!throttleActive) {
-                startState = StartState::IDLE;
-                return ESC_MIN_PWM;
-            }
-            float wakeupPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * (float)XAG_WAKEUP_PWM_PERCENT / 100.0f;
-            if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
-                startState = StartState::RUNNING;
-                return (unsigned int)targetPwm;
-            }
-            return (unsigned int)wakeupPwm;
+        unsigned int range = throttleMax - throttleMin;
+        float targetPwm;
+        if (range == 0) {
+            targetPwm = (float)ESC_MIN_PWM;
+        } else {
+            float norm = (float)(clampedRaw - throttleMin) / (float)range;
+            targetPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * norm;
         }
+        targetPwm = constrain(targetPwm, (float)ESC_MIN_PWM, (float)ESC_MAX_PWM);
 
-        case StartState::RUNNING:
-            if (!throttleActive) {
-                if (idleBeganAt == 0) idleBeganAt = now;
+        bool throttleActive = (targetPwm > (float)(ESC_MIN_PWM + THROTTLE_DEADBAND_US));
 
-                if (now - idleBeganAt >= MOTOR_STOP_TIME_MS) {
-                    startState = StartState::IDLE;
-                    idleBeganAt = 0;
-                    return ESC_MIN_PWM;
+        if (getBoardConfig().useSmoothStart) {
+            unsigned long now = millis();
+
+            switch (startState) {
+
+            case StartState::IDLE:
+                if (throttleActive) {
+                    startState = StartState::STARTING;
+                    startingBeganAt = now;
                 }
-            } else {
-                idleBeganAt = 0;
+                resultPwm = ESC_MIN_PWM;
+                break;
+
+            case StartState::STARTING: {
+                if (!throttleActive) {
+                    startState = StartState::IDLE;
+                    resultPwm = ESC_MIN_PWM;
+                    break;
+                }
+                float wakeupPwm = (float)ESC_MIN_PWM + (float)(ESC_MAX_PWM - ESC_MIN_PWM) * (float)XAG_WAKEUP_PWM_PERCENT / 100.0f;
+                if (now - startingBeganAt >= XAG_MOTOR_REACTION_DELAY_MS) {
+                    startState = StartState::RUNNING;
+                    resultPwm = (unsigned int)targetPwm;
+                } else {
+                    resultPwm = (unsigned int)wakeupPwm;
+                }
+                break;
             }
-            return (unsigned int)targetPwm;
+
+            case StartState::RUNNING:
+                if (!throttleActive) {
+                    if (idleBeganAt == 0) idleBeganAt = now;
+
+                    if (now - idleBeganAt >= MOTOR_STOP_TIME_MS) {
+                        startState = StartState::IDLE;
+                        idleBeganAt = 0;
+                        resultPwm = ESC_MIN_PWM;
+                    } else {
+                        resultPwm = (unsigned int)targetPwm;
+                    }
+                } else {
+                    idleBeganAt = 0;
+                    resultPwm = (unsigned int)targetPwm;
+                }
+                break;
+            }
+        } else {
+            resultPwm = (unsigned int)targetPwm;
         }
     }
 
-    return (unsigned int)targetPwm;
+    // Single exit: the disarm ramp applies over the span above ESC_MIN_PWM.
+    // Scaling after the smooth-start machine means StartState stays RUNNING
+    // during a ramp, so recovery does not re-enter the 1500 ms / 5% wake-up.
+    // Harmless on the ESC_MIN_PWM early returns, but this is what makes that
+    // obvious.
+    return applyDisarmScale(resultPwm);
+}
+
+unsigned int Power::applyDisarmScale(unsigned int pwm) {
+    if (disarmScale_ >= 100 || pwm <= ESC_MIN_PWM) {
+        return pwm;
+    }
+    return ESC_MIN_PWM + (unsigned int)(((uint32_t)(pwm - ESC_MIN_PWM) * disarmScale_) / 100);
 }
 
 void Power::resetMotorState() {

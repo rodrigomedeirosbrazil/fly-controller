@@ -7,7 +7,6 @@
 #include <driver/twai.h>
 #include "Canbus/Canbus.h"
 #endif
-#include <AceButton.h>
 
 #include "config.h"
 #include "main.h"
@@ -28,7 +27,6 @@
 #include "Tmotor/TmotorCan.h"
 #endif
 
-using namespace ace_button;
 #include "Button/Button.h"
 
 ControllerWebServer webServer;
@@ -153,6 +151,9 @@ void loop()
   sound.handle();
 
   button.check();
+  // Mirror the disarm ramp into the ESC output path. Dependency stays one-way:
+  // Power does not know Button.
+  power.setDisarmScale(button.getPowerScale());
   bluetoothBms.update();
   xctod.write();
   telemetryLogger.handle();
@@ -213,11 +214,6 @@ void loop()
   webServer.handleClient();
 
   esp_task_wdt_reset();
-}
-
-void handleButtonEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
-{
-  button.handleEvent(aceButton, eventType, buttonState);
 }
 
 void handleEsc()
@@ -315,16 +311,33 @@ void updateSoundState()
     // ...) can never permanently silence it, and dropping a condition
     // silences its sound on the very next tick. See Sound/SoundLogic.h.
     //
-    // faultAlarm and armedIdle are mutually exclusive by construction (a
-    // fault disarm implies !isArmed); the explicit ordering just documents
-    // which would win.
+    // faultAlarm, the two gesture tones and armedIdle are mutually exclusive
+    // by construction; the explicit ordering just documents which would win.
+    uint8_t armCharge  = button.getArmCharge();
+    uint8_t powerScale = button.getPowerScale();
+
     SoundState desiredState = SoundState::None;
     if (faultAlarm) {
         desiredState = SoundState::FaultDisarm;
+    } else if (!isArmed && armCharge > 0) {
+        desiredState = SoundState::ArmCharging;
+    } else if (isArmed && powerScale < 100) {
+        desiredState = SoundState::DisarmRamping;
     } else if (armedIdle) {
         desiredState = SoundState::ArmedIdle;
     }
     sound.setState(desiredState);
+
+    // The gesture tones sweep frequency with the scalar. setStateFreq() must
+    // run after setState(): the pending frequency is tagged with the declared
+    // state, and a transition tick starts from the default pattern.
+    if (desiredState == SoundState::ArmCharging) {
+        sound.setStateFreq(SOUND_GESTURE_FREQ_MIN +
+            (uint16_t)((uint32_t)armCharge * (SOUND_GESTURE_FREQ_MAX - SOUND_GESTURE_FREQ_MIN) / 100));
+    } else if (desiredState == SoundState::DisarmRamping) {
+        sound.setStateFreq(SOUND_GESTURE_FREQ_MAX -
+            (uint16_t)((uint32_t)(100 - powerScale) * (SOUND_GESTURE_FREQ_MAX - SOUND_GESTURE_FREQ_MIN) / 100));
+    }
 
     // Remote buzzer: requestBeep() is a one-shot command, so it still needs
     // edge detection. Now mirrors the same armed+stopped rule as the

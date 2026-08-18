@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <AceButton.h>
 
 #include "../config.h"
 #include "Button.h"
@@ -7,73 +6,46 @@
 #include "../Sound/Sound.h"
 #include "../RemoteLink/RemoteLink.h"
 #include "../Settings/Settings.h"
-#include "../main.h"
 
 extern Throttle throttle;
 extern Sound sound;
 extern Settings settings;
 
-int SourceSwitchButtonConfig::readButton(uint8_t pin) {
-    if (settings.getThrottleSource() == ThrottleSourceWireless) {
-        // Active-low semantics to match INPUT_PULLUP: pressed -> LOW.
-        return remoteLink.remoteButtonPressed() ? LOW : HIGH;
-    }
-    return digitalRead(pin);
-}
-
 Button::Button(
   uint8_t pin
-) {
-    this->pin = pin;
+) : pin(pin), logic_(), powerScale_(100), armCharge_(0) {
     pinMode(pin, INPUT_PULLUP);
-    aceButton.setButtonConfig(&sourceConfig);
-    aceButton.init(pin);
-    releaseButtonTime = 0;
-    buttonWasClicked = false;
-
-    buttonConfig = aceButton.getButtonConfig();
-
-    buttonConfig->setEventHandler(handleButtonEvent);
-    buttonConfig->setFeature(ButtonConfig::kFeatureDoubleClick);
-    buttonConfig->setFeature(ButtonConfig::kFeatureLongPress);
-    buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterDoubleClick);
-    buttonConfig->setFeature(ButtonConfig::kFeatureSuppressAfterLongPress);
-    buttonConfig->setLongPressDelay(2000);
-    buttonConfig->setClickDelay(300);
 }
 
 void Button::check()
 {
-    aceButton.check();
+    uint32_t now = millis();
+    ButtonGestureOutput out = logic_.update(now, readRawPressed(now), throttle.isArmed(), throttle.isEngaged());
+    powerScale_ = out.powerScale;
+    armCharge_ = out.armCharge;
+
+    switch (out.intent) {
+        case ButtonIntent::Click:
+            sound.play(SoundEvent::ButtonClick);
+            break;
+        case ButtonIntent::Arm:
+            throttle.setArmed();
+            break;
+        case ButtonIntent::Disarm:
+            throttle.setDisarmed(DisarmReason::Manual);
+            break;
+        case ButtonIntent::None:
+            break;
+    }
 }
 
-void Button::handleEvent(AceButton* aceButton, uint8_t eventType, uint8_t buttonState)
+bool Button::readRawPressed(uint32_t nowMs)
 {
-  switch (eventType) {
-    case AceButton::kEventClicked:
-      buttonWasClicked = true;
-      break;
-    case AceButton::kEventReleased:
-      if (buttonWasClicked) {
-        sound.play(SoundEvent::ButtonClick);
-
-        releaseButtonTime = millis();
-        buttonWasClicked = false;
-      }
-      break;
-    case AceButton::kEventLongPressed:
-      if (
-        !buttonWasClicked
-        && (millis() - releaseButtonTime <= longClickThreshold)
-        && !throttle.isArmed()
-      ) {
-        throttle.setArmed();
-        break;
-      }
-
-      if (throttle.isArmed()) {
-        throttle.setDisarmed();
-      }
-      break;
-  }
+    if (settings.getThrottleSource() == ThrottleSourceWireless) {
+        // A stale link reads as released — the link failsafe stays the sole
+        // owner of that path and cannot race the gesture.
+        return remoteLink.remoteButtonPressed() && remoteLink.isLinkFresh(nowMs);
+    }
+    // Active-low to match INPUT_PULLUP: pressed -> LOW.
+    return digitalRead(pin) == LOW;
 }

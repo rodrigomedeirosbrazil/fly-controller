@@ -36,8 +36,9 @@ namespace RemoteBeep {
 
 // Remote -> Controller, sent ~50 Hz.
 // The remote forwards the RAW button state; the controller runs its existing
-// AceButton arming gesture on the received state (identical wired/wireless
-// behavior). reserved keeps the struct at a stable 4 bytes for future use.
+// arming gesture on the received state (identical wired/wireless behavior),
+// ANDed with link freshness in Button::readRawPressed().
+// reserved keeps the struct at a stable 4 bytes for future use.
 struct ThrottleToControllerPacket {
     uint16_t hallRaw;       // raw Hall ADC reading
     uint8_t  buttonPressed; // 1 = button physically pressed, 0 = released

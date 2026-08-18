@@ -238,6 +238,70 @@ void test_tone_transition() {
     cout << "PASS: computeToneTransition covers all cases; a frequency change while on is Retune\n";
 }
 
+void test_setstatefreq_applies_at_on_off_edge() {
+    SoundLogic logic;
+    logic.setStatePattern(SoundState::ArmCharging, {1800, 60, 40, 0});
+    logic.setState(SoundState::ArmCharging);
+    logic.setStateFreq(2000);
+
+    // First on-phase uses the pattern default; a live retune mid-tone is not
+    // applied (that would be an audible click on the piezo).
+    SoundOutput o = logic.update(0);
+    assert(o.toneOn && o.freqHz == 1800);
+    o = logic.update(30);
+    assert(o.toneOn && o.freqHz == 1800);
+
+    // on->off edge at t=60: the pending frequency lands for the next on-phase.
+    o = logic.update(60);
+    assert(!o.toneOn);
+    o = logic.update(100);
+    assert(o.toneOn && o.freqHz == 2000);
+
+    // A retune requested while on is deferred to the next edge.
+    logic.setStateFreq(2400);
+    o = logic.update(120);
+    assert(o.toneOn && o.freqHz == 2000);
+    cout << "PASS: setStateFreq is applied only at the on->off phase edge\n";
+}
+
+void test_setstatefreq_does_not_leak_across_states() {
+    SoundLogic logic;
+    logic.setStatePattern(SoundState::ArmCharging,   {1800, 60,  40,  0});
+    logic.setStatePattern(SoundState::ArmedIdle,     {2000, 200, 200, 0});
+    logic.setState(SoundState::ArmCharging);
+    logic.setStateFreq(2300);
+    logic.update(0);   // on-phase of ArmCharging starts; pending 2300 unconsumed
+
+    // Transition before the pending frequency was applied.
+    logic.setState(SoundState::ArmedIdle);
+    logic.update(1);
+    SoundOutput o = logic.update(201); // ArmedIdle's own on->off edge
+    assert(o.freqHz == 2000);          // default, not the stale 2300
+    cout << "PASS: a stale setStateFreq never leaks into another state\n";
+}
+
+void test_setstatefreq_does_not_persist_across_sessions() {
+    // Regression: the retune used to mutate the catalog pattern, so after one
+    // disarm ramp DisarmRamping was stuck at the bottom of the sweep and the
+    // next disarm started low then jumped up — inverting the descending cue.
+    SoundLogic logic;
+    logic.setStatePattern(SoundState::DisarmRamping, {2500, 60, 40, 0});
+    logic.setState(SoundState::DisarmRamping);
+    logic.setStateFreq(1800);   // pilot holds until near powerScale 0
+    logic.update(0);            // on, 2500
+    logic.update(60);           // on->off -> runtime freq 1800
+    assert(logic.update(100).freqHz == 1800);
+
+    // Next session must start from the catalog default and sweep again.
+    logic.setState(SoundState::None);
+    logic.update(200);
+    logic.setState(SoundState::DisarmRamping);
+    logic.update(300);          // start -> freq 2500 (default)
+    SoundOutput o = logic.update(360); // first on->off edge of the new session
+    assert(o.freqHz == 2500);          // default, not the swept 1800
+    cout << "PASS: a retune never persists into a later session\n";
+}
+
 int main() {
     test_continuous_state_never_expires();
     test_event_preempts_state_and_resumes_from_start();
@@ -248,5 +312,8 @@ int main() {
     test_queue_full_drops_newest_preserves_inflight();
     test_millis_rollover_state_and_event();
     test_tone_transition();
+    test_setstatefreq_applies_at_on_off_edge();
+    test_setstatefreq_does_not_leak_across_states();
+    test_setstatefreq_does_not_persist_across_sessions();
     return 0;
 }
