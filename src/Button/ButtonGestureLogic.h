@@ -50,10 +50,15 @@ struct ButtonGestureOutput {
 
 class ButtonGestureLogic {
 public:
-    // All carry today's values so phase 1 is behaviour-neutral.
     static constexpr uint32_t BUTTON_DEBOUNCE_MS         = 20;
     static constexpr uint32_t BUTTON_CLICK_MAX_MS        = 300;
-    static constexpr uint32_t BUTTON_ARM_WINDOW_MS       = 3500;
+    // Double-click feel: the hold must start within 600 ms of the click. The
+    // old 3500 ms was inherited from the pre-redesign `longClickThreshold` and
+    // left the controller armable for 3.5 s after any stray tap. Do not go
+    // below ~500 ms: the 20 ms debounce on each edge starts to eat a
+    // noticeable slice of the window, and the gesture gets frustrating with
+    // gloves on.
+    static constexpr uint32_t BUTTON_ARM_WINDOW_MS       = 600;
     static constexpr uint32_t BUTTON_ARM_CHARGE_MS       = 2000;
     static constexpr uint32_t BUTTON_DISARM_RAMP_DOWN_MS = 2000;
     static constexpr uint32_t BUTTON_DISARM_RAMP_UP_MS   = 2000;

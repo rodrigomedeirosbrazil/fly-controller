@@ -22,7 +22,7 @@ void test_parity_arm_gesture() {
     assert(o.intent == ButtonIntent::Click);
     assert(o.armCharge == 0);
 
-    // Hold 2000 ms starting inside the 3500 ms window.
+    // Hold 2000 ms starting inside the 600 ms window.
     o = logic.update(200, true, false, engaged);                      // raw press
     o = logic.update(220, true, false, engaged);                      // press edge @220
     assert(o.intent == ButtonIntent::None);
@@ -47,29 +47,68 @@ void test_parity_arm_gesture() {
     cout << "PASS: hold started outside the window never arms\n";
 }
 
+void test_arm_window_boundary() {
+    // The window runs from the release edge of the click to the press edge of
+    // the hold. Expiry is checked before the press edge in the same tick, so a
+    // press landing exactly at the boundary is already too late.
+    const bool engaged = true;
+
+    // Inside: click release edge @120, press edge @700 (580 ms gap) -> arms.
+    ButtonGestureLogic inside;
+    inside.update(0,   true,  false, engaged);
+    inside.update(20,  true,  false, engaged);                        // press edge
+    inside.update(100, false, false, engaged);
+    ButtonGestureOutput o = inside.update(120, false, false, engaged); // release edge -> Click
+    assert(o.intent == ButtonIntent::Click);
+    inside.update(680, true, false, engaged);                         // raw press
+    inside.update(700, true, false, engaged);                         // press edge @700
+    o = inside.update(2700, true, false, engaged);                    // 2000 ms of charge
+    assert(o.intent == ButtonIntent::Arm);
+
+    // Outside: same click, press edge @720 (600 ms gap) -> window already gone.
+    ButtonGestureLogic outside;
+    outside.update(0,   true,  false, engaged);
+    outside.update(20,  true,  false, engaged);
+    outside.update(100, false, false, engaged);
+    o = outside.update(120, false, false, engaged);                   // release edge -> Click
+    assert(o.intent == ButtonIntent::Click);
+    outside.update(700, true, false, engaged);                        // raw press
+    outside.update(720, true, false, engaged);                        // press edge @720
+    o = outside.update(2720, true, false, engaged);                   // held 2000 ms
+    assert(o.intent == ButtonIntent::None);                           // never arms
+    o = outside.update(2800, false, false, engaged);
+    o = outside.update(2820, false, false, engaged);                  // release, not a click
+    assert(o.intent == ButtonIntent::None);
+    cout << "PASS: the arming window closes at BUTTON_ARM_WINDOW_MS\n";
+}
+
 void test_partial_holds_do_not_sum() {
+    // A release out of ArmCharging that doesn't itself qualify as a click
+    // leaves clickReleaseMs_ untouched (stale, from the original click) — so
+    // both partial holds below have to land inside the *original* 600 ms
+    // window, not just close to each other.
     ButtonGestureLogic logic;
     const bool engaged = true;
 
     logic.update(0, true, false, engaged);
     logic.update(20, true, false, engaged);
     logic.update(100, false, false, engaged);
-    logic.update(120, false, false, engaged);                         // click, window open
+    logic.update(120, false, false, engaged);                         // click, window open (closes @720)
 
-    // First partial hold: 1000 ms, then release.
-    logic.update(200, true, false, engaged);
-    logic.update(220, true, false, engaged);                          // charge starts
-    ButtonGestureOutput o = logic.update(1220, true, false, engaged);
-    assert(o.armCharge == 50);                                        // half charged
-    o = logic.update(1240, false, false, engaged);                    // raw release
-    o = logic.update(1260, false, false, engaged);                    // release edge
+    // First partial hold: 400 ms, then release.
+    logic.update(140, true, false, engaged);
+    logic.update(160, true, false, engaged);                          // charge starts
+    ButtonGestureOutput o = logic.update(560, true, false, engaged);
+    assert(o.armCharge == 20);                                        // 400/2000 ms charged
+    o = logic.update(580, false, false, engaged);                     // raw release
+    o = logic.update(600, false, false, engaged);                     // release edge (not a click: 440 ms held)
     assert(o.armCharge == 0);                                         // resets on release
 
-    // Second partial hold: another 1000 ms. Same charge, never sums to Arm.
-    logic.update(1500, true, false, engaged);
-    logic.update(1520, true, false, engaged);                         // charge starts fresh
-    o = logic.update(2520, true, false, engaged);
-    assert(o.armCharge == 50);
+    // Second partial hold: same 400 ms, still inside the original window. Same charge, never sums to Arm.
+    logic.update(620, true, false, engaged);
+    logic.update(640, true, false, engaged);                          // charge starts fresh
+    o = logic.update(1040, true, false, engaged);
+    assert(o.armCharge == 20);
     assert(o.intent != ButtonIntent::Arm);
     cout << "PASS: releasing the arm charge resets it; partial holds do not sum\n";
 }
@@ -324,6 +363,7 @@ void test_millis_rollover() {
 
 int main() {
     test_parity_arm_gesture();
+    test_arm_window_boundary();
     test_partial_holds_do_not_sum();
     test_disarm_ramp_timing();
     test_disarm_ramp_recovery_and_inversion();
