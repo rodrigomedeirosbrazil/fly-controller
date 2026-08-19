@@ -677,6 +677,21 @@ void TmotorCan::sendStatusUploadSet(bool open) {
 
     // Transfer 3 (section 0x10 — Status upload toggle; 44 bytes inner data,
     // byte 28 toggles between 0x00 (Close) and 0x80 (Open)).
+    //
+    // Byte 29 is the Status protocol selector (CloudLink's "Status protocol"
+    // dropdown): 0x00=CUBECAN, 0x01=DRONECAN-S, 0x02=DRONECAN-M. This firmware
+    // targets DRONECAN-S (0x01) — Status 1-5 (including 1154, motor
+    // temperature) is only emitted in that mode. CUBECAN was captured live on
+    // a bench unit sending zero Status 1-5 frames over 150+ seconds, in every
+    // combination of Status upload open/closed and with the ESC power-cycled
+    // in between — CUBECAN does not send them on this ESC/firmware at all.
+    //
+    // A protocol change here only takes effect after the ESC's own power is
+    // cycled (confirmed: no measurable delay is enough — a plain reboot of
+    // this firmware alone is not a reboot of the ESC). If a freshly connected
+    // ESC never shows motor temperature, the fix is to power-cycle the ESC
+    // once after this SET has had a chance to run (2s after CAN detection,
+    // see handle()) — not to change these bytes.
     uint8_t t3_inner[44] = {
         0x41, 0x00, 0x01, 0x00, 0x10, 0x00, 0x24, 0x00,
         0x7B, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,

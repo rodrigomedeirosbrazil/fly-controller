@@ -27,6 +27,10 @@
  * - Generic Instruction (1000): Enable Reporting command (Internal Protocol Message ID 4670)
  * - ESC_STATUS (1034): ESC telemetry including ESC temperature
  * - Status 5 (1154): Motor temperature, capacitor temperature, and busbar current (single-frame, 10 Hz)
+ *   Only emitted when the ESC's "Status protocol" is DRONECAN-S (see sendStatusUploadSet() in the
+ *   .cpp) — CUBECAN mode sends none of Status 1-5, confirmed by a 150+ second bench capture across
+ *   every open/closed and CUBECAN/DRONECAN-S/DRONECAN-M combination. A protocol change only takes
+ *   effect after the ESC itself is power-cycled, not just re-detected by this firmware.
  * - PUSHCAN (1039): Additional telemetry (deprecated for motor temperature - use Status 5 instead)
  * - RawCommand (1030): Throttle control
  * - ParamCfg (1033): Deprecated - use Enable Reporting (1000) instead

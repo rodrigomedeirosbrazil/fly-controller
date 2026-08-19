@@ -101,10 +101,12 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 
 ### 7.2 Temperatura do motor
 
-- O controlador lê a temperatura do motor (por exemplo, via sensor NTC).
+- O controlador lê a temperatura do motor (por exemplo, via sensor NTC, ou via CAN em builds T-Motor).
 - Existe uma **temperatura de início de redução** e uma **temperatura máxima** (definidas nas configurações).
 - Entre essa faixa, a **potência é reduzida gradualmente** (quanto mais quente, menos potência permitida).
 - Objetivo: evitar superaquecimento do motor.
+
+**ESC T-Motor recém-instalado sem temperatura na tela de Telemetria:** o controlador configura o ESC automaticamente para reportar a temperatura (via CAN) poucos segundos depois de detectá-lo pela primeira vez, mas essa configuração só entra em vigor depois que o **próprio ESC** é desligado e religado — reiniciar só o Fly Controller não é suficiente. Se a temperatura do motor não aparecer na Telemetria assim que o conjunto for montado, desligue e religue o ESC uma vez (com o Fly Controller já ligado e o ESC detectado) antes de investigar outra causa.
 
 ### 7.3 Temperatura do ESC
 

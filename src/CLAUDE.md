@@ -194,6 +194,8 @@ The RX queue is set to `CAN_RX_QUEUE_LEN` (32) instead of the driver default of 
 ### Tmotor — `Tmotor/`
 TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for ESC_STATUS (1034) and PUSHCAN (1039); handles Status 5 (1154) for motor temp; sends RawCommand (1030) at 400 Hz. `TmotorTelemetry`: snapshot aggregator.
 
+Status 5 (1154) is only emitted when the ESC's CloudLink-configured "Status protocol" is `DRONECAN-S` — `CUBECAN` mode sends none of Status 1-5 on this ESC/firmware, confirmed by a 150+ second bench capture across every open/closed × protocol combination (see [issue #73](https://github.com/rodrigomedeirosbrazil/fly-controller/issues/73)). `TmotorCan::sendStatusUploadSet()` (byte 29 of the section-0x10 payload) already sets `DRONECAN-S`, but **a protocol change only takes effect after the ESC itself is power-cycled** — restarting this firmware alone re-detects the ESC and re-sends the SET, but does not make the ESC re-read it. A freshly connected ESC showing no motor temperature on Telemetry needs one manual power-cycle, not a code change.
+
 ### Xag — `Xag/`
 XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors only.
 
