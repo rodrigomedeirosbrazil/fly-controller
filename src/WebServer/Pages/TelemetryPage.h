@@ -710,9 +710,11 @@ const SIGNAL_BADGE_CLASS = { s: 'stale', i: 'nodata', a: 'status-secondary' };
 // Valid-signal source labels (motor temp: which sensor fed the reading).
 const SIGNAL_SRC_TEXT = { can: 'CAN', ntc: 'NTC' };
 
-// Shows formattedValue and hides the badge when the signal is valid;
-// otherwise shows "—" and a badge describing why — never a fabricated
-// number for a signal that isn't valid.
+// Renders a signal's value and badge. When valid, shows formattedValue and
+// hides the badge — unless a validLabel is given (motor temp's source:
+// CAN/NTC), in which case the badge shows that label. When not valid, shows
+// "—" and a badge describing why — never a fabricated number for a signal
+// that isn't valid.
 const renderSignalBadge = (badgeId, valueId, code, formattedValue, validLabel) => {
     const badge = $(badgeId);
     const valueEl = $(valueId);

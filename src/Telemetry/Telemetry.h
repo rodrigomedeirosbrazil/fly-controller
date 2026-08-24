@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "SignalState.h"
-#include "../Tmotor/MotorTempSourceLogic.h"
+#include "MotorTempOrigin.h"
 
 /**
  * Unified telemetry facade: delegates to TmotorTelemetry or XagTelemetry.

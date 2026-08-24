@@ -56,14 +56,16 @@ void test_can_unavailable_and_ntc_broken_is_invalid() {
     cout << "PASS: both sources bad -> Invalid\n";
 }
 
-void test_origin_is_ntc_even_when_the_ntc_is_invalid() {
-    // The origin describes WHICH sensor was consulted, not whether it
-    // answered sensibly — a dead NTC still reports Ntc alongside Invalid.
-    MotorTempReading r = selectMotorTempReading(true, true, 55000, 999.0, false);
-    assert(r.milliCelsius == 999000);
-    assert(r.state == SignalState::Invalid);
-    assert(r.origin == MotorTempOrigin::Ntc);
-    cout << "PASS: origin is Ntc even when the NTC itself is invalid\n";
+void test_can_origin_survives_a_broken_ntc() {
+    // The mirror of the forced-NTC regression: CAN is selected, but the NTC
+    // is broken. The origin and the Valid verdict must still come from CAN —
+    // a future refactor must not borrow the NTC's Invalid state while keeping
+    // CAN's value (that desync is the exact bug this function prevents).
+    MotorTempReading r = selectMotorTempReading(false, true, 55000, 999.0, false);
+    assert(r.milliCelsius == 55000);
+    assert(r.state == SignalState::Valid);
+    assert(r.origin == MotorTempOrigin::Can);
+    cout << "PASS: origin is Can even when the NTC itself is broken\n";
 }
 
 void test_origin_matches_the_value_in_every_branch() {
@@ -89,7 +91,7 @@ int main() {
     test_can_not_fresh_falls_back_to_ntc();
     test_can_implausible_falls_back_to_ntc_value_and_state_together();
     test_can_unavailable_and_ntc_broken_is_invalid();
-    test_origin_is_ntc_even_when_the_ntc_is_invalid();
+    test_can_origin_survives_a_broken_ntc();
     test_origin_matches_the_value_in_every_branch();
     cout << "MotorTempSourceLogicTest: all passed" << endl;
     return 0;

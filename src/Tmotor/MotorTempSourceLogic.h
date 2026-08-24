@@ -1,11 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "../Telemetry/SignalState.h"
-
-// Which sensor actually fed a motor-temperature reading. None exists only
-// for builds/backends that don't select a motor-temp source at all (XAG has
-// a single source; the source badge is omitted there).
-enum class MotorTempOrigin : uint8_t { None, Can, Ntc };
+#include "../Telemetry/MotorTempOrigin.h"
 
 struct MotorTempReading {
     int32_t milliCelsius;

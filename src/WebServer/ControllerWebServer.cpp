@@ -747,10 +747,9 @@ void ControllerWebServer::startAP() {
         // Which sensor actually fed motorTemp this tick (Tmotor has two: CAN
         // Status 5/PUSHCAN, and the NTC fallback). Omitted when the build has
         // no source choice to report, matching how rpm/current are omitted.
-        switch (telemetry.getMotorTempOrigin()) {
-            case MotorTempOrigin::Can: signals["motorTempSrc"] = "can"; break;
-            case MotorTempOrigin::Ntc: signals["motorTempSrc"] = "ntc"; break;
-            case MotorTempOrigin::None: break;
+        const char* motorTempSrc = motorTempOriginCode(telemetry.getMotorTempOrigin());
+        if (motorTempSrc) {
+            signals["motorTempSrc"] = motorTempSrc;
         }
 
         doc["hasTelemetry"] = hasTelemetry;
