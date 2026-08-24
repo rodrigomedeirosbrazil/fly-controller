@@ -880,6 +880,7 @@ const FAULT_DISARM_INFO = {
     'THR ERR':  { title: 'Desarmado: falha no acelerador (com fio)', detail: 'Leitura fora da faixa calibrada ou falha de leitura do ADS1115.' },
     'LINK ERR': { title: 'Desarmado: falha no acelerador (sem fio)', detail: 'Link com o remote perdido por mais de 3 segundos.' },
     'MOT ERR':  { title: 'Desarmado: falha no sensor de temperatura do motor', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
+    'MOT SRC':  { title: 'Desarmado: a fonte da temperatura do motor mudou (CAN ⇄ NTC) durante o voo', detail: 'Os limites de temperatura são calibrados por sensor. Verifique o conector do NTC e o Status 5 do ESC antes de armar.' },
     'ESC ERR':  { title: 'Desarmado: falha no sensor de temperatura do ESC', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
     'BATT ERR': { title: 'Desarmado: falha no sensor de tensão da bateria', detail: 'Estava válido ao armar e tornou-se inválido depois do armamento.' },
 };

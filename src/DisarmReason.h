@@ -18,6 +18,7 @@ enum class DisarmReason : uint8_t {
     MotorTempLost = 4,        // phase 2
     EscTempLost = 5,          // phase 2
     BatteryVoltageLost = 6,   // phase 2
+    MotorTempSourceChanged = 7, // phase 2
 };
 
 // Short fixed-width code (<= 8 chars), identical across every surface that
@@ -31,6 +32,7 @@ inline const char* disarmReasonCode(DisarmReason reason) {
         case DisarmReason::MotorTempLost:         return "MOT ERR";
         case DisarmReason::EscTempLost:           return "ESC ERR";
         case DisarmReason::BatteryVoltageLost:    return "BATT ERR";
+        case DisarmReason::MotorTempSourceChanged: return "MOT SRC";
     }
     return "";
 }

@@ -13,6 +13,7 @@ void test_codes_match_table() {
     assert(strcmp(disarmReasonCode(DisarmReason::MotorTempLost), "MOT ERR") == 0);
     assert(strcmp(disarmReasonCode(DisarmReason::EscTempLost), "ESC ERR") == 0);
     assert(strcmp(disarmReasonCode(DisarmReason::BatteryVoltageLost), "BATT ERR") == 0);
+    assert(strcmp(disarmReasonCode(DisarmReason::MotorTempSourceChanged), "MOT SRC") == 0);
     cout << "PASS: codes match the design table\n";
 }
 
@@ -22,6 +23,7 @@ void test_codes_fit_xctrack_field_width() {
         DisarmReason::None, DisarmReason::Manual, DisarmReason::ThrottleWiredInvalid,
         DisarmReason::ThrottleLinkLost, DisarmReason::MotorTempLost,
         DisarmReason::EscTempLost, DisarmReason::BatteryVoltageLost,
+        DisarmReason::MotorTempSourceChanged,
     };
     for (DisarmReason r : all) {
         assert(strlen(disarmReasonCode(r)) <= 8);

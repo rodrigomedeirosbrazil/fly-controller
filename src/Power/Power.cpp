@@ -40,17 +40,28 @@ void Power::checkSignalLoss() {
     // tick's sample to keep its own debounce timer honest. Only the first
     // one to fire actually latches a DisarmReason, since
     // Throttle::setDisarmed() early-returns once already disarmed.
-    bool motorLost = motorTempContract_.update(telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS);
-    bool escLost   = escTempContract_.update(telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
-    bool battLost  = batteryContract_.update(telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
+    //
+    // The motor-temp contract passes the reading's origin (Can/Ntc) as its
+    // source tag, so a mid-flight switch of which sensor feeds the value is
+    // treated as loss of the sensor the pilot armed with. ESC temp and
+    // battery voltage have a single source and pass no tag.
+    SignalArmContract::Outcome motorOutcome = motorTempContract_.update(
+        telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS,
+        (uint8_t)telemetry.getMotorTempOrigin());
+    SignalArmContract::Outcome escOutcome   = escTempContract_.update(
+        telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+    SignalArmContract::Outcome battOutcome  = batteryContract_.update(
+        telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
 
-    if (motorLost) {
+    if (motorOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::MotorTempLost);
+    } else if (motorOutcome == SignalArmContract::Outcome::SourceChanged) {
+        throttle.setDisarmed(DisarmReason::MotorTempSourceChanged);
     }
-    if (escLost) {
+    if (escOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::EscTempLost);
     }
-    if (battLost) {
+    if (battOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
     }
 }

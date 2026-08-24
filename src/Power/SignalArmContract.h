@@ -37,16 +37,32 @@
 //    cannot change dangerously within the grace window, so this costs no
 //    real protection.
 //
+// The SOURCE TAG extends the contract with the same idea for a signal that
+// has multiple sensors behind one reading (motor temp: CAN vs NTC). The
+// snapshot captures which sensor produced the reading at arm (tagAtArm_),
+// and "effective valid" is `valid && (tag == tagAtArm_)` — a change of
+// sensor mid-flight is treated exactly like the armed sensor going invalid.
+// update() reports which one happened so the caller can pick a specific
+// disarm reason: `LostInvalid` when the reading itself went bad (also the
+// precedence when both apply — an invalid reading has no source worth
+// reporting), `SourceChanged` only when the new source reads valid but
+// differs from the one the pilot armed with. Callers whose signal has a
+// single source (ESC temp, battery voltage) omit the tag; it defaults to 0
+// and always equals its own snapshot, so they behave exactly as before.
+//
 // Threading: shouldLimit() is a pure read, safe to call from any task
 // (calc*Limit() is reachable from the async web-server task). update() and
 // onArmed() mutate state and must only be called from the main loop —
 // see Power::checkSignalLoss().
 class SignalArmContract {
 public:
+    enum class Outcome : uint8_t { None, LostInvalid, SourceChanged };
+
     SignalArmContract() { reset(); }
 
     void reset() {
         validAtArm_ = false;
+        tagAtArm_ = 0;
         snapshotPending_ = false;
         invalidRunning_ = false;
         invalidSinceMs_ = 0;
@@ -56,47 +72,69 @@ public:
     // on purpose — see note 1 above.
     void onArmed() {
         validAtArm_ = false;
+        tagAtArm_ = 0;
         snapshotPending_ = true;
         invalidRunning_ = false;
         invalidSinceMs_ = 0;
     }
 
-    // Call once per main-loop tick while armed. Returns true when a disarm
-    // should fire now (signal was valid at arm and has read invalid
-    // continuously for at least graceMs).
-    bool update(bool validNow, uint32_t nowMs, uint32_t graceMs) {
+    // Call once per main-loop tick while armed. Returns what (if anything)
+    // should fire right now: `None` normally, `LostInvalid` when the signal
+    // was valid at arm and has read invalid continuously for at least
+    // graceMs, `SourceChanged` when the source tag has diverged from the one
+    // armed with for that long while the reading stayed valid.
+    Outcome update(bool validNow, uint32_t nowMs, uint32_t graceMs, uint8_t tag = 0) {
         if (snapshotPending_) {
             // First tick after arming: this sample IS the contract. Never
-            // disarm on it — there is no "loss" to observe yet.
+            // disarm on it — there is no "loss" to observe yet. The tag is
+            // snapshotted on the same tick as validity, so the two can
+            // never desync.
             validAtArm_ = validNow;
+            tagAtArm_ = tag;
             snapshotPending_ = false;
             invalidRunning_ = false;
-            return false;
+            return Outcome::None;
         }
 
         if (!validAtArm_) {
-            // Invalid at arm: disabled for the whole session, never disarms.
-            return false;
+            // Invalid at arm: disabled for the whole session, never disarms —
+            // even if a source appears later.
+            return Outcome::None;
         }
 
-        if (validNow) {
+        const bool effectiveValid = validNow && (tag == tagAtArm_);
+
+        if (effectiveValid) {
             invalidRunning_ = false;
-            return false;
+            return Outcome::None;
         }
 
         if (!invalidRunning_) {
             invalidRunning_ = true;
             invalidSinceMs_ = nowMs;
         }
-        return (uint32_t)(nowMs - invalidSinceMs_) >= graceMs;
+        if ((uint32_t)(nowMs - invalidSinceMs_) < graceMs) {
+            return Outcome::None;
+        }
+
+        // Precedence when both apply: an invalid reading has no source worth
+        // reporting, so "sensor failed" wins over "source changed".
+        return validNow ? Outcome::SourceChanged : Outcome::LostInvalid;
     }
 
     // True if this signal should currently be used for power limiting.
-    // Pure read — safe from any task.
-    bool shouldLimit(bool validNow) const { return validAtArm_ && validNow; }
+    // Pure read — safe from any task. The tag guard is NOT debounced: the
+    // instant the source diverges, this stops driving the limiter, so the
+    // limiter never runs one sensor's thresholds against another sensor's
+    // reading — not even during the grace window (goal: no single loop
+    // iteration on a mismatched sensor).
+    bool shouldLimit(bool validNow, uint8_t tag = 0) const {
+        return validAtArm_ && validNow && (tag == tagAtArm_);
+    }
 
 private:
     bool     validAtArm_;
+    uint8_t  tagAtArm_;
     bool     snapshotPending_;
     bool     invalidRunning_;
     uint32_t invalidSinceMs_;
