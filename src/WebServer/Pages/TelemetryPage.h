@@ -707,17 +707,28 @@ const setStatus = (kind) => {
 const SIGNAL_BADGE_TEXT = { s: 'DESATUALIZADO', i: 'INVÁLIDO', a: 'SEM DADO' };
 const SIGNAL_BADGE_CLASS = { s: 'stale', i: 'nodata', a: 'status-secondary' };
 
+// Valid-signal source labels (motor temp: which sensor fed the reading).
+const SIGNAL_SRC_TEXT = { can: 'CAN', ntc: 'NTC' };
+
 // Shows formattedValue and hides the badge when the signal is valid;
 // otherwise shows "—" and a badge describing why — never a fabricated
 // number for a signal that isn't valid.
-const renderSignalBadge = (badgeId, valueId, code, formattedValue) => {
+const renderSignalBadge = (badgeId, valueId, code, formattedValue, validLabel) => {
     const badge = $(badgeId);
     const valueEl = $(valueId);
     if (!badge || !valueEl) return;
 
     if (!code || code === 'v') {
-        badge.style.display = 'none';
         valueEl.textContent = formattedValue;
+        // A valid signal may still want to say WHERE it came from (motor
+        // temp: CAN vs NTC). No label -> behave exactly as before and hide.
+        if (validLabel) {
+            badge.style.display = '';
+            badge.className = 'status status-secondary';
+            badge.textContent = validLabel;
+        } else {
+            badge.style.display = 'none';
+        }
     } else {
         badge.style.display = '';
         badge.className = `status ${SIGNAL_BADGE_CLASS[code] || 'status-secondary'}`;
@@ -744,7 +755,8 @@ const renderTelemetry = (data) => {
     setText('powerPercent', `${data.powerPercent || 0} %`);
     setText('throttlePercent', `${data.throttlePercent || 0} %`);
     setText('throttleRaw', `${data.throttleRaw || 0}`);
-    renderSignalBadge('motorTempBadge', 'motorTemp', signals.motorTemp, fmtC(data.motorTempMc || 0));
+    renderSignalBadge('motorTempBadge', 'motorTemp', signals.motorTemp,
+                      fmtC(data.motorTempMc || 0), SIGNAL_SRC_TEXT[signals.motorTempSrc]);
     setText('rpm', av.rpm ? `${data.rpm ?? 0} rpm` : 'N/A');
     renderSignalBadge('escTempBadge', 'escTemp', signals.escTemp, fmtC(data.escTempMc || 0));
     setText('escCurrent', av.current ? fmtA(data.escCurrentMa ?? 0) : 'N/A');

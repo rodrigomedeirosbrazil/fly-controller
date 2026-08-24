@@ -17,10 +17,11 @@ static unsigned long wrapGetLastUpdate() { return tmotorTelemetry.getLastUpdate(
 static SignalState wrapGetMotorTempState() { return tmotorTelemetry.getMotorTempState(); }
 static SignalState wrapGetEscTempState() { return tmotorTelemetry.getEscTempState(); }
 static SignalState wrapGetBatteryVoltageState() { return tmotorTelemetry.getBatteryVoltageState(); }
+static MotorTempOrigin wrapGetMotorTempOrigin() { return tmotorTelemetry.getMotorTempOrigin(); }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
     wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
-    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState
+    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState, wrapGetMotorTempOrigin
 };
 #elif IS_XAG
 static void wrapUpdate() { xagTelemetry.update(); }
@@ -34,10 +35,13 @@ static unsigned long wrapGetLastUpdate() { return xagTelemetry.getLastUpdate(); 
 static SignalState wrapGetMotorTempState() { return xagTelemetry.getMotorTempState(); }
 static SignalState wrapGetEscTempState() { return xagTelemetry.getEscTempState(); }
 static SignalState wrapGetBatteryVoltageState() { return xagTelemetry.getBatteryVoltageState(); }
+// XAG has a single motor-temp source (NTC/ADS1115), so it reports no
+// origin and the UI shows no source badge.
+static MotorTempOrigin wrapGetMotorTempOrigin() { return MotorTempOrigin::None; }
 static const TelemetryBackend s_backend = {
     wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
     wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
-    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState
+    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState, wrapGetMotorTempOrigin
 };
 #endif
 
@@ -103,6 +107,12 @@ SignalState Telemetry::getEscTempState() const {
 
 SignalState Telemetry::getBatteryVoltageState() const {
     return s_backend_ptr && s_backend_ptr->getBatteryVoltageState ? s_backend_ptr->getBatteryVoltageState() : SignalState::Absent;
+}
+
+MotorTempOrigin Telemetry::getMotorTempOrigin() const {
+    return s_backend_ptr && s_backend_ptr->getMotorTempOrigin
+        ? s_backend_ptr->getMotorTempOrigin()
+        : MotorTempOrigin::None;
 }
 
 Telemetry telemetry;
