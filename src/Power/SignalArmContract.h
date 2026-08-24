@@ -27,15 +27,17 @@
 //    immediately on arming. Snapshotting and comparing against the same
 //    sample makes that straddle impossible.
 //
-// 2. Loss is DEBOUNCED via graceMs. The signal must read invalid
-//    continuously for graceMs before update() reports a disarm; a single
-//    valid sample resets the timer. Every other validity path in this
-//    firmware has tolerance (wired throttle: 3 consecutive I2C failures;
-//    wireless: 500 ms to ramp, 3 s to disarm), and the underlying signals
-//    here are genuinely intermittent — a CAN ESC_STATUS transfer is dropped
-//    whole if any one of its frames is lost. Temperature and pack voltage
-//    cannot change dangerously within the grace window, so this costs no
-//    real protection.
+// 2. Loss is DEBOUNCED via graceMs. The signal must read "not effectively
+//    valid" continuously for graceMs before update() reports a disarm, where
+//    effectively valid means valid AND still coming from the source that was
+//    armed (see the SOURCE TAG note below). A single effectively-valid sample
+//    — valid at the armed source — resets the timer. Every other validity
+//    path in this firmware has tolerance (wired throttle: 3 consecutive I2C
+//    failures; wireless: 500 ms to ramp, 3 s to disarm), and the underlying
+//    signals here are genuinely intermittent — a CAN ESC_STATUS transfer is
+//    dropped whole if any one of its frames is lost. Temperature and pack
+//    voltage cannot change dangerously within the grace window, so this costs
+//    no real protection.
 //
 // The SOURCE TAG extends the contract with the same idea for a signal that
 // has multiple sensors behind one reading (motor temp: CAN vs NTC). The
@@ -47,8 +49,13 @@
 // precedence when both apply — an invalid reading has no source worth
 // reporting), `SourceChanged` only when the new source reads valid but
 // differs from the one the pilot armed with. Callers whose signal has a
-// single source (ESC temp, battery voltage) omit the tag; it defaults to 0
-// and always equals its own snapshot, so they behave exactly as before.
+// single source (ESC temp, battery voltage) pass `0`; their tag never
+// changes, so the tag guard is inert and they behave exactly as before.
+//
+// The tag is a REQUIRED argument — there is no default. A forgotten tag
+// would silently compare against 0 and, on Tmotor where the origin is never
+// 0, permanently disable the limiter; making it mandatory turns that bug
+// into a compile error.
 //
 // Threading: shouldLimit() is a pure read, safe to call from any task
 // (calc*Limit() is reachable from the async web-server task). update() and
@@ -80,10 +87,11 @@ public:
 
     // Call once per main-loop tick while armed. Returns what (if anything)
     // should fire right now: `None` normally, `LostInvalid` when the signal
-    // was valid at arm and has read invalid continuously for at least
-    // graceMs, `SourceChanged` when the source tag has diverged from the one
-    // armed with for that long while the reading stayed valid.
-    Outcome update(bool validNow, uint32_t nowMs, uint32_t graceMs, uint8_t tag = 0) {
+    // was valid at arm and has not been effectively valid continuously for
+    // at least graceMs with an invalid reading on the expiry tick,
+    // `SourceChanged` when the divergence was a pure source-tag change (the
+    // reading stayed valid, only the tag differs).
+    Outcome update(bool validNow, uint32_t nowMs, uint32_t graceMs, uint8_t tag) {
         if (snapshotPending_) {
             // First tick after arming: this sample IS the contract. Never
             // disarm on it — there is no "loss" to observe yet. The tag is
@@ -128,7 +136,7 @@ public:
     // limiter never runs one sensor's thresholds against another sensor's
     // reading — not even during the grace window (goal: no single loop
     // iteration on a mismatched sensor).
-    bool shouldLimit(bool validNow, uint8_t tag = 0) const {
+    bool shouldLimit(bool validNow, uint8_t tag) const {
         return validAtArm_ && validNow && (tag == tagAtArm_);
     }
 

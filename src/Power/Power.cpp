@@ -49,9 +49,9 @@ void Power::checkSignalLoss() {
         telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS,
         (uint8_t)telemetry.getMotorTempOrigin());
     SignalArmContract::Outcome escOutcome   = escTempContract_.update(
-        telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
+        telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
     SignalArmContract::Outcome battOutcome  = batteryContract_.update(
-        telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
+        telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
 
     if (motorOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::MotorTempLost);
@@ -201,7 +201,7 @@ unsigned int Power::calcPower() {
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
 
-    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid())) return 100;
+    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid(), 0)) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -218,7 +218,11 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid())) return 100;
+    // The origin tag matters here as much as in checkSignalLoss(): omitting
+    // it would compare against 0 while the armed snapshot is Can(1)/Ntc(2)
+    // and silently disable motor-temp derating for the whole session.
+    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid(),
+                                        (uint8_t)telemetry.getMotorTempOrigin())) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
     int32_t reductionStart = settings.getMotorTempReductionStart();
@@ -231,7 +235,7 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid())) return 100;
+    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid(), 0)) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     int32_t reductionStart = settings.getEscTempReductionStart();
