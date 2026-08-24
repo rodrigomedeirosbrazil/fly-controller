@@ -744,6 +744,14 @@ void ControllerWebServer::startAP() {
         signals["escTemp"] = escTempCode;
         signals["battV"] = battVCode;
 
+        // Which sensor actually fed motorTemp this tick (Tmotor has two: CAN
+        // Status 5/PUSHCAN, and the NTC fallback). Omitted when the build has
+        // no source choice to report, matching how rpm/current are omitted.
+        const char* motorTempSrc = motorTempOriginCode(telemetry.getMotorTempOrigin());
+        if (motorTempSrc) {
+            signals["motorTempSrc"] = motorTempSrc;
+        }
+
         doc["hasTelemetry"] = hasTelemetry;
         doc["batteryPercentCc"] = batteryMonitor.getSoC();
         doc["batteryPercentVoltage"] = batteryMonitor.getSoCFromVoltage();

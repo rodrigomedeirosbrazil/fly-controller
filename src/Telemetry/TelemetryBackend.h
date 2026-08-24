@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "SignalState.h"
+#include "MotorTempOrigin.h"
 
 /**
  * Telemetry backend interface: function pointers for runtime dispatch.
@@ -21,6 +22,7 @@ struct TelemetryBackend {
     SignalState (*getMotorTempState)(void);
     SignalState (*getEscTempState)(void);
     SignalState (*getBatteryVoltageState)(void);
+    MotorTempOrigin (*getMotorTempOrigin)(void);
 };
 
 #endif // TELEMETRY_BACKEND_H

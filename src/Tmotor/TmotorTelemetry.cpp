@@ -43,6 +43,7 @@ void TmotorTelemetry::update() {
     MotorTempReading motorReading = readMotorTemp();
     cachedMotorTempMilliCelsius = motorReading.milliCelsius;
     cachedMotorTempState = motorReading.state;
+    cachedMotorTempOrigin = motorReading.origin;
 
     if (tmotorCan.hasTelemetry()) {
         cachedBatteryCurrentMilliAmps = tmotorCan.getBatteryCurrent();
@@ -70,4 +71,5 @@ unsigned long TmotorTelemetry::getLastUpdate() const { return cachedLastUpdate; 
 SignalState TmotorTelemetry::getMotorTempState() const { return cachedMotorTempState; }
 SignalState TmotorTelemetry::getEscTempState() const { return cachedEscTempState; }
 SignalState TmotorTelemetry::getBatteryVoltageState() const { return cachedBatteryVoltageState; }
+MotorTempOrigin TmotorTelemetry::getMotorTempOrigin() const { return cachedMotorTempOrigin; }
 #endif

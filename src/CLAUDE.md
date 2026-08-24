@@ -181,7 +181,7 @@ Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltag
 ### Telemetry — `Telemetry/`
 Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `tmotorTelemetry` directly.
 
-- `TmotorTelemetry`: aggregates `batterySensor` + `tmotorCan`; motor temp falls back to ADS1115 when CAN temp is stale
+- `TmotorTelemetry`: aggregates `batterySensor` + `tmotorCan`; motor temp falls back to ADS1115 when CAN temp is stale. The selected source is reported alongside the value via `getMotorTempOrigin()` (`Can`/`Ntc`) so the UI can show where the reading came from; XAG reports `None` since it has a single source.
 - `XagTelemetry`: aggregates `motorTemp`, `escTemp`, `batterySensor` (all ADS1115)
 
 ### CAN Bus — `Canbus/`

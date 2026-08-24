@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <Arduino.h>
 #include "../Telemetry/SignalState.h"
+#include "MotorTempSourceLogic.h"
 
 /**
  * Tmotor telemetry aggregator: battery voltage from ADS1115; current/RPM/ESC temp from TmotorCan (CAN).
@@ -24,6 +25,7 @@ public:
     SignalState getMotorTempState() const;
     SignalState getEscTempState() const;
     SignalState getBatteryVoltageState() const;
+    MotorTempOrigin getMotorTempOrigin() const;
 
 private:
     bool cachedHasData = false;
@@ -36,6 +38,7 @@ private:
     SignalState cachedMotorTempState = SignalState::Invalid;
     SignalState cachedEscTempState = SignalState::Invalid;
     SignalState cachedBatteryVoltageState = SignalState::Invalid;
+    MotorTempOrigin cachedMotorTempOrigin = MotorTempOrigin::None;
 };
 
 #endif
