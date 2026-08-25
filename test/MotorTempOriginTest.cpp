@@ -5,6 +5,10 @@
 #include "../src/Telemetry/MotorTempOrigin.h"
 using namespace std;
 
+// Pins the numeric layout: `None` is the sentinel aliased by
+// SignalArmContract's tag 0, so it must stay 0 (see the assert in the header).
+static_assert((uint8_t)MotorTempOrigin::None == 0, "None must stay 0");
+
 void test_codes_match_table() {
     assert(strcmp(motorTempOriginCode(MotorTempOrigin::Can), "can") == 0);
     assert(strcmp(motorTempOriginCode(MotorTempOrigin::Ntc), "ntc") == 0);

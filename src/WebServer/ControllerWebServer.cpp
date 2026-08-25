@@ -489,6 +489,15 @@ void ControllerWebServer::startAP() {
             settings.setEscTempReductionStart(escReductionStart);
 #if IS_TMOTOR
             if (doc.containsKey("motorTempSource")) {
+                // Changing the forced source mid-flight would flip
+                // telemetry.getMotorTempOrigin() and, under the arm-time
+                // source tag, disarm a flying aircraft via
+                // DisarmReason::MotorTempSourceChanged. Reject it while armed;
+                // the pilot can set it on the ground before the next arm.
+                if (throttle.isArmed()) {
+                    request->send(400, "text/plain", "Não é possível alterar a fonte de temperatura do motor durante o voo");
+                    return;
+                }
                 uint8_t src = doc["motorTempSource"].as<uint8_t>();
                 if (src > (uint8_t)MotorTempSourceAds1115) {
                     request->send(400, "text/plain", "Fonte de temperatura do motor inválida");

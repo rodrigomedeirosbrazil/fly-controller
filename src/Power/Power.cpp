@@ -40,17 +40,28 @@ void Power::checkSignalLoss() {
     // tick's sample to keep its own debounce timer honest. Only the first
     // one to fire actually latches a DisarmReason, since
     // Throttle::setDisarmed() early-returns once already disarmed.
-    bool motorLost = motorTempContract_.update(telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS);
-    bool escLost   = escTempContract_.update(telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS);
-    bool battLost  = batteryContract_.update(telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS);
+    //
+    // The motor-temp contract passes the reading's origin (Can/Ntc) as its
+    // source tag, so a mid-flight switch of which sensor feeds the value is
+    // treated as loss of the sensor the pilot armed with. ESC temp and
+    // battery voltage have a single source and pass no tag.
+    SignalArmContract::Outcome motorOutcome = motorTempContract_.update(
+        telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS,
+        (uint8_t)telemetry.getMotorTempOrigin());
+    SignalArmContract::Outcome escOutcome   = escTempContract_.update(
+        telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
+    SignalArmContract::Outcome battOutcome  = batteryContract_.update(
+        telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
 
-    if (motorLost) {
+    if (motorOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::MotorTempLost);
+    } else if (motorOutcome == SignalArmContract::Outcome::SourceChanged) {
+        throttle.setDisarmed(DisarmReason::MotorTempSourceChanged);
     }
-    if (escLost) {
+    if (escOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::EscTempLost);
     }
-    if (battLost) {
+    if (battOutcome == SignalArmContract::Outcome::LostInvalid) {
         throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
     }
 }
@@ -190,7 +201,7 @@ unsigned int Power::calcPower() {
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
 
-    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid())) return 100;
+    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid(), 0)) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -207,7 +218,11 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid())) return 100;
+    // The origin tag matters here as much as in checkSignalLoss(): omitting
+    // it would compare against 0 while the armed snapshot is Can(1)/Ntc(2)
+    // and silently disable motor-temp derating for the whole session.
+    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid(),
+                                        (uint8_t)telemetry.getMotorTempOrigin())) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
     int32_t reductionStart = settings.getMotorTempReductionStart();
@@ -220,7 +235,7 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid())) return 100;
+    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid(), 0)) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     int32_t reductionStart = settings.getEscTempReductionStart();
