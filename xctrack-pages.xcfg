@@ -378,7 +378,7 @@
             "_title": true,
             "titletext": "Battery ",
             "_hide_labels": false,
-            "index": "2",
+            "index": "1",
             "suffix": "%"
           },
           {
@@ -393,7 +393,7 @@
             "_title": true,
             "titletext": "Voltage",
             "_hide_labels": false,
-            "index": "3",
+            "index": "15",
             "suffix": ""
           },
           {
@@ -421,7 +421,7 @@
             "_bg": 100,
             "_theme": "",
             "_title": true,
-            "titletext": "Armed",
+            "titletext": "Status",
             "_hide_labels": false,
             "index": "13",
             "suffix": ""
