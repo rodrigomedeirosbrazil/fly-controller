@@ -47,23 +47,17 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
                 </div>
 
                 <div class="form-group">
-                    <label for="cellCount">C&eacute;lulas em S&eacute;rie:</label>
-                    <input type="number" id="cellCount" name="cellCount" min="1" max="24" step="1" required>
-                    <div class="info-text">N&uacute;mero de c&eacute;lulas do pack (14S de f&aacute;brica). Converte entre tens&atilde;o por c&eacute;lula e tens&atilde;o total, e alimenta a leitura por c&eacute;lula da Telemetria quando o BMS n&atilde;o informa as c&eacute;lulas.</div>
-                </div>
-
-                <div class="form-group">
                     <label for="minVoltagePerCell">Tensão Mínima por Célula (V):</label>
                     <input type="number" id="minVoltagePerCell" name="minVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
                     <div class="info-text">Tensão mínima segura por célula (normalmente 3,0V - 3,15V para LiPo).</div>
-                    <div class="total-voltage">Total: <span id="minVoltageTotalValue">0.00</span> V (<span class="cellCountLabel">14</span> células)</div>
+                    <div class="total-voltage">Total: <span id="minVoltageTotalValue">0.00</span> V (14 células)</div>
                 </div>
 
                 <div class="form-group">
                     <label for="maxVoltagePerCell">Tensão Máxima por Célula (V):</label>
                     <input type="number" id="maxVoltagePerCell" name="maxVoltagePerCell" min="2.5" max="4.5" step="0.01" required>
                     <div class="info-text">Tensão máxima segura por célula (normalmente 4,1V - 4,2V para LiPo).</div>
-                    <div class="total-voltage">Total: <span id="maxVoltageTotalValue">0.00</span> V (<span class="cellCountLabel">14</span> células)</div>
+                    <div class="total-voltage">Total: <span id="maxVoltageTotalValue">0.00</span> V (14 células)</div>
                 </div>
 
                 <h2>Configurações de Controle de Energia</h2>
@@ -127,15 +121,7 @@ static const char CONFIG_POWER_PAGE_HTML[] PROGMEM = R"rawliteral(
 
 static const char CONFIG_POWER_PAGE_JS[] PROGMEM = R"rawliteral(
 const $ = (id) => document.getElementById(id);
-// Read from Settings on load. It used to be a constant here and in the
-// telemetry page, which silently produced wrong per-cell numbers on any pack
-// that is not 14S.
-let CELL_COUNT = 14;
-
-const applyCellCount = (n) => {
-    CELL_COUNT = n;
-    document.querySelectorAll('.cellCountLabel').forEach((el) => { el.textContent = n; });
-};
+const CELL_COUNT = 14;
 const getPin = () => sessionStorage.getItem('cfgPin') || '';
 const setPin = (v) => sessionStorage.setItem('cfgPin', v);
 
@@ -191,8 +177,6 @@ const loadCurrentValues = () => {
                 $('batteryCapacityCustom').style.display = 'block';
             }
 
-            applyCellCount(data.cellCount || 14);
-            $('cellCount').value = CELL_COUNT;
             $('minVoltagePerCell').value = ((data.batteryMinVoltage / 1000) / CELL_COUNT).toFixed(2);
             $('maxVoltagePerCell').value = ((data.batteryMaxVoltage / 1000) / CELL_COUNT).toFixed(2);
             $('powerControlEnabled').checked = data.powerControlEnabled || false;
@@ -223,14 +207,6 @@ $('batteryCapacity').addEventListener('change', function() {
 
 $('minVoltagePerCell').addEventListener('input', updateVoltageTotals);
 $('maxVoltagePerCell').addEventListener('input', updateVoltageTotals);
-// The totals and the saved payload both read CELL_COUNT, so editing the field
-// has to update it -- otherwise a change would only take effect after a reload.
-$('cellCount').addEventListener('input', () => {
-    const n = parseInt($('cellCount').value, 10);
-    if (!(n >= 1 && n <= 24)) return;
-    applyCellCount(n);
-    updateVoltageTotals();
-});
 
 $('powerConfigForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -254,7 +230,6 @@ $('powerConfigForm').addEventListener('submit', function(e) {
 
     const data = {
         batteryCapacity: Math.round(capacityAh * 1000),
-        cellCount: CELL_COUNT,
         batteryMinVoltage: Math.round(minVoltagePerCell * CELL_COUNT * 1000),
         batteryMaxVoltage: Math.round(maxVoltagePerCell * CELL_COUNT * 1000),
         powerControlEnabled: $('powerControlEnabled').checked
@@ -293,7 +268,6 @@ const saveCalibrationRatio = (ratio) => {
 
     const data = {
         batteryCapacity: Math.round(capacityAh * 1000),
-        cellCount: CELL_COUNT,
         batteryMinVoltage: Math.round(minVoltagePerCell * CELL_COUNT * 1000),
         batteryMaxVoltage: Math.round(maxVoltagePerCell * CELL_COUNT * 1000),
         powerControlEnabled: $('powerControlEnabled').checked,

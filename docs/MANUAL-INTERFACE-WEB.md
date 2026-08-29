@@ -83,8 +83,8 @@ Ocupa a maior área da tela.
 - **Ponteiro e número:** estado de carga por **coulomb counting** (%). O arco
   vermelho escuro no início do curso marca os últimos 20%.
 - **Tensão:** tensão **por célula**. Vem da menor célula do BMS quando há BMS
-  informando células; senão é a tensão do pack dividida pelo número de células
-  configurado (§7.1). A gaveta diz qual das duas você está vendo.
+  informando células; senão é a tensão do pack dividida por **14** (o pack é 14S e esse
+  divisor é fixo no firmware). A gaveta diz qual das duas você está vendo.
 - **Corrente:** corrente do pack (A). Quando não há sensor de corrente, esta
   célula desaparece e a tensão fica centralizada — nunca aparece "N/A".
 
@@ -191,11 +191,10 @@ Ao abrir a página, os **valores atuais** são carregados automaticamente. Depoi
 | Configuração | Descrição e uso |
 |--------------|------------------|
 | **Battery Capacity (Ah)** | Capacidade nominal da bateria em Ah. Opções pré-definidas: **18 Ah**, **34 Ah**, **65 Ah**. Se escolher **Custom**, aparece um campo para informar de **1 a 200 Ah**. Usado para coulomb counting e estimativa de SoC. |
-| **Células em Série** | Número de células do pack. Faixa: **1 a 24**; padrão de fábrica **14**. Converte entre tensão por célula e tensão total nesta página, e alimenta a leitura de tensão por célula da Telemetria quando o BMS não informa as células individualmente. |
-| **Minimum Voltage per Cell (V)** | Tensão **mínima** por célula (V). Faixa: **2,5 V a 4,5 V**. Abaixo dessa tensão (no total do pack), o controlador reduz a potência para proteger a bateria. O total é mostrado ao lado, já multiplicado pelo número de células (ex.: 3,15 V × 14 ≈ 44,1 V). |
-| **Maximum Voltage per Cell (V)** | Tensão **máxima** por célula (V). Faixa: **2,5 V a 4,5 V**. Usado como referência para SoC por tensão. O total é mostrado da mesma forma (ex.: 4,15 V × 14 ≈ 58,1 V). |
+| **Minimum Voltage per Cell (V)** | Tensão **mínima** por célula (V). Faixa: **2,5 V a 4,5 V**. Abaixo dessa tensão (no total do pack), o controlador reduz a potência para proteger a bateria. O total para 14 células é mostrado ao lado (ex.: 3,15 V × 14 ≈ 44,1 V). |
+| **Maximum Voltage per Cell (V)** | Tensão **máxima** por célula (V). Faixa: **2,5 V a 4,5 V**. Usado como referência para SoC por tensão. O total para 14 células é mostrado (ex.: 4,15 V × 14 ≈ 58,1 V). |
 
-**Dica:** Para LiPo, mínimo costuma ser 3,0 V a 3,15 V por célula; máximo 4,1 V a 4,2 V por célula. O pack de referência do Fly Controller é **14S**, mas qualquer contagem entre 1S e 24S pode ser configurada acima.
+**Dica:** Para LiPo, mínimo costuma ser 3,0 V a 3,15 V por célula; máximo 4,1 V a 4,2 V por célula. O pack do Fly Controller é **14S** (14 células em série); esse número é fixo no firmware.
 
 ---
 
@@ -272,7 +271,7 @@ Quando ativado, o “Limit” exibido na página de Telemetria reflete esse limi
 - O ponto de acesso **FlyController** não usa senha; qualquer dispositivo próximo pode conectar. Use em ambiente controlado.
 - As configurações são validadas no servidor (por exemplo, capacidade 1000–200000 mAh, tensões e temperaturas dentro das faixas). Valores fora do permitido são rejeitados com mensagem de erro.
 - A API de telemetria está em **GET /api/telemetry** (JSON). O objeto **availability** indica quais dados estão disponíveis (`current`, `rpm`, `powerKw`, `bms`, `bmsCells`). Campos numéricos como `rpm`, `escCurrentMa` e `powerKwX10` são omitidos quando indisponíveis (a página mostra N/A). O campo **disarmReason** indica o motivo do último desarme: vazio (nunca desarmou desde o boot), `MANUAL` (desarme normal pelo botão/interface), ou um código de falha: `THR ERR` (acelerador com fio inválido), `LINK ERR` (link do remote perdido), `MOT ERR` / `ESC ERR` / `BATT ERR` (sensor válido ao armar que se tornou inválido em voo) e `MOT SRC` (a fonte da temperatura do motor mudou entre CAN e NTC em voo). A página de Telemetria mostra um chip vermelho com o código na barra de status enquanto a falha estiver ativa e o sistema desarmado; tocar nele abre a explicação na gaveta. Quando o BMS está conectado, o objeto **bms** traz `tempMaxC`, `cellMinMv`, `cellMaxMv` e `cellDeltaMv`. O campo **buzzer** é um array com os últimos eventos de beep (até 8, do mais antigo ao mais recente): cada entrada tem `seq` (contador monotônico), `freq` (Hz), `onMs`, `offMs`, `reps` (255 = contínuo) e `active` (true = iniciado, false = parado). A página de Telemetria usa esses dados para reproduzir os beeps no navegador via Web Audio API. O objeto **signals** traz o estado de cada sensor que pode limitar a potência: `motorTemp`, `escTemp` e `battV`, cada um com um código de uma letra (`v` = válido, `s` = desatualizado, `i` = inválido, `a` = ausente). A página de Telemetria apaga o arco do mostrador e mostra um travessão com um selo colorido quando o código não é `v`. O objeto **signals** pode trazer ainda o campo opcional **motorTempSrc**, que indica qual sensor produziu a temperatura do motor: `can` (Status 5/PUSHCAN) ou `ntc` (termistor/ADS1115); ele é omitido em builds com uma única fonte, e a página de Telemetria o mostra como terceira linha dentro do mostrador do motor enquanto a leitura é válida. A página de Configuração usa **GET /config/values** (ler) e **POST /config/save** (gravar) com corpo JSON.
-- Os limiares térmicos (**GET /api/config/thermal**) e o número de células (**GET /api/config/power**, campo `cellCount`) são lidos uma única vez ao abrir a Telemetria, não a cada segundo: eles só mudam quando o piloto edita as configurações, e o payload de 1 Hz fica menor por isso. São eles que definem o fundo de escala e a faixa vermelha dos mostradores de motor e ESC, e o divisor da tensão por célula.
+- Os limiares térmicos (**GET /api/config/thermal**) são lidos uma única vez ao abrir a Telemetria, não a cada segundo: só mudam quando o piloto edita as configurações, e o payload de 1 Hz fica menor por isso. São eles que definem o fundo de escala e a faixa vermelha dos mostradores de motor e ESC. O divisor da tensão por célula é a constante 14 no próprio JS da página.
 - Os arquivos estáticos da interface (HTML, CSS e JS) são servidos **comprimidos em gzip** direto da flash, com o cabeçalho `Content-Encoding: gzip`. São gerados no momento da compilação por `scripts/gen_web_assets.py` a partir dos arquivos em `src/WebServer/Pages/`, que continuam sendo a fonte da verdade.
 
 ---

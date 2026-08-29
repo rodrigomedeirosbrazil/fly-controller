@@ -123,7 +123,6 @@ void sendBmsScanStatusResponse(AsyncWebServerRequest* request, int httpStatus = 
 void sendPowerConfigResponse(AsyncWebServerRequest* request) {
     StaticJsonDocument<512> doc;
     doc["batteryCapacity"] = settings.getBatteryCapacityMah();
-    doc["cellCount"] = settings.getCellCount();
     doc["batteryMinVoltage"] = settings.getBatteryMinVoltage();
     doc["batteryMaxVoltage"] = settings.getBatteryMaxVoltage();
     doc["powerControlEnabled"] = settings.getPowerControlEnabled();
@@ -419,17 +418,6 @@ void ControllerWebServer::startAP() {
             settings.setBatteryMinVoltage(minV);
             settings.setBatteryMaxVoltage(maxV);
             settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
-
-            // Optional so an older client (or a partial POST) does not have to
-            // know about it; the stored value stays put when absent.
-            if (doc.containsKey("cellCount")) {
-                uint32_t cells = doc["cellCount"].as<uint32_t>();
-                if (cells < 1 || cells > 24) {
-                    request->send(400, "text/plain", "Número de células fora do intervalo (1-24)");
-                    return;
-                }
-                settings.setCellCount(static_cast<uint8_t>(cells));
-            }
 
             if (doc.containsKey("voltageDividerRatio")) {
                 float ratio = doc["voltageDividerRatio"].as<float>();
