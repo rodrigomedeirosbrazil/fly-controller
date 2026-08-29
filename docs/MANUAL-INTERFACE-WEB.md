@@ -159,7 +159,9 @@ Ao abrir a página, os **valores atuais** são carregados automaticamente. Depoi
 | **Maximum Motor Temperature (°C)** | Temperatura em que o motor é **totalmente desabilitado** (potência 0%). Faixa: **0 a 150 °C**. |
 | **Motor Temperature Reduction Start (°C)** | Temperatura em que **começa** a redução linear de potência. Entre este valor e a temperatura máxima, a potência é reduzida gradualmente. Faixa: **0 a 150 °C**. Deve ser **menor** que a temperatura máxima. |
 
-Exemplo: se “Reduction Start” = 50 °C e “Maximum” = 60 °C, entre 50 °C e 60 °C a potência cai linearmente de 100% a 0%.
+Exemplo: se “Reduction Start” = 80 °C e “Maximum” = 100 °C, entre 80 °C e 100 °C a potência cai linearmente de 100% a 0%.
+
+Valores de fábrica: motor **80 °C → 100 °C**; ESC **80 °C → 110 °C** no Tmotor e **70 °C → 80 °C** no XAG. Os quatro valores são editáveis nesta página e ficam salvos na NVS.
 
 ---
 
