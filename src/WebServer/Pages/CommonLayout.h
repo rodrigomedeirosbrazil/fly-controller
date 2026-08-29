@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include "CommonScripts.h"
-#include "CommonStyles.h"
 
 struct PageSpec {
     const char* title;
@@ -47,9 +46,11 @@ inline String renderPage(const PageSpec& spec) {
     page += "</title>";
     page += "<meta charset=\"utf-8\">";
     page += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
-    page += "<style>";
-    page += COMMON_CSS;
-    page += "</style>";
+    // Linked, not inlined: inlining meant every render built the whole
+    // stylesheet inside an Arduino String, which is exactly the heap spike
+    // the comment below warns about -- and it grew to 21 KB with the dark
+    // theme. The browser caches /config.css across pages.
+    page += "<link rel=\"stylesheet\" href=\"/config.css\">";
     if (spec.extraHead) {
         page += spec.extraHead;
     }
