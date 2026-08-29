@@ -26,6 +26,8 @@ const char* COMMON_CSS = R"rawliteral(
     --danger-border: #d0453a;
     --danger-text: #ff9d94;
 
+    --fault-bg: #1c1417;
+    --fault-border: #4a3238;
     --surface-2: #1c232b;
     --dot-off: #55636f;
     --on-danger: #1a0a09;
@@ -146,57 +148,6 @@ body {
     color: var(--muted);
     margin-top: 4px;
     font-size: 13px;
-}
-
-.flight-time {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    margin-top: 6px;
-    white-space: normal;
-    overflow: visible;
-}
-
-.ft-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    opacity: 0.8;
-}
-
-.ft-value {
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1.1;
-    color: var(--text);
-    white-space: nowrap;
-}
-
-.flight-time .btn-sm {
-    font-size: 12px;
-    padding: 2px 10px;
-    margin-top: 3px;
-}
-
-/* Telemetry page: larger cards on desktop only (avoid overriding mobile telemetry rules) */
-@media (min-width: 769px) and (min-height: 501px) {
-    .page-telemetry .telemetry-grid .label {
-        font-size: 13px;
-    }
-
-    .page-telemetry .telemetry-grid .value {
-        font-size: 24px;
-    }
-
-    .page-telemetry .telemetry-grid .sub {
-        font-size: 17px;
-    }
-
-    .page-telemetry .telemetry-grid .sub2-value {
-        font-size: 17px;
-    }
 }
 
 h1 {
@@ -338,388 +289,524 @@ th {
 .status.status-warning { background: rgba(245, 177, 61, 0.14); color: var(--warn); }
 .status.status-inactive { background: rgba(255, 95, 82, 0.14); color: var(--danger); }
 
-
-.telemetry-grid .card.bms-card {
-    justify-content: flex-start;
-}
-
-.telemetry-status-bar {
-    display: flex;
-    align-items: center;
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 0 12px;
-    height: 38px;
-    flex-shrink: 0;
-    box-shadow: var(--shadow);
-    gap: 8px;
-    margin-bottom: 0;
-}
-
-.telemetry-status-bar .tsb-label {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-}
-
-.telemetry-status-bar .tsb-mid {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex: 1;
-}
-
-.telemetry-status-bar .tsb-right {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 10px;
-}
-
-.wake-icon-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    cursor: pointer;
-    font-size: 15px;
-    line-height: 1;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.wake-icon-btn.sound-muted {
-    opacity: 0.55;
-}
-
-.wake-panel {
-    display: none;
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    flex-shrink: 0;
-    box-shadow: var(--shadow);
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.4;
-}
-
-.wake-panel.open {
-    display: block;
-}
-
-.wake-panel-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.power-alert-panel {
-    display: none;
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    flex-shrink: 0;
-    box-shadow: var(--shadow);
-    font-size: 13px;
-    line-height: 1.4;
-    border-left: 4px solid var(--danger);
-}
-
-.power-alert-panel.open {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.power-alert-title {
-    font-weight: 700;
-    color: var(--danger-text);
-    font-size: 13px;
-}
-
-.power-alert-causes {
-    color: var(--danger-mute);
-    font-size: 12px;
-    margin-top: 2px;
-}
-
-.power-alert-close {
-    margin-left: auto;
-    background: transparent;
-    border: 0;
-    color: var(--danger-mute);
-    cursor: pointer;
-    padding: 0 2px;
-    font-size: 16px;
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-.card.power-limit-active {
-    background: var(--danger-bg);
-    border: 1px solid var(--danger-border);
-}
-
-.card.power-limit-active .label {
-    color: var(--danger-text);
-}
-
-.card.power-limit-active .value {
-    color: var(--danger);
-}
-
-.power-limit-badge,
-.sub2-value.power-limit-badge {
-    /* .sub2-value is a block: without fit-content the badge paints as a
-       full-width red bar instead of a chip. The second selector is not
-       redundant — .sub2-value sets its own colour and is declared later in
-       this file, so at equal specificity it would win and paint muted grey
-       text on the red chip. */
-    display: inline-block;
-    width: fit-content;
-    background: var(--danger);
-    color: var(--on-danger);
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 4px;
-}
-
-.armed-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 5px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    width: fit-content;
-    flex-shrink: 0;
-}
-
-.armed-pill .armed-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.armed-pill.armed {
-    background: rgba(255, 95, 82, 0.14);
-    color: var(--danger);
-}
-
-.armed-pill.armed .armed-dot {
-    background: var(--danger);
-}
-
-.armed-pill.disarmed {
-    background: var(--surface-2);
-    color: var(--muted);
-}
-
-.armed-pill.disarmed .armed-dot {
-    background: var(--dot-off);
-}
-
-.sub2 {
-    margin-top: 4px;
-    flex-shrink: 0;
-}
-
-.sub2-label {
-    font-size: 10px;
-    color: var(--muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    line-height: 1.1;
-}
-
-.sub2-value {
-    font-size: 15px;
-    color: var(--muted);
-    font-weight: 600;
-    line-height: 1.15;
-    margin-top: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 @media (max-width: 600px) {
     .page { padding: 14px; }
     .nav-btn { flex: 1 1 auto; text-align: center; }
     .grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
+/* ============================================================================
+   Telemetry panel.
 
-/* Telemetry: fullscreen dashboard on mobile (portrait and landscape) */
-@media (max-width: 768px), ((max-height: 500px) and (max-width: 1024px)) {
-    html:has(body.telemetry-page) {
-        height: 100%;
-        min-height: 100dvh;
-        overflow: hidden;
-    }
+   Six bands in a fixed vertical order, filling the viewport: status, battery,
+   instruments, throttle, drawer handle, navigation. Nothing is ever added to
+   or removed from this stack -- only the content and colour inside a band
+   change -- so an alert can never move a number the pilot is reading.
 
-    body.telemetry-page {
-        min-height: 100dvh;
-        height: 100%;
-        overflow: hidden;
-    }
+   Sizes are fr and clamp(), never fixed px inside a media query, and there is
+   exactly one media query: orientation. The old four-breakpoint block relied
+   on overflow:hidden to survive, which clipped the value instead of resizing
+   it. Nothing here clips.
+   ============================================================================ */
 
-    body.telemetry-page .page.page-telemetry {
-        max-width: none;
-        width: 100%;
-        margin: 0;
-        min-height: 100%;
-        min-height: 100dvh;
-        height: 100%;
-        padding: 7px 9px 8px;
-        display: flex;
-        flex-direction: column;
-        box-sizing: border-box;
-    }
+html:has(body.telemetry-page) { height: 100%; overflow: hidden; }
 
-    body.telemetry-page .page.page-telemetry .topbar {
-        flex-shrink: 0;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        margin-bottom: 6px;
-        padding-top: 4px;
-        padding-bottom: 6px;
-    }
+body.telemetry-page {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
 
-    body.telemetry-page .page.page-telemetry .topbar::-webkit-scrollbar {
-        display: none;
-    }
+.tp {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    box-sizing: border-box;
+}
 
-    body.telemetry-page .page.page-telemetry .topbar .nav-btn {
-        padding: 7px 8px;
-        font-size: 12px;
-    }
+.tp-main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 
-    .telemetry-shell {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        overflow: hidden;
-    }
+/* --- band 1: status ------------------------------------------------------ */
 
-    .telemetry-status-bar {
-        height: 34px;
-        padding: 0 10px;
-    }
+.tp-status {
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 2px;
+    min-width: 0;
+}
 
-    .wake-icon-btn {
-        width: 26px;
-        height: 26px;
-        font-size: 13px;
-    }
+.tp-spacer { flex-grow: 1; }
 
-    .telemetry-grid.grid {
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-        display: grid;
-        gap: 8px;
-        align-content: stretch;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+.tp-pill {
+    /* The status bar must fit two pills, the clock and two icons at 360 px
+       without wrapping or pushing the lock button off-screen, so the pills
+       shrink and ellipsis before anything leaves the bar. */
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: clamp(9px, 2.7vw, 11px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    overflow: hidden;
+    border: 0;
+}
+
+.tp-pill > span:not(.tp-dot) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tp-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: block;
+    flex-shrink: 0;
+}
+
+/* Live is the boring state: the green dot alone says it, and dropping the
+   label is what lets the fault chip fit at 360 px. Degraded states keep
+   their words. */
+.tp-pill.ok > span:not(.tp-dot) { display: none; }
+.tp-pill.ok { background: rgba(63, 216, 139, 0.12); color: var(--ok); padding: 5px 7px; }
+.tp-pill.ok .tp-dot { background: var(--ok); }
+.tp-pill.warn { background: rgba(245, 177, 61, 0.14); color: var(--warn); }
+.tp-pill.warn .tp-dot { background: var(--warn); }
+.tp-pill.danger { background: rgba(255, 95, 82, 0.14); color: var(--danger); }
+.tp-pill.danger .tp-dot { background: var(--danger); }
+.tp-pill.off { background: var(--surface-2); color: var(--muted); }
+.tp-pill.off .tp-dot { background: var(--dot-off); }
+.tp-pill.alarm { background: var(--danger); color: var(--on-danger); cursor: pointer; }
+
+.tp-clock {
+    font-weight: 700;
+    font-size: clamp(15px, 4.4vw, 19px);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.tp-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    padding: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.tp-icon.off { opacity: 0.5; }
+.tp-icon.on { border-color: var(--primary-border); background: var(--primary-bg); color: var(--primary); }
+
+/* --- shared tile + type -------------------------------------------------- */
+
+.tp-tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.tp-tile.limiting { background: var(--danger-bg); border-color: var(--danger-border); }
+.tp-tile.faulted { background: var(--fault-bg); border-color: var(--fault-border); }
+
+.tp-lab {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.tp-tile.limiting .tp-lab { color: var(--danger-text); }
+.tp-tile.faulted .tp-lab { color: var(--danger-mute); }
+
+.tp-num {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+}
+
+.tp-unit {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.tp-chip {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    color: var(--on-danger);
+    background: var(--danger);
+    border-radius: 4px;
+    padding: 3px 6px;
+    white-space: nowrap;
+}
+
+/* --- band 2: battery ----------------------------------------------------- */
+
+.tp-hero {
+    flex-shrink: 0;
+    align-items: center;
+    padding: 14px;
+    gap: 4px;
+}
+
+.tp-soc {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.tp-soc .tp-num { font-size: clamp(58px, 21vmin, 92px); }
+.tp-soc .tp-unit { font-size: clamp(22px, 8vmin, 34px); }
+
+.tp-soc-lab {
+    margin-top: 8px;
+    letter-spacing: 0.24em;
+}
+
+.tp-sep {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin-top: 10px;
+}
+
+.tp-cells {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+    padding-top: 10px;
+}
+
+/* A missing source removes its cell; the row centres what is left instead of
+   leaving a placeholder. */
+.tp-cells.single { grid-template-columns: minmax(0, 1fr); }
+
+.tp-cell { text-align: center; min-width: 0; }
+.tp-cell + .tp-cell { border-left: 1px solid var(--border); }
+.tp-cell .tp-lab { font-size: 10px; letter-spacing: 0.08em; }
+.tp-cell .tp-num { font-size: clamp(22px, 8vmin, 30px); margin-top: 9px; }
+.tp-cell .tp-unit { font-size: 14px; }
+
+/* --- band 3: instruments ------------------------------------------------- */
+
+.tp-instruments {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+/* Power has no full scale, so it is a readout, not an instrument. When the
+   ESC reports no power at all the tile goes away and the row closes up. */
+.tp-instruments.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.tp-inst {
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 6px 12px;
+}
+
+.tp-inst .tp-num { font-size: clamp(28px, 10vmin, 46px); }
+.tp-inst .tp-unit { font-size: 13px; letter-spacing: 0.18em; }
+.tp-inst.limiting .tp-num { color: var(--danger); }
+.tp-inst.faulted .tp-num { color: var(--danger-mute); }
+
+.tp-sensor {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    color: var(--dim);
+    text-transform: uppercase;
+}
+
+/* --- band 4: throttle ---------------------------------------------------- */
+
+.tp-throttle {
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 9px 8px;
+    padding: 11px 14px 13px;
+}
+
+.tp-throttle .tp-lab { grid-area: 1 / 1 / 2 / 2; }
+.tp-thr-val { grid-area: 1 / 2 / 2 / 3; font-size: 22px; color: var(--primary); }
+.tp-throttle .tp-bar { grid-area: 2 / 1 / 3 / 3; }
+
+.tp-bar {
+    height: 14px;
+    border-radius: 7px;
+    background: var(--track);
+    position: relative;
+}
+
+.tp-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 7px;
+    background: var(--primary);
+}
+
+/* Marks where the power ceiling cuts in, so pushing past it makes sense. */
+.tp-cap {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--danger);
+    display: none;
+}
+
+/* --- band 5: drawer handle ----------------------------------------------- */
+
+.tp-more {
+    height: 46px;
+    flex-shrink: 0;
+    background: var(--card-sunken);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.tp-more-hint { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+
+/* --- band 6: navigation -------------------------------------------------- */
+
+.tp-nav {
+    height: 42px;
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.tp-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tp-nav a.active {
+    background: var(--primary-bg);
+    border-color: var(--primary-border);
+    color: var(--primary);
+}
+
+/* --- drawer (overlay, never part of the six bands) ----------------------- */
+
+.tp-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    background: rgba(5, 8, 11, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+}
+
+.tp-scrim.open { opacity: 1; pointer-events: auto; }
+
+.tp-drawer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    max-height: 86dvh;
+    background: var(--card-sunken);
+    border-top: 1px solid var(--border-strong);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    padding: 10px 18px 16px;
+    transform: translateY(101%);
+    transition: transform 0.18s ease;
+}
+
+.tp-drawer.open { transform: none; }
+
+.tp-grab {
+    width: 44px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    margin: 2px auto 10px;
+    flex-shrink: 0;
+}
+
+.tp-drawer-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-bottom: 6px;
+}
+
+.tp-fault {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 12px;
+    padding: 11px 12px;
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+.tp-fault-title { font-size: 14px; font-weight: 700; color: var(--danger-text); }
+.tp-fault-detail { font-size: 12.5px; color: var(--danger-mute); margin-top: 3px; line-height: 1.35; }
+
+.tp-rows {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    /* Values are right-aligned; without the gutter the scrollbar sits on top
+       of them. */
+    padding-right: 10px;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tp-sec {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-top: 16px;
+}
+
+.tp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.tp-row:last-child { border-bottom: 0; }
+.tp-row .k { font-size: 14px; color: var(--muted); font-weight: 500; }
+.tp-row .v { font-size: 19px; font-weight: 700; margin-left: auto; text-align: right; }
+
+.tp-drawer-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-top: 12px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+}
+
+/* --- the one media query ------------------------------------------------- */
+
+@media (orientation: landscape) {
+    .tp { flex-direction: row; padding: 10px; }
+
+    .tp-nav {
+        order: -1;
+        width: 52px;
+        height: auto;
+        grid-template-columns: minmax(0, 1fr);
         grid-auto-rows: minmax(0, 1fr);
     }
 
-    .telemetry-grid .card {
-        min-height: 0;
-        min-width: 0;
-        padding: 10px 11px 9px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        overflow: hidden;
+    .tp-nav a { font-size: 10px; letter-spacing: 0.04em; }
+
+    /* The bands become a 2-column grid: battery beside the instruments, the
+       drawer handle folded into the status row, throttle spanning both. */
+    .tp-main {
+        display: grid;
+        grid-template-columns: 1.5fr 2.6fr;
+        grid-template-rows: 30px minmax(0, 1fr) 46px;
+        gap: 8px;
     }
 
-    .telemetry-grid .label {
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 1.05;
+    /* The status row takes the full width -- squeezed into one column the
+       pills ellipsised to "A...". The drawer handle collapses to an icon and
+       floats at its right; the padding reserves the space so they never
+       collide even though they share the grid cell. */
+    .tp-status {
+        grid-area: 1 / 1 / 2 / 3;
+        height: auto;
+        padding-right: 54px;
     }
 
-    /* The signal-validity badge sits inline in the label on cards that can
-       show one (battery/motor/ESC temp). At the base .status size (12px +
-       4px/10px padding) it's taller than the label and can wrap the label
-       onto a second line, pushing .value/.sub into the card's overflow:
-       hidden clip — precisely during the fault it exists to announce. */
-    .telemetry-grid .label .status {
-        font-size: 9px;
-        padding: 2px 6px;
-        white-space: nowrap;
+    .tp-more {
+        grid-area: 1 / 2 / 2 / 3;
+        justify-self: end;
+        align-self: stretch;
+        width: 46px;
+        height: auto;
+        padding: 0;
+        justify-content: center;
     }
 
-    .telemetry-grid .value {
-        margin-top: 6px;
-        font-size: clamp(22px, 6vw, 34px);
-        line-height: 1.02;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
+    .tp-more .tp-lab { display: none; }
+    .tp-hero { grid-area: 2 / 1 / 3 / 2; justify-content: center; }
+    .tp-instruments { grid-area: 2 / 2 / 3 / 3; }
+
+    .tp-throttle {
+        grid-area: 3 / 1 / 4 / 3;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        padding: 0 14px;
     }
 
-    .telemetry-grid .sub {
-        margin-top: 4px;
-        font-size: 17px;
-        font-weight: 500;
-        line-height: 1.12;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-    }
+    .tp-throttle .tp-bar { grid-area: 1 / 2 / 2 / 3; height: 12px; }
+    .tp-thr-val { grid-area: 1 / 3 / 2 / 4; }
 
-    .telemetry-grid .sub + .sub {
-        margin-top: 2px;
-    }
-
-    .telemetry-grid .sub2-value {
-        font-size: 17px;
-    }
-
-    .telemetry-grid .card.bms-card {
-        grid-column: 1 / -1;
-    }
-
-    @media (orientation: landscape) and (min-width: 480px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .telemetry-grid .sub {
-            font-size: 14px;
-        }
-
-        .telemetry-grid .sub2-value {
-            font-size: 14px;
-        }
-
-        .telemetry-grid .card.bms-card {
-            grid-column: span 2;
-        }
-    }
-
-    @media (orientation: landscape) and (min-width: 700px) {
-        .telemetry-grid.grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
-    }
+    .tp-clock { font-size: 17px; }
+    .tp-soc .tp-num { font-size: clamp(46px, 20vmin, 86px); }
 }
 )rawliteral";
