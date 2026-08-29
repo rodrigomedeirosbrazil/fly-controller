@@ -333,11 +333,15 @@ body.telemetry-page {
 }
 
 .tp {
+    /* Padding, gaps and the fixed bands are all clamp()ed against vh so the
+       panel compresses continuously on a short viewport instead of needing a
+       height breakpoint. Without this, a 320x480 screen starved the battery
+       dial to nothing while everything else kept its full size. */
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+    gap: clamp(5px, 1.2vh, 10px);
+    padding: clamp(6px, 1.5vh, 12px);
     box-sizing: border-box;
 }
 
@@ -347,13 +351,13 @@ body.telemetry-page {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(5px, 1.2vh, 10px);
 }
 
 /* --- band 1: status ------------------------------------------------------ */
 
 .tp-status {
-    height: 34px;
+    height: clamp(28px, 4.6vh, 34px);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -495,7 +499,7 @@ body.telemetry-page {
     min-height: 0;
     align-items: center;
     justify-content: center;
-    padding: 14px;
+    padding: clamp(8px, 1.8vh, 14px);
     gap: 4px;
 }
 
@@ -514,7 +518,18 @@ body.telemetry-page {
     height: auto;
 }
 
-.tp-gauge-batt { max-width: 100%; }
+/* Same treatment as the instrument dials: the SVG letterboxes inside whatever
+   box the band can spare. Left as a plain width:100% block it was a flex item
+   with height derived from width, and on a short viewport (320x480) the column
+   squashed it to nothing -- the primary instrument vanished while the rest of
+   the panel still fit. */
+.tp-gauge-batt {
+    flex: 1 1 auto;
+    min-height: 48px;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+}
 
 /* The instrument row is the flexible band, so let the gauge take the height
    it is given instead of leaving it empty: the viewBox letterboxes on its
@@ -554,16 +569,18 @@ body.telemetry-page {
 .tp-sep {
     width: 100%;
     height: 1px;
+    flex-shrink: 0;
     background: var(--border);
-    margin-top: 10px;
+    margin-top: clamp(5px, 1.2vh, 10px);
 }
 
 .tp-cells {
     width: 100%;
+    flex-shrink: 0;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px;
-    padding-top: 10px;
+    padding-top: clamp(6px, 1.4vh, 10px);
 }
 
 /* A missing source removes its cell; the row centres what is left instead of
@@ -609,8 +626,8 @@ body.telemetry-page {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 9px 8px;
-    padding: 11px 14px 13px;
+    gap: clamp(5px, 1.2vh, 9px) 8px;
+    padding: clamp(7px, 1.5vh, 11px) 14px clamp(8px, 1.7vh, 13px);
 }
 
 .tp-throttle .tp-lab { grid-area: 1 / 1 / 2 / 2; }
@@ -645,7 +662,7 @@ body.telemetry-page {
 /* --- band 5: drawer handle ----------------------------------------------- */
 
 .tp-more {
-    height: 46px;
+    height: clamp(36px, 6vh, 46px);
     flex-shrink: 0;
     background: var(--card-sunken);
     border: 1px solid var(--border);
@@ -665,7 +682,7 @@ body.telemetry-page {
 /* --- band 6: navigation -------------------------------------------------- */
 
 .tp-nav {
-    height: 42px;
+    height: clamp(34px, 5.5vh, 42px);
     flex-shrink: 0;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
