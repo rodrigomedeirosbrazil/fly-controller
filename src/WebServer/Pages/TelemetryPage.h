@@ -49,10 +49,12 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                 </svg>
                 <div class="tp-sep"></div>
                 <div class="tp-cells" id="heroCells">
-                    <div class="tp-cell">
-                        <div class="tp-lab">Tens&#227;o</div>
-                        <div class="tp-num"><span id="cellVoltage">--</span><span class="tp-unit"> V</span></div>
-                    </div>
+                    <button type="button" class="tp-cell tp-cell-btn" id="voltageCell" aria-label="Alternar entre tens&#227;o total e por c&#233;lula">
+                        <div class="tp-lab">Tens&#227;o
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>
+                        </div>
+                        <div class="tp-num"><span id="voltageValue">--</span><span class="tp-unit" id="voltageUnit"> V</span></div>
+                    </button>
                     <div class="tp-cell" id="cellCurrent">
                         <div class="tp-lab">Corrente</div>
                         <div class="tp-num"><span id="packCurrent">--</span><span class="tp-unit"> A</span></div>
@@ -825,6 +827,59 @@ const renderInstrument = (tileId, valueId, arcId, code, celsius, fullScale) => {
     chip.textContent = SIGNAL_CHIP_TEXT[code] || code;
 };
 
+// ============ Voltage cell ============
+// Pack total by default, per-cell on tap, remembered across visits.
+//
+// The unit switches with the mode on purpose. Two very different numbers would
+// otherwise share the label "Tensão": 58.40 and 4.16 are both plausible-looking
+// voltages, and a pilot used to reading the pack total could take a per-cell
+// figure for a flat battery. The unit is what makes the number unambiguous.
+//
+// Per-cell carries a second ambiguity of its own: the BMS minimum cell is a
+// measurement, while pack/14 is a mean dressed up as a minimum. On an
+// unbalanced pack the mean reads healthy while the worst cell is already low,
+// and the BMS is BLE, so the source can change mid-flight with nothing else on
+// screen moving. The tilde marks the calculated one; the drawer names both.
+const VOLTAGE_MODE_KEY = 'tpVoltMode';
+let voltageMode = storeGet('localStorage', VOLTAGE_MODE_KEY) === 'cell' ? 'cell' : 'pack';
+let lastTelemetry = null;
+
+const renderVoltage = (data) => {
+    if (!data) return;
+    const signals = data.signals || {};
+    const valid = !signals.battV || signals.battV === 'v';
+    const packMv = data.batteryVoltageMv || 0;
+    const perCell = voltageMode === 'cell';
+
+    setText('voltageUnit', perCell ? ' V/cél' : ' V');
+
+    if (!valid) {
+        setText('voltageValue', '—');
+        return;
+    }
+
+    if (!perCell) {
+        setText('voltageValue', (packMv / 1000).toFixed(2));
+        return;
+    }
+
+    const bmsCells = !!(data.bms && data.bms.available && data.bms.cellMinMv != null);
+    const cellMv = bmsCells ? data.bms.cellMinMv : (packMv / PACK_CELLS);
+    setText('voltageValue', `${bmsCells ? '' : '~'}${(cellMv / 1000).toFixed(2)}`);
+};
+
+const initVoltageToggle = () => {
+    const cell = $('voltageCell');
+    if (!cell) return;
+    cell.addEventListener('click', () => {
+        voltageMode = voltageMode === 'cell' ? 'pack' : 'cell';
+        // storeSet swallows a blocked storage, so the toggle still works for
+        // this session even where the preference cannot be persisted.
+        storeSet('localStorage', VOLTAGE_MODE_KEY, voltageMode);
+        renderVoltage(lastTelemetry);
+    });
+};
+
 const renderTelemetry = (data) => {
     const av = data.availability || {};
     const signals = data.signals || {};
@@ -848,20 +903,11 @@ const renderTelemetry = (data) => {
     setText('soc', `${soc}`);
     setArc('battArc', R_BATT, soc / 100);
 
-    // Two very different numbers wear the same label: the BMS minimum cell is
-    // a measurement, pack/14 is a mean dressed up as a minimum. On an unbalanced
-    // pack the mean reads healthy while the worst cell is already low -- and the
-    // BMS is BLE, so the source can change mid-flight without anything else on
-    // screen moving. The tilde is the cheapest honest marker for "approximate";
-    // the drawer spells out which source produced it.
+    renderVoltage(data);
     const bmsCells = !!(data.bms && data.bms.available && data.bms.cellMinMv != null);
-    const packMv = data.batteryVoltageMv || 0;
-    const cellMv = bmsCells ? data.bms.cellMinMv : (packMv / PACK_CELLS);
     const battValid = !signals.battV || signals.battV === 'v';
-    const cellText = `${bmsCells ? '' : '~'}${(cellMv / 1000).toFixed(2)}`;
-    setText('cellVoltage', battValid ? cellText : '—');
     setText('cellSource', bmsCells ? 'BMS · menor célula' : `Calculado ÷ ${PACK_CELLS}S`);
-    setText('packVoltage', battValid ? fmtV(packMv) : '—');
+    setText('packVoltage', battValid ? fmtV(data.batteryVoltageMv || 0) : '—');
 
     // No current on this build (or not yet): drop the cell, centre what is
     // left. Never an empty box, never an "N/A".
@@ -1078,6 +1124,7 @@ const loadTelemetry = () => {
     fetchJson('/api/telemetry')
         .then((data) => {
             paPowerPercent = data.powerPercent != null ? data.powerPercent : 100;
+            lastTelemetry = data;
             renderTelemetry(data);
         })
         .catch(() => setStatus('nodata'));
@@ -1087,6 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTelemetryWake();
     initBuzzerSound();
     initDrawer();
+    initVoltageToggle();
     initSessionReset();
     loadThermalScale();
     loadTelemetry();

@@ -82,9 +82,14 @@ Ocupa a maior área da tela.
 
 - **Ponteiro e número:** estado de carga por **coulomb counting** (%). O arco
   vermelho escuro no início do curso marca os últimos 20%.
-- **Tensão:** tensão **por célula**. Vem da menor célula do BMS quando há BMS
-  informando células; senão é a tensão do pack dividida por **14** (o pack é 14S e esse
-  divisor é fixo no firmware). A gaveta diz qual das duas você está vendo.
+- **Tensão:** mostra a **tensão total do pack** por padrão. **Toque** para
+  alternar para a tensão **por célula**, e toque de novo para voltar; a escolha
+  fica gravada no navegador e vale para as próximas visitas. A unidade muda
+  junto (`V` / `V/cél`), então não há como confundir os dois números.
+  Por célula, o valor vem da menor célula do BMS quando há BMS informando
+  células; senão é a tensão do pack dividida por **14** (o pack é 14S e esse
+  divisor é fixo no firmware) e aparece com um **til** (`~3,98`) marcando que é
+  cálculo, não medida. A gaveta nomeia a origem.
 - **Corrente:** corrente do pack (A). Quando não há sensor de corrente, esta
   célula desaparece e a tensão fica centralizada — nunca aparece "N/A".
 

@@ -588,6 +588,24 @@ body.telemetry-page {
 .tp-cells.single { grid-template-columns: minmax(0, 1fr); }
 
 .tp-cell { text-align: center; min-width: 0; }
+
+/* The voltage cell toggles between pack total and per-cell. Reset the button
+   chrome so it stays visually identical to the plain cell next to it -- the
+   swap glyph in the label is the only affordance, which is what a panel read
+   at a glance wants. */
+.tp-cell-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tp-cell-btn .tp-lab svg { vertical-align: -1px; opacity: 0.6; }
+.tp-cell-btn:active { opacity: 0.6; }
 .tp-cell + .tp-cell { border-left: 1px solid var(--border); }
 .tp-cell .tp-lab { font-size: 10px; letter-spacing: 0.08em; }
 .tp-cell .tp-num { font-size: clamp(22px, 8vmin, 30px); margin-top: 9px; }
