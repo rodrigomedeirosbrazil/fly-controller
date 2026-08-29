@@ -2,20 +2,48 @@
 
 const char* COMMON_CSS = R"rawliteral(
 :root {
-    --bg: #eef2f6;
-    --text: #1f2937;
-    --muted: #6b7280;
-    --primary: #0b74de;
-    --card: #ffffff;
-    --border: #e5e7eb;
-    --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --radius: 10px;
+    /* Dark instrument-panel palette. The phone is on the controller's AP in
+       daylight: a light theme loses contrast in the sun and burns OLED. */
+    --bg: #0a0e13;
+    --card: #141a21;
+    --card-sunken: #11161c;
+    --text: #e8eef3;
+    --muted: #8496a4;
+    --dim: #556575;
+    --border: #232c36;
+    --border-strong: #2b3641;
+    --track: #202932;
+
+    --primary: #4fb8ff;
+    --primary-bg: #16324a;
+    --primary-border: #245580;
+    --on-primary: #06121c;
+
+    --ok: #3fd88b;
+    --warn: #f5b13d;
+    --danger: #ff5f52;
+    --danger-bg: #26100e;
+    --danger-border: #d0453a;
+    --danger-text: #ff9d94;
+
+    --surface-2: #1c232b;
+    --dot-off: #55636f;
+    --on-danger: #1a0a09;
+    --danger-mute: #d09a94;
+
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    --radius: 12px;
 }
 
 * { box-sizing: border-box; }
 
 body {
-    font-family: Arial, sans-serif;
+    /* No webfonts: the phone is on the AP with no internet, so a Google Fonts
+       <link> would just stall the load. tabular-nums keeps the digits from
+       shifting on every 1 Hz telemetry refresh. */
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
     margin: 0;
     background: var(--bg);
     color: var(--text);
@@ -51,8 +79,9 @@ body {
 }
 
 .nav-btn {
-    background: var(--primary);
-    color: white;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
     text-decoration: none;
     border-radius: 8px;
     padding: 10px 14px;
@@ -61,7 +90,9 @@ body {
 }
 
 .nav-btn.active {
-    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+    background: var(--primary-bg);
+    border-color: var(--primary-border);
+    color: var(--primary);
 }
 
 .panel {
@@ -88,7 +119,8 @@ body {
 
 .link-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    border-color: var(--border-strong);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 
 .grid {
@@ -173,7 +205,7 @@ h1 {
 }
 
 h2 {
-    color: #4b5563;
+    color: var(--muted);
     border-bottom: 1px solid var(--border);
     padding-bottom: 10px;
     margin-top: 24px;
@@ -187,23 +219,23 @@ form { margin: 0; }
 label {
     display: block;
     margin-bottom: 6px;
-    color: #4b5563;
+    color: var(--muted);
     font-weight: 600;
 }
 
 .info-text {
-    color: var(--muted);
+    color: var(--dim);
     font-size: 12px;
     margin-top: 6px;
 }
 
 .total-voltage {
-    background-color: #e7f3ff;
+    background-color: rgba(79, 184, 255, 0.10);
     padding: 8px;
-    border-radius: 4px;
+    border-radius: 6px;
     margin-top: 6px;
     font-size: 12px;
-    color: #0066cc;
+    color: var(--primary);
 }
 
 input[type="number"],
@@ -211,24 +243,30 @@ select,
 input[type="file"] {
     width: 100%;
     padding: 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    background: var(--card-sunken);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
     font-size: 14px;
 }
 
 button,
 .btn {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 12px;
     cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
     font-size: 16px;
 }
 
 button:disabled {
-    background: #cbd5e1;
+    background: var(--surface-2);
+    color: var(--dim);
     cursor: not-allowed;
 }
 
@@ -240,13 +278,13 @@ button:disabled {
 }
 
 .message.ok {
-    background: #dcfce7;
-    color: #166534;
+    background: rgba(63, 216, 139, 0.12);
+    color: var(--ok);
 }
 
 .message.err {
-    background: #fee2e2;
-    color: #991b1b;
+    background: rgba(255, 95, 82, 0.12);
+    color: var(--danger);
 }
 
 .table-wrap { overflow-x: auto; }
@@ -277,8 +315,8 @@ th {
     border-radius: 6px;
 }
 
-.btn-green { background: #16a34a; }
-.btn-red { background: #dc2626; }
+.btn-green { background: var(--ok); color: var(--on-primary); }
+.btn-red { background: var(--danger); color: var(--on-danger); }
 
 .status {
     display: inline-flex;
@@ -292,13 +330,13 @@ th {
     vertical-align: middle;
 }
 
-.status.live { background: #dcfce7; color: #166534; }
-.status.stale { background: #fef9c3; color: #854d0e; }
-.status.nodata { background: #fee2e2; color: #991b1b; }
-.status.status-secondary { background: #e5e7eb; color: #374151; }
-.status.status-active { background: #dcfce7; color: #166534; }
-.status.status-warning { background: #fef3c7; color: #92400e; }
-.status.status-inactive { background: #fee2e2; color: #991b1b; }
+.status.live { background: rgba(63, 216, 139, 0.12); color: var(--ok); }
+.status.stale { background: rgba(245, 177, 61, 0.14); color: var(--warn); }
+.status.nodata { background: rgba(255, 95, 82, 0.14); color: var(--danger); }
+.status.status-secondary { background: var(--surface-2); color: var(--muted); }
+.status.status-active { background: rgba(63, 216, 139, 0.12); color: var(--ok); }
+.status.status-warning { background: rgba(245, 177, 61, 0.14); color: var(--warn); }
+.status.status-inactive { background: rgba(255, 95, 82, 0.14); color: var(--danger); }
 
 
 .telemetry-grid .card.bms-card {
@@ -345,8 +383,9 @@ th {
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: #f3f4f6;
+    background: var(--card);
     border: 1px solid var(--border);
+    color: var(--muted);
     cursor: pointer;
     font-size: 15px;
     line-height: 1;
@@ -392,7 +431,7 @@ th {
     box-shadow: var(--shadow);
     font-size: 13px;
     line-height: 1.4;
-    border-left: 4px solid #dc2626;
+    border-left: 4px solid var(--danger);
 }
 
 .power-alert-panel.open {
@@ -402,13 +441,13 @@ th {
 }
 
 .power-alert-title {
-    font-weight: 600;
-    color: #991b1b;
+    font-weight: 700;
+    color: var(--danger-text);
     font-size: 13px;
 }
 
 .power-alert-causes {
-    color: #991b1b;
+    color: var(--danger-mute);
     font-size: 12px;
     margin-top: 2px;
 }
@@ -417,7 +456,7 @@ th {
     margin-left: auto;
     background: transparent;
     border: 0;
-    color: #991b1b;
+    color: var(--danger-mute);
     cursor: pointer;
     padding: 0 2px;
     font-size: 16px;
@@ -426,22 +465,26 @@ th {
 }
 
 .card.power-limit-active {
-    background: #fef2f2;
-    border-color: #dc2626;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
 }
 
 .card.power-limit-active .label {
-    color: #991b1b;
+    color: var(--danger-text);
 }
 
 .card.power-limit-active .value {
-    color: #991b1b;
+    color: var(--danger);
 }
 
 .power-limit-badge {
-    background: #fee2e2;
-    color: #991b1b;
-    font-weight: 600;
+    /* .sub2-value is a block: without fit-content the badge paints as a
+       full-width red bar instead of a chip. */
+    display: inline-block;
+    width: fit-content;
+    background: var(--danger);
+    color: var(--on-danger);
+    font-weight: 700;
     padding: 1px 6px;
     border-radius: 4px;
 }
@@ -467,21 +510,21 @@ th {
 }
 
 .armed-pill.armed {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: rgba(255, 95, 82, 0.14);
+    color: var(--danger);
 }
 
 .armed-pill.armed .armed-dot {
-    background: #b91c1c;
+    background: var(--danger);
 }
 
 .armed-pill.disarmed {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--surface-2);
+    color: var(--muted);
 }
 
 .armed-pill.disarmed .armed-dot {
-    background: #9ca3af;
+    background: var(--dot-off);
 }
 
 .sub2 {
