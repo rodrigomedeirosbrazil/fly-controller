@@ -42,6 +42,11 @@ public:
     uint16_t getBatteryCapacityMah() const;
     void setBatteryCapacityMah(uint16_t mAh);
 
+    /** Cells in series. Only used to derive a per-cell voltage for display
+     *  when the BMS does not report individual cells. */
+    uint8_t getCellCount() const;
+    void setCellCount(uint8_t count);
+
     // Battery voltage
     uint16_t getBatteryMinVoltage() const;
     void setBatteryMinVoltage(uint16_t mv);
@@ -101,6 +106,7 @@ private:
 
     // Default values
     uint16_t getDefaultBatteryCapacity() const;
+    uint8_t getDefaultCellCount() const;
     uint16_t getDefaultBatteryMinVoltage() const;
     uint16_t getDefaultBatteryMaxVoltage() const;
     int32_t getDefaultMotorMaxTemp() const;
@@ -114,6 +120,7 @@ private:
     // Current values
     String configPin;
     uint16_t batteryCapacityMah;
+    uint8_t cellCount;
 #if IS_TMOTOR
     MotorTempSource motorTempSource;
 #endif

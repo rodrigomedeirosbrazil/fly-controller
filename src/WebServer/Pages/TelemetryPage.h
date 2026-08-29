@@ -745,9 +745,9 @@ const setStatus = (kind) => {
     setText('statusLabel', view.label);
 };
 
-// Cells in series. Fixed while Settings has no cellCount field; the drawer
-// says whether the per-cell figure was measured or derived from this.
-const PACK_CELLS = 14;
+// Cells in series, from Settings. Only used when the BMS does not report
+// individual cells; the drawer says which of the two produced the number.
+let packCells = 14;
 
 const SIGNAL_CHIP_TEXT = { s: 'DESATUALIZADO', i: 'INVÁLIDO', a: 'SEM DADO' };
 const SIGNAL_SRC_TEXT = { can: 'CAN', ntc: 'NTC' };
@@ -787,6 +787,11 @@ const applyThermalZones = () => {
 
 // Thresholds only change when the pilot edits settings, so this is fetched
 // once instead of riding the 1 Hz telemetry payload.
+const loadPackConfig = () =>
+    fetchJson('/api/config/power')
+        .then((d) => { if (d.cellCount) packCells = d.cellCount; })
+        .catch(() => { /* keep 14S */ });
+
 const loadThermalScale = () =>
     fetchJson('/api/config/thermal')
         .then((d) => {
@@ -850,10 +855,10 @@ const renderTelemetry = (data) => {
 
     const bmsCells = !!(data.bms && data.bms.available && data.bms.cellMinMv != null);
     const packMv = data.batteryVoltageMv || 0;
-    const cellMv = bmsCells ? data.bms.cellMinMv : (packMv / PACK_CELLS);
+    const cellMv = bmsCells ? data.bms.cellMinMv : (packMv / packCells);
     const battValid = !signals.battV || signals.battV === 'v';
     setText('cellVoltage', battValid ? (cellMv / 1000).toFixed(2) : '—');
-    setText('cellSource', bmsCells ? 'BMS · menor célula' : `Calculado ÷ ${PACK_CELLS}S`);
+    setText('cellSource', bmsCells ? 'BMS · menor célula' : `Calculado ÷ ${packCells}S`);
     setText('packVoltage', battValid ? fmtV(packMv) : '—');
 
     // No current on this build (or not yet): drop the cell, centre what is
@@ -1082,6 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDrawer();
     initSessionReset();
     loadThermalScale();
+    loadPackConfig();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

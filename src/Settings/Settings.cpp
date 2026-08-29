@@ -48,6 +48,7 @@ bool isValidBmsMacFormat(const String& s) {
 Settings::Settings() {
     configPin = "0000";
     batteryCapacityMah = 0;
+    cellCount = getDefaultCellCount();
     batteryMinVoltage = 0;
     batteryMaxVoltage = 0;
     motorMaxTemp = 0;
@@ -75,6 +76,8 @@ void Settings::init() {
 void Settings::load() {
     // Load battery capacity (default based on controller type)
     batteryCapacityMah = preferences.getUInt("batCap", getDefaultBatteryCapacity());
+    cellCount = preferences.getUChar("cellCnt", getDefaultCellCount());
+    if (cellCount < 1 || cellCount > 24) cellCount = getDefaultCellCount();
 
     // Load battery voltages (defaults from original config.h)
     batteryMinVoltage = preferences.getUInt("batMinV", getDefaultBatteryMinVoltage());
@@ -163,6 +166,7 @@ void Settings::save() {
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     preferences.putString("cfgPin", configPin);
     preferences.putUInt("batCap", batteryCapacityMah);
+    preferences.putUChar("cellCnt", cellCount);
     preferences.putUInt("batMinV", batteryMinVoltage);
     preferences.putUInt("batMaxV", batteryMaxVoltage);
     preferences.putInt("motMaxT", motorMaxTemp);
@@ -184,6 +188,14 @@ void Settings::save() {
 
 uint16_t Settings::getBatteryCapacityMah() const {
     return batteryCapacityMah;
+}
+
+uint8_t Settings::getCellCount() const {
+    return cellCount;
+}
+
+void Settings::setCellCount(uint8_t count) {
+    cellCount = count;
 }
 
 void Settings::setBatteryCapacityMah(uint16_t mAh) {
@@ -248,6 +260,10 @@ void Settings::setPowerControlEnabled(bool enabled) {
 
 uint16_t Settings::getDefaultBatteryCapacity() const {
     return getBoardConfig().defaultBatteryCapacity;
+}
+
+uint8_t Settings::getDefaultCellCount() const {
+    return 14;  // 14S is what this controller has always assumed.
 }
 
 uint16_t Settings::getDefaultBatteryMinVoltage() const {
