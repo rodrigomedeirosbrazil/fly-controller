@@ -36,8 +36,17 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
             </div>
 
             <div class="tp-tile tp-hero" id="tileBattery">
-                <div class="tp-soc"><span class="tp-num" id="soc">--</span><span class="tp-unit">%</span></div>
-                <div class="tp-lab tp-soc-lab">Bateria</div>
+                <svg class="tp-gauge tp-gauge-batt" viewBox="0 0 240 186" xmlns="http://www.w3.org/2000/svg">
+                    <g transform="rotate(135 120 120)">
+                        <circle class="g-track" cx="120" cy="120" r="80" stroke-width="16" stroke-dasharray="376.99 502.65"></circle>
+                        <circle class="g-zone" cx="120" cy="120" r="80" stroke-width="16" stroke-dasharray="75.40 502.65"></circle>
+                        <circle class="g-val" id="battArc" cx="120" cy="120" r="80" stroke-width="16" stroke-dasharray="0 502.65"></circle>
+                    </g>
+                    <text class="g-num" id="soc" x="120" y="124" text-anchor="middle" font-size="80">--</text>
+                    <text class="g-cap" x="120" y="152" text-anchor="middle" font-size="15">BATERIA %</text>
+                    <text class="g-end" x="24" y="180" font-size="13">0</text>
+                    <text class="g-end" x="216" y="180" text-anchor="end" font-size="13">100</text>
+                </svg>
                 <div class="tp-sep"></div>
                 <div class="tp-cells" id="heroCells">
                     <div class="tp-cell">
@@ -59,15 +68,29 @@ static const char TELEMETRY_PAGE_HTML[] PROGMEM = R"rawliteral(
                     <span class="tp-chip" id="powerAvail" style="display:none;"></span>
                 </div>
                 <div class="tp-tile tp-inst" id="tileMotor">
+                    <svg class="tp-gauge" viewBox="0 0 130 108" xmlns="http://www.w3.org/2000/svg">
+                        <g transform="rotate(135 65 65)">
+                            <circle class="g-track" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="216.77 289.03"></circle>
+                            <circle class="g-zone" id="motorZone" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="0 289.03"></circle>
+                            <circle class="g-val" id="motorArc" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="0 289.03"></circle>
+                        </g>
+                        <text class="g-num" id="motorTemp" x="65" y="62" text-anchor="middle" font-size="34">--</text>
+                        <text class="g-unit" x="65" y="82" text-anchor="middle" font-size="13">&#176;C</text>
+                        <text class="g-sensor" id="motorSensor" x="65" y="99" text-anchor="middle" font-size="10"></text>
+                    </svg>
                     <span class="tp-lab">Motor</span>
-                    <span class="tp-num" id="motorTemp">--</span>
-                    <span class="tp-unit">&#176;C</span>
-                    <span class="tp-sensor" id="motorSensor"></span>
                 </div>
                 <div class="tp-tile tp-inst" id="tileEsc">
+                    <svg class="tp-gauge" viewBox="0 0 130 108" xmlns="http://www.w3.org/2000/svg">
+                        <g transform="rotate(135 65 65)">
+                            <circle class="g-track" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="216.77 289.03"></circle>
+                            <circle class="g-zone" id="escZone" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="0 289.03"></circle>
+                            <circle class="g-val" id="escArc" cx="65" cy="65" r="46" stroke-width="11" stroke-dasharray="0 289.03"></circle>
+                        </g>
+                        <text class="g-num" id="escTemp" x="65" y="62" text-anchor="middle" font-size="34">--</text>
+                        <text class="g-unit" x="65" y="82" text-anchor="middle" font-size="13">&#176;C</text>
+                    </svg>
                     <span class="tp-lab">ESC</span>
-                    <span class="tp-num" id="escTemp">--</span>
-                    <span class="tp-unit">&#176;C</span>
                 </div>
             </div>
 
@@ -729,16 +752,65 @@ const PACK_CELLS = 14;
 const SIGNAL_CHIP_TEXT = { s: 'DESATUALIZADO', i: 'INVÁLIDO', a: 'SEM DADO' };
 const SIGNAL_SRC_TEXT = { can: 'CAN', ntc: 'NTC' };
 
-// Renders one instrument. A signal that is not valid shows an em dash and a
-// chip saying why -- never a fabricated number for a reading we do not trust.
-const renderInstrument = (tileId, valueId, code, formattedValue) => {
+// ============ Gauges ============
+// 270 deg sweep, so the usable track is three quarters of the circumference.
+const R_BATT = 80;
+const R_TEMP = 46;
+const SWEEP = 0.75;
+
+const circumference = (r) => 2 * Math.PI * r;
+const arcLength = (r, frac) => circumference(r) * SWEEP * Math.max(0, Math.min(1, frac));
+
+const setArc = (id, r, frac) => {
+    const el = $(id);
+    if (!el) return;
+    el.setAttribute('stroke-dasharray', `${arcLength(r, frac).toFixed(1)} ${circumference(r).toFixed(2)}`);
+};
+
+// A band running from `from` (0..1) to the end of the track.
+const setZone = (id, r, from) => {
+    const el = $(id);
+    if (!el) return;
+    el.setAttribute('stroke-dasharray', `${arcLength(r, 1 - from).toFixed(1)} ${circumference(r).toFixed(2)}`);
+    el.setAttribute('stroke-dashoffset', `-${arcLength(r, from).toFixed(1)}`);
+};
+
+// Full scale and reduction band come from Settings, not from constants here:
+// a gauge drawn against the wrong limit is worse than no gauge. These are the
+// shipped defaults, used only until /api/config/thermal answers.
+let thermal = { motorMax: 100, motorRed: 80, escMax: 110, escRed: 80 };
+
+const applyThermalZones = () => {
+    setZone('motorZone', R_TEMP, thermal.motorRed / thermal.motorMax);
+    setZone('escZone', R_TEMP, thermal.escRed / thermal.escMax);
+};
+
+// Thresholds only change when the pilot edits settings, so this is fetched
+// once instead of riding the 1 Hz telemetry payload.
+const loadThermalScale = () =>
+    fetchJson('/api/config/thermal')
+        .then((d) => {
+            const toC = (mc) => (mc || 0) / 1000;
+            if (d.motorMaxTemp) thermal.motorMax = toC(d.motorMaxTemp);
+            if (d.motorTempReductionStart) thermal.motorRed = toC(d.motorTempReductionStart);
+            if (d.escMaxTemp) thermal.escMax = toC(d.escMaxTemp);
+            if (d.escTempReductionStart) thermal.escRed = toC(d.escTempReductionStart);
+        })
+        .catch(() => { /* keep the defaults */ })
+        .then(applyThermalZones);
+
+// Renders one thermal instrument. A signal that is not valid draws no arc and
+// shows an em dash plus a chip saying why -- never a fabricated number for a
+// reading we do not trust.
+const renderInstrument = (tileId, valueId, arcId, code, celsius, fullScale) => {
     const tile = $(tileId);
     const valueEl = $(valueId);
     if (!tile || !valueEl) return;
 
     const valid = !code || code === 'v';
-    valueEl.textContent = valid ? formattedValue : '—';
+    valueEl.textContent = valid ? celsius.toFixed(0) : '—';
     tile.classList.toggle('faulted', !valid);
+    if (valid) setArc(arcId, R_TEMP, fullScale > 0 ? celsius / fullScale : 0);
 
     let chip = tile.querySelector('.tp-chip.signal');
     if (valid) {
@@ -772,7 +844,9 @@ const renderTelemetry = (data) => {
     setText('drawerSession', fmtSeconds(data.sessionSec || 0));
 
     // --- battery ---------------------------------------------------------
-    setText('soc', `${data.batteryPercentCc ?? 0}`);
+    const soc = data.batteryPercentCc ?? 0;
+    setText('soc', `${soc}`);
+    setArc('battArc', R_BATT, soc / 100);
 
     const bmsCells = !!(data.bms && data.bms.available && data.bms.cellMinMv != null);
     const packMv = data.batteryVoltageMv || 0;
@@ -799,11 +873,11 @@ const renderTelemetry = (data) => {
     if (instruments) instruments.classList.toggle('cols-2', !hasPower);
     if (hasPower) setText('powerKw', ((data.powerKwX10 ?? 0) / 10).toFixed(1));
 
-    renderInstrument('tileMotor', 'motorTemp', signals.motorTemp,
-                     ((data.motorTempMc || 0) / 1000).toFixed(0));
+    renderInstrument('tileMotor', 'motorTemp', 'motorArc', signals.motorTemp,
+                     (data.motorTempMc || 0) / 1000, thermal.motorMax);
     setText('motorSensor', SIGNAL_SRC_TEXT[signals.motorTempSrc] || '');
-    renderInstrument('tileEsc', 'escTemp', signals.escTemp,
-                     ((data.escTempMc || 0) / 1000).toFixed(0));
+    renderInstrument('tileEsc', 'escTemp', 'escArc', signals.escTemp,
+                     (data.escTempMc || 0) / 1000, thermal.escMax);
 
     // --- throttle --------------------------------------------------------
     const thr = data.throttlePercent || 0;
@@ -1007,6 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBuzzerSound();
     initDrawer();
     initSessionReset();
+    loadThermalScale();
     loadTelemetry();
     setInterval(loadTelemetry, 1000);
 });

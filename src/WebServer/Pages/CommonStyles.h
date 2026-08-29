@@ -26,6 +26,9 @@ const char* COMMON_CSS = R"rawliteral(
     --danger-border: #d0453a;
     --danger-text: #ff9d94;
 
+    --zone: #4a1f1c;
+    --zone-hot: #7a2a24;
+    --track-dead: #2a2328;
     --fault-bg: #1c1417;
     --fault-border: #4a3238;
     --surface-2: #1c232b;
@@ -471,26 +474,69 @@ body.telemetry-page {
 
 /* --- band 2: battery ----------------------------------------------------- */
 
+/* The battery is the primary instrument, so it is the band that absorbs
+   leftover height. The instrument row takes only what its dials need --
+   giving it the slack just left three tall, mostly empty tiles. */
 .tp-hero {
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    min-height: 0;
     align-items: center;
+    justify-content: center;
     padding: 14px;
     gap: 4px;
 }
 
-.tp-soc {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
+/* Instruments are SVG with a viewBox: they have no size in pixels, only a
+   proportion. Portrait scales them by width, landscape by height. That is
+   what makes the panel survive an orientation change without a new rule.
+
+   The arc is a 270 deg sweep: the group is rotated -135 deg so the gap sits
+   at the bottom, and the track length is 0.75 * circumference. A value arc
+   is that length times value/max; the reduction zone is the same with a
+   negative dash offset. Everything else is one setAttribute per poll. */
+
+.tp-gauge {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
-.tp-soc .tp-num { font-size: clamp(58px, 21vmin, 92px); }
-.tp-soc .tp-unit { font-size: clamp(22px, 8vmin, 34px); }
+.tp-gauge-batt { max-width: 100%; }
 
-.tp-soc-lab {
-    margin-top: 8px;
-    letter-spacing: 0.24em;
+/* The instrument row is the flexible band, so let the gauge take the height
+   it is given instead of leaving it empty: the viewBox letterboxes on its
+   own, so this only ever grows the dial, never distorts it. */
+.tp-inst .tp-gauge {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
 }
+
+.tp-gauge circle { fill: none; }
+.tp-gauge .g-track { stroke: var(--track); stroke-linecap: round; }
+.tp-gauge .g-zone { stroke: var(--zone); }
+.tp-gauge .g-val { stroke: var(--ok); stroke-linecap: round; }
+
+.tp-gauge text { font-weight: 700; }
+.tp-gauge .g-num { fill: var(--text); letter-spacing: -1.5px; }
+.tp-gauge .g-unit { fill: var(--muted); letter-spacing: 1px; }
+.tp-gauge .g-cap { fill: var(--muted); letter-spacing: 3.5px; }
+.tp-gauge .g-sensor { fill: var(--dim); letter-spacing: 2.5px; }
+.tp-gauge .g-end { fill: var(--dim); }
+
+.tp-tile.limiting .g-val { stroke: var(--danger); }
+.tp-tile.limiting .g-zone { stroke: var(--zone-hot); }
+.tp-tile.limiting .g-num { fill: var(--danger); }
+
+/* A signal we do not trust draws no arc at all -- a dimmed track and an em
+   dash, never a number the pilot might act on. */
+.tp-tile.faulted .g-track { stroke: var(--track-dead); }
+.tp-tile.faulted .g-zone,
+.tp-tile.faulted .g-val { display: none; }
+.tp-tile.faulted .g-num,
+.tp-tile.faulted .g-unit,
+.tp-tile.faulted .g-sensor { fill: #8a6f74; }
 
 .tp-sep {
     width: 100%;
@@ -520,7 +566,7 @@ body.telemetry-page {
 /* --- band 3: instruments ------------------------------------------------- */
 
 .tp-instruments {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -542,14 +588,6 @@ body.telemetry-page {
 .tp-inst .tp-unit { font-size: 13px; letter-spacing: 0.18em; }
 .tp-inst.limiting .tp-num { color: var(--danger); }
 .tp-inst.faulted .tp-num { color: var(--danger-mute); }
-
-.tp-sensor {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.22em;
-    color: var(--dim);
-    text-transform: uppercase;
-}
 
 /* --- band 4: throttle ---------------------------------------------------- */
 
@@ -807,6 +845,8 @@ body.telemetry-page {
     .tp-thr-val { grid-area: 1 / 3 / 2 / 4; }
 
     .tp-clock { font-size: 17px; }
-    .tp-soc .tp-num { font-size: clamp(46px, 20vmin, 86px); }
+
+    .tp-gauge { width: auto; height: 100%; max-width: 100%; margin: 0 auto; }
+    .tp-hero { padding: 8px 12px 10px; }
 }
 )rawliteral";
