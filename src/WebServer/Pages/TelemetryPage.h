@@ -848,11 +848,18 @@ const renderTelemetry = (data) => {
     setText('soc', `${soc}`);
     setArc('battArc', R_BATT, soc / 100);
 
+    // Two very different numbers wear the same label: the BMS minimum cell is
+    // a measurement, pack/14 is a mean dressed up as a minimum. On an unbalanced
+    // pack the mean reads healthy while the worst cell is already low -- and the
+    // BMS is BLE, so the source can change mid-flight without anything else on
+    // screen moving. The tilde is the cheapest honest marker for "approximate";
+    // the drawer spells out which source produced it.
     const bmsCells = !!(data.bms && data.bms.available && data.bms.cellMinMv != null);
     const packMv = data.batteryVoltageMv || 0;
     const cellMv = bmsCells ? data.bms.cellMinMv : (packMv / PACK_CELLS);
     const battValid = !signals.battV || signals.battV === 'v';
-    setText('cellVoltage', battValid ? (cellMv / 1000).toFixed(2) : '—');
+    const cellText = `${bmsCells ? '' : '~'}${(cellMv / 1000).toFixed(2)}`;
+    setText('cellVoltage', battValid ? cellText : '—');
     setText('cellSource', bmsCells ? 'BMS · menor célula' : `Calculado ÷ ${PACK_CELLS}S`);
     setText('packVoltage', battValid ? fmtV(packMv) : '—');
 
