@@ -192,7 +192,12 @@ label {
     color: var(--primary);
 }
 
+/* Every text-like input, not just number: the PIN field is type="password"
+   and sits on every config page, so leaving it out meant a white box on a
+   dark page. */
 input[type="number"],
+input[type="text"],
+input[type="password"],
 select,
 input[type="file"] {
     width: 100%;
@@ -223,6 +228,14 @@ button:disabled {
     color: var(--dim);
     cursor: not-allowed;
 }
+
+/* Native controls: one line instead of restyling them by hand. */
+input[type="range"],
+input[type="checkbox"] {
+    accent-color: var(--primary);
+}
+
+input::placeholder { color: var(--dim); }
 
 .message {
     margin-top: 12px;
