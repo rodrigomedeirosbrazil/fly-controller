@@ -477,9 +477,13 @@ th {
     color: var(--danger);
 }
 
-.power-limit-badge {
+.power-limit-badge,
+.sub2-value.power-limit-badge {
     /* .sub2-value is a block: without fit-content the badge paints as a
-       full-width red bar instead of a chip. */
+       full-width red bar instead of a chip. The second selector is not
+       redundant — .sub2-value sets its own colour and is declared later in
+       this file, so at equal specificity it would win and paint muted grey
+       text on the red chip. */
     display: inline-block;
     width: fit-content;
     background: var(--danger);
