@@ -65,7 +65,7 @@ O sistema desarma automaticamente, sem intervenção do piloto, se a leitura do 
 
 Em qualquer um dos dois casos:
 - O buzzer toca um padrão de alarme contínuo, mais rápido e mais agudo que o beep de desarme manual. Ele **para assim que você arma o sistema de novo**; se você não conseguir corrigir a falha no lugar, ele se cala sozinho depois de 1 minuto.
-- A página de Telemetria mostra um aviso permanente na tela informando o motivo (não desaparece sozinho).
+- A página de Telemetria mostra um chip vermelho com o código da falha na barra de status (não desaparece sozinho; some ao rearmar). Toque nele para ler a explicação completa.
 - Para voltar a voar, primeiro corrija o problema (verifique a conexão do sensor/cabo, ou o link do remote) e depois arme novamente pelo procedimento normal.
 
 ---
