@@ -503,18 +503,38 @@ const WAKE_STATE_LABEL = {
     error: 'TENTAR NOVAMENTE',
 };
 
+const WAKE_BTN_LABEL = {
+    idle: 'Manter tela ativa',
+    requesting: 'Ativando manter tela ativa',
+    'active-native': 'Desativar manter tela ativa',
+    'active-fallback': 'Desativar manter tela ativa',
+    'needs-user-gesture': 'Toque para manter a tela ativa',
+    unsupported: 'Manter tela ativa não suportado',
+    error: 'Falhou, toque para tentar de novo',
+};
+
 const wakeIsActive = (state) => state === 'active-native' || state === 'active-fallback';
 
 const syncWakeUi = (state, reason) => {
     wakeState = state;
     wakeReason = reason || wakeReason;
 
+    // Four visual states, not two. Acquiring the lock is slow on iOS -- the
+    // native request can fall through to the canvas fallback -- and until now
+    // that whole stretch looked identical to "off", so the only feedback was
+    // the button lighting up whenever it finally worked. A failure looked
+    // identical to off too.
     const btn = $('wakeBtn');
     if (btn) {
         const active = wakeIsActive(state);
+        const busy = state === 'requesting';
+        const failed = state === 'error' || state === 'needs-user-gesture' || state === 'unsupported';
         btn.classList.toggle('on', active);
-        btn.classList.toggle('off', !active);
-        btn.setAttribute('aria-label', active ? 'Desativar manter tela ativa' : 'Manter tela ativa');
+        btn.classList.toggle('busy', busy);
+        btn.classList.toggle('warn', failed);
+        btn.classList.toggle('off', !active && !busy && !failed);
+        btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+        btn.setAttribute('aria-label', WAKE_BTN_LABEL[state] || WAKE_BTN_LABEL.idle);
     }
 
     setText('wakeStateRow', WAKE_STATE_LABEL[state] || WAKE_STATE_LABEL.idle);
@@ -688,6 +708,9 @@ const initTelemetryWake = () => {
     const button = $('wakeBtn');
     if (button) {
         button.addEventListener('click', async () => {
+            // A second tap mid-request would start a competing acquisition,
+            // and the spinner already says something is happening.
+            if (wakeState === 'requesting') return;
             if (wakeIsActive(wakeState)) {
                 await releaseWake(true);
                 return;

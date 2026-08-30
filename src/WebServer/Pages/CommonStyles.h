@@ -436,8 +436,35 @@ body.telemetry-page {
     cursor: pointer;
 }
 
+.tp-icon { position: relative; }
 .tp-icon.off { opacity: 0.5; }
 .tp-icon.on { border-color: var(--primary-border); background: var(--primary-bg); color: var(--primary); }
+
+/* Acquiring a wake lock takes a visible moment on iOS. Hide the glyph and
+   spin a ring in its place so the tap has an answer, instead of the button
+   sitting inert until it happens to succeed. */
+.tp-icon.busy > svg { opacity: 0; }
+
+.tp-icon.busy::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--primary);
+    animation: tp-spin 0.7s linear infinite;
+}
+
+@keyframes tp-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .tp-icon.busy::after { animation-duration: 2.5s; }
+}
+
+/* A wake lock that failed used to look exactly like one that was never asked
+   for. */
+.tp-icon.warn { border-color: #6b4522; background: #1a1512; color: var(--warn); }
 
 /* --- shared tile + type -------------------------------------------------- */
 
@@ -608,7 +635,9 @@ body.telemetry-page {
 .tp-cell-btn:active { opacity: 0.6; }
 .tp-cell + .tp-cell { border-left: 1px solid var(--border); }
 .tp-cell .tp-lab { font-size: 10px; letter-spacing: 0.08em; }
-.tp-cell .tp-num { font-size: clamp(22px, 8vmin, 30px); margin-top: 9px; }
+/* nowrap so the unit can never orphan onto its own line while the cell beside
+   it keeps its unit inline -- which is what happened at 568x320. */
+.tp-cell .tp-num { font-size: clamp(22px, 8vmin, 30px); margin-top: 9px; white-space: nowrap; }
 .tp-cell .tp-unit { font-size: 14px; }
 
 /* --- band 3: instruments ------------------------------------------------- */
@@ -893,6 +922,13 @@ body.telemetry-page {
     .tp-thr-val { grid-area: 1 / 3 / 2 / 4; }
 
     .tp-clock { font-size: 17px; }
+
+    /* In landscape the battery tile is a fixed fraction of the width, so the
+       voltage/current pair is width-bound, not height-bound: scale them off vw
+       as well. Portrait keeps the vmin rule -- it has width to spare and this
+       term would shrink the numbers for nothing. */
+    .tp-cell .tp-num { font-size: clamp(15px, min(8vmin, 2.9vw), 30px); }
+    .tp-cell .tp-unit { font-size: clamp(9px, 1.7vw, 14px); }
 
     .tp-gauge { width: auto; height: 100%; max-width: 100%; margin: 0 auto; }
     .tp-hero { padding: 8px 12px 10px; }

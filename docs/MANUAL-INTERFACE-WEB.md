@@ -74,7 +74,7 @@ quatro blocos entram numa fileira só; nada é escondido.
 | **Chip vermelho com código** | Aparece só quando houve desarme por falha. Toque nele para abrir a explicação completa. Some ao rearmar. |
 | **Tempo de vôo** | Conta enquanto armado e com o motor girando; sobrevive a desarmar e rearmar, zera ao reiniciar. |
 | **Ícone de som** | Ativa ou silencia os beeps do buzzer no navegador. O primeiro toque desbloqueia o áudio (política de autoplay). Começa **silenciado**; o estado é lembrado entre visitas. |
-| **Ícone de cadeado** | Mantém a tela do celular acesa enquanto a página está aberta (wake lock). O estado e a ajuda ficam na gaveta "Mais dados". |
+| **Ícone de cadeado** | Mantém a tela do celular acesa enquanto a página está aberta (wake lock). Enquanto está tentando, o ícone vira um **anel girando** — no iPhone isso pode levar alguns segundos. Fica **azul** quando conseguiu e **âmbar** quando falhou ou precisa de um novo toque. O estado e a ajuda ficam na gaveta "Mais dados". |
 
 ### Mostrador da bateria
 
