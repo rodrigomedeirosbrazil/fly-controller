@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 // Why the system disarmed. One definition, shared by the telemetry web page,
-// the CSV log, and Xctod's system-status field (phase 2) — so a reason never
-// drifts out of sync between surfaces.
+// the CSV log, and Xctod's system-status field — so a reason never drifts
+// out of sync between surfaces.
 //
 // `None` is an internal sentinel only: the boot-time default, and what
 // Throttle resets to on a successful arm. It is never meant to be shown next

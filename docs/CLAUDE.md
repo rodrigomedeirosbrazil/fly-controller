@@ -9,6 +9,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 | `MANUAL-DE-USO.md` | End-user operating manual (Portuguese). Covers startup, throttle calibration, arm/disarm procedure, power limiting behavior (battery voltage, motor temp, ESC temp). |
 | `MANUAL-INTERFACE-WEB.md` | Web interface manual (Portuguese). Documents all five web pages (Dashboard, Telemetry, Firmware, Logs, Configuration), every configuration field, API endpoints, and URL reference. |
 | `device-web-improvements-plan.md` | Internal dev planning doc (English). Describes the phased implementation of the current web UI (telemetry page, page split, dashboard). All phases are marked complete — treat this as historical context, not an active task list. |
+| `XCTOD-PROTOCOL.md` | Field-by-field reference (English) for the Xctod BLE telemetry sentence and its matching CSV log columns — field order/index, units, validity/blanking rules, and the differences between the two formats. Update whenever `src/Xctod/Xctod.cpp` or `src/TelemetryLogger/TelemetryLogger.cpp` changes field order, count, or meaning; a field-order change there also requires updating `xctrack-pages.xcfg`'s `WExternalData` `index` values. |
 | `Schematic_flycontroller_2025-10-29.png` | Circuit schematic for the fly controller PCB (dated 2025-10-29). |
 | `PCB_PCB_flycontroller_2025-10-29.png` | PCB layout image (dated 2025-10-29). |
 | `Gerber_flycontroller_PCB_flycontroller_2025-10-13.zip` | Gerber files for PCB fabrication (dated 2025-10-13; slightly older than the schematic/layout images). |
@@ -16,7 +17,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 ## Language conventions
 
 - **User-facing manuals** (`MANUAL-*.md`) are written in **Brazilian Portuguese**. Keep them in Portuguese when editing.
-- **Internal planning/dev docs** (`device-web-improvements-plan.md`) are in **English**. New dev docs should also be in English.
+- **Internal planning/dev docs** (`device-web-improvements-plan.md`, `XCTOD-PROTOCOL.md`) are in **English**. New dev docs should also be in English.
 - **Code and comments** in the firmware (`src/`) are in English.
 
 ## Hardware context (relevant to docs)

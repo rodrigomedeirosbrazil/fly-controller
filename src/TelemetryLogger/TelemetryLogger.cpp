@@ -1,11 +1,13 @@
 #include "TelemetryLogger.h"
 #include "../config.h"
 #include "../Telemetry/TelemetryAvailability.h"
+#include "../Telemetry/MotorTempOrigin.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../Logger/Logger.h"
 #include "../BluetoothBms/BluetoothBms.h"
+#include "../DisarmReason.h"
 #include <cstdarg>
 #include <cstdio>
 
@@ -43,13 +45,20 @@ bool appendToBuffer(char* data, size_t size, size_t& used, const char* format, .
 
 TelemetryLogger::TelemetryLogger() {
     lastUpdate = 0;
+    wasArmed = false;
 }
 
 void TelemetryLogger::init() {
-    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv");
+    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,disarm_reason");
 }
 
 void TelemetryLogger::handle() {
+    const bool isArmed = throttle.isArmed();
+    if (wasArmed && !isArmed) {
+        writeDisarmLine();
+    }
+    wasArmed = isArmed;
+
     if (millis() - lastUpdate < UPDATE_INTERVAL) {
         return;
     }
@@ -63,25 +72,42 @@ void TelemetryLogger::handle() {
     writeMotorInfo(data, sizeof(data), used);
     writeEscInfo(data, sizeof(data), used);
     writeBmsInfo(data, sizeof(data), used);
+    appendToBuffer(data, sizeof(data), used, ","); // disarm_reason: blank on regular rows
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.log(data);
 }
 
-void TelemetryLogger::writeBatteryInfo(char* data, size_t size, size_t& used) {
-    if (!telemetry.hasData()) {
-        appendToBuffer(data, size, used, ",,,,");
-        return;
-    }
+void TelemetryLogger::writeDisarmLine() {
+    char data[LINE_BUFFER_SIZE] = {0};
+    size_t used = 0;
 
+    // battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,
+    // throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,
+    // battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv -- 15 blank fields,
+    // i.e. 15 commas (14 separators + 1 before disarm_reason).
+    appendToBuffer(data, sizeof(data), used, ",,,,,,,,,,,,,,,");
+    appendToBuffer(data, sizeof(data), used, "%s", disarmReasonCode(throttle.getDisarmReason()));
+    appendToBuffer(data, sizeof(data), used, "\r\n");
+
+    logger.logFinalLine(data);
+}
+
+void TelemetryLogger::writeBatteryInfo(char* data, size_t size, size_t& used) {
     uint8_t batteryPercentageCC = batteryMonitor.getSoC();
     uint8_t batteryPercentageVoltage = batteryMonitor.getSoCFromVoltage();
+    appendToBuffer(data, size, used, "%u,%u,", batteryPercentageCC, batteryPercentageVoltage);
+
+    if (!telemetry.isBatteryVoltageValid()) {
+        appendToBuffer(data, size, used, ",,");
+        return;
+    }
 
     uint16_t millivolts = telemetry.getBatteryVoltageMilliVolts();
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
-    appendToBuffer(data, size, used, "%u,%u,%u.", batteryPercentageCC, batteryPercentageVoltage, volts);
+    appendToBuffer(data, size, used, "%u.", volts);
     if (decimals < 10) {
         appendToBuffer(data, size, used, "0");
     }
@@ -105,11 +131,15 @@ void TelemetryLogger::writeThrottleInfo(char* data, size_t size, size_t& used) {
 }
 
 void TelemetryLogger::writeMotorInfo(char* data, size_t size, size_t& used) {
-    if (!telemetry.hasData()) {
-        appendToBuffer(data, size, used, ",");
-    } else {
+    if (telemetry.isMotorTempValid()) {
         int32_t tempCelsius = telemetry.getMotorTempMilliCelsius() / 1000;
         appendToBuffer(data, size, used, "%ld", (long)tempCelsius);
+    }
+    appendToBuffer(data, size, used, ",");
+
+    const char* motorTempSrc = motorTempOriginCode(telemetry.getMotorTempOrigin());
+    if (motorTempSrc) {
+        appendToBuffer(data, size, used, "%s", motorTempSrc);
     }
     appendToBuffer(data, size, used, ",");
 
@@ -129,8 +159,7 @@ void TelemetryLogger::writeMotorInfo(char* data, size_t size, size_t& used) {
 }
 
 void TelemetryLogger::writeEscInfo(char* data, size_t size, size_t& used) {
-    if (!telemetry.hasData()) {
-        appendToBuffer(data, size, used, "");
+    if (!telemetry.isEscTempValid()) {
         return;
     }
 

@@ -187,6 +187,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ### Bluetooth LE (XCTOD)
 - Provides a service to transmit flight data to compatible mobile applications (XCTRACK).
 - Available in all controller modes.
+- Field-by-field protocol reference: [docs/XCTOD-PROTOCOL.md](docs/XCTOD-PROTOCOL.md).
 
 ## ⚡ Features
 
