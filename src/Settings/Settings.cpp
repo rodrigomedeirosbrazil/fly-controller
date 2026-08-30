@@ -259,11 +259,11 @@ uint16_t Settings::getDefaultBatteryMaxVoltage() const {
 }
 
 int32_t Settings::getDefaultMotorMaxTemp() const {
-    return 100000;  // 100.000°C (note: original comment said 60°C but value is 100000)
+    return 100000;  // 100 C, in millicelsius. Editable in the web portal.
 }
 
 int32_t Settings::getDefaultMotorTempReductionStart() const {
-    return 80000;  // 80.000°C (note: original comment said 50°C but value is 80000)
+    return 80000;  // 80 C, in millicelsius. Editable in the web portal.
 }
 
 int32_t Settings::getDefaultEscMaxTemp() const {

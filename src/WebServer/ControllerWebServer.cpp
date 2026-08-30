@@ -14,16 +14,12 @@
 #include <esp_heap_caps.h>
 #include <sys/time.h>
 #include "Pages/CommonLayout.h"
-#include "Pages/ConfigPowerPage.h"
-#include "Pages/ConfigThermalPage.h"
-#include "Pages/ConfigBmsPage.h"
-#include "Pages/ConfigSystemPage.h"
+#include "Pages/CommonScripts.h"
+#include "WebAssetsGz.h"
 #include "Pages/ConfigHubPage.h"
 #include "Pages/DashboardPage.h"
 #include "Pages/FirmwarePage.h"
 #include "Pages/LogsPage.h"
-#include "Pages/TelemetryPage.h"
-#include "Pages/LegacyIndexPage.h"
 #include "../Version.h"
 #include "../Logger/Logger.h"
 #if IS_TMOTOR
@@ -47,6 +43,16 @@ const char* CONTROLLER_LABEL = "Unknown";
 #endif
 
 namespace {
+// Static assets are stored gzipped (see scripts/gen_web_assets.py) and handed
+// to the browser as-is: the flash saving is real on a board at ~91% of its app
+// partition, and the decompression costs the ESP32 nothing.
+static void sendGzipAsset(AsyncWebServerRequest* request, const char* contentType,
+                          const uint8_t* data, size_t len) {
+    AsyncWebServerResponse* response = request->beginResponse(200, contentType, data, len);
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+}
+
 void logWebHeap(const char* tag) {
     Serial.printf(
         "[WebServer] %s heap=%u min=%u largest=%u\n",
@@ -850,7 +856,7 @@ void ControllerWebServer::startAP() {
 
     server.on("/config.css", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config.css");
-        request->send(200, "text/css; charset=utf-8", reinterpret_cast<const uint8_t*>(COMMON_CSS), strlen(COMMON_CSS));
+        sendGzipAsset(request, "text/css; charset=utf-8", ASSET_CONFIG_CSS, ASSET_CONFIG_CSS_LEN);
     });
 
     server.on("/config-common.js", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -866,51 +872,47 @@ void ControllerWebServer::startAP() {
 
     server.on("/config-power.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config-power.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_POWER_PAGE_JS), strlen_P(CONFIG_POWER_PAGE_JS));
+        sendGzipAsset(request, "application/javascript; charset=utf-8", ASSET_CONFIG_POWER_JS, ASSET_CONFIG_POWER_JS_LEN);
     });
 
     server.on("/config-thermal.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config-thermal.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_THERMAL_PAGE_JS), strlen_P(CONFIG_THERMAL_PAGE_JS));
+        sendGzipAsset(request, "application/javascript; charset=utf-8", ASSET_CONFIG_THERMAL_JS, ASSET_CONFIG_THERMAL_JS_LEN);
     });
 
     server.on("/config-bms.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config-bms.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_JS), strlen_P(CONFIG_BMS_PAGE_JS));
+        sendGzipAsset(request, "application/javascript; charset=utf-8", ASSET_CONFIG_BMS_JS, ASSET_CONFIG_BMS_JS_LEN);
     });
 
     server.on("/config-system.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/config-system.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_JS), strlen_P(CONFIG_SYSTEM_PAGE_JS));
+        sendGzipAsset(request, "application/javascript; charset=utf-8", ASSET_CONFIG_SYSTEM_JS, ASSET_CONFIG_SYSTEM_JS_LEN);
     });
 
     server.on("/telemetry.js", HTTP_GET, [](AsyncWebServerRequest *request){
         logWebHeap("/telemetry.js");
-        request->send(200, "application/javascript; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_JS), strlen_P(TELEMETRY_PAGE_JS));
+        sendGzipAsset(request, "application/javascript; charset=utf-8", ASSET_TELEMETRY_JS, ASSET_TELEMETRY_JS_LEN);
     });
 
     server.on("/config/power", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_POWER_PAGE_HTML);
         logWebHeap("/config/power");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_POWER_PAGE_HTML), len);
+        sendGzipAsset(request, "text/html; charset=utf-8", ASSET_CONFIG_POWER_HTML, ASSET_CONFIG_POWER_HTML_LEN);
     });
 
     server.on("/config/thermal", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_THERMAL_PAGE_HTML);
         logWebHeap("/config/thermal");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_THERMAL_PAGE_HTML), len);
+        sendGzipAsset(request, "text/html; charset=utf-8", ASSET_CONFIG_THERMAL_HTML, ASSET_CONFIG_THERMAL_HTML_LEN);
     });
 
     server.on("/config/bms", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_BMS_PAGE_HTML);
         logWebHeap("/config/bms");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_BMS_PAGE_HTML), len);
+        sendGzipAsset(request, "text/html; charset=utf-8", ASSET_CONFIG_BMS_HTML, ASSET_CONFIG_BMS_HTML_LEN);
     });
 
     server.on("/config/system", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(CONFIG_SYSTEM_PAGE_HTML);
         logWebHeap("/config/system");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(CONFIG_SYSTEM_PAGE_HTML), len);
+        sendGzipAsset(request, "text/html; charset=utf-8", ASSET_CONFIG_SYSTEM_HTML, ASSET_CONFIG_SYSTEM_HTML_LEN);
     });
 
     // Configuration page - register AFTER /config/values and /config/save to avoid route conflicts
@@ -920,9 +922,8 @@ void ControllerWebServer::startAP() {
     });
 
     server.on("/telemetry", HTTP_GET, [](AsyncWebServerRequest *request){
-        const size_t len = strlen_P(TELEMETRY_PAGE_HTML);
         logWebHeap("/telemetry");
-        request->send(200, "text/html; charset=utf-8", reinterpret_cast<const uint8_t*>(TELEMETRY_PAGE_HTML), len);
+        sendGzipAsset(request, "text/html; charset=utf-8", ASSET_TELEMETRY_HTML, ASSET_TELEMETRY_HTML_LEN);
     });
 
     server.on("/firmware", HTTP_GET, [](AsyncWebServerRequest *request){
