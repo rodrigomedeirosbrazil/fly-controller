@@ -2,11 +2,13 @@
 #include "../config.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
+#include "../Telemetry/MotorTempOrigin.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BluetoothBms/BluetoothBms.h"
+#include "../DisarmReason.h"
 #include <cstdarg>
 #include <cstdio>
 #include <esp_bt.h>
@@ -150,23 +152,25 @@ bool Xctod::isAdvertisingEnabled() const {
 }
 
 void Xctod::writeBatteryInfo(char* data, size_t size, size_t& used) {
-    if (!telemetry.hasData()) {
-        appendToBuffer(data, size, used, ",,,,"); // battery_percent_cc, battery_percent_voltage, voltage, power_kw
-        return;
-    }
-
     // Get SoC from BatteryMonitor (coulomb counting for Tmotor, voltage for XAG)
     uint8_t batteryPercentageCC = batteryMonitor.getSoC();
 
     // Get SoC based on voltage only
     uint8_t batteryPercentageVoltage = batteryMonitor.getSoCFromVoltage();
 
+    appendToBuffer(data, size, used, "%u,%u,", batteryPercentageCC, batteryPercentageVoltage);
+
+    if (!telemetry.isBatteryVoltageValid()) {
+        appendToBuffer(data, size, used, ",,"); // voltage, power_kw
+        return;
+    }
+
     // Format voltage
     uint16_t millivolts = telemetry.getBatteryVoltageMilliVolts();
     uint16_t volts = millivolts / 1000;
     uint16_t decimals = millivolts % 1000;
 
-    appendToBuffer(data, size, used, "%u,%u,%u.", batteryPercentageCC, batteryPercentageVoltage, volts);
+    appendToBuffer(data, size, used, "%u.", volts);
     if (decimals < 10) {
         appendToBuffer(data, size, used, "0");
     }
@@ -191,11 +195,17 @@ void Xctod::writeThrottleInfo(char* data, size_t size, size_t& used) {
 
 void Xctod::writeMotorInfo(char* data, size_t size, size_t& used) {
     // Motor temperature: all controllers use telemetry (Tmotor from CAN+sensor, XAG from sensor)
-    if (!telemetry.hasData()) {
-        appendToBuffer(data, size, used, ","); // motor temperature not available
-    } else {
+    if (telemetry.isMotorTempValid()) {
         int32_t tempCelsius = telemetry.getMotorTempMilliCelsius() / 1000;
         appendToBuffer(data, size, used, "%ld", (long)tempCelsius);
+    }
+    appendToBuffer(data, size, used, ",");
+
+    // Which sensor fed the (possibly blank) reading above — CAN vs NTC fallback on
+    // Tmotor; blank on XAG, which always reports MotorTempOrigin::None.
+    const char* motorTempSrc = motorTempOriginCode(telemetry.getMotorTempOrigin());
+    if (motorTempSrc) {
+        appendToBuffer(data, size, used, "%s", motorTempSrc);
     }
     appendToBuffer(data, size, used, ",");
 
@@ -215,7 +225,7 @@ void Xctod::writeMotorInfo(char* data, size_t size, size_t& used) {
 }
 
 void Xctod::writeEscInfo(char* data, size_t size, size_t& used) {
-    if (!telemetry.hasData()) {
+    if (!telemetry.isEscTempValid()) {
         appendToBuffer(data, size, used, ",");
         return;
     }
@@ -226,7 +236,18 @@ void Xctod::writeEscInfo(char* data, size_t size, size_t& used) {
 }
 
 void Xctod::writeSystemStatus(char* data, size_t size, size_t& used) {
-    appendToBuffer(data, size, used, "%s", throttle.isArmed() ? "YES" : "NO");
+    if (throttle.isArmed()) {
+        appendToBuffer(data, size, used, "ARMED");
+        return;
+    }
+
+    const DisarmReason reason = throttle.getDisarmReason();
+    if (reason == DisarmReason::None || reason == DisarmReason::Manual) {
+        appendToBuffer(data, size, used, "DISARMED");
+        return;
+    }
+
+    appendToBuffer(data, size, used, "%s", disarmReasonCode(reason));
 }
 
 void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {

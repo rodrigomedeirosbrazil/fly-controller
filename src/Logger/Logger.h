@@ -12,6 +12,13 @@ public:
     void startLogging();
     void log(const char* data);
     void log(const String &data);
+    /**
+     * Writes one last line to the still-open log file (opening it first if
+     * needed), then closes it immediately — used to record a value (e.g.
+     * disarm reason) that's only known at the exact moment logging ends,
+     * which the normal armed-gated log() would otherwise miss.
+     */
+    void logFinalLine(const char* data);
     void setHeader(const String &header);
     /** Call after log files were removed from LittleFS (e.g. web UI delete-all). */
     void afterLogFilesClearedFromStorage();
@@ -38,6 +45,8 @@ private:
     void createNewFile();
     void openLogFile();
     void stopLogging();
+    /** Writes the timestamp-prefixed line to the (already open) log file and flushes. */
+    void writeLine(const char* data);
 
     /**
      * Writes current time. If the log filename already encodes the date,

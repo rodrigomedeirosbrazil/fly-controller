@@ -246,14 +246,36 @@ void Logger::log(const char* data) {
         }
     }
 
+    writeLine(data);
+}
+
+void Logger::log(const String &data) {
+    log(data.c_str());
+}
+
+void Logger::logFinalLine(const char* data) {
+    if (!loggingEnabled || currentFileName.length() == 0) {
+        return;
+    }
+
+    if (!fileOpen) {
+        openLogFile();
+        if (!fileOpen) {
+            Serial.println("Failed to open log file");
+            return;
+        }
+    }
+
+    writeLine(data);
+    stopLogging();
+    wasArmed = false;
+}
+
+void Logger::writeLine(const char* data) {
     char tsBuf[24];
     formatTimestamp(tsBuf, sizeof(tsBuf));
     logFile.print(tsBuf);
     logFile.print(",");
     logFile.print(data);
     logFile.flush(); // Force data to be written to storage immediately
-}
-
-void Logger::log(const String &data) {
-    log(data.c_str());
 }
