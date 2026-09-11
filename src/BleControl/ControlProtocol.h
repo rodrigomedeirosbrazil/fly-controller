@@ -290,8 +290,7 @@ inline bool opRequiresAuth(uint8_t op) {
     switch (op) {
         case ControlOp::Auth:           // authenticating cannot require auth
         case ControlOp::CfgGet:         // read-only
-        case ControlOp::BmsScanStatus:  // read-only
-        case ControlOp::BmsDetect:      // read-only
+        case ControlOp::BmsScanStatus:  // read-only: a plain status getter
             return false;
         default:
             return true;
@@ -303,8 +302,14 @@ inline bool opAllowedWhileArmed(uint8_t op) {
         case ControlOp::Auth:
         case ControlOp::CfgGet:
         case ControlOp::BmsScanStatus:
-        case ControlOp::BmsDetect:
             return true;
+        // BmsDetect is deliberately NOT here, despite reading like a query.
+        // BluetoothBms::detectBmsTypeByMac() disables all three BMS drivers,
+        // pauses advertising, and performs a BLOCKING BLEClient::connect() to
+        // the given MAC. On an unresponsive address that can outlast the 10 s
+        // task watchdog (WDT_TIMEOUT_S, panic=true), rebooting the controller
+        // -- in flight, that cuts the motor. It also drops live battery
+        // telemetry for the duration.
         case ControlOp::SessionReset:
             // A RAM-only flight-clock counter. It cannot reach the motor, and
             // it is the one write a pilot might plausibly want in flight.

@@ -276,13 +276,16 @@ void test_gate_allows_reads_without_auth() {
     assert(gateRequest(ControlOp::Auth,          false, false) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::CfgGet,        false, false) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::BmsScanStatus, false, false) == ControlStatus::Ok);
-    assert(gateRequest(ControlOp::BmsDetect,     false, false) == ControlStatus::Ok);
 }
 
 void test_gate_requires_auth_for_writes() {
     assert(gateRequest(ControlOp::CfgSet,       false, false) == ControlStatus::ErrAuth);
     assert(gateRequest(ControlOp::SessionReset, false, false) == ControlStatus::ErrAuth);
     assert(gateRequest(ControlOp::RemotePair,   false, false) == ControlStatus::ErrAuth);
+    // BmsDetect reads like a query but tears down the BMS link and blocks on
+    // a BLE connect -- it is a write in every way that matters.
+    assert(gateRequest(ControlOp::BmsDetect,    false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::BmsDetect,    true,  false) == ControlStatus::Ok);
     // ...and allows them once authenticated.
     assert(gateRequest(ControlOp::CfgSet,       true,  false) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::SessionReset, true,  false) == ControlStatus::Ok);
@@ -292,6 +295,7 @@ void test_gate_blocks_by_default_while_armed() {
     assert(gateRequest(ControlOp::CfgSet,           true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::BuzzerPreview,    true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::BmsScanStart,     true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::BmsDetect,        true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::RemotePair,       true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::RemoteForget,     true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::SetTime,          true, true) == ControlStatus::ErrState);
@@ -305,7 +309,6 @@ void test_gate_armed_exceptions() {
     assert(gateRequest(ControlOp::Auth,          true,  true) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::CfgGet,        false, true) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::BmsScanStatus, false, true) == ControlStatus::Ok);
-    assert(gateRequest(ControlOp::BmsDetect,     false, true) == ControlStatus::Ok);
     // SessionReset is a RAM-only flight clock; a pilot may want it in flight.
     assert(gateRequest(ControlOp::SessionReset,  true,  true) == ControlStatus::Ok);
 }
