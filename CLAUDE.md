@@ -159,6 +159,11 @@ Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red 
 
 ## BLE Control Service (fly-app)
 
+The client-facing contract — every UUID, struct offset, opcode and status code,
+written for whoever implements the Dart side — is
+[docs/BLE-CONTROL-PROTOCOL.md](docs/BLE-CONTROL-PROTOCOL.md). What follows is
+the firmware's side of it.
+
 Two GATT services share one BLE server, owned by `BleServerHost` (which also
 owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
 `BleControl` only register services on it).
