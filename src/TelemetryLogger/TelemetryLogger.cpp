@@ -114,7 +114,9 @@ void TelemetryLogger::writeBatteryInfo(char* data, size_t size, size_t& used) {
     appendToBuffer(data, size, used, "%u,", decimals);
 
     if (isPowerKwAvailable()) {
-        uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
+        // 64-bit: a 32-bit product overflows above ~73 A at 58.5 V, and the
+        // ESC reports up to 500 A. See BleControl::fillTelemetry().
+        uint32_t powerMilliWatts = (uint32_t) (((uint64_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000);
         uint32_t powerKwInt = powerMilliWatts / 1000000;
         uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
         appendToBuffer(data, size, used, "%lu.%lu", (unsigned long)powerKwInt, (unsigned long)powerKwDecimal);
