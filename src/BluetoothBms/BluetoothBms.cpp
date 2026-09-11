@@ -4,7 +4,7 @@
 #include "../JbdBms/JbdBms.h"
 #include "../JkBms/JkBms.h"
 #include "../Settings/Settings.h"
-#include "../Xctod/Xctod.h"
+#include "../BleServerHost/BleServerHost.h"
 #include <BLEAdvertisedDevice.h>
 #include <BLEClient.h>
 #include <BLEDevice.h>
@@ -282,7 +282,7 @@ void BluetoothBms::resetWebScanState(uint8_t status) {
 
 void BluetoothBms::pauseTelemetryAdvertisingForScan() {
     telemetryAdvertisingPausedForScan_ = true;
-    xctod.setAdvertisingEnabled(false);
+    bleServerHost.setAdvertisingEnabled(false);
 }
 
 void BluetoothBms::resumeTelemetryAdvertisingAfterScan() {
@@ -290,7 +290,7 @@ void BluetoothBms::resumeTelemetryAdvertisingAfterScan() {
         return;
     }
     telemetryAdvertisingPausedForScan_ = false;
-    xctod.setAdvertisingEnabled(true);
+    bleServerHost.setAdvertisingEnabled(true);
 }
 
 void BluetoothBms::completeWebScan() {

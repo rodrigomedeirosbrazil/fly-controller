@@ -4,6 +4,7 @@
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
 #include "DalyBms/DalyBms.h"
+#include "BleServerHost/BleServerHost.h"
 #include "Xctod/Xctod.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "JbdBms/JbdBms.h"
@@ -77,6 +78,7 @@ PowerAlert powerAlert;
 BatteryMonitor batteryMonitor;
 BluetoothBms bluetoothBms;
 DalyBms dalyBms;
+BleServerHost bleServerHost;
 Xctod xctod;
 TelemetryLogger telemetryLogger;
 JbdBms jbdBms;

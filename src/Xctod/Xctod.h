@@ -16,18 +16,21 @@ class Xctod {
 public:
     Xctod();
 
+    // Registers the Nordic UART service on the shared BLE server. The radio
+    // itself belongs to BleServerHost.
+    //
+    // FROZEN: this service is the XCTrack compatibility surface and nothing
+    // else. No field is ever added to the $XCTOD sentence — it has two
+    // positional consumers (XCTrack's .xcfg and fly-app's xctod_parser.dart)
+    // and no version handshake. Everything new goes in BleControl.
     void init();
     void write();
-    void setAdvertisingEnabled(bool enabled);
-    bool isAdvertisingEnabled() const;
 
 private:
     unsigned long lastUpdate;
     static const unsigned long UPDATE_INTERVAL = 1000;
     static const size_t TELEMETRY_BUFFER_SIZE = 256;
-    bool advertisingEnabled;
 
-    BLEServer *pServer;
     BLEService *pService;
     BLECharacteristic *pCharacteristic;
 

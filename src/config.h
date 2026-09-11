@@ -42,6 +42,7 @@
 #endif
 
 class Power;
+class BleServerHost;
 class Xctod;
 class JbdBms;
 class JkBms;
@@ -70,6 +71,7 @@ extern Power power;
 extern BatteryMonitor batteryMonitor;
 extern BluetoothBms bluetoothBms;
 extern DalyBms dalyBms;
+extern BleServerHost bleServerHost;
 extern Xctod xctod;
 extern TelemetryLogger telemetryLogger;
 extern JbdBms jbdBms;
