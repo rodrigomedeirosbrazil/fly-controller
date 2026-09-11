@@ -117,4 +117,100 @@ inline size_t encodeResponse(uint8_t* buf, size_t cap, uint8_t op, uint8_t seq,
     return (size_t) 4 + len;
 }
 
+// ---------------------------------------------------------------------------
+// Telemetry
+//
+// Two rules, and they are the whole contract:
+//
+//  1. Fixed layout. An unavailable field is zero with its validity bit clear,
+//     never an absent field -- so every offset is constant forever. This is
+//     what the $XCTOD CSV could not do.
+//  2. Append only at the end, and the reader parses min(received, known).
+//     New firmware + old app: the app reads the prefix it understands. Old
+//     firmware + new app: the app sees a short packet. Neither breaks.
+//
+// `ver` is bumped ONLY if an existing field changes position or meaning.
+// Appending a field at the end does not bump it.
+// ---------------------------------------------------------------------------
+
+namespace TelemFlag {
+    enum : uint8_t {
+        Armed               = 1 << 0,
+        Engaged             = 1 << 1,  // throttle past the engage hysteresis
+        HasTelemetry        = 1 << 2,
+        PowerControlEnabled = 1 << 3,
+        BmsConnected        = 1 << 4,
+        BmsConfigured       = 1 << 5,
+    };
+}
+
+namespace TelemValid {
+    enum : uint16_t {
+        Current   = 1 << 0,
+        Rpm       = 1 << 1,
+        PowerKw   = 1 << 2,
+        Bms       = 1 << 3,
+        BmsCells  = 1 << 4,
+        BatteryV  = 1 << 5,
+        MotorTemp = 1 << 6,
+        EscTemp   = 1 << 7,
+    };
+}
+
+#pragma pack(push, 1)
+struct ControlTelemetry {
+    uint8_t  ver;
+    uint8_t  flags;          // TelemFlag bitmask
+    uint16_t validity;       // TelemValid bitmask
+    uint8_t  disarmReason;   // enum DisarmReason (src/DisarmReason.h)
+    uint8_t  signalStates;   // packSignalStates(motorTemp, escTemp, battV)
+    uint8_t  motorTempSrc;   // enum MotorTempOrigin
+    uint8_t  socCc;          // %
+    uint8_t  socVolt;        // %
+    uint8_t  throttlePct;
+    uint8_t  powerPct;       // available power
+    uint8_t  powerScale;     // disarm ramp scale
+    uint8_t  armCharge;
+    uint8_t  limitCauses;    // POWER_LIMIT_* bitmask (src/Power/Power.h)
+    uint16_t batteryMv;
+    uint16_t throttleRaw;
+    uint16_t powerKwX10;
+    int32_t  escCurrentMa;   // signed: regen is a legitimate reading
+    uint32_t rpm;
+    int32_t  motorTempMc;    // millicelsius, the firmware's unit everywhere
+    int32_t  escTempMc;
+    uint32_t sessionSec;
+    uint32_t hourMeterSec;
+    uint16_t bmsCellMinMv;
+    uint16_t bmsCellMaxMv;
+    uint16_t bmsCellDeltaMv;
+    int16_t  bmsTempMaxC;
+    uint32_t uptimeSec;
+};
+#pragma pack(pop)
+
+// SignalState is 0..3 (Absent/Stale/Invalid/Valid), so three signals fit in
+// one byte with two bits each.
+inline uint8_t packSignalStates(uint8_t motorTemp, uint8_t escTemp, uint8_t battV) {
+    return (uint8_t) (((motorTemp & 0x03) << 4) |
+                      ((escTemp   & 0x03) << 2) |
+                       (battV     & 0x03));
+}
+inline uint8_t unpackMotorTempState(uint8_t packed) { return (packed >> 4) & 0x03; }
+inline uint8_t unpackEscTempState(uint8_t packed)   { return (packed >> 2) & 0x03; }
+inline uint8_t unpackBatteryVState(uint8_t packed)  { return  packed       & 0x03; }
+
+// The append rule, in one function. `dst` must already hold the reader's
+// current values: the prefix the sender knows is overlaid on top, and
+// anything the sender did not send keeps what was already there. Returns the
+// number of bytes copied.
+inline size_t copyKnownPrefix(void* dst, size_t dstSize, const void* src, size_t srcSize) {
+    if (dst == nullptr || src == nullptr) {
+        return 0;
+    }
+    const size_t n = dstSize < srcSize ? dstSize : srcSize;
+    memcpy(dst, src, n);
+    return n;
+}
+
 #endif // CONTROL_PROTOCOL_H

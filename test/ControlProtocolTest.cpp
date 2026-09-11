@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -119,7 +120,98 @@ void test_events_use_seq_zero() {
     assert(out[1] == 0);
 }
 
+void test_telemetry_layout_is_pinned() {
+    // Every offset is part of the contract with fly-app's Dart decoder.
+    // A field inserted in the middle silently shifts everything after it,
+    // which is the exact failure mode the $XCTOD sentence has.
+    assert(sizeof(ControlTelemetry) == 56);
+    assert(offsetof(ControlTelemetry, ver)            ==  0);
+    assert(offsetof(ControlTelemetry, flags)          ==  1);
+    assert(offsetof(ControlTelemetry, validity)       ==  2);
+    assert(offsetof(ControlTelemetry, disarmReason)   ==  4);
+    assert(offsetof(ControlTelemetry, signalStates)   ==  5);
+    assert(offsetof(ControlTelemetry, motorTempSrc)   ==  6);
+    assert(offsetof(ControlTelemetry, socCc)          ==  7);
+    assert(offsetof(ControlTelemetry, socVolt)        ==  8);
+    assert(offsetof(ControlTelemetry, throttlePct)    ==  9);
+    assert(offsetof(ControlTelemetry, powerPct)       == 10);
+    assert(offsetof(ControlTelemetry, powerScale)     == 11);
+    assert(offsetof(ControlTelemetry, armCharge)      == 12);
+    assert(offsetof(ControlTelemetry, limitCauses)    == 13);
+    assert(offsetof(ControlTelemetry, batteryMv)      == 14);
+    assert(offsetof(ControlTelemetry, throttleRaw)    == 16);
+    assert(offsetof(ControlTelemetry, powerKwX10)     == 18);
+    assert(offsetof(ControlTelemetry, escCurrentMa)   == 20);
+    assert(offsetof(ControlTelemetry, rpm)            == 24);
+    assert(offsetof(ControlTelemetry, motorTempMc)    == 28);
+    assert(offsetof(ControlTelemetry, escTempMc)      == 32);
+    assert(offsetof(ControlTelemetry, sessionSec)     == 36);
+    assert(offsetof(ControlTelemetry, hourMeterSec)   == 40);
+    assert(offsetof(ControlTelemetry, bmsCellMinMv)   == 44);
+    assert(offsetof(ControlTelemetry, bmsCellMaxMv)   == 46);
+    assert(offsetof(ControlTelemetry, bmsCellDeltaMv) == 48);
+    assert(offsetof(ControlTelemetry, bmsTempMaxC)    == 50);
+    assert(offsetof(ControlTelemetry, uptimeSec)      == 52);
+}
+
+void test_signal_states_pack_three_signals_into_one_byte() {
+    // SignalState is 0..3, so each signal is exactly two bits.
+    const uint8_t packed = packSignalStates(3, 1, 2); // Valid, Stale, Invalid
+    assert(unpackMotorTempState(packed) == 3);
+    assert(unpackEscTempState(packed)   == 1);
+    assert(unpackBatteryVState(packed)  == 2);
+}
+
+void test_signal_states_round_trip_every_combination() {
+    for (uint8_t m = 0; m < 4; m++) {
+        for (uint8_t e = 0; e < 4; e++) {
+            for (uint8_t b = 0; b < 4; b++) {
+                const uint8_t packed = packSignalStates(m, e, b);
+                assert(unpackMotorTempState(packed) == m);
+                assert(unpackEscTempState(packed)   == e);
+                assert(unpackBatteryVState(packed)  == b);
+            }
+        }
+    }
+}
+
+void test_append_rule_long_source_into_short_reader() {
+    // Newer firmware, older reader: the reader keeps the prefix it knows and
+    // drops the tail it does not.
+    uint8_t source[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    uint8_t reader[4] = { 0, 0, 0, 0 };
+    assert(copyKnownPrefix(reader, sizeof(reader), source, sizeof(source)) == 4);
+    assert(reader[0] == 1 && reader[3] == 4);
+}
+
+void test_append_rule_short_source_preserves_readers_tail() {
+    // Older firmware, newer reader: the fields the sender does not know keep
+    // whatever the reader already had -- for CFG_SET that is the current
+    // setting, which must NOT be zeroed by a short write.
+    uint8_t source[2] = { 9, 9 };
+    uint8_t reader[5] = { 1, 2, 3, 4, 5 };
+    assert(copyKnownPrefix(reader, sizeof(reader), source, sizeof(source)) == 2);
+    assert(reader[0] == 9 && reader[1] == 9);
+    assert(reader[2] == 3 && reader[3] == 4 && reader[4] == 5);
+}
+
+void test_append_rule_handles_empty_and_equal_sizes() {
+    uint8_t reader[3] = { 1, 2, 3 };
+    assert(copyKnownPrefix(reader, sizeof(reader), nullptr, 0) == 0);
+    assert(reader[0] == 1);
+
+    uint8_t source[3] = { 7, 8, 9 };
+    assert(copyKnownPrefix(reader, sizeof(reader), source, sizeof(source)) == 3);
+    assert(reader[2] == 9);
+}
+
 int main() {
+    test_telemetry_layout_is_pinned();
+    test_signal_states_pack_three_signals_into_one_byte();
+    test_signal_states_round_trip_every_combination();
+    test_append_rule_long_source_into_short_reader();
+    test_append_rule_short_source_preserves_readers_tail();
+    test_append_rule_handles_empty_and_equal_sizes();
     test_protocol_version_is_declared();
     test_decode_request_reads_header_and_payload();
     test_decode_request_rejects_truncated_frames();
