@@ -737,7 +737,8 @@ void ControllerWebServer::startAP() {
         // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
         uint16_t powerKwX10 = 0;
         if (isPowerKwAvailable()) {
-            const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
+            // 64-bit: see BleControl::fillTelemetry() for the overflow threshold.
+            const uint32_t powerMilliWatts = (uint32_t) (((uint64_t) batteryVoltageMv * batteryCurrentMa) / 1000);
             powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
         }
 
