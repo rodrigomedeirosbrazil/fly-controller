@@ -453,4 +453,35 @@ private:
     uint8_t count_ = 0;
 };
 
+// ---------------------------------------------------------------------------
+// Events (RSP with seq = CONTROL_EVENT_SEQ)
+//
+// The web page polls Sound's ring buffer and de-duplicates by seq. Over BLE
+// that is unnecessary: the event is pushed at the moment the sound happens.
+// The ring is still the source, so a high-water mark keeps each event from
+// being resent on every tick.
+// ---------------------------------------------------------------------------
+
+#pragma pack(push, 1)
+struct ControlBeepEvent {
+    uint32_t seq;
+    uint16_t frequency;
+    uint16_t onMs;
+    uint16_t offMs;
+    uint8_t  reps;    // 0 = continuous
+    uint8_t  layer;   // 0 = queued event, 1 = persistent state
+    uint8_t  active;  // 1 = started, 0 = stopped
+};
+#pragma pack(pop)
+
+// True when this ring entry has not been sent yet. seq 0 marks an empty slot.
+// Updates the watermark, so each event goes out exactly once.
+inline bool beepEventIsNew(uint32_t eventSeq, uint32_t& watermark) {
+    if (eventSeq == 0 || eventSeq <= watermark) {
+        return false;
+    }
+    watermark = eventSeq;
+    return true;
+}
+
 #endif // CONTROL_PROTOCOL_H

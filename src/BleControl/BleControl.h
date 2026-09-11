@@ -41,7 +41,10 @@ private:
     ControlRequestQueue queue_;
     bool authenticated_ = false;
 
+    uint32_t beepWatermark_ = 0;
+
     void drainQueue();
+    void notifyNewBeeps();
     void dispatch(const QueuedRequest& req);
     void respond(uint8_t op, uint8_t seq, ControlStatus status,
                  const uint8_t* payload, uint8_t len);

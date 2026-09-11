@@ -105,6 +105,7 @@ void BleControl::enqueueFromCallback(const uint8_t* data, size_t len) {
 
 void BleControl::handle() {
     drainQueue();
+    notifyNewBeeps();
 
     if (millis() - lastTelemetryMs_ < TELEMETRY_INTERVAL_MS) {
         return;
@@ -129,6 +130,28 @@ void BleControl::respond(uint8_t op, uint8_t seq, ControlStatus status,
     }
     rspChar_->setValue(frame, n);
     rspChar_->notify();
+}
+
+void BleControl::notifyNewBeeps() {
+    BeepEvent ring[Sound::kRingSize];
+    const uint8_t count = sound.getBeepEvents(ring, Sound::kRingSize);
+
+    for (uint8_t i = 0; i < count; i++) {
+        if (!beepEventIsNew(ring[i].seq, beepWatermark_)) {
+            continue;
+        }
+        ControlBeepEvent event;
+        event.seq       = ring[i].seq;
+        event.frequency = ring[i].frequency;
+        event.onMs      = ring[i].onMs;
+        event.offMs     = ring[i].offMs;
+        event.reps      = ring[i].reps;
+        event.layer     = ring[i].layer;
+        event.active    = ring[i].active ? 1 : 0;
+
+        respond(ControlOp::EvtBeep, CONTROL_EVENT_SEQ, ControlStatus::Ok,
+                (const uint8_t*) &event, sizeof(event));
+    }
 }
 
 void BleControl::dispatch(const QueuedRequest& req) {

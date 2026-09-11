@@ -418,6 +418,31 @@ void test_request_queue_refuses_oversized_payloads() {
     assert(q.size() == 0);
 }
 
+void test_beep_event_payload_is_fixed_size() {
+    // 4 + 2 + 2 + 2 + 1 + 1 + 1
+    assert(sizeof(ControlBeepEvent) == 13);
+}
+
+void test_beep_watermark_emits_each_event_once() {
+    // Sound's ring buffer is a snapshot, re-read every tick. Only events
+    // newer than the last one sent may go out, or the app replays old beeps
+    // at 1 Hz forever.
+    uint32_t watermark = 0;
+    assert(beepEventIsNew(5, watermark) == true);
+    assert(watermark == 5);
+    assert(beepEventIsNew(5, watermark) == false);   // same event, second tick
+    assert(beepEventIsNew(3, watermark) == false);   // older slot in the ring
+    assert(beepEventIsNew(6, watermark) == true);
+    assert(watermark == 6);
+}
+
+void test_beep_watermark_ignores_empty_slots() {
+    // seq 0 marks an empty ring slot (see Sound::BeepEvent).
+    uint32_t watermark = 0;
+    assert(beepEventIsNew(0, watermark) == false);
+    assert(watermark == 0);
+}
+
 int main() {
     test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
@@ -454,6 +479,9 @@ int main() {
     test_request_queue_fifo_order();
     test_request_queue_drops_the_newest_when_full();
     test_request_queue_refuses_oversized_payloads();
+    test_beep_event_payload_is_fixed_size();
+    test_beep_watermark_emits_each_event_once();
+    test_beep_watermark_ignores_empty_slots();
     cout << "ControlProtocolTest: all passed" << endl;
     return 0;
 }
