@@ -55,7 +55,13 @@ Xctod::Xctod() {
 }
 
 void Xctod::init() {
-    pService = bleServerHost.getServer()->createService(SERVICE_UUID);
+    BLEServer* server = bleServerHost.getServer();
+    if (server == nullptr) {
+        Serial.println("[Xctod] WARNING: no BLE server -- NUS service not registered");
+        return;
+    }
+
+    pService = server->createService(SERVICE_UUID);
 
     pCharacteristic = pService->createCharacteristic(
                         CHARACTERISTIC_UUID_TX,

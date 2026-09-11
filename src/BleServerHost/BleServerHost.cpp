@@ -9,14 +9,13 @@ public:
     explicit HostServerCallbacks(BleServerHost* host) : host_(host) {}
 
     void onConnect(BLEServer* server) override {
-        // Bluedroid stops advertising as soon as the first central connects.
-        // Without restarting it here a second central can never discover the
-        // controller, which is exactly the XCTrack + fly-app case.
-        host_->refreshAdvertising();
+        Serial.println("BLE connected");
+        host_->onConnectionChanged();
     }
 
     void onDisconnect(BLEServer* server) override {
-        host_->refreshAdvertising();
+        Serial.println("BLE disconnected");
+        host_->onConnectionChanged();
     }
 
 private:
@@ -39,14 +38,25 @@ void BleServerHost::init(const char* deviceName) {
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_N0);
 
     server_ = BLEDevice::createServer();
+    if (server_ == nullptr) {
+        Serial.println("[BleServerHost] WARNING: createServer() failed -- BLE unavailable");
+        return;
+    }
     server_->setCallbacks(new HostServerCallbacks(this));
 }
 
-uint8_t BleServerHost::getConnectedCount() const {
-    if (server_ == nullptr) {
-        return 0;
+void BleServerHost::handle() {
+    if (!connectionChanged_) {
+        return;
     }
-    return (uint8_t) server_->getConnectedCount();
+    // Cleared before acting, not after: an edge arriving during the restart
+    // below is covered by that same restart, and one arriving after it sets
+    // the flag again for the next tick.
+    connectionChanged_ = false;
+
+    if (advertisingEnabled_) {
+        BLEDevice::startAdvertising();
+    }
 }
 
 void BleServerHost::setAdvertisingEnabled(bool enabled) {
@@ -60,11 +70,4 @@ void BleServerHost::setAdvertisingEnabled(bool enabled) {
     } else {
         BLEDevice::stopAdvertising();
     }
-}
-
-void BleServerHost::refreshAdvertising() {
-    if (!advertisingEnabled_) {
-        return;
-    }
-    BLEDevice::startAdvertising();
 }

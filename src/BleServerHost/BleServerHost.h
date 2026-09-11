@@ -12,22 +12,33 @@ class BleServerHost {
 public:
     void init(const char* deviceName);
 
+    // Reconciles the radio with the requested advertising state. Called from
+    // loop(). See onConnectionChanged() for why this exists.
+    void handle();
+
     BLEServer* getServer() const { return server_; }
-    uint8_t getConnectedCount() const;
 
     // Advertising is suppressed while a BLE scan runs (see BluetoothBms).
-    // The flag is authoritative: the connect/disconnect callbacks consult it
-    // rather than starting advertising unconditionally.
+    // Called from the loop task only.
     void setAdvertisingEnabled(bool enabled);
-    bool isAdvertisingEnabled() const { return advertisingEnabled_; }
 
-    // Re-starts advertising if, and only if, it is currently meant to be on.
-    // Called from the server callbacks.
-    void refreshAdvertising();
+    // Called from the server callbacks, on the Bluedroid task. Raises a flag
+    // and nothing else.
+    //
+    // Bluedroid stops advertising when a central connects, so it has to be
+    // re-started or a second central (XCTrack alongside the fly-app) can
+    // never discover the controller. Doing that from the callback would race
+    // BluetoothBms' scan pause: the callback could read advertisingEnabled_
+    // as true, be preempted while the loop task sets it false and calls
+    // stopAdvertising(), then resume and switch advertising back on in the
+    // middle of a BMS scan. Deferring to handle() keeps every
+    // start/stopAdvertising call on one task, so the race cannot exist.
+    void onConnectionChanged() { connectionChanged_ = true; }
 
 private:
     BLEServer* server_ = nullptr;
     bool advertisingEnabled_ = false;
+    volatile bool connectionChanged_ = false;
 };
 
 #endif // BLE_SERVER_HOST_H

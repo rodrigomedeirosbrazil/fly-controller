@@ -161,6 +161,7 @@ void loop()
   // Power does not know Button.
   power.setDisarmScale(button.getPowerScale());
   bluetoothBms.update();
+  bleServerHost.handle();
   xctod.write();
   telemetryLogger.handle();
 #if USES_CAN_BUS
