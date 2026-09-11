@@ -175,6 +175,52 @@ void test_signal_states_round_trip_every_combination() {
     }
 }
 
+void test_telemetry_bit_values_are_pinned() {
+    // The Dart decoder hardcodes these. A reordered enum breaks the wire
+    // contract exactly as a shifted field offset would, and offsetof cannot
+    // see it.
+    assert(TelemFlag::Armed               == 0x01);
+    assert(TelemFlag::Engaged             == 0x02);
+    assert(TelemFlag::HasTelemetry        == 0x04);
+    assert(TelemFlag::PowerControlEnabled == 0x08);
+    assert(TelemFlag::BmsConnected        == 0x10);
+    assert(TelemFlag::BmsConfigured       == 0x20);
+
+    assert(TelemValid::Current  == 0x0001);
+    assert(TelemValid::Rpm      == 0x0002);
+    assert(TelemValid::PowerKw  == 0x0004);
+    assert(TelemValid::Bms      == 0x0008);
+    assert(TelemValid::BmsCells == 0x0010);
+}
+
+void test_telemetry_serialises_little_endian_with_signed_fields() {
+    // What actually goes over the air. Catches an endianness or signedness
+    // mistake that the offset assertions cannot. Both the ESP32-C3 and every
+    // host this test runs on are little-endian, so the byte order is a fair
+    // thing to pin here.
+    ControlTelemetry t;
+    memset(&t, 0, sizeof(t));
+    t.batteryMv    = 0x1234;
+    t.escCurrentMa = -1000;      // regen: this field must stay signed
+    t.rpm          = 0x89ABCDEF;
+    t.bmsTempMaxC  = -5;
+
+    const uint8_t* raw = (const uint8_t*) &t;
+    assert(raw[14] == 0x34 && raw[15] == 0x12);
+
+    int32_t current = 0;
+    memcpy(&current, raw + 20, sizeof(current));
+    assert(current == -1000);
+
+    uint32_t rpm = 0;
+    memcpy(&rpm, raw + 24, sizeof(rpm));
+    assert(rpm == 0x89ABCDEFu);
+
+    int16_t temp = 0;
+    memcpy(&temp, raw + 50, sizeof(temp));
+    assert(temp == -5);
+}
+
 void test_append_rule_long_source_into_short_reader() {
     // Newer firmware, older reader: the reader keeps the prefix it knows and
     // drops the tail it does not.
@@ -209,6 +255,8 @@ int main() {
     test_telemetry_layout_is_pinned();
     test_signal_states_pack_three_signals_into_one_byte();
     test_signal_states_round_trip_every_combination();
+    test_telemetry_bit_values_are_pinned();
+    test_telemetry_serialises_little_endian_with_signed_fields();
     test_append_rule_long_source_into_short_reader();
     test_append_rule_short_source_preserves_readers_tail();
     test_append_rule_handles_empty_and_equal_sizes();

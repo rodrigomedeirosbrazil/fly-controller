@@ -144,6 +144,21 @@ namespace TelemFlag {
     };
 }
 
+// Availability: does this build and configuration produce this reading at
+// all? That is a different question from sensor health, which `signalStates`
+// answers with the firmware's own four-state SignalState.
+//
+// Motor temp, ESC temp and battery voltage deliberately have NO bit here.
+// Telemetry::isMotorTempValid() and its siblings are literally
+// `state == SignalState::Valid`, so a bit would be derived duplication --
+// two answers to one question in the same packet, populated from two call
+// sites and free to drift. The app reads signalStates for those three.
+//
+// SoC has no bit either, because the firmware has no validity concept for
+// it: socVolt's trustworthiness follows the battery-voltage SignalState and
+// coulomb counting has none. A bit that is always 1 is worse than no bit.
+// This mask is a uint16_t with 11 spare, and adding one later is not a
+// breaking change, so there is nothing to reserve now.
 namespace TelemValid {
     enum : uint16_t {
         Current   = 1 << 0,
@@ -151,9 +166,6 @@ namespace TelemValid {
         PowerKw   = 1 << 2,
         Bms       = 1 << 3,
         BmsCells  = 1 << 4,
-        BatteryV  = 1 << 5,
-        MotorTemp = 1 << 6,
-        EscTemp   = 1 << 7,
     };
 }
 
@@ -161,7 +173,7 @@ namespace TelemValid {
 struct ControlTelemetry {
     uint8_t  ver;
     uint8_t  flags;          // TelemFlag bitmask
-    uint16_t validity;       // TelemValid bitmask
+    uint16_t validity;       // TelemValid bitmask (availability, not health)
     uint8_t  disarmReason;   // enum DisarmReason (src/DisarmReason.h)
     uint8_t  signalStates;   // packSignalStates(motorTemp, escTemp, battV)
     uint8_t  motorTempSrc;   // enum MotorTempOrigin
