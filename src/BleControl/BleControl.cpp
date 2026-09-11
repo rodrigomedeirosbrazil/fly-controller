@@ -13,6 +13,14 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BluetoothBms/BluetoothBms.h"
 #include "../Settings/SettingsValidation.h"
+#include <ElegantOTA.h>
+#include <sys/time.h>
+#include "../Sound/Sound.h"
+#include "../RemoteLink/RemoteLink.h"
+#if IS_TMOTOR
+#include "../Tmotor/TmotorCan.h"
+#include "../Canbus/Canbus.h"
+#endif
 #include <math.h>
 
 namespace {
@@ -138,7 +146,7 @@ void BleControl::dispatch(const QueuedRequest& req) {
         case ControlOp::Auth:   status = handleAuth(req); break;
         case ControlOp::CfgGet: status = handleCfgGet(req, out, outLen); break;
         case ControlOp::CfgSet: status = handleCfgSet(req); break;
-        default: break;   // actions land here in Task 10
+        default: status = handleAction(req, out, outLen); break;
     }
 
     respond(req.op, req.seq, status, outLen > 0 ? out : nullptr, outLen);
@@ -453,4 +461,128 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
         }
     }
     return ControlStatus::ErrBadArg;
+}
+
+ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
+    switch (req.op) {
+        case ControlOp::SessionReset:
+            // HourMeter applies this on its next tick; the counter is RAM-only.
+            hourMeter.requestReset();
+            return ControlStatus::Ok;
+
+        case ControlOp::BmsScanStart:
+            return bluetoothBms.startWebScan() ? ControlStatus::Ok : ControlStatus::ErrBusy;
+
+        case ControlOp::BmsScanStatus: {
+            // [status u8][resultCount u8] then, per result, [mac 6][rssi i8][type u8].
+            const uint8_t count = bluetoothBms.getWebScanResultCount();
+            const BluetoothBmsScanResult* results = bluetoothBms.getWebScanResults();
+            out[0] = bluetoothBms.getWebScanStatus();
+            out[1] = count;
+            outLen = 2;
+            for (uint8_t i = 0; i < count; i++) {
+                if ((size_t) outLen + 8 > CONTROL_MAX_PAYLOAD) {
+                    break;  // truncate rather than overflow; count says how many existed
+                }
+                macStringToBytes(results[i].mac, out + outLen);
+                outLen += 6;
+                out[outLen++] = (uint8_t) (int8_t) results[i].rssi;
+                out[outLen++] = results[i].detectedType;
+            }
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::BmsDetect: {
+            if (req.len < 6) {
+                return ControlStatus::ErrBadArg;
+            }
+            char macText[18];
+            macBytesToString(req.payload, macText);
+            out[0] = bluetoothBms.detectBmsTypeByMac(String(macText));
+            outLen = 1;
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::RemotePair:
+            remoteLink.enterPairing();
+            return ControlStatus::Ok;
+
+        case ControlOp::RemoteForget:
+            settings.clearRemoteMac();
+            settings.save();
+            return ControlStatus::Ok;
+
+        case ControlOp::BuzzerPreview: {
+            if (req.len < 1 || req.payload[0] > 100) {
+                return ControlStatus::ErrBadArg;
+            }
+            buzzer.setVolume(req.payload[0]);
+            sound.play(SoundEvent::VolumePreview);
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::SetTime: {
+            // Payload is epoch milliseconds as u64 little-endian. The web
+            // route parses the same value out of a text body.
+            if (req.len < 8) {
+                return ControlStatus::ErrBadArg;
+            }
+            int64_t epochMs = 0;
+            memcpy(&epochMs, req.payload, sizeof(epochMs));
+            if (epochMs <= 1577836800000LL) {  // sanity: must be after 2020-01-01
+                return ControlStatus::ErrBadArg;
+            }
+            struct timeval tv;
+            tv.tv_sec  = (time_t) (epochMs / 1000);
+            tv.tv_usec = (suseconds_t) ((epochMs % 1000) * 1000);
+            settimeofday(&tv, nullptr);
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::PinChange: {
+            // [currentLen u8][current...][newLen u8][new...]
+            if (req.len < 2) {
+                return ControlStatus::ErrBadArg;
+            }
+            const uint8_t currentLen = req.payload[0];
+            if ((size_t) 1 + currentLen + 1 > req.len) {
+                return ControlStatus::ErrBadArg;
+            }
+            const uint8_t newLen = req.payload[1 + currentLen];
+            if ((size_t) 1 + currentLen + 1 + newLen > req.len) {
+                return ControlStatus::ErrBadArg;
+            }
+            if (newLen < 4 || newLen > 8) {
+                return ControlStatus::ErrBadArg;
+            }
+
+            const String expected = settings.getConfigPin();
+            if (currentLen != expected.length() ||
+                memcmp(req.payload + 1, expected.c_str(), currentLen) != 0) {
+                return ControlStatus::ErrAuth;
+            }
+
+            char newPin[9] = {0};
+            memcpy(newPin, req.payload + 1 + currentLen + 1, newLen);
+            settings.setConfigPin(String(newPin));
+            settings.save();
+            // Keep the OTA portal's basic auth in step, as the web route does.
+            ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
+            return ControlStatus::Ok;
+        }
+
+#if IS_TMOTOR
+        case ControlOp::TmotorDirForward:
+        case ControlOp::TmotorDirReverse: {
+            if (canbus.getEscNodeId() == 0) {
+                return ControlStatus::ErrState;   // ESC not on the bus yet
+            }
+            tmotorCan.sendDirectionSet(req.op == ControlOp::TmotorDirForward);
+            return ControlStatus::Ok;
+        }
+#endif
+
+        default:
+            return ControlStatus::ErrBadOp;
+    }
 }
