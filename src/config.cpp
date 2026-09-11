@@ -6,6 +6,7 @@
 #include "DalyBms/DalyBms.h"
 #include "BleServerHost/BleServerHost.h"
 #include "Xctod/Xctod.h"
+#include "BleControl/BleControl.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "JbdBms/JbdBms.h"
 #include "JkBms/JkBms.h"
@@ -80,6 +81,7 @@ BluetoothBms bluetoothBms;
 DalyBms dalyBms;
 BleServerHost bleServerHost;
 Xctod xctod;
+BleControl bleControl;
 TelemetryLogger telemetryLogger;
 JbdBms jbdBms;
 JkBms jkBms;

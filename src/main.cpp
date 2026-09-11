@@ -21,6 +21,7 @@
 #include "BluetoothBms/BluetoothBms.h"
 #include "BleServerHost/BleServerHost.h"
 #include "Xctod/Xctod.h"
+#include "BleControl/BleControl.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
 #include "RemoteLink/RemoteLink.h"
@@ -72,6 +73,7 @@ void setup()
   // switched on once every service is registered.
   bleServerHost.init("FlyController");
   xctod.init();
+  bleControl.init();
   bleServerHost.setAdvertisingEnabled(true);
 
   bluetoothBms.init();
@@ -163,6 +165,7 @@ void loop()
   bluetoothBms.update();
   bleServerHost.handle();
   xctod.write();
+  bleControl.handle();
   telemetryLogger.handle();
 #if USES_CAN_BUS
   checkCanbus();
