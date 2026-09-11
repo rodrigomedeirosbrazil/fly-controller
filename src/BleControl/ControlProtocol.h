@@ -251,4 +251,82 @@ inline size_t copyKnownPrefix(void* dst, size_t dstSize, const void* src, size_t
     return n;
 }
 
+// ---------------------------------------------------------------------------
+// Dispatch gate
+//
+// Two policies, stated once:
+//
+//  - Auth: reads are open, writes need the PIN -- the same split the web
+//    portal has, where every GET is free and every POST calls checkPin().
+//  - Armed: refuse by DEFAULT, allow by exception. The thermal POST handler
+//    already refuses a motorTempSource change while armed; over BLE, with the
+//    phone in a pocket, the same hazard applies to everything that can reach
+//    the motor, so the default is inverted rather than enumerated.
+// ---------------------------------------------------------------------------
+
+inline bool opIsKnown(uint8_t op) {
+    switch (op) {
+        case ControlOp::Auth:
+        case ControlOp::CfgGet:
+        case ControlOp::CfgSet:
+        case ControlOp::SessionReset:
+        case ControlOp::BmsScanStart:
+        case ControlOp::BmsScanStatus:
+        case ControlOp::BmsDetect:
+        case ControlOp::RemotePair:
+        case ControlOp::RemoteForget:
+        case ControlOp::BuzzerPreview:
+        case ControlOp::SetTime:
+        case ControlOp::PinChange:
+        case ControlOp::TmotorDirForward:
+        case ControlOp::TmotorDirReverse:
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline bool opRequiresAuth(uint8_t op) {
+    switch (op) {
+        case ControlOp::Auth:           // authenticating cannot require auth
+        case ControlOp::CfgGet:         // read-only
+        case ControlOp::BmsScanStatus:  // read-only
+        case ControlOp::BmsDetect:      // read-only
+            return false;
+        default:
+            return true;
+    }
+}
+
+inline bool opAllowedWhileArmed(uint8_t op) {
+    switch (op) {
+        case ControlOp::Auth:
+        case ControlOp::CfgGet:
+        case ControlOp::BmsScanStatus:
+        case ControlOp::BmsDetect:
+            return true;
+        case ControlOp::SessionReset:
+            // A RAM-only flight-clock counter. It cannot reach the motor, and
+            // it is the one write a pilot might plausibly want in flight.
+            return true;
+        default:
+            return false;
+    }
+}
+
+// The single decision point. Order matters: armed is reported before auth so
+// the app never prompts for a PIN to do something that is refused anyway.
+inline ControlStatus gateRequest(uint8_t op, bool authenticated, bool armed) {
+    if (!opIsKnown(op)) {
+        return ControlStatus::ErrBadOp;
+    }
+    if (armed && !opAllowedWhileArmed(op)) {
+        return ControlStatus::ErrState;
+    }
+    if (opRequiresAuth(op) && !authenticated) {
+        return ControlStatus::ErrAuth;
+    }
+    return ControlStatus::Ok;
+}
+
 #endif // CONTROL_PROTOCOL_H

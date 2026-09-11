@@ -266,6 +266,57 @@ void test_append_rule_handles_empty_and_equal_sizes() {
     assert(reader[2] == 9);
 }
 
+void test_gate_rejects_unknown_opcodes() {
+    // ErrBadOp is what lets a newer app probe an older firmware and degrade.
+    assert(gateRequest(0x7F, true, false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(0xFF, true, false) == ControlStatus::ErrBadOp);
+}
+
+void test_gate_allows_reads_without_auth() {
+    assert(gateRequest(ControlOp::Auth,          false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::CfgGet,        false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::BmsScanStatus, false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::BmsDetect,     false, false) == ControlStatus::Ok);
+}
+
+void test_gate_requires_auth_for_writes() {
+    assert(gateRequest(ControlOp::CfgSet,       false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::SessionReset, false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::RemotePair,   false, false) == ControlStatus::ErrAuth);
+    // ...and allows them once authenticated.
+    assert(gateRequest(ControlOp::CfgSet,       true,  false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::SessionReset, true,  false) == ControlStatus::Ok);
+}
+
+void test_gate_blocks_by_default_while_armed() {
+    assert(gateRequest(ControlOp::CfgSet,           true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::BuzzerPreview,    true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::BmsScanStart,     true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::RemotePair,       true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::RemoteForget,     true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::SetTime,          true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::PinChange,        true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::TmotorDirForward, true, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::TmotorDirReverse, true, true) == ControlStatus::ErrState);
+}
+
+void test_gate_armed_exceptions() {
+    // Read-only, or cannot reach the motor.
+    assert(gateRequest(ControlOp::Auth,          true,  true) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::CfgGet,        false, true) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::BmsScanStatus, false, true) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::BmsDetect,     false, true) == ControlStatus::Ok);
+    // SessionReset is a RAM-only flight clock; a pilot may want it in flight.
+    assert(gateRequest(ControlOp::SessionReset,  true,  true) == ControlStatus::Ok);
+}
+
+void test_gate_reports_armed_before_auth() {
+    // A blocked-while-armed op is refused with ErrState even when the caller
+    // has not authenticated, so the app does not prompt for a PIN to perform
+    // something that would be refused anyway.
+    assert(gateRequest(ControlOp::CfgSet, false, true) == ControlStatus::ErrState);
+}
+
 int main() {
     test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
@@ -288,6 +339,12 @@ int main() {
     test_decode_request_accepts_n_exactly_three_plus_len();
     test_encode_response_accepts_cap_exactly_equal_to_the_frame();
     test_events_use_seq_zero();
+    test_gate_rejects_unknown_opcodes();
+    test_gate_allows_reads_without_auth();
+    test_gate_requires_auth_for_writes();
+    test_gate_blocks_by_default_while_armed();
+    test_gate_armed_exceptions();
+    test_gate_reports_armed_before_auth();
     cout << "ControlProtocolTest: all passed" << endl;
     return 0;
 }
