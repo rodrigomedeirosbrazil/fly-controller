@@ -13,30 +13,15 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BluetoothBms/BluetoothBms.h"
 
-namespace {
-// INFO payload. Read once per connection, so it carries only what never
-// changes while the controller is up.
-#pragma pack(push, 1)
-struct ControlInfo {
-    uint8_t  protocolVersion;
-    uint8_t  controllerType;
-    uint16_t capabilities;
-    char     appVersion[24];   // NUL-padded
-};
-#pragma pack(pop)
-
-namespace Capability {
-    enum : uint16_t {
-        CanTelemetry       = 1 << 0,
-        VoltageSensor      = 1 << 1,
-        MotorTempSourceSel = 1 << 2,
-        RemoteLink         = 1 << 3,
-    };
-}
-} // namespace
 
 void BleControl::init() {
-    service_ = bleServerHost.getServer()->createService(BLE_CONTROL_SERVICE_UUID);
+    BLEServer* server = bleServerHost.getServer();
+    if (server == nullptr) {
+        Serial.println("[BleControl] WARNING: no BLE server -- control service not registered");
+        return;
+    }
+
+    service_ = server->createService(BLE_CONTROL_SERVICE_UUID);
 
     infoChar_ = service_->createCharacteristic(
         BLE_CONTROL_INFO_UUID, BLECharacteristic::PROPERTY_READ);
@@ -131,7 +116,11 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     t.batteryMv   = batteryMv;
     t.throttleRaw = (uint16_t) throttle.getThrottleRaw();
     if (isPowerKwAvailable()) {
-        t.powerKwX10 = (uint16_t) ((((uint32_t) batteryMv * currentMa) / 1000) / 100000);
+        // uint64_t is load-bearing. A 32-bit product overflows above ~73 A at
+        // 58.5 V, and TmotorCan reports up to 500 A: at a real 50 V / 150 A
+        // the wrapped value reads 3.2 kW instead of 7.5 kW -- wrong exactly
+        // at full throttle, where the number matters most.
+        t.powerKwX10 = (uint16_t) ((((uint64_t) batteryMv * currentMa) / 1000) / 100000);
     }
     t.escCurrentMa = (int32_t) currentMa;
     t.rpm          = telemetry.getRpm();

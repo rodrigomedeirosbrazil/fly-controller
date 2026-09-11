@@ -118,6 +118,32 @@ inline size_t encodeResponse(uint8_t* buf, size_t cap, uint8_t op, uint8_t seq,
 }
 
 // ---------------------------------------------------------------------------
+// INFO characteristic payload
+//
+// Static for the whole session: written once at init(), then read by the
+// central whenever it likes. Decoded by hand in the fly-app repo just like
+// ControlTelemetry, so its layout is pinned by a test for the same reason.
+// ---------------------------------------------------------------------------
+
+namespace Capability {
+    enum : uint16_t {
+        CanTelemetry       = 1 << 0,
+        VoltageSensor      = 1 << 1,
+        MotorTempSourceSel = 1 << 2,
+        RemoteLink         = 1 << 3,
+    };
+}
+
+#pragma pack(push, 1)
+struct ControlInfo {
+    uint8_t  protocolVersion;
+    uint8_t  controllerType;
+    uint16_t capabilities;
+    char     appVersion[24];   // NUL-padded
+};
+#pragma pack(pop)
+
+// ---------------------------------------------------------------------------
 // Telemetry
 //
 // Two rules, and they are the whole contract:

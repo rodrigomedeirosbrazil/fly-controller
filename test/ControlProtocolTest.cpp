@@ -120,6 +120,21 @@ void test_events_use_seq_zero() {
     assert(out[1] == 0);
 }
 
+void test_info_layout_is_pinned() {
+    // Hand-decoded in fly-app, same as ControlTelemetry, so it gets the same
+    // protection.
+    assert(sizeof(ControlInfo) == 28);
+    assert(offsetof(ControlInfo, protocolVersion) ==  0);
+    assert(offsetof(ControlInfo, controllerType)  ==  1);
+    assert(offsetof(ControlInfo, capabilities)    ==  2);
+    assert(offsetof(ControlInfo, appVersion)      ==  4);
+
+    assert(Capability::CanTelemetry       == 0x0001);
+    assert(Capability::VoltageSensor      == 0x0002);
+    assert(Capability::MotorTempSourceSel == 0x0004);
+    assert(Capability::RemoteLink         == 0x0008);
+}
+
 void test_telemetry_layout_is_pinned() {
     // Every offset is part of the contract with fly-app's Dart decoder.
     // A field inserted in the middle silently shifts everything after it,
@@ -252,6 +267,7 @@ void test_append_rule_handles_empty_and_equal_sizes() {
 }
 
 int main() {
+    test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
     test_signal_states_pack_three_signals_into_one_byte();
     test_signal_states_round_trip_every_combination();
