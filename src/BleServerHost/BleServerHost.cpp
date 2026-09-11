@@ -1,5 +1,6 @@
 #include "BleServerHost.h"
 #include "../config.h"
+#include "../BleControl/BleControl.h"
 #include <esp_bt.h>
 
 namespace {
@@ -15,6 +16,8 @@ public:
 
     void onDisconnect(BLEServer* server) override {
         Serial.println("BLE disconnected");
+        // Auth is per connection. A reconnecting central starts locked.
+        bleControl.onCentralDisconnected();
         host_->onConnectionChanged();
     }
 

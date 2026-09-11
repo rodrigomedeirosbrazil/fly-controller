@@ -19,6 +19,14 @@ public:
     void init();
     void handle();
 
+    // Called from the CMD characteristic's write callback, on the Bluedroid
+    // task. Enqueues only -- never touches controller state.
+    void enqueueFromCallback(const uint8_t* data, size_t len);
+
+    // Auth is per connection. BleServerHost's disconnect path calls this, so
+    // a reconnecting central starts locked.
+    void onCentralDisconnected() { authenticated_ = false; }
+
 private:
     static const unsigned long TELEMETRY_INTERVAL_MS = 1000;
 
@@ -29,6 +37,18 @@ private:
     BLECharacteristic* rspChar_      = nullptr;
 
     unsigned long lastTelemetryMs_ = 0;
+
+    ControlRequestQueue queue_;
+    bool authenticated_ = false;
+
+    void drainQueue();
+    void dispatch(const QueuedRequest& req);
+    void respond(uint8_t op, uint8_t seq, ControlStatus status,
+                 const uint8_t* payload, uint8_t len);
+
+    ControlStatus handleAuth(const QueuedRequest& req);
+    ControlStatus handleCfgGet(const QueuedRequest& req, uint8_t* out, uint8_t& outLen);
+    ControlStatus handleCfgSet(const QueuedRequest& req);
 
     void writeInfo();
     void notifyTelemetry();
