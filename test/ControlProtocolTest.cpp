@@ -320,6 +320,104 @@ void test_gate_reports_armed_before_auth() {
     assert(gateRequest(ControlOp::CfgSet, false, true) == ControlStatus::ErrState);
 }
 
+void test_config_struct_sizes_are_pinned() {
+    assert(sizeof(ConfigPower)   == 9);
+    assert(sizeof(ConfigThermal) == 17);
+    assert(sizeof(ConfigBms)     == 7);
+    assert(sizeof(ConfigSystem)  == 8);
+}
+
+void test_config_set_partial_prefix_keeps_unknown_tail() {
+    // An older app knows only the first three fields of ConfigPower. The
+    // fields it does not send must keep their current values, not be zeroed.
+    ConfigPower current = { 20000, 48000, 58800, 1, 1100 };
+    const uint8_t shortWrite[] = { 0x10, 0x27, 0xC0, 0xBB, 0x88, 0xD3 }; // 10000, 48064, 54200
+    copyKnownPrefix(&current, sizeof(current), shortWrite, sizeof(shortWrite));
+
+    assert(current.batteryCapacityMah == 10000);
+    assert(current.powerControlEnabled == 1);        // untouched
+    assert(current.voltageDividerRatioX100 == 1100); // untouched
+}
+
+void test_config_set_ignores_a_longer_struct_than_we_know() {
+    ConfigBms current = { 0, { 0, 0, 0, 0, 0, 0 } };
+    uint8_t longWrite[16];
+    memset(longWrite, 0xEE, sizeof(longWrite));
+    longWrite[0] = 3;
+    const size_t copied = copyKnownPrefix(&current, sizeof(current),
+                                          longWrite, sizeof(longWrite));
+    assert(copied == sizeof(ConfigBms));
+    assert(current.bmsType == 3);
+}
+
+void test_config_group_is_decoded_from_the_payload() {
+    const uint8_t frame[] = { ControlOp::CfgGet, 0x01, 0x01,
+                              (uint8_t) ConfigGroup::Thermal };
+    ControlRequest req;
+    assert(decodeRequest(frame, sizeof(frame), req) == true);
+    ConfigGroup group;
+    assert(decodeConfigGroup(req, group) == true);
+    assert(group == ConfigGroup::Thermal);
+}
+
+void test_config_group_rejects_missing_or_unknown_group() {
+    ControlRequest req;
+
+    const uint8_t noGroup[] = { ControlOp::CfgGet, 0x01, 0x00 };
+    assert(decodeRequest(noGroup, sizeof(noGroup), req) == true);
+    ConfigGroup group;
+    assert(decodeConfigGroup(req, group) == false);
+
+    const uint8_t badGroup[] = { ControlOp::CfgGet, 0x01, 0x01, 0x09 };
+    assert(decodeRequest(badGroup, sizeof(badGroup), req) == true);
+    assert(decodeConfigGroup(req, group) == false);
+}
+
+void test_request_queue_fifo_order() {
+    ControlRequestQueue q;
+    const uint8_t a[] = { 0xAA };
+    const uint8_t b[] = { 0xBB };
+    ControlRequest r1 = { ControlOp::CfgGet, 1, 1, a };
+    ControlRequest r2 = { ControlOp::CfgSet, 2, 1, b };
+    assert(q.push(r1) == true);
+    assert(q.push(r2) == true);
+    assert(q.size() == 2);
+
+    QueuedRequest out;
+    assert(q.pop(out) == true);
+    assert(out.op == ControlOp::CfgGet && out.seq == 1 && out.payload[0] == 0xAA);
+    assert(q.pop(out) == true);
+    assert(out.op == ControlOp::CfgSet && out.seq == 2 && out.payload[0] == 0xBB);
+    assert(q.pop(out) == false);
+    assert(q.size() == 0);
+}
+
+void test_request_queue_drops_the_newest_when_full() {
+    // Drop-newest, not drop-oldest: a flood must not evict a command the
+    // pilot already issued and is waiting on.
+    ControlRequestQueue q;
+    const uint8_t p[] = { 0x01 };
+    for (uint8_t i = 0; i < CONTROL_QUEUE_CAPACITY; i++) {
+        ControlRequest r = { ControlOp::CfgGet, (uint8_t) (i + 1), 1, p };
+        assert(q.push(r) == true);
+    }
+    ControlRequest overflow = { ControlOp::CfgSet, 99, 1, p };
+    assert(q.push(overflow) == false);
+
+    QueuedRequest out;
+    assert(q.pop(out) == true);
+    assert(out.seq == 1);  // the oldest survived
+}
+
+void test_request_queue_refuses_oversized_payloads() {
+    ControlRequestQueue q;
+    uint8_t big[CONTROL_QUEUED_PAYLOAD_MAX + 1];
+    memset(big, 0, sizeof(big));
+    ControlRequest r = { ControlOp::CfgSet, 1, CONTROL_QUEUED_PAYLOAD_MAX + 1, big };
+    assert(q.push(r) == false);
+    assert(q.size() == 0);
+}
+
 int main() {
     test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
@@ -348,6 +446,14 @@ int main() {
     test_gate_blocks_by_default_while_armed();
     test_gate_armed_exceptions();
     test_gate_reports_armed_before_auth();
+    test_config_struct_sizes_are_pinned();
+    test_config_set_partial_prefix_keeps_unknown_tail();
+    test_config_set_ignores_a_longer_struct_than_we_know();
+    test_config_group_is_decoded_from_the_payload();
+    test_config_group_rejects_missing_or_unknown_group();
+    test_request_queue_fifo_order();
+    test_request_queue_drops_the_newest_when_full();
+    test_request_queue_refuses_oversized_payloads();
     cout << "ControlProtocolTest: all passed" << endl;
     return 0;
 }

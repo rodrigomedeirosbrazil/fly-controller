@@ -334,4 +334,123 @@ inline ControlStatus gateRequest(uint8_t op, bool authenticated, bool armed) {
     return ControlStatus::Ok;
 }
 
+// ---------------------------------------------------------------------------
+// Configuration groups
+//
+// Grouped rather than keyed, because fields like motorTempReductionStart and
+// motorMaxTemp are only meaningful as a pair -- a per-key protocol would have
+// to accept a transiently inconsistent combination.
+//
+// Same append rule as telemetry: CFG_SET applies only the prefix it received,
+// overlaid on the current values, so an older app never zeroes a field it
+// does not know about.
+//
+// Two encodings differ from the Settings accessors, which return types that
+// cannot be memcpy'd:
+//   - voltageDividerRatio is a float in Settings; here it is u16 hundredths.
+//   - bmsMac / remoteMac are String in Settings; here they are 6 raw bytes.
+//     All zero means unset, which is what "" means today.
+// ---------------------------------------------------------------------------
+
+#pragma pack(push, 1)
+struct ConfigPower {
+    uint16_t batteryCapacityMah;
+    uint16_t batteryMinVoltageMv;
+    uint16_t batteryMaxVoltageMv;
+    uint8_t  powerControlEnabled;
+    uint16_t voltageDividerRatioX100;
+};
+
+struct ConfigThermal {
+    int32_t motorTempReductionStartMc;
+    int32_t motorMaxTempMc;
+    int32_t escTempReductionStartMc;
+    int32_t escMaxTempMc;
+    uint8_t motorTempSource;   // ignored on XAG; capability bit says so
+};
+
+struct ConfigBms {
+    uint8_t bmsType;
+    uint8_t bmsMac[6];
+};
+
+struct ConfigSystem {
+    uint8_t buzzerVolume;
+    uint8_t throttleSource;
+    uint8_t remoteMac[6];
+};
+#pragma pack(pop)
+
+inline bool decodeConfigGroup(const ControlRequest& req, ConfigGroup& out) {
+    if (req.len < 1) {
+        return false;
+    }
+    switch (req.payload[0]) {
+        case (uint8_t) ConfigGroup::Power:
+        case (uint8_t) ConfigGroup::Thermal:
+        case (uint8_t) ConfigGroup::Bms:
+        case (uint8_t) ConfigGroup::System:
+            out = (ConfigGroup) req.payload[0];
+            return true;
+        default:
+            return false;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Deferred request queue
+//
+// The CMD write callback runs on the Bluedroid task. Nothing there touches
+// controller state: it only enqueues, and handle() drains the queue on the
+// loop task. Same rule that keeps /api/session/reset off the web-server task,
+// applied uniformly rather than per opcode.
+// ---------------------------------------------------------------------------
+
+#define CONTROL_QUEUED_PAYLOAD_MAX 32
+#define CONTROL_QUEUE_CAPACITY      4
+
+struct QueuedRequest {
+    uint8_t op;
+    uint8_t seq;
+    uint8_t len;
+    uint8_t payload[CONTROL_QUEUED_PAYLOAD_MAX];
+};
+
+class ControlRequestQueue {
+public:
+    // Drop-newest on overflow: a flood must not evict a command the pilot
+    // already issued and is waiting on.
+    bool push(const ControlRequest& req) {
+        if (count_ >= CONTROL_QUEUE_CAPACITY || req.len > CONTROL_QUEUED_PAYLOAD_MAX) {
+            return false;
+        }
+        QueuedRequest& slot = items_[(head_ + count_) % CONTROL_QUEUE_CAPACITY];
+        slot.op  = req.op;
+        slot.seq = req.seq;
+        slot.len = req.len;
+        if (req.len > 0 && req.payload != nullptr) {
+            memcpy(slot.payload, req.payload, req.len);
+        }
+        count_++;
+        return true;
+    }
+
+    bool pop(QueuedRequest& out) {
+        if (count_ == 0) {
+            return false;
+        }
+        out = items_[head_];
+        head_ = (uint8_t) ((head_ + 1) % CONTROL_QUEUE_CAPACITY);
+        count_--;
+        return true;
+    }
+
+    uint8_t size() const { return count_; }
+
+private:
+    QueuedRequest items_[CONTROL_QUEUE_CAPACITY];
+    uint8_t head_  = 0;
+    uint8_t count_ = 0;
+};
+
 #endif // CONTROL_PROTOCOL_H
