@@ -101,11 +101,17 @@ inline size_t encodeResponse(uint8_t* buf, size_t cap, uint8_t op, uint8_t seq,
     if (buf == nullptr || len > CONTROL_MAX_PAYLOAD || cap < (size_t) 4 + len) {
         return 0;
     }
+    // A caller promising len bytes but passing no buffer would otherwise ship
+    // len bytes of uninitialised stack over the air under a header that
+    // decodes cleanly. Fail like every other bad-argument case here.
+    if (len > 0 && payload == nullptr) {
+        return 0;
+    }
     buf[0] = op;
     buf[1] = seq;
     buf[2] = (uint8_t) status;
     buf[3] = len;
-    if (len > 0 && payload != nullptr) {
+    if (len > 0) {
         memcpy(buf + 4, payload, len);
     }
     return (size_t) 4 + len;
