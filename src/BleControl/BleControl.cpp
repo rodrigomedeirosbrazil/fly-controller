@@ -252,6 +252,9 @@ ControlStatus BleControl::handleAuth(const QueuedRequest& req) {
     // Payload is the PIN as plain characters, not NUL-terminated. Reuses the
     // PIN in Settings rather than BLE bonding: one source of truth, and no
     // OS-level pairing flow for the pilot to manage outside the app.
+    // Fail closed: a wrong PIN clears any authentication this connection had
+    // already earned. An app retrying with a bad PIN loses its session, which
+    // is the safe direction.
     const String expected = settings.getConfigPin();
     if (req.len == 0 || req.len != expected.length()) {
         authenticated_ = false;
@@ -263,6 +266,23 @@ ControlStatus BleControl::handleAuth(const QueuedRequest& req) {
     }
     authenticated_ = true;
     return ControlStatus::Ok;
+}
+
+// Fills `dst` with the group's current values so CFG_SET can overlay only the
+// prefix the app actually sent. Returns false rather than seeding from an
+// uninitialised buffer -- the four call sites would otherwise depend on an
+// invariant spread across two functions with nothing stating it.
+bool BleControl::seedCurrentConfig(const QueuedRequest& req, void* dst, size_t dstSize) {
+    uint8_t seed[CONTROL_MAX_PAYLOAD];
+    uint8_t seedLen = 0;
+
+    QueuedRequest getReq = req;
+    getReq.len = 1;   // the group byte only; the struct that follows is ignored
+    if (handleCfgGet(getReq, seed, seedLen) != ControlStatus::Ok || seedLen < dstSize) {
+        return false;
+    }
+    memcpy(dst, seed, dstSize);
+    return true;
 }
 
 ControlStatus BleControl::handleCfgGet(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
@@ -333,16 +353,10 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
 
     switch (group) {
         case ConfigGroup::Power: {
-            // Seed with the current values so a short write from an older app
-            // updates what it knows and leaves the rest alone.
             ConfigPower cfg;
-            uint8_t seed[CONTROL_MAX_PAYLOAD];
-            uint8_t seedLen = 0;
-            QueuedRequest getReq = req;
-            getReq.len = 1;
-            handleCfgGet(getReq, seed, seedLen);
-            memcpy(&cfg, seed, sizeof(cfg));
-
+            if (!seedCurrentConfig(req, &cfg, sizeof(cfg))) {
+                return ControlStatus::ErrBadArg;
+            }
             copyKnownPrefix(&cfg, sizeof(cfg), body, bodyLen);
 
             const SettingsError err = validatePower(cfg.batteryCapacityMah,
@@ -373,13 +387,9 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
         }
         case ConfigGroup::Thermal: {
             ConfigThermal cfg;
-            uint8_t seed[CONTROL_MAX_PAYLOAD];
-            uint8_t seedLen = 0;
-            QueuedRequest getReq = req;
-            getReq.len = 1;
-            handleCfgGet(getReq, seed, seedLen);
-            memcpy(&cfg, seed, sizeof(cfg));
-
+            if (!seedCurrentConfig(req, &cfg, sizeof(cfg))) {
+                return ControlStatus::ErrBadArg;
+            }
             copyKnownPrefix(&cfg, sizeof(cfg), body, bodyLen);
 
             if (validateThermal(cfg.motorTempReductionStartMc, cfg.motorMaxTempMc,
@@ -404,13 +414,9 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
         }
         case ConfigGroup::Bms: {
             ConfigBms cfg;
-            uint8_t seed[CONTROL_MAX_PAYLOAD];
-            uint8_t seedLen = 0;
-            QueuedRequest getReq = req;
-            getReq.len = 1;
-            handleCfgGet(getReq, seed, seedLen);
-            memcpy(&cfg, seed, sizeof(cfg));
-
+            if (!seedCurrentConfig(req, &cfg, sizeof(cfg))) {
+                return ControlStatus::ErrBadArg;
+            }
             copyKnownPrefix(&cfg, sizeof(cfg), body, bodyLen);
 
             if (validateBmsType(cfg.bmsType) != SettingsError::None) {
@@ -429,13 +435,9 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
         }
         case ConfigGroup::System: {
             ConfigSystem cfg;
-            uint8_t seed[CONTROL_MAX_PAYLOAD];
-            uint8_t seedLen = 0;
-            QueuedRequest getReq = req;
-            getReq.len = 1;
-            handleCfgGet(getReq, seed, seedLen);
-            memcpy(&cfg, seed, sizeof(cfg));
-
+            if (!seedCurrentConfig(req, &cfg, sizeof(cfg))) {
+                return ControlStatus::ErrBadArg;
+            }
             copyKnownPrefix(&cfg, sizeof(cfg), body, bodyLen);
 
             if (validateSystem(cfg.buzzerVolume, cfg.throttleSource) != SettingsError::None) {
@@ -444,6 +446,9 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             settings.setBuzzerVolume(cfg.buzzerVolume);
             settings.setThrottleSource(cfg.throttleSource);
             settings.save();
+            // Same in-memory sync the web handler does. Without it the new
+            // volume is persisted but inaudible until the next reboot.
+            buzzer.setVolume(cfg.buzzerVolume);
             return ControlStatus::Ok;
         }
     }

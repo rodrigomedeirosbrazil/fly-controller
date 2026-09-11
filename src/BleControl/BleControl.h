@@ -49,6 +49,7 @@ private:
     ControlStatus handleAuth(const QueuedRequest& req);
     ControlStatus handleCfgGet(const QueuedRequest& req, uint8_t* out, uint8_t& outLen);
     ControlStatus handleCfgSet(const QueuedRequest& req);
+    bool seedCurrentConfig(const QueuedRequest& req, void* dst, size_t dstSize);
 
     void writeInfo();
     void notifyTelemetry();
