@@ -210,8 +210,14 @@ Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, curre
 ### DalyBms / JbdBms / JkBms
 Per-vendor BLE BMS protocol implementations behind the `BluetoothBms` facade. All three are instantiated; routing is by `Settings::getBmsType()` at runtime (`BmsTypeJbd`/`BmsTypeDaly`/`BmsTypeJk`). JK uses the JK02 BLE protocol — fixed 300-byte frames, header `55 AA EB 90`, cells at frame offset 6, checksum at the last byte. Frame decoding lives in the host-tested `JkBms/JkBmsParser.h` (`test/JkBmsParserTest.cpp`); the aggregate-field base offset (pack voltage / current / temps / SoC) varies by firmware (118/134/150 seen), so it is auto-located by scanning for the `uint32` matching the cell-voltage sum (pack voltage = sum of series cells) rather than hard-coded. The JK is kicked once and then streams cell-info frames on its own (re-requesting on each poll makes it beep).
 
+### BleServerHost — `BleServerHost/`
+Owns the BLE radio: `BLEDevice::init`, TX power caps, the `BLEServer`, and advertising policy. Callbacks from the Bluedroid task only raise flags; `handle()` reconciles advertising from the main `loop()` task, so `startAdvertising` and `stopAdvertising` are only ever reached from one task context. Without this, a connect landing mid-BMS-scan could switch advertising back on against `BluetoothBms`' suppression. `onConnect` restarts advertising (gated by the same flag), which is what lets XCTrack and the fly-app be connected simultaneously — Bluedroid stops advertising on the first connection, so without this fix they could never both be connected at once.
+
 ### Xctod — `Xctod/`
-BLE server that broadcasts telemetry in XCTRACK-compatible format (for paragliding instruments). Sends battery, throttle, motor, ESC, and system status once per second.
+The NUS GATT service: frozen, advertised. Broadcasts telemetry in XCTRACK-compatible format (for paragliding instruments). Sends battery, throttle, motor, ESC, and system status once per second. Registers its service on `BleServerHost`'s `BLEServer`.
+
+### BleControl — `BleControl/`
+The Fly Control GATT service: binary telemetry and request/response control protocol for the fly-app. Pure wire contract and dispatch decisions live in `ControlProtocol.h` (host-tested in `test/ControlProtocolTest.cpp`); the Arduino wrapper is in `BleControl.cpp`. The `CMD` write callback runs on the Bluedroid task and only enqueues requests into `ControlRequestQueue`; `BleControl::handle()` drains the queue on the main loop task, so nothing touches controller state from a BLE callback. The service is not advertised; capability detection is by presence discovery after connection. Registers on `BleServerHost`'s `BLEServer`.
 
 ### WebServer — `WebServer/`
 WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTML headers in `Pages/`. Handles dashboard, telemetry, config (power, thermal, BMS, system), logs, and OTA firmware updates.

@@ -545,7 +545,7 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
         }
 
         case ControlOp::SetTime: {
-            // Payload is epoch milliseconds as u64 little-endian. The web
+            // Payload is epoch milliseconds as i64 little-endian. The web
             // route parses the same value out of a text body.
             if (req.len < 8) {
                 return ControlStatus::ErrBadArg;
