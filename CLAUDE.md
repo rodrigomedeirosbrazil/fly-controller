@@ -229,3 +229,24 @@ free to drift.
 The `CMD` write callback runs on the Bluedroid task and only enqueues
 (`ControlRequestQueue`, drop-newest on overflow); `BleControl::handle()` drains
 it on the loop task. Nothing touches controller state from the BLE callback.
+
+**Firmware update over BLE** uses `D4CF0006-…` (write without response) for
+the image and opcodes `0x50-0x53` for control — `DFU_STATUS` is a plain getter
+and joins the read-only exemptions, the other three are ordinary writes and so
+are already refused while armed. Transfer decisions live in the host-tested
+`BleControl/DfuSession.h`; `DfuSession.cpp` wraps the Arduino `Update`
+library.
+
+Two facts about that library drive the design, and both are the opposite of
+what the code reads like. `Update.begin()` does **not** erase — it resolves
+the OTA partition and nothing else; the erase is lazy inside `_writeBuffer()`,
+per 64 KB block as data arrives, so there is no multi-second stall to defer at
+begin. What must be deferred is `Update.write()`, which is where that ~150 ms
+block erase happens: the BLE callback only `memcpy`s into a 4 KB stage and
+`handle()` flushes it, same rule as `CMD`. And the CRC is accumulated over
+arriving bytes rather than read back from flash, because the updater withholds
+the image's first 16 bytes until `end()` so a partial image is never bootable
+— a read-back before that point can never match.
+
+See [docs/BLE-CONTROL-PROTOCOL.md](docs/BLE-CONTROL-PROTOCOL.md) for the
+client-facing contract.

@@ -25,6 +25,12 @@ public:
         host_->onConnectionChanged();
     }
 
+    void onMtuChanged(BLEServer* server, esp_ble_gatts_cb_param_t* param) override {
+        if (param != nullptr) {
+            host_->onMtuNegotiated(param->mtu.mtu);
+        }
+    }
+
 private:
     BleServerHost* host_;
 };

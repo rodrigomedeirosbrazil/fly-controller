@@ -10,6 +10,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `ControlProtocolTest.cpp` - Unit tests for `ControlProtocol` (`src/BleControl/ControlProtocol.h`), covering the CMD/RSP frame codec, the pinned 56-byte telemetry layout, the two-bit signal-state packing, the append rule in both directions of version skew, the auth/armed dispatch gate, the config group structs, the deferred request queue's FIFO and drop-newest policy, and the beep high-water mark.
 - `SettingsValidationTest.cpp` - Unit tests for `SettingsValidation` (`src/Settings/SettingsValidation.h`), covering every extracted range and asserting that no ordering check was added, since the web handlers have never had one.
 - `VoltageFormatTest.cpp` - Unit tests for `formatMilliVolts` (`src/Telemetry/VoltageFormat.h`), covering the three-digit decimal at every boundary and an exhaustive round-trip over all 65536 millivolt values — the property the old per-site formatting broke silently.
+- `DfuSessionTest.cpp` - Unit tests for `DfuSession` (`src/BleControl/DfuSession.h`), the firmware-update transfer engine: size validation, the offset acceptance rule (exact match only — gaps, resends and overshoots are all dropped rather than buffered), CRC accumulation, commit gating on completeness and CRC, and that abort is safe before begin.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

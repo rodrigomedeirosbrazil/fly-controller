@@ -377,7 +377,65 @@ at all — Bluedroid stops advertising once the first one connects.
 Advertising is suppressed entirely while a BMS scan runs. A client that
 disconnects during a scan will not find the controller until the scan finishes.
 
+## Firmware update
+
+Bulk data does **not** go through `CMD`: the queue is four deep, 32 bytes a
+slot, drop-newest — a 1.8 MB image would be ~57,000 round trips. It goes to
+`D4CF0006-9B9D-4BFD-8F7F-40C6989D3EA9`, **write without response**, as
+`[offset u32 LE][data…]`.
+
+Write-without-response is what makes the transfer take a minute rather than
+ten. It guarantees nothing, which is why the offset is absolute and in every
+packet and the image carries a CRC32.
+
+| Op | Name | Payload → Response | Auth | While armed |
+|---|---|---|---|---|
+| `0x50` | `DFU_BEGIN` | `[size u32][crc32 u32]` → `[chunkSize u16]` | yes | refused |
+| `0x51` | `DFU_COMMIT` | — → — | yes | refused |
+| `0x52` | `DFU_ABORT` | — → — | yes | refused |
+| `0x53` | `DFU_STATUS` | — → `[state u8][received u32][chunkSize u16]` | **no** | **allowed** |
+
+`state`: `0` idle · `1` receiving · `2` verifying · `3` ready · `4` error.
+
+`chunkSize` is the usable bytes per data packet — the **negotiated** ATT MTU
+minus 3. Subtract 4 more for the offset header to get image bytes per packet.
+It is reported by both `DFU_BEGIN` and `DFU_STATUS`, so a client that
+negotiated its MTU after `DFU_BEGIN` can pick up the larger value.
+
+### Receiving
+
+The controller tracks the **highest contiguous offset accepted**, and that is
+what `received` reports. A packet whose offset is not exactly `received` is
+**dropped, not buffered** — below it is a resend, above it is a gap, and in
+both cases the client is expected to restart from `received` rather than the
+controller repairing the sequence. A packet that would overshoot `size` is
+dropped too.
+
+Dropping also happens when the controller's staging buffer is momentarily
+full. There is no signal for it: poll `DFU_STATUS`, see `received` has not
+moved, and resume from there.
+
+### Committing
+
+`DFU_COMMIT` is refused with `ErrState` unless `received == size` **and** the
+CRC32 accumulated over the received image matches the one from `DFU_BEGIN`.
+
+On success the controller answers `Ok` and then restarts on a later tick — the
+answer comes first, so a successful update is never reported as a failure.
+Expect the link to drop immediately after.
+
+Note the CRC is accumulated over the bytes as they arrive, not computed by
+reading the flash back. Reading back is impossible here: the ESP32 updater
+withholds the first 16 bytes of the image until the transfer is finalised, so
+that a partial image is never bootable, and a read-back before that point
+would never match.
+
+### What neither side can check
+
+Nothing in an ESP32 image says which controller it is for. XAG and Tmotor run
+different builds and both pass the magic byte, the size and the CRC. Warn the
+pilot; the recovery is a USB cable.
+
 ## Not implemented
 
-Log download and firmware update over BLE. Opcode ranges `0x40–0x4F` and
-`0x50–0x5F` and characteristic `D4CF0006-…` are reserved for them.
+Log download over BLE. Opcode range `0x40–0x4F` is reserved for it.

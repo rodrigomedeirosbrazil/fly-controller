@@ -18,6 +18,7 @@
 #define BLE_CONTROL_TELEMETRY_UUID "D4CF0003-9B9D-4BFD-8F7F-40C6989D3EA9"
 #define BLE_CONTROL_CMD_UUID       "D4CF0004-9B9D-4BFD-8F7F-40C6989D3EA9"
 #define BLE_CONTROL_RSP_UUID       "D4CF0005-9B9D-4BFD-8F7F-40C6989D3EA9"
+#define BLE_CONTROL_DFU_UUID       "D4CF0006-9B9D-4BFD-8F7F-40C6989D3EA9"
 
 // A 247-byte MTU leaves 244 usable bytes. Everything in this phase fits in a
 // single notification, so there is no fragmentation layer.
@@ -47,7 +48,12 @@ namespace ControlOp {
         TmotorDirForward = 0x29,
         TmotorDirReverse = 0x2A,
 
-        // 0x40-0x4F reserved for log download, 0x50-0x5F for DFU (phase 3).
+        // 0x40-0x4F reserved for log download.
+
+        DfuBegin  = 0x50,
+        DfuCommit = 0x51,
+        DfuAbort  = 0x52,
+        DfuStatus = 0x53,
 
         EvtBeep          = 0x80,
     };
@@ -290,6 +296,10 @@ inline bool opIsKnown(uint8_t op) {
         case ControlOp::PinChange:
         case ControlOp::TmotorDirForward:
         case ControlOp::TmotorDirReverse:
+        case ControlOp::DfuBegin:
+        case ControlOp::DfuCommit:
+        case ControlOp::DfuAbort:
+        case ControlOp::DfuStatus:
             return true;
         default:
             return false;
@@ -301,6 +311,7 @@ inline bool opRequiresAuth(uint8_t op) {
         case ControlOp::Auth:           // authenticating cannot require auth
         case ControlOp::CfgGet:         // read-only
         case ControlOp::BmsScanStatus:  // read-only: a plain status getter
+        case ControlOp::DfuStatus:      // read-only: polled during a transfer
             return false;
         default:
             return true;
@@ -323,6 +334,9 @@ inline bool opAllowedWhileArmed(uint8_t op) {
         case ControlOp::SessionReset:
             // A RAM-only flight-clock counter. It cannot reach the motor, and
             // it is the one write a pilot might plausibly want in flight.
+            return true;
+        case ControlOp::DfuStatus:
+            // Read-only; polled during a transfer including while aircraft armed.
             return true;
         default:
             return false;
@@ -503,5 +517,47 @@ inline bool beepEventIsNew(uint32_t eventSeq, uint32_t& watermark) {
     watermark = eventSeq;
     return true;
 }
+
+// ---------------------------------------------------------------------------
+// Firmware update
+//
+// Bulk data does NOT go through CMD: CONTROL_QUEUED_PAYLOAD_MAX is 32 bytes
+// and the queue is four deep and drops the newest, so a 1.8 MB image would be
+// ~57,000 round trips. It goes to BLE_CONTROL_DFU_UUID as
+// [offset u32 LE][data...], written WITHOUT response -- which is what makes
+// the transfer take a minute instead of ten, and which guarantees nothing.
+// That is why the offset is absolute and present in every packet, and why the
+// image carries a CRC32.
+// ---------------------------------------------------------------------------
+
+enum class DfuState : uint8_t {
+    Idle      = 0,
+    Receiving = 1,
+    Verifying = 2,
+    Ready     = 3,
+    Error     = 4,
+};
+
+// An image can never exceed one OTA slot (min_spiffs.csv: app0 = 0x1E0000).
+#define DFU_MAX_IMAGE_BYTES 0x1E0000
+
+#pragma pack(push, 1)
+struct DfuBeginRequest {
+    uint32_t size;
+    uint32_t crc32;
+};
+
+struct DfuBeginResponse {
+    // Usable image bytes per data packet: the negotiated ATT MTU minus 3 for
+    // ATT overhead, and the client subtracts 4 more for the offset header.
+    uint16_t chunkSize;
+};
+
+struct DfuStatusResponse {
+    uint8_t  state;      // DfuState
+    uint32_t received;   // highest contiguous offset accepted
+    uint16_t chunkSize;
+};
+#pragma pack(pop)
 
 #endif // CONTROL_PROTOCOL_H

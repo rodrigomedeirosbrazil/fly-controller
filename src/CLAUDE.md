@@ -219,6 +219,11 @@ The NUS GATT service: frozen, advertised. Broadcasts telemetry in XCTRACK-compat
 ### BleControl — `BleControl/`
 The Fly Control GATT service: binary telemetry and request/response control protocol for the fly-app. Pure wire contract and dispatch decisions live in `ControlProtocol.h` (host-tested in `test/ControlProtocolTest.cpp`); the Arduino wrapper is in `BleControl.cpp`. The `CMD` write callback runs on the Bluedroid task and only enqueues requests into `ControlRequestQueue`; `BleControl::handle()` drains the queue on the main loop task, so nothing touches controller state from a BLE callback. The service is not advertised; capability detection is by presence discovery after connection. Registers on `BleServerHost`'s `BLEServer`.
 
+### DfuSession — `BleControl/DfuSession.{h,cpp}`
+Firmware update over BLE. `DfuSession.h` is the pure, host-tested transfer engine (`test/DfuSessionTest.cpp`): size validation, the offset acceptance rule, CRC accumulation, commit gating. Only an offset exactly equal to the accepted count is taken — a gap or a resend is dropped, never buffered, because the client restarts from `received()` and out-of-order retention would serve nobody. `DfuSession.cpp` wraps the Arduino `Update` library and owns a 4 KB staging buffer.
+
+Two library facts drive the split, and both read backwards. `Update.begin()` does **not** erase (it resolves the OTA partition and resets state); the erase is lazy inside `_writeBuffer()`, per 64 KB block as data arrives. So `begin` is inline-safe. `Update.write()` is what blocks for ~150 ms on those erases, so it must not run on the Bluedroid task — the BLE callback stages, `BleControl::handle()` flushes. And the CRC is accumulated over arriving bytes, not read back from flash: the updater withholds the image's first 16 bytes until `end()` so a partial image is never bootable, which makes any read-back before then mismatch by construction.
+
 ### WebServer — `WebServer/`
 WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTML headers in `Pages/`. Handles dashboard, telemetry, config (power, thermal, BMS, system), logs, and OTA firmware updates.
 

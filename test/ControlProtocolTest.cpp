@@ -462,6 +462,65 @@ void test_beep_watermark_ignores_empty_slots() {
     assert(watermark == 0);
 }
 
+void test_dfu_layout_is_pinned() {
+    assert(sizeof(DfuBeginRequest)  == 8);
+    assert(sizeof(DfuBeginResponse) == 2);
+    assert(sizeof(DfuStatusResponse) == 7);
+    assert(offsetof(DfuBeginRequest,   size)      == 0);
+    assert(offsetof(DfuBeginRequest,   crc32)     == 4);
+    assert(offsetof(DfuStatusResponse, state)     == 0);
+    assert(offsetof(DfuStatusResponse, received)  == 1);
+    assert(offsetof(DfuStatusResponse, chunkSize) == 5);
+}
+
+void test_dfu_state_values_are_pinned() {
+    // Decoded by hand in fly-app.
+    assert((uint8_t) DfuState::Idle      == 0);
+    assert((uint8_t) DfuState::Receiving == 1);
+    assert((uint8_t) DfuState::Verifying == 2);
+    assert((uint8_t) DfuState::Ready     == 3);
+    assert((uint8_t) DfuState::Error     == 4);
+}
+
+void test_dfu_opcode_values_are_pinned() {
+    assert(ControlOp::DfuBegin  == 0x50);
+    assert(ControlOp::DfuCommit == 0x51);
+    assert(ControlOp::DfuAbort  == 0x52);
+    assert(ControlOp::DfuStatus == 0x53);
+}
+
+void test_dfu_status_is_open_and_allowed_in_flight() {
+    // The app polls it once a second during a transfer and must not be asked
+    // for a PIN, nor refused because the aircraft happens to be armed.
+    assert(gateRequest(ControlOp::DfuStatus, false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::DfuStatus, false, true)  == ControlStatus::Ok);
+}
+
+void test_dfu_writes_need_auth_and_are_refused_in_flight() {
+    assert(gateRequest(ControlOp::DfuBegin,  false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::DfuCommit, false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::DfuAbort,  false, false) == ControlStatus::ErrAuth);
+
+    assert(gateRequest(ControlOp::DfuBegin,  true, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::DfuCommit, true, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::DfuAbort,  true, false) == ControlStatus::Ok);
+
+    // Flashing firmware mid-flight is the clearest case the armed gate exists
+    // for. ErrState comes before ErrAuth, so an unauthenticated client is not
+    // told to find a PIN for something refused either way.
+    assert(gateRequest(ControlOp::DfuBegin,  true,  true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::DfuCommit, true,  true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::DfuAbort,  true,  true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::DfuBegin,  false, true) == ControlStatus::ErrState);
+}
+
+void test_the_rest_of_the_dfu_range_stays_unknown() {
+    // Only the four defined opcodes exist; the reserved range is not a
+    // blanket permit.
+    assert(gateRequest(0x54, true, false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(0x5F, true, false) == ControlStatus::ErrBadOp);
+}
+
 int main() {
     test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
@@ -502,6 +561,12 @@ int main() {
     test_beep_event_payload_is_fixed_size();
     test_beep_watermark_emits_each_event_once();
     test_beep_watermark_ignores_empty_slots();
+    test_dfu_layout_is_pinned();
+    test_dfu_state_values_are_pinned();
+    test_dfu_opcode_values_are_pinned();
+    test_dfu_status_is_open_and_allowed_in_flight();
+    test_dfu_writes_need_auth_and_are_refused_in_flight();
+    test_the_rest_of_the_dfu_range_stays_unknown();
     cout << "ControlProtocolTest: all passed" << endl;
     return 0;
 }

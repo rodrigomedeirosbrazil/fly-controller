@@ -1,4 +1,5 @@
 #include "BleControl.h"
+#include <esp_rom_crc.h>
 #include "../config.h"
 #include "../BleServerHost/BleServerHost.h"
 #include "../BoardConfig.h"
@@ -24,6 +25,19 @@
 #include <math.h>
 
 namespace {
+
+class DfuCallbacks : public BLECharacteristicCallbacks {
+public:
+    explicit DfuCallbacks(BleControl* owner) : owner_(owner) {}
+
+    void onWrite(BLECharacteristic* characteristic) override {
+        const std::string value = characteristic->getValue();
+        owner_->enqueueDfuData((const uint8_t*) value.data(), value.size());
+    }
+
+private:
+    BleControl* owner_;
+};
 
 class CmdCallbacks : public BLECharacteristicCallbacks {
 public:
@@ -70,6 +84,17 @@ void macBytesToString(const uint8_t mac[6], char out[18]) {
 
 } // namespace
 
+BleControl::BleControl() : dfu_(&esp_rom_crc32_le) {}
+
+uint16_t BleControl::dfuChunkSize() const {
+    // Usable bytes per notification: the NEGOTIATED ATT MTU minus 3 bytes of
+    // ATT overhead. BLEDevice::getMTU() is not this -- it reports what this
+    // device prefers, not what the peer agreed to. The client subtracts a
+    // further 4 for the offset header.
+    const uint16_t mtu = bleServerHost.getNegotiatedMtu();
+    return (mtu > 3) ? (uint16_t) (mtu - 3) : 20;
+}
+
 void BleControl::init() {
     BLEServer* server = bleServerHost.getServer();
     if (server == nullptr) {
@@ -94,6 +119,14 @@ void BleControl::init() {
         BLE_CONTROL_RSP_UUID, BLECharacteristic::PROPERTY_NOTIFY);
     rspChar_->addDescriptor(new BLE2902());
 
+    // Write WITHOUT response: an acknowledgement per packet would make a
+    // 1.8 MB transfer take ten minutes instead of one. It guarantees nothing,
+    // which is why every packet carries an absolute offset and the image
+    // carries a CRC32.
+    dfuChar_ = service_->createCharacteristic(
+        BLE_CONTROL_DFU_UUID, BLECharacteristic::PROPERTY_WRITE_NR);
+    dfuChar_->setCallbacks(new DfuCallbacks(this));
+
     writeInfo();
     service_->start();
 
@@ -110,6 +143,7 @@ void BleControl::enqueueFromCallback(const uint8_t* data, size_t len, uint16_t c
 
 void BleControl::handle() {
     drainQueue();
+    serviceDfu();
     notifyNewBeeps();
 
     if (millis() - lastTelemetryMs_ < TELEMETRY_INTERVAL_MS) {
@@ -503,8 +537,124 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
     return ControlStatus::ErrBadArg;
 }
 
+void BleControl::enqueueDfuData(const uint8_t* data, size_t len) {
+    // [offset u32 LE][data...]
+    if (data == nullptr || len <= 4) {
+        return;
+    }
+
+    uint32_t offset = 0;
+    memcpy(&offset, data, sizeof(offset));
+
+    const uint8_t* body    = data + 4;
+    const uint32_t bodyLen = (uint32_t) (len - 4);
+
+    // Room is checked BEFORE the offset is accepted. acceptOffset() advances
+    // the accepted count, and if staging then failed the client would be told
+    // bytes were taken that never reached flash.
+    if (!DfuFlash::hasRoom(bodyLen)) {
+        return;   // stage full; the client restarts from received()
+    }
+    if (!dfu_.acceptOffset(offset, bodyLen)) {
+        return;   // gap, resend, or overshoot -- all dropped, never buffered
+    }
+
+    DfuFlash::stage(body, bodyLen);   // cannot fail: room was checked above
+    dfu_.accumulate(body, bodyLen);
+}
+
+void BleControl::serviceDfu() {
+    if (dfuRebootPending_) {
+        dfuRebootPending_ = false;
+        Serial.println("[BleControl] DFU committed, restarting");
+        ESP.restart();
+        return;
+    }
+
+    if (dfu_.state() != DfuState::Receiving || DfuFlash::stagedBytes() == 0) {
+        return;
+    }
+
+    // Update.write() erases a flash block on boundaries and blocks for
+    // ~150 ms. That is why it runs here and not in the BLE callback.
+    if (!DfuFlash::flush()) {
+        Serial.println("[BleControl] DFU flash write failed");
+        DfuFlash::abort();
+        dfu_.markError();
+    }
+}
+
+ControlStatus BleControl::handleDfu(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
+    switch (req.op) {
+        case ControlOp::DfuBegin: {
+            if (req.len < sizeof(DfuBeginRequest)) {
+                return ControlStatus::ErrBadArg;
+            }
+            DfuBeginRequest begin;
+            memcpy(&begin, req.payload, sizeof(begin));
+
+            if (!dfu_.begin(begin.size, begin.crc32)) {
+                return ControlStatus::ErrBadArg;   // zero, or larger than a slot
+            }
+            // Update.begin() resolves the OTA partition and resets state; it
+            // does NOT erase -- the erase is lazy, per block, inside write().
+            // So there is nothing here worth deferring.
+            if (!DfuFlash::begin(begin.size)) {
+                dfu_.markError();
+                return ControlStatus::ErrState;
+            }
+
+            DfuBeginResponse resp;
+            resp.chunkSize = dfuChunkSize();
+            memcpy(out, &resp, sizeof(resp));
+            outLen = sizeof(resp);
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::DfuCommit: {
+            if (!dfu_.commitAllowed()) {
+                // Short, or the CRC over what was written does not match what
+                // DFU_BEGIN promised.
+                return ControlStatus::ErrState;
+            }
+            dfu_.markVerifying();
+            if (!DfuFlash::flush() || !DfuFlash::finish()) {
+                dfu_.markError();
+                return ControlStatus::ErrState;
+            }
+            dfu_.markReady();
+            dfuRebootPending_ = true;   // answer first, restart next tick
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::DfuAbort:
+            DfuFlash::abort();
+            dfu_.abort();
+            return ControlStatus::Ok;
+
+        case ControlOp::DfuStatus: {
+            DfuStatusResponse resp;
+            resp.state     = (uint8_t) dfu_.state();
+            resp.received  = dfu_.received();
+            resp.chunkSize = dfuChunkSize();
+            memcpy(out, &resp, sizeof(resp));
+            outLen = sizeof(resp);
+            return ControlStatus::Ok;
+        }
+
+        default:
+            return ControlStatus::ErrBadOp;
+    }
+}
+
 ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
     switch (req.op) {
+        case ControlOp::DfuBegin:
+        case ControlOp::DfuCommit:
+        case ControlOp::DfuAbort:
+        case ControlOp::DfuStatus:
+            return handleDfu(req, out, outLen);
+
         case ControlOp::SessionReset:
             // HourMeter applies this on its next tick; the counter is RAM-only.
             hourMeter.requestReset();

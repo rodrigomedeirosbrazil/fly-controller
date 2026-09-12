@@ -35,10 +35,28 @@ public:
     // start/stopAdvertising call on one task, so the race cannot exist.
     void onConnectionChanged() { connectionChanged_ = true; }
 
+    // The ATT MTU actually agreed with the peer, which is NOT what
+    // BLEDevice::getMTU() reports -- that returns this device's own
+    // preference. The firmware-update path sizes its data packets from this.
+    //
+    // One value, not one per connection: only one central ever runs an
+    // update, and the cost of reporting a stale smaller number is a slower
+    // transfer, not a broken one. 23 is the BLE default, used until a peer
+    // negotiates something larger.
+    uint16_t getNegotiatedMtu() const { return negotiatedMtu_; }
+
+    // Called from the server callbacks, on the Bluedroid task. Stores only.
+    void onMtuNegotiated(uint16_t mtu) {
+        if (mtu >= 23) {
+            negotiatedMtu_ = mtu;
+        }
+    }
+
 private:
     BLEServer* server_ = nullptr;
     bool advertisingEnabled_ = false;
     volatile bool connectionChanged_ = false;
+    volatile uint16_t negotiatedMtu_ = 23;
 };
 
 #endif // BLE_SERVER_HOST_H
