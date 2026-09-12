@@ -9,6 +9,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `SoundLogicTest.cpp` - Unit tests for `SoundLogic` (`src/Sound/SoundLogic.h`), covering the continuous state layer never expiring, event preemption and state resumption, `setState()` idempotency, queued-event ordering, queue-overflow drop policy, and millis() rollover across both layers.
 - `ControlProtocolTest.cpp` - Unit tests for `ControlProtocol` (`src/BleControl/ControlProtocol.h`), covering the CMD/RSP frame codec, the pinned 56-byte telemetry layout, the two-bit signal-state packing, the append rule in both directions of version skew, the auth/armed dispatch gate, the config group structs, the deferred request queue's FIFO and drop-newest policy, and the beep high-water mark.
 - `SettingsValidationTest.cpp` - Unit tests for `SettingsValidation` (`src/Settings/SettingsValidation.h`), covering every extracted range and asserting that no ordering check was added, since the web handlers have never had one.
+- `VoltageFormatTest.cpp` - Unit tests for `formatMilliVolts` (`src/Telemetry/VoltageFormat.h`), covering the three-digit decimal at every boundary and an exhaustive round-trip over all 65536 millivolt values — the property the old per-site formatting broke silently.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

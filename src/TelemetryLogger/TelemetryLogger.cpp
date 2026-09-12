@@ -1,4 +1,5 @@
 #include "TelemetryLogger.h"
+#include "../Telemetry/VoltageFormat.h"
 #include "../config.h"
 #include "../Telemetry/TelemetryAvailability.h"
 #include "../Telemetry/MotorTempOrigin.h"
@@ -104,14 +105,9 @@ void TelemetryLogger::writeBatteryInfo(char* data, size_t size, size_t& used) {
     }
 
     uint16_t millivolts = telemetry.getBatteryVoltageMilliVolts();
-    uint16_t volts = millivolts / 1000;
-    uint16_t decimals = millivolts % 1000;
-
-    appendToBuffer(data, size, used, "%u.", volts);
-    if (decimals < 10) {
-        appendToBuffer(data, size, used, "0");
-    }
-    appendToBuffer(data, size, used, "%u,", decimals);
+    char voltsText[16];
+    formatMilliVolts(voltsText, sizeof(voltsText), millivolts);
+    appendToBuffer(data, size, used, "%s,", voltsText);
 
     if (isPowerKwAvailable()) {
         // 64-bit: a 32-bit product overflows above ~73 A at 58.5 V, and the
