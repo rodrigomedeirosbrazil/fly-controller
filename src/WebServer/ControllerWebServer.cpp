@@ -636,6 +636,8 @@ void ControllerWebServer::startAP() {
         if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
         settings.clearRemoteMac();
         settings.save();
+        // Clearing NVS alone leaves the running link paired until reboot.
+        remoteLink.forgetPeer();
         request->send(200, "text/plain", "Remote esquecido");
     });
 

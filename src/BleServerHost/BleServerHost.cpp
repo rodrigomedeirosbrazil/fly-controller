@@ -14,10 +14,14 @@ public:
         host_->onConnectionChanged();
     }
 
-    void onDisconnect(BLEServer* server) override {
+    // The param overload: conn_id says WHICH central left, which the auth
+    // reset needs. The library calls both overloads, so the plain one is left
+    // to the no-op base rather than duplicating the work here.
+    void onDisconnect(BLEServer* server, esp_ble_gatts_cb_param_t* param) override {
         Serial.println("BLE disconnected");
-        // Auth is per connection. A reconnecting central starts locked.
-        bleControl.onCentralDisconnected();
+        if (param != nullptr) {
+            bleControl.onCentralDisconnected(param->disconnect.conn_id);
+        }
         host_->onConnectionChanged();
     }
 

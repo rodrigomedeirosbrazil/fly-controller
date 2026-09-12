@@ -20,12 +20,21 @@ public:
     void handle();
 
     // Called from the CMD characteristic's write callback, on the Bluedroid
-    // task. Enqueues only -- never touches controller state.
-    void enqueueFromCallback(const uint8_t* data, size_t len);
+    // task. Enqueues only -- never touches controller state. connId comes
+    // from the GATT write event and says which central sent this.
+    void enqueueFromCallback(const uint8_t* data, size_t len, uint16_t connId);
 
-    // Auth is per connection. BleServerHost's disconnect path calls this, so
-    // a reconnecting central starts locked.
-    void onCentralDisconnected() { authenticated_ = false; }
+    // Auth belongs to ONE connection, keyed by its conn_id -- not to the
+    // service. Two centrals can be connected at once (XCTrack alongside the
+    // app), and a single shared flag would let either one's AUTH unlock the
+    // other. Clears only when the authenticated central is the one that left,
+    // so another central's disconnect -- or a BLE client-role disconnect that
+    // reaches this callback -- cannot drop a live session.
+    void onCentralDisconnected(uint16_t connId) {
+        if (connId == authConnId_) {
+            authConnId_ = CONTROL_NO_CONN_ID;
+        }
+    }
 
 private:
     static const unsigned long TELEMETRY_INTERVAL_MS = 1000;
@@ -39,7 +48,7 @@ private:
     unsigned long lastTelemetryMs_ = 0;
 
     ControlRequestQueue queue_;
-    bool authenticated_ = false;
+    uint16_t authConnId_ = CONTROL_NO_CONN_ID;
 
     uint32_t beepWatermark_ = 0;
 

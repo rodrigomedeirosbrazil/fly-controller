@@ -29,9 +29,14 @@ class CmdCallbacks : public BLECharacteristicCallbacks {
 public:
     explicit CmdCallbacks(BleControl* owner) : owner_(owner) {}
 
-    void onWrite(BLECharacteristic* characteristic) override {
+    // The param overload, because conn_id is only on the event -- it is not
+    // in the frame, and the library calls both overloads.
+    void onWrite(BLECharacteristic* characteristic,
+                 esp_ble_gatts_cb_param_t* param) override {
         const std::string value = characteristic->getValue();
-        owner_->enqueueFromCallback((const uint8_t*) value.data(), value.size());
+        const uint16_t connId = (param != nullptr) ? param->write.conn_id
+                                                   : CONTROL_NO_CONN_ID;
+        owner_->enqueueFromCallback((const uint8_t*) value.data(), value.size(), connId);
     }
 
 private:
@@ -95,12 +100,12 @@ void BleControl::init() {
     Serial.println("BleControl service registered");
 }
 
-void BleControl::enqueueFromCallback(const uint8_t* data, size_t len) {
+void BleControl::enqueueFromCallback(const uint8_t* data, size_t len, uint16_t connId) {
     ControlRequest req;
     if (!decodeRequest(data, len, req)) {
         return;  // malformed frame: nothing to reply to, seq is unknown
     }
-    queue_.push(req);  // drop-newest on overflow; the app retries on timeout
+    queue_.push(req, connId);  // drop-newest on overflow; the app retries on timeout
 }
 
 void BleControl::handle() {
@@ -155,7 +160,10 @@ void BleControl::notifyNewBeeps() {
 }
 
 void BleControl::dispatch(const QueuedRequest& req) {
-    const ControlStatus gate = gateRequest(req.op, authenticated_, throttle.isArmed());
+    // Authenticated only if THIS central is the one that authenticated.
+    const bool authenticated = (req.connId != CONTROL_NO_CONN_ID) &&
+                               (req.connId == authConnId_);
+    const ControlStatus gate = gateRequest(req.op, authenticated, throttle.isArmed());
     if (gate != ControlStatus::Ok) {
         respond(req.op, req.seq, gate, nullptr, 0);
         return;
@@ -283,20 +291,24 @@ ControlStatus BleControl::handleAuth(const QueuedRequest& req) {
     // Payload is the PIN as plain characters, not NUL-terminated. Reuses the
     // PIN in Settings rather than BLE bonding: one source of truth, and no
     // OS-level pairing flow for the pilot to manage outside the app.
-    // Fail closed: a wrong PIN clears any authentication this connection had
-    // already earned. An app retrying with a bad PIN loses its session, which
-    // is the safe direction.
     const String expected = settings.getConfigPin();
-    if (req.len == 0 || req.len != expected.length()) {
-        authenticated_ = false;
-        return ControlStatus::ErrAuth;
+    const bool ok = req.len > 0 &&
+                    req.len == expected.length() &&
+                    memcmp(req.payload, expected.c_str(), req.len) == 0;
+
+    if (ok) {
+        authConnId_ = req.connId;
+        return ControlStatus::Ok;
     }
-    if (memcmp(req.payload, expected.c_str(), req.len) != 0) {
-        authenticated_ = false;
-        return ControlStatus::ErrAuth;
+
+    // Fail closed, but only for the connection that got it wrong. Clearing
+    // authConnId_ unconditionally would let any other central -- or anything
+    // that can connect and write -- knock an authenticated session out by
+    // sending one bad PIN.
+    if (req.connId == authConnId_) {
+        authConnId_ = CONTROL_NO_CONN_ID;
     }
-    authenticated_ = true;
-    return ControlStatus::Ok;
+    return ControlStatus::ErrAuth;
 }
 
 // Fills `dst` with the group's current values so CFG_SET can overlay only the
@@ -533,6 +545,8 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
         case ControlOp::RemoteForget:
             settings.clearRemoteMac();
             settings.save();
+            // Clearing NVS alone leaves the running link paired until reboot.
+            remoteLink.forgetPeer();
             return ControlStatus::Ok;
 
         case ControlOp::BuzzerPreview: {

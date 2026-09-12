@@ -409,25 +409,35 @@ inline bool decodeConfigGroup(const ControlRequest& req, ConfigGroup& out) {
 #define CONTROL_QUEUED_PAYLOAD_MAX 32
 #define CONTROL_QUEUE_CAPACITY      4
 
+// "no central" for an authenticated-connection id. Real conn_ids are small
+// indices, so 0xFFFF can never collide with one.
+#define CONTROL_NO_CONN_ID 0xFFFF
+
 struct QueuedRequest {
-    uint8_t op;
-    uint8_t seq;
-    uint8_t len;
-    uint8_t payload[CONTROL_QUEUED_PAYLOAD_MAX];
+    uint8_t  op;
+    uint8_t  seq;
+    uint8_t  len;
+    uint8_t  payload[CONTROL_QUEUED_PAYLOAD_MAX];
+    // Which central sent this. Carried through the queue because the auth
+    // check happens at dispatch, not at enqueue, and authentication belongs
+    // to one connection rather than to the service. Not a wire field --
+    // it comes from the GATT write event, not from the frame.
+    uint16_t connId;
 };
 
 class ControlRequestQueue {
 public:
     // Drop-newest on overflow: a flood must not evict a command the pilot
     // already issued and is waiting on.
-    bool push(const ControlRequest& req) {
+    bool push(const ControlRequest& req, uint16_t connId) {
         if (count_ >= CONTROL_QUEUE_CAPACITY || req.len > CONTROL_QUEUED_PAYLOAD_MAX) {
             return false;
         }
         QueuedRequest& slot = items_[(head_ + count_) % CONTROL_QUEUE_CAPACITY];
-        slot.op  = req.op;
-        slot.seq = req.seq;
-        slot.len = req.len;
+        slot.op     = req.op;
+        slot.seq    = req.seq;
+        slot.len    = req.len;
+        slot.connId = connId;
         if (req.len > 0 && req.payload != nullptr) {
             memcpy(slot.payload, req.payload, req.len);
         }

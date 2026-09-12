@@ -47,6 +47,13 @@ class RemoteLink {
     void enterPairing() { pairing_ = true; }
     bool isPairing() const { return pairing_; }
 
+    // Drops the paired remote from the running link, not just from NVS.
+    // Clearing Settings alone leaves peerMac_ and the ESP-NOW peer in place,
+    // so a remote still transmitting keeps being heard until the next reboot
+    // -- and keeps driving the throttle if the source is wireless. Callers
+    // that clear the stored MAC must call this too.
+    void forgetPeer();
+
     // Called from the static ESP-NOW recv trampoline.
     void onReceive(const uint8_t *senderMac, const uint8_t *data, int len);
 

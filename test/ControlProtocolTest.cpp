@@ -379,15 +379,17 @@ void test_request_queue_fifo_order() {
     const uint8_t b[] = { 0xBB };
     ControlRequest r1 = { ControlOp::CfgGet, 1, 1, a };
     ControlRequest r2 = { ControlOp::CfgSet, 2, 1, b };
-    assert(q.push(r1) == true);
-    assert(q.push(r2) == true);
+    assert(q.push(r1, 7) == true);
+    assert(q.push(r2, 9) == true);
     assert(q.size() == 2);
 
     QueuedRequest out;
     assert(q.pop(out) == true);
     assert(out.op == ControlOp::CfgGet && out.seq == 1 && out.payload[0] == 0xAA);
+    assert(out.connId == 7);
     assert(q.pop(out) == true);
     assert(out.op == ControlOp::CfgSet && out.seq == 2 && out.payload[0] == 0xBB);
+    assert(out.connId == 9);
     assert(q.pop(out) == false);
     assert(q.size() == 0);
 }
@@ -399,14 +401,30 @@ void test_request_queue_drops_the_newest_when_full() {
     const uint8_t p[] = { 0x01 };
     for (uint8_t i = 0; i < CONTROL_QUEUE_CAPACITY; i++) {
         ControlRequest r = { ControlOp::CfgGet, (uint8_t) (i + 1), 1, p };
-        assert(q.push(r) == true);
+        assert(q.push(r, 0) == true);
     }
     ControlRequest overflow = { ControlOp::CfgSet, 99, 1, p };
-    assert(q.push(overflow) == false);
+    assert(q.push(overflow, 0) == false);
 
     QueuedRequest out;
     assert(q.pop(out) == true);
     assert(out.seq == 1);  // the oldest survived
+}
+
+void test_request_queue_keeps_connections_distinct() {
+    // Authentication belongs to one connection, and the auth check happens at
+    // dispatch rather than at enqueue -- so the connection identity has to
+    // survive the queue or one central's session would answer for another's.
+    ControlRequestQueue q;
+    const uint8_t p[] = { 0x01 };
+    ControlRequest a = { ControlOp::CfgSet, 1, 1, p };
+    ControlRequest b = { ControlOp::CfgSet, 2, 1, p };
+    assert(q.push(a, 3) == true);
+    assert(q.push(b, CONTROL_NO_CONN_ID) == true);
+
+    QueuedRequest out;
+    assert(q.pop(out) == true && out.connId == 3);
+    assert(q.pop(out) == true && out.connId == CONTROL_NO_CONN_ID);
 }
 
 void test_request_queue_refuses_oversized_payloads() {
@@ -414,7 +432,7 @@ void test_request_queue_refuses_oversized_payloads() {
     uint8_t big[CONTROL_QUEUED_PAYLOAD_MAX + 1];
     memset(big, 0, sizeof(big));
     ControlRequest r = { ControlOp::CfgSet, 1, CONTROL_QUEUED_PAYLOAD_MAX + 1, big };
-    assert(q.push(r) == false);
+    assert(q.push(r, 0) == false);
     assert(q.size() == 0);
 }
 
@@ -478,6 +496,7 @@ int main() {
     test_config_group_rejects_missing_or_unknown_group();
     test_request_queue_fifo_order();
     test_request_queue_drops_the_newest_when_full();
+    test_request_queue_keeps_connections_distinct();
     test_request_queue_refuses_oversized_payloads();
     test_beep_event_payload_is_fixed_size();
     test_beep_watermark_emits_each_event_once();
