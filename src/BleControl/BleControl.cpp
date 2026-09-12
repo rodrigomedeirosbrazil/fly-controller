@@ -524,6 +524,22 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
                 out[outLen++] = (uint8_t) (int8_t) results[i].rssi;
                 out[outLen++] = results[i].detectedType;
             }
+
+            // On failure, append the reason as a NUL-terminated string after
+            // the result list. Without it a client can say a scan failed and
+            // never why, which is what made the async-disconnect bug a
+            // guessing game from the app side. Appended, so a client that
+            // stops reading after `count` results is unaffected.
+            if (out[0] == BluetoothBmsScanError) {
+                const char* reason = bluetoothBms.getWebScanError();
+                const size_t room = CONTROL_MAX_PAYLOAD - outLen;
+                if (reason != nullptr && reason[0] != '\0' && room > 1) {
+                    const size_t n = strnlen(reason, room - 1);
+                    memcpy(out + outLen, reason, n);
+                    outLen += (uint8_t) n;
+                    out[outLen++] = '\0';
+                }
+            }
             return ControlStatus::Ok;
         }
 
