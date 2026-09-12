@@ -302,7 +302,41 @@ void test_setstatefreq_does_not_persist_across_sessions() {
     cout << "PASS: a retune never persists into a later session\n";
 }
 
+void test_stateFreqHz_tracks_the_sweep_and_ignores_events() {
+  // The BLE mirror reads this instead of update()'s SoundOutput, so it has to
+  // be the STATE layer's tone even while an event is preempting it.
+  SoundLogic s;
+  s.setStatePattern(SoundState::ArmCharging, {1800, 60, 40, 0});
+  s.setEventPattern(SoundEvent::PowerAlert,       {4000, 50, 50, 1});
+
+  assert(s.stateFreqHz() == 0);            // nothing running yet
+
+  uint32_t t = 1000;
+  s.setState(SoundState::ArmCharging);
+  s.update(t);
+  assert(s.stateFreqHz() == 1800);         // base pattern on entry
+
+  // Step the frequency; it lands on the next on->off edge.
+  s.setStateFreq(2200);
+  for (int i = 0; i < 20 && s.stateFreqHz() == 1800; i++) {
+    t += 10;
+    s.update(t);
+  }
+  assert(s.stateFreqHz() == 2200);
+
+  // An event preempts the state layer. update() now returns the EVENT's
+  // frequency -- stateFreqHz() must not follow it.
+  s.pushEvent(SoundEvent::PowerAlert);
+  t += 10;
+  SoundOutput out = s.update(t);
+  assert(out.freqHz == 4000);
+  assert(s.stateFreqHz() == 0);            // state runner stopped by the event
+
+  cout << "PASS: stateFreqHz tracks the state sweep, not the event tone" << endl;
+}
+
 int main() {
+  test_stateFreqHz_tracks_the_sweep_and_ignores_events();
     test_continuous_state_never_expires();
     test_event_preempts_state_and_resumes_from_start();
     test_setstate_idempotent_and_none_silences_immediately();

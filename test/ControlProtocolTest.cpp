@@ -139,7 +139,7 @@ void test_telemetry_layout_is_pinned() {
     // Every offset is part of the contract with fly-app's Dart decoder.
     // A field inserted in the middle silently shifts everything after it,
     // which is the exact failure mode the $XCTOD sentence has.
-    assert(sizeof(ControlTelemetry) == 56);
+    assert(sizeof(ControlTelemetry) == 58);
     assert(offsetof(ControlTelemetry, ver)            ==  0);
     assert(offsetof(ControlTelemetry, flags)          ==  1);
     assert(offsetof(ControlTelemetry, validity)       ==  2);
@@ -167,6 +167,7 @@ void test_telemetry_layout_is_pinned() {
     assert(offsetof(ControlTelemetry, bmsCellDeltaMv) == 48);
     assert(offsetof(ControlTelemetry, bmsTempMaxC)    == 50);
     assert(offsetof(ControlTelemetry, uptimeSec)      == 52);
+    assert(offsetof(ControlTelemetry, stateFreqHz)    == 56);
 }
 
 void test_signal_states_pack_three_signals_into_one_byte() {

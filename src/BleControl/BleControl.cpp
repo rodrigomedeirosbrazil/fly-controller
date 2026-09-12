@@ -278,6 +278,11 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     }
 
     t.uptimeSec = (uint32_t) (millis() / 1000UL);
+
+    // The state layer's live tone, not the base pattern the transition event
+    // carried and not whatever an event is preempting it with -- see
+    // SoundLogic::stateFreqHz().
+    t.stateFreqHz = sound.getStateFreqHz();
 }
 
 void BleControl::notifyTelemetry() {

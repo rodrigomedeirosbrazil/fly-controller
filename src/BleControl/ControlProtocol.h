@@ -224,6 +224,16 @@ struct ControlTelemetry {
     uint16_t bmsCellDeltaMv;
     int16_t  bmsTempMaxC;
     uint32_t uptimeSec;
+    // Appended after the first release -- the append rule in action, so no
+    // ver bump and older clients simply never see it.
+    //
+    // The state-layer tone in Hz, 0 when none is playing. EVT_BEEP fires only
+    // on a state transition and carries the catalog pattern, but the arm and
+    // disarm gestures sweep between 1800 and 2500 Hz on every on->off edge
+    // and push nothing. Without this a client mirrors those gestures flat, or
+    // reimplements the sweep arithmetic from main.cpp in another repository
+    // with nothing checking the two copies agree.
+    uint16_t stateFreqHz;
 };
 #pragma pack(pop)
 

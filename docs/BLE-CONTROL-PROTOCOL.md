@@ -76,10 +76,13 @@ Capability bits:
 | `0x0004` | Motor temp source is selectable |
 | `0x0008` | Remote throttle link supported |
 
-Read `protocolVersion` before anything else. If it is higher than the client
-knows, the client is the old one — the append rule below still lets it work.
+`protocolVersion` is a **diagnostic, not a compatibility gate.** It is bumped
+only when an existing field moves or changes meaning — precisely the case the
+append rule does *not* rescue, since appending saves nothing if offsets
+shifted underneath. Gate on the telemetry struct's own `ver` and on the
+received length instead, and log `protocolVersion` for support.
 
-## `TELEMETRY` — 56 bytes at 1 Hz
+## `TELEMETRY` — 58 bytes at 1 Hz
 
 Two rules govern this struct, and together they are what replaces the CSV.
 
@@ -90,7 +93,9 @@ absent field.** Every offset below is constant forever.
 `min(received, known)`.** New firmware with an old client: the client reads the
 prefix it understands and ignores the tail. Old firmware with a new client: the
 client sees a short packet and treats the fields beyond it as absent. Neither
-breaks. **Decode by offset against the received length — never assume 56.**
+breaks. **Decode by offset against the received length — never assume 58.**
+`stateFreqHz` was appended after the first release and is the worked example:
+firmware without it sends 56 bytes and nothing else changes.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -121,6 +126,7 @@ breaks. **Decode by offset against the received length — never assume 56.**
 | 48 | `uint16` | `bmsCellDeltaMv` | |
 | 50 | `int16` | `bmsTempMaxC` | |
 | 52 | `uint32` | `uptimeSec` | |
+| 56 | `uint16` | `stateFreqHz` | state-layer tone in Hz, 0 when none |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -350,6 +356,14 @@ is a persistent state whose `active` flag toggles a looping tone. An event
 should pause a running state tone and resume it afterwards — see
 `initBuzzerMirror` in the web telemetry page for a working implementation of
 the same policy.
+
+**A layer-1 event carries the tone's starting frequency, not its current
+one.** The arm-charge and disarm-ramp gestures sweep between 1800 and 2500 Hz,
+stepping on every on-to-off edge, and those steps push no event — the ring is
+8 slots and the patterns pulse at 60/40 ms, so an event per step would
+overwrite itself between notifications. Drive the looping tone's pitch from
+`stateFreqHz` in the 1 Hz telemetry instead; the `active` flag still says
+whether it should be playing at all.
 
 ## Coexistence
 
