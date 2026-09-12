@@ -2,6 +2,7 @@
 #include <ESPmDNS.h>
 #include "../config.h"
 #include "../Settings/Settings.h"
+#include "../Settings/SettingsValidation.h"
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BoardConfig.h"
 #include "../Telemetry/TelemetryAvailability.h"
@@ -395,33 +396,32 @@ void ControllerWebServer::startAP() {
 
             // Read as uint32_t first so the upper-bound check is meaningful —
             // uint16_t max is 65535, so "> 65000" would otherwise always be false.
-            uint32_t capacityRaw = doc["batteryCapacity"].as<uint32_t>();
-            if (capacityRaw < 1000 || capacityRaw > 65000) {
-                request->send(400, "text/plain", "Capacidade da bateria fora do intervalo (1000-65000 mAh)");
-                return;
-            }
-            uint16_t capacity = static_cast<uint16_t>(capacityRaw);
+            const uint32_t capacityRaw = doc["batteryCapacity"].as<uint32_t>();
+            const uint32_t minV = doc["batteryMinVoltage"].as<uint32_t>();
+            const uint32_t maxV = doc["batteryMaxVoltage"].as<uint32_t>();
 
-            uint16_t minV = doc["batteryMinVoltage"];
-            if (minV < 2500 || minV > 63000) {
-                request->send(400, "text/plain", "Tensão mínima da bateria fora do intervalo");
-                return;
+            switch (validatePower(capacityRaw, minV, maxV)) {
+                case SettingsError::CapacityRange:
+                    request->send(400, "text/plain", "Capacidade da bateria fora do intervalo (1000-65000 mAh)");
+                    return;
+                case SettingsError::MinVoltageRange:
+                    request->send(400, "text/plain", "Tensão mínima da bateria fora do intervalo");
+                    return;
+                case SettingsError::MaxVoltageRange:
+                    request->send(400, "text/plain", "Tensão máxima da bateria fora do intervalo");
+                    return;
+                default:
+                    break;
             }
 
-            uint16_t maxV = doc["batteryMaxVoltage"];
-            if (maxV < 2500 || maxV > 63000) {
-                request->send(400, "text/plain", "Tensão máxima da bateria fora do intervalo");
-                return;
-            }
-
-            settings.setBatteryCapacityMah(capacity);
-            settings.setBatteryMinVoltage(minV);
-            settings.setBatteryMaxVoltage(maxV);
+            settings.setBatteryCapacityMah((uint16_t) capacityRaw);
+            settings.setBatteryMinVoltage((uint16_t) minV);
+            settings.setBatteryMaxVoltage((uint16_t) maxV);
             settings.setPowerControlEnabled(doc["powerControlEnabled"].as<bool>());
 
             if (doc.containsKey("voltageDividerRatio")) {
-                float ratio = doc["voltageDividerRatio"].as<float>();
-                if (ratio < 1.0f || ratio > 100.0f) {
+                const float ratio = doc["voltageDividerRatio"].as<float>();
+                if (validateVoltageDividerRatio(ratio) != SettingsError::None) {
                     request->send(400, "text/plain", "Divisor de tensão fora do intervalo (1.0-100.0)");
                     return;
                 }
@@ -464,29 +464,21 @@ void ControllerWebServer::startAP() {
                 return;
             }
 
-            int32_t motorMaxTemp = doc["motorMaxTemp"];
-            int32_t motorReductionStart = doc["motorTempReductionStart"];
-            int32_t escMaxTemp = doc["escMaxTemp"];
-            int32_t escReductionStart = doc["escTempReductionStart"];
+            const int32_t motorMaxTemp = doc["motorMaxTemp"];
+            const int32_t motorReductionStart = doc["motorTempReductionStart"];
+            const int32_t escMaxTemp = doc["escMaxTemp"];
+            const int32_t escReductionStart = doc["escTempReductionStart"];
 
-            if (motorMaxTemp < 0 || motorMaxTemp > 150000) {
-                request->send(400, "text/plain", "Temperatura máxima do motor fora do intervalo (0-150000 millicelsius)");
-                return;
-            }
-
-            if (motorReductionStart < 0 || motorReductionStart > 150000) {
-                request->send(400, "text/plain", "Início de redução de temperatura do motor fora do intervalo");
-                return;
-            }
-
-            if (escMaxTemp < 0 || escMaxTemp > 150000) {
-                request->send(400, "text/plain", "Temperatura máxima do ESC fora do intervalo");
-                return;
-            }
-
-            if (escReductionStart < 0 || escReductionStart > 150000) {
-                request->send(400, "text/plain", "Início de redução de temperatura do ESC fora do intervalo");
-                return;
+            switch (validateThermal(motorReductionStart, motorMaxTemp,
+                                    escReductionStart, escMaxTemp)) {
+                case SettingsError::MotorTempRange:
+                    request->send(400, "text/plain", "Temperatura do motor fora do intervalo (0-150000 millicelsius)");
+                    return;
+                case SettingsError::EscTempRange:
+                    request->send(400, "text/plain", "Temperatura do ESC fora do intervalo (0-150000 millicelsius)");
+                    return;
+                default:
+                    break;
             }
 
             settings.setMotorMaxTemp(motorMaxTemp);
@@ -504,8 +496,8 @@ void ControllerWebServer::startAP() {
                     request->send(400, "text/plain", "Não é possível alterar a fonte de temperatura do motor durante o voo");
                     return;
                 }
-                uint8_t src = doc["motorTempSource"].as<uint8_t>();
-                if (src > (uint8_t)MotorTempSourceAds1115) {
+                const uint8_t src = doc["motorTempSource"].as<uint8_t>();
+                if (validateMotorTempSource(src) != SettingsError::None) {
                     request->send(400, "text/plain", "Fonte de temperatura do motor inválida");
                     return;
                 }
@@ -539,7 +531,7 @@ void ControllerWebServer::startAP() {
             }
 
             const uint8_t bmsType = doc["bmsType"].as<uint8_t>();
-            if (bmsType > BmsTypeJk) {
+            if (validateBmsType(bmsType) != SettingsError::None) {
                 request->send(400, "text/plain", "Tipo de BMS inválido");
                 return;
             }
@@ -603,7 +595,7 @@ void ControllerWebServer::startAP() {
                 return;
             }
 
-            int32_t volume = doc["buzzerVolume"];
+            const int32_t volume = doc["buzzerVolume"];
             if (volume < 0 || volume > 100) {
                 request->send(400, "text/plain", "Volume do buzzer fora do intervalo (0-100)");
                 return;
@@ -613,8 +605,8 @@ void ControllerWebServer::startAP() {
 
             // Optional: wireless throttle source (0 = wired, 1 = wireless).
             if (doc.containsKey("throttleSource")) {
-                int32_t src = doc["throttleSource"];
-                if (src < 0 || src > 1) {
+                const int32_t src = doc["throttleSource"];
+                if (src < 0 || validateSystem((uint8_t) volume, (uint8_t) src) != SettingsError::None) {
                     request->send(400, "text/plain", "throttleSource fora do intervalo (0-1)");
                     return;
                 }
@@ -644,6 +636,8 @@ void ControllerWebServer::startAP() {
         if (!checkPin(request)) { request->send(403, "text/plain", "PIN inválido"); return; }
         settings.clearRemoteMac();
         settings.save();
+        // Clearing NVS alone leaves the running link paired until reboot.
+        remoteLink.forgetPeer();
         request->send(200, "text/plain", "Remote esquecido");
     });
 
@@ -737,7 +731,8 @@ void ControllerWebServer::startAP() {
         // kW x10 to avoid float over JSON transport (7 => 0.7 kW)
         uint16_t powerKwX10 = 0;
         if (isPowerKwAvailable()) {
-            const uint32_t powerMilliWatts = ((uint32_t) batteryVoltageMv * batteryCurrentMa) / 1000;
+            // 64-bit: see BleControl::fillTelemetry() for the overflow threshold.
+            const uint32_t powerMilliWatts = (uint32_t) (((uint64_t) batteryVoltageMv * batteryCurrentMa) / 1000);
             powerKwX10 = (uint16_t) (powerMilliWatts / 100000);
         }
 

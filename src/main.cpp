@@ -19,7 +19,9 @@
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
+#include "BleServerHost/BleServerHost.h"
 #include "Xctod/Xctod.h"
+#include "BleControl/BleControl.h"
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "WebServer/ControllerWebServer.h"
 #include "RemoteLink/RemoteLink.h"
@@ -67,7 +69,13 @@ void setup()
     DEBUG_PRINTLN("[Main] WARNING: ADS1115 init failed — throttle and temp readings unavailable");
   }
 
+  // The radio comes up first; services register onto it, and advertising is
+  // switched on once every service is registered.
+  bleServerHost.init("FlyController");
   xctod.init();
+  bleControl.init();
+  bleServerHost.setAdvertisingEnabled(true);
+
   bluetoothBms.init();
   logger.init();
   telemetryLogger.init();
@@ -155,7 +163,9 @@ void loop()
   // Power does not know Button.
   power.setDisarmScale(button.getPowerScale());
   bluetoothBms.update();
+  bleServerHost.handle();
   xctod.write();
+  bleControl.handle();
   telemetryLogger.handle();
 #if USES_CAN_BUS
   checkCanbus();

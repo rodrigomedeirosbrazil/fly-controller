@@ -57,6 +57,12 @@ private:
 
     uint8_t getActiveType() const;
     void resetWebScanState(uint8_t status);
+
+    // Phase two of startWebScan(): true once the backends have actually let
+    // go of the radio (or the wait timed out).
+    bool backendsDisconnected() const;
+    void serviceScanStart();
+    bool beginBleScan();
     void pauseTelemetryAdvertisingForScan();
     void resumeTelemetryAdvertisingAfterScan();
     void completeWebScan();
@@ -65,6 +71,15 @@ private:
     bool isValidMacAddress(const String& macAddress) const;
 
     uint8_t webScanStatus_ = BluetoothBmsScanIdle;
+
+    // A BLE disconnect is asynchronous. startWebScan() asks the backends to
+    // drop their client link and then waits, because a scan that begins while
+    // the link is still tearing down finds nothing -- reproducibly, whenever
+    // a BMS was configured. update() starts the scan for real on a later
+    // tick. Reported as Scanning throughout: the pilot's view is unchanged.
+    bool          scanPendingDisconnect_ = false;
+    unsigned long scanPendingSinceMs_    = 0;
+    static const unsigned long SCAN_DISCONNECT_TIMEOUT_MS = 1500;
     char webScanError_[64] = {0};
     BluetoothBmsScanResult webScanResults_[MAX_WEB_SCAN_RESULTS];
     uint8_t webScanResultCount_ = 0;

@@ -1,8 +1,10 @@
 #include "Xctod.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "../BleServerHost/BleServerHost.h"
 #include "../Telemetry/TelemetryAvailability.h"
 #include "../Telemetry/MotorTempOrigin.h"
+#include "../Telemetry/VoltageFormat.h"
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Temperature/Temperature.h"
@@ -11,7 +13,6 @@
 #include "../DisarmReason.h"
 #include <cstdarg>
 #include <cstdio>
-#include <esp_bt.h>
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -48,66 +49,38 @@ bool appendToBuffer(char* data, size_t size, size_t& used, const char* format, .
 }
 } // namespace
 
-class ServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    Serial.println("BLE connected");
-  }
-  void onDisconnect(BLEServer* pServer) {
-    Serial.println("BLE disconnected");
-    pServer->getAdvertising()->start();
-  }
-};
-
 Xctod::Xctod() {
     lastUpdate = 0;
-    advertisingEnabled = false;
-    pServer = nullptr;
     pService = nullptr;
     pCharacteristic = nullptr;
 }
 
 void Xctod::init() {
-    // Create the BLE Device
-    BLEDevice::init("FlyController");
+    BLEServer* server = bleServerHost.getServer();
+    if (server == nullptr) {
+        Serial.println("[Xctod] WARNING: no BLE server -- NUS service not registered");
+        return;
+    }
 
-    // Cap BLE TX power. The ESP32-C3 Supermini browns out under full-power radio
-    // (WiFi TX is already pinned to 8.5 dBm), and the default BLE power compounds
-    // the current spike now that an always-on BMS connection shares the radio
-    // with the Xctod advertiser/notifier. All peers (BMS, phone, remote) sit
-    // within ~2 m, so 0 dBm leaves a large link-budget margin. DEFAULT also
-    // applies to connection handles that aren't set explicitly (e.g. the BMS).
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N0);
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_N0);
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_N0);
+    pService = server->createService(SERVICE_UUID);
 
-    // Create the BLE Server
-    pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new ServerCallbacks());
-
-    // Create the BLE Service
-    pService = pServer->createService(SERVICE_UUID);
-
-    // Create a BLE Characteristic
     pCharacteristic = pService->createCharacteristic(
                         CHARACTERISTIC_UUID_TX,
                         BLECharacteristic::PROPERTY_NOTIFY
                       );
-
     pCharacteristic->addDescriptor(new BLE2902());
-
-    // Start the service
     pService->start();
 
-    // Start advertising
+    // Only the NUS UUID goes in the advertising payload: 31 bytes cannot hold
+    // two 128-bit UUIDs, and XCTrack is the client that filters on it. The
+    // Fly Control service is discovered after connecting.
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
     pAdvertising->setMinPreferred(0x06);
     pAdvertising->setMaxPreferred(0x12);
-    BLEDevice::startAdvertising();
-    advertisingEnabled = true;
 
-    Serial.println("BLE advertising started");
+    Serial.println("Xctod NUS service registered");
 }
 
 void Xctod::write() {
@@ -133,24 +106,6 @@ void Xctod::write() {
     pCharacteristic->notify();
 }
 
-void Xctod::setAdvertisingEnabled(bool enabled) {
-    if (enabled == advertisingEnabled) {
-        return;
-    }
-
-    if (enabled) {
-        BLEDevice::startAdvertising();
-    } else {
-        BLEDevice::stopAdvertising();
-    }
-
-    advertisingEnabled = enabled;
-}
-
-bool Xctod::isAdvertisingEnabled() const {
-    return advertisingEnabled;
-}
-
 void Xctod::writeBatteryInfo(char* data, size_t size, size_t& used) {
     // Get SoC from BatteryMonitor (coulomb counting for Tmotor, voltage for XAG)
     uint8_t batteryPercentageCC = batteryMonitor.getSoC();
@@ -167,17 +122,14 @@ void Xctod::writeBatteryInfo(char* data, size_t size, size_t& used) {
 
     // Format voltage
     uint16_t millivolts = telemetry.getBatteryVoltageMilliVolts();
-    uint16_t volts = millivolts / 1000;
-    uint16_t decimals = millivolts % 1000;
-
-    appendToBuffer(data, size, used, "%u.", volts);
-    if (decimals < 10) {
-        appendToBuffer(data, size, used, "0");
-    }
-    appendToBuffer(data, size, used, "%u,", decimals);
+    char voltsText[16];
+    formatMilliVolts(voltsText, sizeof(voltsText), millivolts);
+    appendToBuffer(data, size, used, "%s,", voltsText);
 
     if (isPowerKwAvailable()) {
-        uint32_t powerMilliWatts = ((uint32_t)millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000;
+        // 64-bit: a 32-bit product overflows above ~73 A at 58.5 V, and the
+        // ESC reports up to 500 A. See BleControl::fillTelemetry().
+        uint32_t powerMilliWatts = (uint32_t) (((uint64_t) millivolts * telemetry.getBatteryCurrentMilliAmps()) / 1000);
         uint32_t powerKwInt = powerMilliWatts / 1000000;
         uint32_t powerKwDecimal = (powerMilliWatts / 100000) % 10;
         appendToBuffer(data, size, used, "%lu.%lu", (unsigned long)powerKwInt, (unsigned long)powerKwDecimal);

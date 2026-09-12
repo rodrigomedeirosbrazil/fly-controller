@@ -43,6 +43,26 @@ void RemoteLink::setup() {
     addPeer(peerMac_);
 }
 
+void RemoteLink::forgetPeer() {
+    static const uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    if (esp_now_is_peer_exist(peerMac_)) {
+        esp_now_del_peer(peerMac_);
+    }
+
+    // Back to the broadcast peer setup() uses when nothing is paired, so the
+    // link is ready to hear a new remote without a reboot.
+    memcpy(peerMac_, bcast, 6);
+    addPeer(peerMac_);
+
+    // Drop the last received packet too: hasState_ is what isLinkFresh() and
+    // the throttle failsafe key off, and a stale true would keep the wireless
+    // source alive for one more freshness window against a remote we just
+    // forgot.
+    hasState_ = false;
+    rx_ = ThrottleToControllerPacket{};
+}
+
 void RemoteLink::addPeer(const uint8_t mac[6]) {
     if (esp_now_is_peer_exist(mac)) esp_now_del_peer(mac);
     esp_now_peer_info_t peer{};

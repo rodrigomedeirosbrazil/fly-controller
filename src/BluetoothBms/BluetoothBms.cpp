@@ -4,7 +4,7 @@
 #include "../JbdBms/JbdBms.h"
 #include "../JkBms/JkBms.h"
 #include "../Settings/Settings.h"
-#include "../Xctod/Xctod.h"
+#include "../BleServerHost/BleServerHost.h"
 #include <BLEAdvertisedDevice.h>
 #include <BLEClient.h>
 #include <BLEDevice.h>
@@ -21,6 +21,13 @@ void BluetoothBms::init() {
 }
 
 void BluetoothBms::update() {
+    // Phase two of a scan request has to run before the busy guard below,
+    // which is exactly what it is waiting behind.
+    if (scanPendingDisconnect_) {
+        serviceScanStart();
+        return;
+    }
+
     if (isWebScanBusy()) {
         return;
     }
@@ -192,21 +199,49 @@ bool BluetoothBms::startWebScan() {
     jkBms.setEnabled(false);
     pauseTelemetryAdvertisingForScan();
 
+    // Phase one ends here. setEnabled(false) reaches the backends'
+    // applyResetConnectionLocked(), which calls pClient_->disconnect() -- and
+    // that is asynchronous. Starting the scan in this same call begins it
+    // while the client link is still tearing down, and the scan then finds
+    // nothing, every time, whenever a BMS was configured. update() runs the
+    // second phase once the backends have let go.
+    scanPendingDisconnect_ = true;
+    scanPendingSinceMs_    = millis();
+    return true;
+}
+
+bool BluetoothBms::backendsDisconnected() const {
+    return !jbdBms.isConnected() && !dalyBms.isConnected() && !jkBms.isConnected();
+}
+
+void BluetoothBms::serviceScanStart() {
+    const bool timedOut =
+        (millis() - scanPendingSinceMs_) >= SCAN_DISCONNECT_TIMEOUT_MS;
+
+    if (!backendsDisconnected() && !timedOut) {
+        return;   // still tearing down; try again next tick
+    }
+
+    // On timeout, scan anyway rather than leaving the pilot with a request
+    // that never resolves. A degraded scan is recoverable; a wedged one is
+    // not, and the result list will show it came back thin.
+    scanPendingDisconnect_ = false;
+
+    if (!beginBleScan()) {
+        resetWebScanState(BluetoothBmsScanError);
+        strlcpy(webScanError_, "Failed to start BLE scan", sizeof(webScanError_));
+        resumeTelemetryAdvertisingAfterScan();
+    }
+}
+
+bool BluetoothBms::beginBleScan() {
     BLEScan* scan = BLEDevice::getScan();
     scan->stop();
     scan->clearResults();
     scan->setActiveScan(true);
     scan->setInterval(100);
     scan->setWindow(99);
-
-    if (!scan->start(WEB_SCAN_DURATION_SECONDS, BluetoothBms::onWebScanComplete, false)) {
-        resetWebScanState(BluetoothBmsScanError);
-        strlcpy(webScanError_, "Failed to start BLE scan", sizeof(webScanError_));
-        resumeTelemetryAdvertisingAfterScan();
-        return false;
-    }
-
-    return true;
+    return scan->start(WEB_SCAN_DURATION_SECONDS, BluetoothBms::onWebScanComplete, false);
 }
 
 void BluetoothBms::clearWebScanResults() {
@@ -282,7 +317,7 @@ void BluetoothBms::resetWebScanState(uint8_t status) {
 
 void BluetoothBms::pauseTelemetryAdvertisingForScan() {
     telemetryAdvertisingPausedForScan_ = true;
-    xctod.setAdvertisingEnabled(false);
+    bleServerHost.setAdvertisingEnabled(false);
 }
 
 void BluetoothBms::resumeTelemetryAdvertisingAfterScan() {
@@ -290,7 +325,7 @@ void BluetoothBms::resumeTelemetryAdvertisingAfterScan() {
         return;
     }
     telemetryAdvertisingPausedForScan_ = false;
-    xctod.setAdvertisingEnabled(true);
+    bleServerHost.setAdvertisingEnabled(true);
 }
 
 void BluetoothBms::completeWebScan() {

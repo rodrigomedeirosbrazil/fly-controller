@@ -40,6 +40,11 @@ public:
   // Returns the number written into buf.
   uint8_t getBeepEvents(BeepEvent* buf, uint8_t maxCount) const;
 
+  // Current state-layer tone in Hz, 0 when no state sound is running. The
+  // BLE telemetry mirror needs this because the gesture tones sweep between
+  // beep events -- see SoundLogic::stateFreqHz().
+  uint16_t getStateFreqHz() const { return logic_.stateFreqHz(); }
+
 private:
   SoundLogic logic_;
 

@@ -163,6 +163,21 @@ public:
     SoundState currentStateId() const { return stateId_; }
     bool       stateActive()    const { return stateRunner_.active; }
 
+    // The state layer's CURRENT tone, after any setStateFreq() steps have
+    // been consumed -- not the catalog pattern's base frequency. 0 when no
+    // state is running.
+    //
+    // This exists for the BLE telemetry mirror. The beep event pushed on a
+    // state transition carries the base pattern, and the per-edge sweep that
+    // follows pushes nothing, so a client told only the transition plays the
+    // gesture tones flat. Reading update()'s SoundOutput instead would be
+    // wrong: it returns the EVENT pattern's frequency whenever an event
+    // preempts the state layer, which would leak a chirp's pitch into the
+    // mirrored loop.
+    uint16_t stateFreqHz() const {
+        return stateRunner_.active ? stateFreqHz_ : 0;
+    }
+
     // Advances to nowMs (absolute millis()) and returns the tone that
     // should be playing right now.
     SoundOutput update(uint32_t nowMs) {

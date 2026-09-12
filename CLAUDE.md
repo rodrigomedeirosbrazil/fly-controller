@@ -156,3 +156,105 @@ An optional second ESP32 (the **remote throttle**, firmware in the separate [fly
 - **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`. The remote's `Armed`/`Stop`/`Disarmed` commands now mirror the controller's own armed+stopped state (`updateSoundState()` in `main.cpp`, using the same `throttle.isEngaged()` hysteresis as `Sound`'s `ArmedIdle` state) — the two used to disagree, with the remote beeping on armed alone.
 
 Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red LED=GPIO7 (armed), green LED=GPIO10 (disarmed). Pure decision logic (LED state machine, link-loss, failsafe) lives in host-testable headers tested with `c++ -std=c++17` like `test/PowerTest.cpp`.
+
+## BLE Control Service (fly-app)
+
+The client-facing contract — every UUID, struct offset, opcode and status code,
+written for whoever implements the Dart side — is
+[docs/BLE-CONTROL-PROTOCOL.md](docs/BLE-CONTROL-PROTOCOL.md). What follows is
+the firmware's side of it.
+
+Two GATT services share one BLE server, owned by `BleServerHost` (which also
+owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
+`BleControl` only register services on it).
+
+- **NUS** (`6E400001-…`, advertised) — the `$XCTOD` sentence, **frozen**. It
+  has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
+  `xctod_parser.dart`, with no version handshake, so no field is ever added.
+- **Fly Control** (`D4CF0001-9B9D-4BFD-8F7F-40C6989D3EA9`, not advertised) —
+  everything the fly-app uses. Not advertised because the 31-byte payload
+  cannot hold a second 128-bit UUID; the app discovers it after connecting,
+  which makes **service presence the capability handshake** with older
+  firmware.
+
+`BleServerHost::onConnect` restarts advertising (gated on the flag
+`BluetoothBms` uses to suppress it during a scan). Without that, Bluedroid
+stops advertising on the first connection and XCTrack and the app can never
+both be connected.
+
+Four characteristics, and it stays at four — a new feature is a new opcode,
+not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 56-byte
+struct at 1 Hz), `CMD` (write), `RSP` (notify, responses plus events with
+`seq = 0`). `D4CF0006-…` is reserved for the phase-3 bulk channel.
+
+**The wire contract is `src/BleControl/ControlProtocol.h`** — pure, host-tested
+in `test/ControlProtocolTest.cpp`, and duplicated as Dart in the fly-app repo
+with no shared package. Two rules make version skew safe in both directions:
+layout is fixed with optional fields as **validity bits rather than absence**,
+and changes **append at the end only**, with the reader parsing
+`min(received, known)` (`copyKnownPrefix`). `CONTROL_PROTOCOL_VERSION` is
+bumped in both repos only when an existing field changes position or meaning.
+
+`CFG_GET`/`CFG_SET` work on four groups (`POWER`, `THERMAL`, `BMS`, `SYSTEM`)
+rather than individual keys, so paired values are validated together.
+`CFG_SET` seeds from the current settings and overlays only the prefix it
+received, so a short write from an older app cannot zero a field it does not
+know about. Ranges come from `Settings/SettingsValidation.h`, shared with the
+web portal's POST handlers so the two transports cannot diverge.
+
+Reads are open; writes need the PIN (`AUTH`, per connection, cleared on
+disconnect) — the same split the portal has between GET and POST. **While
+armed, requests are refused by default** with `ERR_STATE`; the only exceptions
+are `AUTH`, `CFG_GET`, `BMS_SCAN_STATUS` (read-only) and `SESSION_RESET` (a
+RAM-only counter that cannot reach the motor). Armed is reported before auth
+so the app never prompts for a PIN to do something that would be refused
+anyway. The web portal is unchanged and keeps its narrower guard on
+`motorTempSource` alone.
+
+`BMS_DETECT` looks like a read and is not: `detectBmsTypeByMac()` disables all
+three BMS drivers, pauses advertising and performs a **blocking**
+`BLEClient::connect()` to the supplied MAC. Against an unresponsive address
+that can outlast the 10 s task watchdog (`WDT_TIMEOUT_S`, `panic=true`) and
+reboot the controller — in flight, that cuts the motor. It requires the PIN
+and is refused while armed like any other write.
+
+In the telemetry struct, `validity` means **availability** ("does this build
+produce this reading at all"); sensor *health* lives in `signalStates`, which
+packs the four-state `SignalState` for motor temp, ESC temp and battery
+voltage. Those three deliberately have no validity bit —
+`Telemetry::isMotorTempValid()` is literally `state == Valid`, so a bit would
+be a second answer to the same question, populated from a second call site and
+free to drift.
+
+The `CMD` write callback runs on the Bluedroid task and only enqueues
+(`ControlRequestQueue`, drop-newest on overflow); `BleControl::handle()` drains
+it on the loop task. Nothing touches controller state from the BLE callback.
+
+**Firmware update over BLE** uses `D4CF0006-…` (write without response) for
+the image and opcodes `0x50-0x53` for control — `DFU_STATUS` is a plain getter
+and joins the read-only exemptions, the other three are ordinary writes and so
+are already refused while armed. Transfer decisions live in the host-tested
+`BleControl/DfuSession.h`; `DfuSession.cpp` wraps the Arduino `Update`
+library.
+
+Two facts about that library drive the design, and both are the opposite of
+what the code reads like. `Update.begin()` does **not** erase — it resolves
+the OTA partition and nothing else; the erase is lazy inside `_writeBuffer()`,
+per 64 KB block as data arrives, so there is no multi-second stall to defer at
+begin. What must be deferred is `Update.write()`, which is where that ~150 ms
+block erase happens: the BLE callback only feeds a **16 KB FreeRTOS stream
+buffer** and `handle()` flushes one 4 KB chunk per tick, same rule as `CMD`.
+A plain shared buffer was not enough — with one, `flush()` captured a length,
+blocked in `Update.write()`, and then zeroed the cursor, discarding everything
+the Bluedroid task had staged during the block while the accepted offset and
+the CRC had already counted it. The image transferred, and the commit failed.
+A stream buffer is safe for exactly one writer and one reader. Its handle is
+detached on abort and freed a loop iteration later, never inside `abort()`
+itself: that runs on the loop task while a BLE callback may be mid-stage, so
+freeing there trades a data race for a use-after-free. And the CRC is accumulated over
+arriving bytes rather than read back from flash, because the updater withholds
+the image's first 16 bytes until `end()` so a partial image is never bootable
+— a read-back before that point can never match.
+
+See [docs/BLE-CONTROL-PROTOCOL.md](docs/BLE-CONTROL-PROTOCOL.md) for the
+client-facing contract.
