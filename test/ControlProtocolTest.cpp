@@ -123,11 +123,18 @@ void test_events_use_seq_zero() {
 void test_info_layout_is_pinned() {
     // Hand-decoded in fly-app, same as ControlTelemetry, so it gets the same
     // protection.
-    assert(sizeof(ControlInfo) == 28);
+    assert(sizeof(ControlInfo) == 49);
     assert(offsetof(ControlInfo, protocolVersion) ==  0);
     assert(offsetof(ControlInfo, controllerType)  ==  1);
     assert(offsetof(ControlInfo, capabilities)    ==  2);
     assert(offsetof(ControlInfo, appVersion)      ==  4);
+    assert(offsetof(ControlInfo, buildDate)       == 28);
+    assert(offsetof(ControlInfo, buildTime)       == 40);
+
+    // The compiler's own stamps must fit with room for the NUL. Pinned here
+    // rather than trusted: a shorter field would silently truncate the year.
+    assert(sizeof(__DATE__) <= sizeof(((ControlInfo*) nullptr)->buildDate));
+    assert(sizeof(__TIME__) <= sizeof(((ControlInfo*) nullptr)->buildTime));
 
     assert(Capability::CanTelemetry       == 0x0001);
     assert(Capability::VoltageSensor      == 0x0002);

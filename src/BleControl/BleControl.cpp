@@ -231,6 +231,8 @@ void BleControl::writeInfo() {
     info.capabilities = caps;
 
     strncpy(info.appVersion, APP_VERSION, sizeof(info.appVersion) - 1);
+    strncpy(info.buildDate,  __DATE__,    sizeof(info.buildDate)  - 1);
+    strncpy(info.buildTime,  __TIME__,    sizeof(info.buildTime)  - 1);
 
     infoChar_->setValue((uint8_t*) &info, sizeof(info));
 }

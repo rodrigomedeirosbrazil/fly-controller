@@ -56,7 +56,7 @@ Request an MTU of 247. Every frame in this protocol fits in one packet at that
 size, so there is no fragmentation layer. Measured working on a Galaxy A12
 (API 31).
 
-## `INFO` — 28 bytes, read once
+## `INFO` — 49 bytes, read once
 
 Static for the whole session; the firmware writes it at boot.
 
@@ -66,6 +66,14 @@ Static for the whole session; the firmware writes it at boot.
 | 1 | `uint8` | `controllerType` — 1 = XAG, 3 = Tmotor |
 | 2 | `uint16` | `capabilities` |
 | 4 | `char[24]` | `appVersion` — firmware version, NUL-padded |
+| 28 | `char[12]` | `buildDate` — compiler `__DATE__`, e.g. `Sep 12 2026`, NUL-padded |
+| 40 | `char[9]` | `buildTime` — compiler `__TIME__`, e.g. `12:46:03`, NUL-padded |
+
+`buildDate`/`buildTime` are appended at the end, so a client written against
+the 28-byte layout keeps working unchanged — read `min(received, known)` here
+as everywhere else. They matter because only CI-tagged images carry a real
+`appVersion`; every local build reports `dev`, and then the build stamp is the
+only thing that answers "is this the image I just flashed?".
 
 Capability bits:
 

@@ -146,6 +146,11 @@ struct ControlInfo {
     uint8_t  controllerType;
     uint16_t capabilities;
     char     appVersion[24];   // NUL-padded
+    // Compiler build stamp. APP_VERSION is only meaningful on CI-tagged
+    // images -- every local build reports "dev", so two images a week apart
+    // carry the same version string and only the date tells them apart.
+    char     buildDate[12];    // __DATE__ is 11 chars ("Sep 12 2026") + NUL
+    char     buildTime[9];     // __TIME__ is  8 chars ("12:46:03") + NUL
 };
 #pragma pack(pop)
 
