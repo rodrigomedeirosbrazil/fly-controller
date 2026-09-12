@@ -136,4 +136,5 @@ namespace DfuFlash {
     uint32_t stagedBytes();
     bool     finish();
     void     abort();
+    void     releaseIfRetired();
 }

@@ -543,6 +543,14 @@ void BleControl::enqueueDfuData(const uint8_t* data, size_t len) {
         return;
     }
 
+    // Nothing below may touch DfuFlash unless a transfer is actually running.
+    // DFU_ABORT is dispatched on the loop task while packets can still be in
+    // flight, and it detaches the stream -- so this gate, not just the
+    // accessors' own null checks, is what keeps a stray packet out.
+    if (dfu_.state() != DfuState::Receiving) {
+        return;
+    }
+
     uint32_t offset = 0;
     memcpy(&offset, data, sizeof(offset));
 
@@ -551,7 +559,9 @@ void BleControl::enqueueDfuData(const uint8_t* data, size_t len) {
 
     // Room is checked BEFORE the offset is accepted. acceptOffset() advances
     // the accepted count, and if staging then failed the client would be told
-    // bytes were taken that never reached flash.
+    // bytes were taken that never reached flash. With a stream buffer, free
+    // space can only grow between the check and the send (the reader frees it),
+    // so hasRoom() is conservative and stage() cannot fail after it passes.
     if (!DfuFlash::hasRoom(bodyLen)) {
         return;   // stage full; the client restarts from received()
     }
@@ -564,6 +574,13 @@ void BleControl::enqueueDfuData(const uint8_t* data, size_t len) {
 }
 
 void BleControl::serviceDfu() {
+    // First, and before any early return: abort() and finish() only DETACH
+    // the stream buffer, because they run on this task while a BLE callback
+    // may still be inside stage(). This is what actually frees it, one full
+    // loop iteration later. It also has to run when the session is no longer
+    // Receiving -- which is precisely when a buffer is waiting to be freed.
+    DfuFlash::releaseIfRetired();
+
     if (dfuRebootPending_) {
         dfuRebootPending_ = false;
         Serial.println("[BleControl] DFU committed, restarting");
@@ -619,6 +636,10 @@ ControlStatus BleControl::handleDfu(const QueuedRequest& req, uint8_t* out, uint
             }
             dfu_.markVerifying();
             if (!DfuFlash::flush() || !DfuFlash::finish()) {
+                // ErrState alone cannot tell a short image from a failed
+                // write. Update carries the reason; print it.
+                Serial.printf("[BleControl] DFU commit failed: %s\n",
+                              Update.errorString());
                 dfu_.markError();
                 return ControlStatus::ErrState;
             }

@@ -242,8 +242,16 @@ what the code reads like. `Update.begin()` does **not** erase — it resolves
 the OTA partition and nothing else; the erase is lazy inside `_writeBuffer()`,
 per 64 KB block as data arrives, so there is no multi-second stall to defer at
 begin. What must be deferred is `Update.write()`, which is where that ~150 ms
-block erase happens: the BLE callback only `memcpy`s into a 4 KB stage and
-`handle()` flushes it, same rule as `CMD`. And the CRC is accumulated over
+block erase happens: the BLE callback only feeds a **16 KB FreeRTOS stream
+buffer** and `handle()` flushes one 4 KB chunk per tick, same rule as `CMD`.
+A plain shared buffer was not enough — with one, `flush()` captured a length,
+blocked in `Update.write()`, and then zeroed the cursor, discarding everything
+the Bluedroid task had staged during the block while the accepted offset and
+the CRC had already counted it. The image transferred, and the commit failed.
+A stream buffer is safe for exactly one writer and one reader. Its handle is
+detached on abort and freed a loop iteration later, never inside `abort()`
+itself: that runs on the loop task while a BLE callback may be mid-stage, so
+freeing there trades a data race for a use-after-free. And the CRC is accumulated over
 arriving bytes rather than read back from flash, because the updater withholds
 the image's first 16 bytes until `end()` so a partial image is never bootable
 — a read-back before that point can never match.
