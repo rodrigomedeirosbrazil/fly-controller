@@ -284,6 +284,9 @@ void test_gate_allows_reads_without_auth() {
     assert(gateRequest(ControlOp::Auth,          false, false) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::CfgGet,        false, false) == ControlStatus::Ok);
     assert(gateRequest(ControlOp::BmsScanStatus, false, false) == ControlStatus::Ok);
+    // SetTime matches POST /api/settime, which has no PIN: the worst abuse is
+    // a wrong log timestamp.
+    assert(gateRequest(ControlOp::SetTime,       false, false) == ControlStatus::Ok);
 }
 
 void test_gate_requires_auth_for_writes() {
@@ -326,6 +329,10 @@ void test_gate_reports_armed_before_auth() {
     // has not authenticated, so the app does not prompt for a PIN to perform
     // something that would be refused anyway.
     assert(gateRequest(ControlOp::CfgSet, false, true) == ControlStatus::ErrState);
+    // Same for an op that needs no auth at all: SetTime stays refused while
+    // armed, because a clock jump would split one flight's log rows across
+    // two time bases.
+    assert(gateRequest(ControlOp::SetTime, false, true) == ControlStatus::ErrState);
 }
 
 void test_config_struct_sizes_are_pinned() {
