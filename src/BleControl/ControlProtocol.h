@@ -317,6 +317,11 @@ inline bool opRequiresAuth(uint8_t op) {
         case ControlOp::CfgGet:         // read-only
         case ControlOp::BmsScanStatus:  // read-only: a plain status getter
         case ControlOp::DfuStatus:      // read-only: polled during a transfer
+        case ControlOp::SetTime:
+            // Parity with POST /api/settime, which the portal calls on every
+            // page without a PIN. The worst abuse is a wrong timestamp in the
+            // log -- it cannot reach the motor, any setting or the BMS. Still
+            // refused while armed (see opAllowedWhileArmed).
             return false;
         default:
             return true;

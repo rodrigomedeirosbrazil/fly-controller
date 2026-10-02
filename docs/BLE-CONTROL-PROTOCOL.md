@@ -245,6 +245,11 @@ Reads are open; writes need the PIN. This mirrors the web portal, where every
 
 - `TELEMETRY`, `INFO` and `CFG_GET` work unauthenticated — show the flight
   panel without ever prompting.
+- `SET_TIME` needs no PIN either. The portal's `POST /api/settime` has never
+  checked one (every page calls it on load), and the worst abuse is a wrong
+  timestamp in the log — it cannot reach the motor, any setting or the BMS. So
+  the app can sync the clock on every connection without prompting. It is
+  still refused while armed (see below).
 - Everything else answers `ErrAuth` until `AUTH` succeeds.
 - **Authentication is per connection and is cleared on disconnect.** Re-send
   `AUTH` after any reconnect.
@@ -286,14 +291,18 @@ watchdog and reboot the controller. In flight that cuts the motor.
 | `0x24` | `REMOTE_PAIR` | — → — |
 | `0x25` | `REMOTE_FORGET` | — → — |
 | `0x26` | `BUZZER_PREVIEW` | `[volume u8]` (0–100) → — |
-| `0x27` | `SET_TIME` | `[epochMs i64]` → — |
+| `0x27` | `SET_TIME` | `[epochMs i64]` → — (no PIN; refused while armed) |
 | `0x28` | `PIN_CHANGE` | `[curLen u8][cur…][newLen u8][new…]` → — |
 | `0x29` | `TMOTOR_DIR_FORWARD` | — → — (Tmotor only) |
 | `0x2A` | `TMOTOR_DIR_REVERSE` | — → — (Tmotor only) |
 
 On XAG the two direction opcodes return `ErrBadOp`.
 
-`SET_TIME` rejects anything at or below `1577836800000` (2020-01-01).
+`SET_TIME` rejects anything at or below `1577836800000` (2020-01-01). It needs
+no `AUTH` but is refused with `ErrState` while armed: a clock jump mid-flight
+would split one flight's log rows across two time bases. Firmware before this
+change answers `ErrAuth` to an unauthenticated `SET_TIME`; treat that as "skip
+the sync", not as a reason to prompt for the PIN.
 `PIN_CHANGE` requires the new PIN to be 4–8 characters and answers `ErrAuth` if
 the current one is wrong.
 
