@@ -17,7 +17,7 @@ inline bool isGapFresh(uint32_t lastRxMs, uint32_t nowMs, uint32_t windowMs) {
 
 class RemoteLink {
   public:
-    void setup();   // init ESP-NOW on the AP channel; load paired peer from Settings
+    void setup();   // bring up the radio (STA, channel 1) and ESP-NOW; load paired peer from Settings
     void handle();  // periodic TX of controller state to the remote (~5 Hz)
 
     // Throttle / button source (used by Throttle ReadFn and the Button config).
@@ -58,6 +58,7 @@ class RemoteLink {
     void onReceive(const uint8_t *senderMac, const uint8_t *data, int len);
 
   private:
+    void setupRadio();
     void addPeer(const uint8_t mac[6]);
     void sendState();
 
