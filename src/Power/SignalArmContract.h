@@ -21,7 +21,7 @@
 //    validity comes from is refreshed near the bottom — so a snapshot taken
 //    inside onArmed() would read the previous iteration's sample and then be
 //    compared against this iteration's, with every slow component in between
-//    (BLE, web server) widening the gap. On a signal whose validity is a
+//    (BLE, logging) widening the gap. On a signal whose validity is a
 //    freshness window (CAN ESC telemetry: 1 s), that gap alone was enough to
 //    read "valid at arm, invalid now" on the very first check and disarm
 //    immediately on arming. Snapshotting and comparing against the same
@@ -58,7 +58,7 @@
 // into a compile error.
 //
 // Threading: shouldLimit() is a pure read, safe to call from any task
-// (calc*Limit() is reachable from the async web-server task). update() and
+// (calc*Limit() may be reached from more than one call site). update() and
 // onArmed() mutate state and must only be called from the main loop —
 // see Power::checkSignalLoss().
 class SignalArmContract {

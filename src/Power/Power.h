@@ -40,21 +40,19 @@ public:
     // if a signal that was valid at arm has since read invalid continuously
     // for SIGNAL_LOSS_GRACE_MS. Must be
     // called ONLY from the main loop task (main.cpp's loop()) — never from
-    // an async context. getPower()/calcPower() are reachable from the
-    // AsyncWebServer/AsyncTCP task (via /api/telemetry) as well as the main
-    // loop (via handleEsc(), Xctod, TelemetryLogger), so the disarm side
-    // effect (which mutates Throttle/Buzzer state with no synchronization)
-    // cannot safely live inside calc*Limit() — this method is the only
-    // place that triggers it.
+    // an async context such as a BLE callback. getPower()/calcPower() can be
+    // called from several places (handleEsc(), Xctod, TelemetryLogger,
+    // BleControl), so the disarm side effect (which mutates Throttle/Buzzer
+    // state with no synchronization) cannot safely live inside
+    // calc*Limit() — this method is the only place that triggers it.
     //
     // calc*Limit()/getPower() themselves are NOT fully pure with respect to
     // this class's own state — calcBatteryLimit() still decrements
     // batteryPowerFloor, and getPower()'s 500ms cache is a plain
     // check-then-write on lastPowerCalculationTime/power/activeLimitCauses_.
-    // That race is pre-existing (it predates this file's signal-validity
-    // work and is reachable from the same AsyncTCP path today) and is out
-    // of scope here; only the disarm decision was moved out to close the
-    // hazard this change is responsible for.
+    // That is only safe while every caller runs on the loop task, which is
+    // the case today (BleControl defers its work to its loop-task handle());
+    // keep it that way.
     void checkSignalLoss();
 
 private:

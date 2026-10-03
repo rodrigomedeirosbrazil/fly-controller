@@ -145,15 +145,15 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Overall system status
 ```
 
-### 9. **WebServer** - WiFi Configuration Portal
+### 9. **BleControl** - Fly Control Service (fly-app)
 ```cpp
-// WiFi Access Point with captive portal and OTA updates
-- AP mode for easy device discovery
-- Real-time telemetry dashboard
-- Configuration pages: power, thermal, BMS, system settings
-- Firmware Over-The-Air (OTA) updates via ElegantOTA
-- CSV flight log viewing and download
+// Second GATT service on the shared BLE server, used by the fly-app
+- Live telemetry notifications at 1 Hz
+- Configuration groups: power, thermal, BMS, system (PIN-protected writes)
+- Firmware over-the-air (OTA) updates over BLE
+- CSV flight log listing, download and deletion
 ```
+See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### 10. **BMS Integration** - Battery Management Systems
 ```cpp
@@ -162,7 +162,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Pack voltage, current, and state-of-charge (SoC)
 - Temperature sensors per pack
 - Charge/discharge/balance status flags
-- BLE device scanning triggered via web portal
+- BLE device scanning triggered from the fly-app
 ```
 
 ### 11. **Logger** - Flight Data Recording
@@ -170,7 +170,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 // CSV logging to LittleFS
 - Auto-start on arm, auto-stop on disarm
 - Configurable data fields and header
-- Log download and deletion via web interface
+- Log download and deletion from the fly-app
 ```
 
 ## 📡 Communication Protocols
@@ -205,7 +205,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Direct ESC PWM control
 - ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
 - ✅ Bidirectional CAN bus communication (UAVCAN)
-- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), web-portal pairing, and status LEDs/buzzer on the remote
+- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), fly-app pairing, and status LEDs/buzzer on the remote
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -217,7 +217,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - ✅ Cell voltage and balance monitoring
 - ✅ State-of-charge (SoC) tracking
 - ✅ CSV flight logging to LittleFS (auto on arm/disarm)
-- ✅ Web portal with OTA firmware updates
+- ✅ Fly Control BLE service (fly-app) with OTA firmware updates
 
 ## 🔌 Supported Hardware
 
@@ -281,11 +281,7 @@ The required libraries are automatically managed by PlatformIO.
 lib_deps =
     bxparks/AceButton@^1.10.1
     madhephaestus/ESP32Servo
-    https://github.com/me-no-dev/ESPAsyncWebServer.git
-    ayushsharma82/ElegantOTA
-    AsyncTCP
     adafruit/Adafruit ADS1X15@^2.4.6
-    bblanchon/ArduinoJson@^6.21.3
 ```
 
 ### 4. Build and Upload
@@ -394,11 +390,11 @@ The optional wireless throttle (remote firmware in the separate [fly-throttle](h
 
 **Pairing steps:**
 1. Power on both devices. An **unpaired** remote shows the **red LED blinking**.
-2. On the controller, connect to its WiFi AP and open the portal at `192.168.4.1`.
-3. Go to **Sistema** (System) and set **Fonte do acelerador** (Throttle source) to **Sem fio (ESP-NOW)**. Enter the config PIN and save.
-4. In the same page, under **Pareamento do acelerador sem fio**, click **Parear remote**. (The PIN field must be filled.)
+2. Open the **fly-app** and connect to the controller over Bluetooth.
+3. In the app's System settings, set **Throttle source** to **Wireless (ESP-NOW)**. Enter the config PIN and save.
+4. In the same screen, start **Pair remote** (the PIN is required).
 5. On the remote, **hold the button** for ~3 seconds. It enters pairing mode — **red and green LEDs alternate**.
-6. The controller captures the remote's MAC and saves it; the remote learns the controller's MAC (persisted in NVS) and **beeps** to confirm. The portal then shows the paired MAC.
+6. The controller captures the remote's MAC and saves it; the remote learns the controller's MAC (persisted in NVS) and **beeps** to confirm. The app then shows the paired MAC.
 7. Done — the remote shows **green solid** (disarmed). Arm/calibrate exactly as with the wired throttle, using the remote's button and Hall.
 
 **LED reference (remote):**
@@ -411,7 +407,7 @@ The optional wireless throttle (remote firmware in the separate [fly-throttle](h
 | Paired + armed | solid | off |
 | Link lost | blinking together | blinking together |
 
-**Unpairing / re-pairing:** in the portal, use **Esquecer remote** (Forget) to clear the saved MAC, then pair again. Switching **Fonte do acelerador** back to **Cabeado** (Wired) restores the wired Hall + on-board button without unpairing.
+**Unpairing / re-pairing:** in the fly-app, use **Esquecer remote** (`REMOTE_FORGET`) to clear the saved MAC, then pair again. Switching **Fonte do acelerador** back to **Cabeado** (Wired) restores the wired Hall + on-board button without unpairing.
 
 **Failsafe (wireless mode):** if the controller stops receiving packets for >500 ms it ramps the throttle to zero (staying armed); after >3 s it disarms. On the remote, lost link shows both LEDs blinking together.
 
@@ -464,8 +460,7 @@ src/
 ├── JbdBms/               # JBD BMS protocol implementation
 ├── JkBms/                # JK BMS (JK02) protocol implementation + parser
 ├── Logger/               # CSV flight logging to LittleFS
-└── WebServer/            # WiFi AP, captive portal, OTA updates
-    └── Pages/            # HTML/JS page handlers
+└── BleControl/           # Fly Control GATT service (fly-app)
 ```
 
 ### Adding New Components

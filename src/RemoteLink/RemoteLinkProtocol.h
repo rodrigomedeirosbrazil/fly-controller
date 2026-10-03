@@ -6,8 +6,8 @@
 // Shared ESP-NOW wire contract between the controller and the remote throttle.
 // MUST stay byte-identical on both sides — both firmwares include this header.
 
-// Fixed radio channel: ESP-NOW peers and the controller softAP must share a
-// channel on the ESP32-C3's single radio. Matches the softAP default.
+// Fixed radio channel: both ends pin it explicitly. The controller's single
+// radio also runs BLE; nothing else may move it.
 #define REMOTE_LINK_CHANNEL 1
 
 // Bump this whenever the wire format (packet layout, field meaning, or beep

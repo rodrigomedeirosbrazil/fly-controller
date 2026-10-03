@@ -2,7 +2,9 @@
 
 The **Fly Control** GATT service is the controller's own binary protocol, used
 by the [fly-app](https://github.com/rodrigomedeirosbrazil/fly-app) Flutter
-client. It carries telemetry, configuration and one-off actions.
+client. It carries telemetry, configuration, flight logs, firmware update and
+one-off actions. It is the only interface the controller has: the WiFi web
+portal no longer exists.
 
 It exists alongside the Nordic UART service documented in
 [XCTOD-PROTOCOL.md](XCTOD-PROTOCOL.md), which is **frozen**: that CSV sentence
@@ -48,15 +50,17 @@ fall back to parsing the `$XCTOD` sentence. Do not delete that fallback.
 | `TELEMETRY` | `D4CF0003-9B9D-4BFD-8F7F-40C6989D3EA9` | NOTIFY |
 | `CMD` | `D4CF0004-9B9D-4BFD-8F7F-40C6989D3EA9` | WRITE |
 | `RSP` | `D4CF0005-9B9D-4BFD-8F7F-40C6989D3EA9` | NOTIFY |
+| `DFU` | `D4CF0006-9B9D-4BFD-8F7F-40C6989D3EA9` | WRITE WITHOUT RESPONSE |
 
-`D4CF0006-…` is reserved for the phase-3 bulk channel (log download, OTA) and
-is not implemented.
+`DFU` carries firmware images only — see *Firmware update*. Logs travel over
+`CMD`/`RSP`.
 
-Request an MTU of 247. Every frame in this protocol fits in one packet at that
-size, so there is no fragmentation layer. Measured working on a Galaxy A12
-(API 31).
+Request an MTU of 247. Every reply is sized to fit **one notification at the
+negotiated MTU**: payload ≤ `min(240, MTU − 7)`. iOS settles at 185 (178-byte
+payloads), Android usually 247. There is no fragmentation layer. Measured
+working on a Galaxy A12 (API 31).
 
-## `INFO` — 49 bytes, read once
+## `INFO` — 51 bytes, read once
 
 Static for the whole session; the firmware writes it at boot.
 
@@ -68,6 +72,10 @@ Static for the whole session; the firmware writes it at boot.
 | 4 | `char[24]` | `appVersion` — firmware version, NUL-padded |
 | 28 | `char[12]` | `buildDate` — compiler `__DATE__`, e.g. `Sep 12 2026`, NUL-padded |
 | 40 | `char[9]` | `buildTime` — compiler `__TIME__`, e.g. `12:46:03`, NUL-padded |
+| 49 | `uint16` | `defaultDividerRatioX100` — the factory voltage-divider ratio × 100 |
+
+`defaultDividerRatioX100` lets a client tell a calibrated ratio from the
+default and restore it with `CFG_SET` Power.
 
 `buildDate`/`buildTime` are appended at the end, so a client written against
 the 28-byte layout keeps working unchanged — read `min(received, known)` here
@@ -90,7 +98,7 @@ append rule does *not* rescue, since appending saves nothing if offsets
 shifted underneath. Gate on the telemetry struct's own `ver` and on the
 received length instead, and log `protocolVersion` for support.
 
-## `TELEMETRY` — 58 bytes at 1 Hz
+## `TELEMETRY` — 69 bytes at 1 Hz
 
 Two rules govern this struct, and together they are what replaces the CSV.
 
@@ -101,9 +109,10 @@ absent field.** Every offset below is constant forever.
 `min(received, known)`.** New firmware with an old client: the client reads the
 prefix it understands and ignores the tail. Old firmware with a new client: the
 client sees a short packet and treats the fields beyond it as absent. Neither
-breaks. **Decode by offset against the received length — never assume 58.**
+breaks. **Decode by offset against the received length — never assume 69.**
 `stateFreqHz` was appended after the first release and is the worked example:
-firmware without it sends 56 bytes and nothing else changes.
+firmware without it sends 56 bytes and nothing else changes. The BMS fields at
+58–68 are the second: firmware without them sends 58.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -135,6 +144,11 @@ firmware without it sends 56 bytes and nothing else changes.
 | 50 | `int16` | `bmsTempMaxC` | |
 | 52 | `uint32` | `uptimeSec` | |
 | 56 | `uint16` | `stateFreqHz` | state-layer tone in Hz, 0 when none |
+| 58 | `uint32` | `bmsPackMv` | BMS pack voltage; validity `Bms` |
+| 62 | `int32` | `bmsCurrentMa` | BMS pack current, signed (charge is legitimate); validity `Bms` |
+| 66 | `uint8` | `bmsSoc` | %, from the BMS; validity `Bms` |
+| 67 | `uint8` | `bmsCellCount` | validity `Bms` |
+| 68 | `uint8` | `bmsLinkState` | 0 not configured · 1 idle · 2 connecting · 3 connected; no validity bit |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -234,22 +248,23 @@ answer. Time out and retry.
 | 3 | `ErrBadArg` | payload malformed or out of range |
 | 4 | `ErrState` | refused in the current state (armed) |
 | 5 | `ErrBusy` | a long-running operation holds the resource |
+| 6 | `ErrNotFound` | a well-formed log name that does not exist |
 
 `ErrBadOp` is what lets a newer client probe older firmware and degrade rather
 than hang. Treat it as "this firmware cannot do that", not as an error to show.
 
 ### Authentication
 
-Reads are open; writes need the PIN. This mirrors the web portal, where every
-`GET` is free and every `POST` checks the PIN.
+Reads are open; writes need the PIN. Reads cannot change anything; writes can.
 
 - `TELEMETRY`, `INFO` and `CFG_GET` work unauthenticated — show the flight
   panel without ever prompting.
-- `SET_TIME` needs no PIN either. The portal's `POST /api/settime` has never
-  checked one (every page calls it on load), and the worst abuse is a wrong
-  timestamp in the log — it cannot reach the motor, any setting or the BMS. So
-  the app can sync the clock on every connection without prompting. It is
-  still refused while armed (see below).
+- `LOG_LIST`, `LOG_READ` and `BMS_SCAN_RESULT` are reads and need no PIN;
+  `LOG_DELETE` and `LOG_DELETE_ALL` need it.
+- `SET_TIME` needs no PIN either. The worst abuse is a wrong timestamp in the
+  log — it cannot reach the motor, any setting or the BMS. So the app can sync
+  the clock on every connection without prompting. It is still refused while
+  armed (see below).
 - Everything else answers `ErrAuth` until `AUTH` succeeds.
 - **Authentication is per connection and is cleared on disconnect.** Re-send
   `AUTH` after any reconnect.
@@ -268,10 +283,16 @@ Reads are open; writes need the PIN. This mirrors the web portal, where every
 | `AUTH` (`0x01`) | authenticating changes nothing |
 | `CFG_GET` (`0x10`) | read-only |
 | `BMS_SCAN_STATUS` (`0x22`) | read-only |
+| `BMS_SCAN_RESULT` (`0x2B`) | read-only |
 | `SESSION_RESET` (`0x20`) | a RAM-only counter that cannot reach the motor |
 
 **`ErrState` is reported before `ErrAuth`**, so a client should never prompt for
 a PIN in response to it — the request would be refused either way.
+
+**`ErrBusy` during a firmware transfer.** `LOG_LIST`, `LOG_READ`, `LOG_DELETE`
+and `LOG_DELETE_ALL` answer `ErrBusy` while a DFU image is being received; it
+is checked after the armed gate and the PIN, so `ErrState` and `ErrAuth` keep
+precedence. Retry after the transfer. `BMS_SCAN_RESULT` is not affected.
 
 Note `BMS_DETECT` is *not* in that list despite reading like a query: it drops
 the BMS link and blocks on a BLE connect, which can outlast the 10 s task
@@ -295,6 +316,11 @@ watchdog and reboot the controller. In flight that cuts the motor.
 | `0x28` | `PIN_CHANGE` | `[curLen u8][cur…][newLen u8][new…]` → — |
 | `0x29` | `TMOTOR_DIR_FORWARD` | — → — (Tmotor only) |
 | `0x2A` | `TMOTOR_DIR_REVERSE` | — → — (Tmotor only) |
+| `0x2B` | `BMS_SCAN_RESULT` | `[index u8]` → see below |
+| `0x40` | `LOG_LIST` | `[cursorLen u8][cursor…]` → see *Flight logs* |
+| `0x41` | `LOG_READ` | `[offset u32][maxLen u8][nameLen u8][name…]` → `[offset u32][fileSize u32][data…]` |
+| `0x42` | `LOG_DELETE` | `[nameLen u8][name…]` → — (`ErrNotFound` if missing) |
+| `0x43` | `LOG_DELETE_ALL` | — → — |
 
 On XAG the two direction opcodes return `ErrBadOp`.
 
@@ -309,8 +335,15 @@ the current one is wrong.
 `BMS_SCAN_STATUS` returns `[status u8][count u8]` then, per result,
 `[mac 6][rssi i8][type u8]`. The list is truncated to fit one frame while
 `count` still reports the true total — so `count` may exceed the entries
-present. The web portal's richer scan payload (device name, advertised
-services) is not carried here.
+present. It carries no names; fetch those one device at a time with
+`BMS_SCAN_RESULT`.
+
+`BMS_SCAN_RESULT` takes `[index u8]`, an index into the same list, and returns
+`[mac 6][rssi i8][type u8][nameLen u8][name…][svcLen u8][services…]`. The name
+is cut at 32 bytes first, then the services string is cut so the whole reply
+fits one notification at the negotiated MTU. A UTF-8 name may be cut
+mid-character, so decode leniently. An index outside the list answers
+`ErrBadArg`.
 
 ### Configuration groups
 
@@ -341,7 +374,7 @@ set.
 struct from current values and overlays what arrived, so an older client
 sending a short struct updates the fields it knows and leaves the rest alone.
 A client may therefore send a truncated struct deliberately. Ranges are
-validated against the same code the web portal uses; a failure is `ErrBadArg`
+validated against `Settings/SettingsValidation.h`; a failure is `ErrBadArg`
 and nothing is written.
 
 ### Events
@@ -362,17 +395,14 @@ An `RSP` notification with `seq = 0` is unsolicited.
 | 11 | `uint8` | `layer` — 0 = event, 1 = persistent state |
 | 12 | `uint8` | `active` — 1 = started, 0 = stopped |
 
-Beeps are **pushed at the moment they happen**, not polled — unlike the web
-telemetry page, which polls a ring buffer and de-duplicates in JavaScript.
+Beeps are **pushed at the moment they happen**, not polled.
 
 There is **no backfill**: a client that connects mid-flight never sees beeps
 that happened before it connected. This is a live feed, not a log.
 
 The `layer` field matters for playback. Layer 0 is a momentary event; layer 1
 is a persistent state whose `active` flag toggles a looping tone. An event
-should pause a running state tone and resume it afterwards — see
-`initBuzzerMirror` in the web telemetry page for a working implementation of
-the same policy.
+should pause a running state tone and resume it afterwards.
 
 **A layer-1 event carries the tone's starting frequency, not its current
 one.** The arm-charge and disarm-ramp gestures sweep between 1800 and 2500 Hz,
@@ -384,8 +414,8 @@ whether it should be playing at all.
 
 ## Coexistence
 
-The controller's single radio runs a WiFi AP, ESP-NOW to the remote throttle, a
-BLE client to the BMS, and this BLE server. `CONFIG_BT_ACL_CONNECTIONS` is 4,
+The controller's single radio runs WiFi in station mode (never associated) for
+ESP-NOW to the remote throttle, a BLE client to the BMS, and this BLE server. `CONFIG_BT_ACL_CONNECTIONS` is 4,
 so XCTrack and the app can both be connected while the BMS link is up.
 
 Advertising restarts on connect, which is what makes a second central possible
@@ -453,6 +483,69 @@ Nothing in an ESP32 image says which controller it is for. XAG and Tmotor run
 different builds and both pass the magic byte, the size and the CRC. Warn the
 pilot; the recovery is a USB cable.
 
-## Not implemented
+## Flight logs
 
-Log download over BLE. Opcode range `0x40–0x4F` is reserved for it.
+Logs are CSV files on the controller's LittleFS partition. They travel over
+`CMD`/`RSP` as **offset reads**: every `LOG_READ` is idempotent, so a lost or
+late chunk is simply asked for again. There is no CRC. The link layer
+acknowledges both directions here (unlike `DFU`'s write-without-response), the
+echoed offset catches a misplaced chunk, and a CRC computed from the same flash
+the bytes were read from would detect nothing the transport does not.
+
+**Names** travel without a leading `/` and must be valid: 1–24 characters,
+every byte printable ASCII (`0x21`–`0x7E`, so no space), no `/`, no `..`, and
+ending in `.csv` or `.txt`. A name that breaks the rule is `ErrBadArg`; a valid
+name that does not exist is `ErrNotFound`.
+
+### `LOG_LIST`
+
+Request `[cursorLen u8][cursor…]`. An empty cursor starts from the beginning.
+
+Response:
+
+```
+[usedBytes u32][totalBytes u32][fileCount u16][flags u8][n u8]
+n × [size u32][nameLen u8][name…]
+```
+
+Entries are in ascending byte-wise name order, each strictly greater than the
+cursor, and as many as fit one notification at the negotiated MTU (always at
+least one when any exist). `flags & 1` means more names follow: pass the last
+name received as the next cursor. Zero-byte files are hidden, so `fileCount`
+counts only listable files. `usedBytes`/`totalBytes` describe the whole
+partition.
+
+### `LOG_READ`
+
+Request `[offset u32][maxLen u8][nameLen u8][name…]`. Response
+`[offset u32][fileSize u32][data…]`, where the data length is
+`min(maxLen, 232, MTU − 15, fileSize − offset)`.
+
+- `offset == fileSize` answers `Ok` with no data: end of file.
+- `offset > fileSize` answers `ErrBadArg`.
+- `maxLen == 0` answers `ErrBadArg` (its empty reply would look like end of
+  file).
+
+The controller closes the file it is writing before reading, so a download
+never races the logger.
+
+### `LOG_DELETE` and `LOG_DELETE_ALL`
+
+`LOG_DELETE` takes `[nameLen u8][name…]` and answers `ErrNotFound` if the file
+is missing. `LOG_DELETE_ALL` removes every `.csv` and `.txt` file in the root,
+valid name or not.
+
+### Retention
+
+The controller rotates logs by itself. At the start of each log file and every
+30 s while logging, if less than **24 KB** of the partition is free it deletes
+the oldest log — the smallest name, compared byte-wise, among valid names with
+size above zero, never the file currently being written — up to 8 deletions per
+check. Legacy clockless `NNNNN.csv` names sort before dated `YYYYMMDD_NNN.csv`
+names, so they are rotated first regardless of real age.
+
+So `usedBytes` and `totalBytes` are the truth, and the list can shrink between
+visits. Do not cache it across sessions.
+
+Firmware without these opcodes answers `ErrBadOp`; treat it as "logs are not
+available over BLE on this firmware".

@@ -53,8 +53,8 @@ Fields 3, 8, and 12 (voltage, motor temp, ESC temp) each go blank
 individually when their underlying `SignalState`
 (`src/Telemetry/SignalState.h`) is not `Valid` — i.e. `Stale`, `Invalid`,
 or `Absent` — instead of showing a possibly stale or implausible reading.
-This mirrors the same per-signal validity check the web telemetry page
-(`/api/telemetry`) uses.
+This mirrors the same per-signal validity check the Fly Control
+`TELEMETRY.signalStates` field uses.
 
 ### `system_status` (field 13)
 

@@ -47,8 +47,13 @@ namespace ControlOp {
         PinChange        = 0x28,
         TmotorDirForward = 0x29,
         TmotorDirReverse = 0x2A,
+        BmsScanResult    = 0x2B,
 
-        // 0x40-0x4F reserved for log download.
+        // Flight logs. 0x44-0x4F stay reserved.
+        LogList      = 0x40,
+        LogRead      = 0x41,
+        LogDelete    = 0x42,
+        LogDeleteAll = 0x43,
 
         DfuBegin  = 0x50,
         DfuCommit = 0x51,
@@ -66,6 +71,7 @@ enum class ControlStatus : uint8_t {
     ErrBadArg = 3, // payload malformed or out of range
     ErrState = 4,  // refused in the current state (armed)
     ErrBusy  = 5,  // another long-running operation holds the resource
+    ErrNotFound = 6, // a well-formed name that does not exist
 };
 
 enum class ConfigGroup : uint8_t {
@@ -151,6 +157,9 @@ struct ControlInfo {
     // carry the same version string and only the date tells them apart.
     char     buildDate[12];    // __DATE__ is 11 chars ("Sep 12 2026") + NUL
     char     buildTime[9];     // __TIME__ is  8 chars ("12:46:03") + NUL
+    // Appended: Settings::getDefaultVoltageDividerRatio() x 100, so the app
+    // can tell a calibrated ratio from the factory one and restore it.
+    uint16_t defaultDividerRatioX100;
 };
 #pragma pack(pop)
 
@@ -206,6 +215,32 @@ namespace TelemValid {
     };
 }
 
+namespace BmsLinkState {
+    enum : uint8_t {
+        NotConfigured = 0,
+        Idle          = 1,
+        Connecting    = 2,
+        Connected     = 3,
+    };
+}
+
+// Maps BluetoothBms::getConnectionState() (which forwards JkBms::getStateName()
+// for JK) onto the wire enum. JBD/Daly report only connected/connecting; JK
+// adds idle and an "unknown" catch-all, which is treated as idle. The caller
+// still forces NotConfigured when no BMS type/MAC is configured.
+inline uint8_t bmsLinkStateFromName(const char* name) {
+    if (name == nullptr || strcmp(name, "none") == 0) {
+        return BmsLinkState::NotConfigured;
+    }
+    if (strcmp(name, "connected") == 0) {
+        return BmsLinkState::Connected;
+    }
+    if (strcmp(name, "connecting") == 0) {
+        return BmsLinkState::Connecting;
+    }
+    return BmsLinkState::Idle;
+}
+
 #pragma pack(push, 1)
 struct ControlTelemetry {
     uint8_t  ver;
@@ -245,6 +280,15 @@ struct ControlTelemetry {
     // reimplements the sweep arithmetic from main.cpp in another repository
     // with nothing checking the two copies agree.
     uint16_t stateFreqHz;
+    // Appended: the BMS's own pack readings, covered by TelemValid::Bms like
+    // the cell fields above (zero with the bit clear when unavailable).
+    // u32 because packs above 65.5 V exist for the supported BMS types.
+    uint32_t bmsPackMv;
+    int32_t  bmsCurrentMa;   // signed: charging is a legitimate reading
+    uint8_t  bmsSoc;         // %
+    uint8_t  bmsCellCount;
+    // Always meaningful, no validity bit: BmsLinkState below.
+    uint8_t  bmsLinkState;
 };
 #pragma pack(pop)
 
@@ -277,12 +321,11 @@ inline size_t copyKnownPrefix(void* dst, size_t dstSize, const void* src, size_t
 //
 // Two policies, stated once:
 //
-//  - Auth: reads are open, writes need the PIN -- the same split the web
-//    portal has, where every GET is free and every POST calls checkPin().
-//  - Armed: refuse by DEFAULT, allow by exception. The thermal POST handler
-//    already refuses a motorTempSource change while armed; over BLE, with the
-//    phone in a pocket, the same hazard applies to everything that can reach
-//    the motor, so the default is inverted rather than enumerated.
+//  - Auth: reads cannot change anything, so they need no PIN; anything that
+//    writes does.
+//  - Armed: refuse by DEFAULT, allow by exception. With the phone in a
+//    pocket, anything that can reach the motor is a hazard in flight, so the
+//    default is inverted rather than enumerated.
 // ---------------------------------------------------------------------------
 
 inline bool opIsKnown(uint8_t op) {
@@ -301,6 +344,11 @@ inline bool opIsKnown(uint8_t op) {
         case ControlOp::PinChange:
         case ControlOp::TmotorDirForward:
         case ControlOp::TmotorDirReverse:
+        case ControlOp::BmsScanResult:
+        case ControlOp::LogList:
+        case ControlOp::LogRead:
+        case ControlOp::LogDelete:
+        case ControlOp::LogDeleteAll:
         case ControlOp::DfuBegin:
         case ControlOp::DfuCommit:
         case ControlOp::DfuAbort:
@@ -316,12 +364,14 @@ inline bool opRequiresAuth(uint8_t op) {
         case ControlOp::Auth:           // authenticating cannot require auth
         case ControlOp::CfgGet:         // read-only
         case ControlOp::BmsScanStatus:  // read-only: a plain status getter
+        case ControlOp::BmsScanResult:  // read-only: one stored scan result
+        case ControlOp::LogList:        // read-only
+        case ControlOp::LogRead:        // read-only; deletes need the PIN
         case ControlOp::DfuStatus:      // read-only: polled during a transfer
         case ControlOp::SetTime:
-            // Parity with POST /api/settime, which the portal calls on every
-            // page without a PIN. The worst abuse is a wrong timestamp in the
-            // log -- it cannot reach the motor, any setting or the BMS. Still
-            // refused while armed (see opAllowedWhileArmed).
+            // The worst abuse is a wrong timestamp in the log -- it cannot
+            // reach the motor, any setting or the BMS. Still refused while
+            // armed (see opAllowedWhileArmed).
             return false;
         default:
             return true;
@@ -333,6 +383,7 @@ inline bool opAllowedWhileArmed(uint8_t op) {
         case ControlOp::Auth:
         case ControlOp::CfgGet:
         case ControlOp::BmsScanStatus:
+        case ControlOp::BmsScanResult:
             return true;
         // BmsDetect is deliberately NOT here, despite reading like a query.
         // BluetoothBms::detectBmsTypeByMac() disables all three BMS drivers,
@@ -366,6 +417,23 @@ inline ControlStatus gateRequest(uint8_t op, bool authenticated, bool armed) {
         return ControlStatus::ErrAuth;
     }
     return ControlStatus::Ok;
+}
+
+// Refused with ErrBusy while a firmware image is being received. The DFU
+// flush and LittleFS share the flash and the loop task, and Update.write()
+// already stalls a tick for ~150 ms per block erase; a delete-all or a burst
+// of reads on top of that only lengthens ticks the watchdog is counting.
+// Applied AFTER gateRequest(), so ErrState and ErrAuth keep their precedence.
+inline bool opRefusedDuringDfu(uint8_t op) {
+    switch (op) {
+        case ControlOp::LogList:
+        case ControlOp::LogRead:
+        case ControlOp::LogDelete:
+        case ControlOp::LogDeleteAll:
+            return true;
+        default:
+            return false;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -436,8 +504,7 @@ inline bool decodeConfigGroup(const ControlRequest& req, ConfigGroup& out) {
 //
 // The CMD write callback runs on the Bluedroid task. Nothing there touches
 // controller state: it only enqueues, and handle() drains the queue on the
-// loop task. Same rule that keeps /api/session/reset off the web-server task,
-// applied uniformly rather than per opcode.
+// loop task. The rule is applied uniformly rather than per opcode.
 // ---------------------------------------------------------------------------
 
 #define CONTROL_QUEUED_PAYLOAD_MAX 32
@@ -500,10 +567,9 @@ private:
 // ---------------------------------------------------------------------------
 // Events (RSP with seq = CONTROL_EVENT_SEQ)
 //
-// The web page polls Sound's ring buffer and de-duplicates by seq. Over BLE
-// that is unnecessary: the event is pushed at the moment the sound happens.
-// The ring is still the source, so a high-water mark keeps each event from
-// being resent on every tick.
+// Sound keeps a ring buffer of recent beeps; a high-water mark keeps each
+// event from being resent on every tick. The event is pushed at the moment
+// the sound happens.
 // ---------------------------------------------------------------------------
 
 #pragma pack(push, 1)
@@ -569,5 +635,148 @@ struct DfuStatusResponse {
     uint16_t chunkSize;
 };
 #pragma pack(pop)
+
+// ---------------------------------------------------------------------------
+// Reply sizing
+//
+// Every reply must fit ONE notification at the NEGOTIATED MTU, not just
+// CONTROL_MAX_PAYLOAD: the RSP header (4) plus payload must fit MTU - 3. iOS
+// settles at 185, so a 240-byte reply would be cut by the stack and the app
+// would reject it as truncated -- working on Android, timing out on iPhone.
+// ---------------------------------------------------------------------------
+
+inline size_t rspPayloadLimit(uint16_t mtu) {
+    if (mtu <= 7) {
+        return 0;
+    }
+    const size_t limit = (size_t) mtu - 7;
+    return limit < CONTROL_MAX_PAYLOAD ? limit : CONTROL_MAX_PAYLOAD;
+}
+
+// ---------------------------------------------------------------------------
+// Flight logs (0x40-0x43)
+//
+// Offset reads over CMD/RSP: each LOG_READ is idempotent, so a lost chunk is
+// simply asked for again. No CRC -- the link layer acknowledges both
+// directions here (unlike DFU's write-without-response), the echoed offset
+// catches a misplaced chunk, and a CRC computed from the same flash the bytes
+// are read from detects nothing the transport does not.
+//
+// Names travel WITHOUT the leading '/'. Validity is isValidLogName() in
+// src/Logger/LogListing.h, shared with the Logger's retention.
+// ---------------------------------------------------------------------------
+
+#define LOG_MAX_NAME_LEN 24
+#define LOG_MAX_CHUNK    232   // CONTROL_MAX_PAYLOAD - [offset u32][fileSize u32]
+
+struct LogNameRef {
+    const uint8_t* name;
+    uint8_t        len;
+};
+
+struct LogReadRequest {
+    uint32_t   offset;
+    uint8_t    maxLen;
+    LogNameRef name;
+};
+
+// [len u8][name...] -- the LOG_LIST cursor and the LOG_DELETE name.
+inline bool decodeLogNameField(const uint8_t* p, size_t n, LogNameRef& out) {
+    if (p == nullptr || n < 1 || (size_t) 1 + p[0] > n) {
+        return false;
+    }
+    out.len  = p[0];
+    out.name = p + 1;
+    return true;
+}
+
+// [offset u32][maxLen u8][nameLen u8][name...]. maxLen 0 is rejected: its
+// empty reply would be indistinguishable from end of file.
+inline bool decodeLogReadRequest(const uint8_t* p, size_t n, LogReadRequest& out) {
+    if (p == nullptr || n < 6) {
+        return false;
+    }
+    memcpy(&out.offset, p, sizeof(out.offset));
+    out.maxLen = p[4];
+    if (out.maxLen == 0) {
+        return false;
+    }
+    return decodeLogNameField(p + 5, n - 5, out.name);
+}
+
+// min(maxLen, LOG_MAX_CHUNK, MTU - 15, fileSize - offset). The MTU bound is
+// RSP header 4 + [offset][fileSize] 8 + data <= MTU - 3. Zero at or past the
+// end; the caller rejects offset > fileSize with ErrBadArg before this.
+inline uint8_t logReadDataLength(uint8_t maxLen, uint16_t mtu,
+                                 uint32_t fileSize, uint32_t offset) {
+    if (offset >= fileSize || mtu <= 15) {
+        return 0;
+    }
+    uint32_t n = maxLen < LOG_MAX_CHUNK ? maxLen : LOG_MAX_CHUNK;
+    const uint32_t mtuCap = (uint32_t) mtu - 15;
+    if (n > mtuCap) {
+        n = mtuCap;
+    }
+    const uint32_t remaining = fileSize - offset;
+    if (n > remaining) {
+        n = remaining;
+    }
+    return (uint8_t) n;
+}
+
+// ---------------------------------------------------------------------------
+// BMS_SCAN_RESULT (0x2B)
+//
+// [mac 6][rssi i8][type u8][nameLen u8][name...][svcLen u8][services...]
+// The name is cut at BMS_SCAN_NAME_MAX first, then the services string so the
+// whole reply fits `limit`. Returns the length, or 0 if not even the fixed
+// fields fit. A UTF-8 name may be cut mid-character; the app decodes
+// malformed bytes leniently.
+// ---------------------------------------------------------------------------
+
+#define BMS_SCAN_NAME_MAX 32
+
+inline size_t encodeBmsScanResult(uint8_t* out, size_t limit, const uint8_t mac[6],
+                                  int8_t rssi, uint8_t type,
+                                  const char* name, size_t nameLen,
+                                  const char* services, size_t svcLen) {
+    const size_t fixed = 6 + 1 + 1 + 1 + 1;   // mac, rssi, type, nameLen, svcLen
+    if (out == nullptr || mac == nullptr || limit < fixed) {
+        return 0;
+    }
+    if (name == nullptr) {
+        nameLen = 0;
+    }
+    if (services == nullptr) {
+        svcLen = 0;
+    }
+    if (nameLen > BMS_SCAN_NAME_MAX) {
+        nameLen = BMS_SCAN_NAME_MAX;
+    }
+    if (nameLen > limit - fixed) {
+        nameLen = limit - fixed;
+    }
+    const size_t svcRoom = limit - fixed - nameLen;
+    if (svcLen > svcRoom) {
+        svcLen = svcRoom;
+    }
+
+    size_t o = 0;
+    memcpy(out, mac, 6);
+    o += 6;
+    out[o++] = (uint8_t) rssi;
+    out[o++] = type;
+    out[o++] = (uint8_t) nameLen;
+    if (nameLen > 0) {
+        memcpy(out + o, name, nameLen);
+        o += nameLen;
+    }
+    out[o++] = (uint8_t) svcLen;
+    if (svcLen > 0) {
+        memcpy(out + o, services, svcLen);
+        o += svcLen;
+    }
+    return o;
+}
 
 #endif // CONTROL_PROTOCOL_H

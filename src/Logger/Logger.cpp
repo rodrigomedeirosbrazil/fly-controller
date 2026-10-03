@@ -1,4 +1,5 @@
 #include "Logger.h"
+#include "LogStore.h"
 #include "../Throttle/Throttle.h"
 #include <time.h>
 #include <sys/time.h>
@@ -6,6 +7,13 @@
 extern Throttle throttle;
 
 static const time_t MIN_VALID_EPOCH = 1577836800; // 2020-01-01 UTC
+
+// ~6 KB per minute armed at 1 Hz, so 24 KB keeps about four minutes of room
+// before a session starts writing into a full partition.
+static const uint32_t LOG_RETENTION_RESERVE_BYTES = 24 * 1024;
+static const unsigned long LOG_RETENTION_CHECK_MS = 30000;
+// Bounds the work one loop tick can do; the next check continues.
+static const uint8_t LOG_RETENTION_MAX_DELETIONS = 8;
 
 bool Logger::isTimeSynced() {
     return time(nullptr) > MIN_VALID_EPOCH;
@@ -38,6 +46,8 @@ Logger::Logger() {
     wasArmed = false;
     fileHasDate = false;
     csvHeader = "";
+    lastRetentionCheckMs = 0;
+    writeFailureReported = false;
 }
 
 void Logger::init() {
@@ -54,6 +64,8 @@ void Logger::startLogging() {
     }
 
     loggingEnabled = true;
+    lastRetentionCheckMs = millis();
+    writeFailureReported = false;
     createNewFile();
     openLogFile();
 }
@@ -62,7 +74,20 @@ Logger::~Logger() {
     closeLogFile();
 }
 
+void Logger::applyRetention() {
+    const char* current = currentFileName.c_str();
+    if (current[0] == '/') {
+        current++;
+    }
+    LogStore::rotate(current, strlen(current),
+                     LOG_RETENTION_RESERVE_BYTES, LOG_RETENTION_MAX_DELETIONS);
+}
+
 void Logger::createNewFile() {
+    // Before picking the next name: the new session starts with room, and a
+    // file deleted here can no longer be the one createNewFile() reuses.
+    applyRetention();
+
     // Build date prefix when clock is synced (e.g. "20250419"), else empty.
     char datePrefix[12] = "";
     if (isTimeSynced()) {
@@ -247,6 +272,11 @@ void Logger::log(const char* data) {
     }
 
     writeLine(data);
+
+    if (millis() - lastRetentionCheckMs >= LOG_RETENTION_CHECK_MS) {
+        lastRetentionCheckMs = millis();
+        applyRetention();
+    }
 }
 
 void Logger::log(const String &data) {
@@ -274,8 +304,18 @@ void Logger::logFinalLine(const char* data) {
 void Logger::writeLine(const char* data) {
     char tsBuf[24];
     formatTimestamp(tsBuf, sizeof(tsBuf));
-    logFile.print(tsBuf);
-    logFile.print(",");
-    logFile.print(data);
+    size_t written = logFile.print(tsBuf);
+    written += logFile.print(",");
+    written += logFile.print(data);
     logFile.flush(); // Force data to be written to storage immediately
+
+    // Retention keeps room in normal use; a flight longer than the free space
+    // still fills the partition. Say so once per session instead of losing
+    // the rest of the flight in silence.
+    const size_t expected = strlen(tsBuf) + 1 + strlen(data);
+    if (written < expected && !writeFailureReported) {
+        writeFailureReported = true;
+        Serial.printf("[Logger] write to %s failed (%u of %u bytes) -- storage full?\n",
+                      currentFileName.c_str(), (unsigned) written, (unsigned) expected);
+    }
 }

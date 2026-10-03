@@ -23,7 +23,6 @@
 #include "Xctod/Xctod.h"
 #include "BleControl/BleControl.h"
 #include "TelemetryLogger/TelemetryLogger.h"
-#include "WebServer/ControllerWebServer.h"
 #include "RemoteLink/RemoteLink.h"
 #if USES_CAN_BUS && IS_TMOTOR
 #include "Tmotor/TmotorCan.h"
@@ -31,7 +30,6 @@
 
 #include "Button/Button.h"
 
-ControllerWebServer webServer;
 Logger logger;
 
 void setup()
@@ -58,9 +56,7 @@ void setup()
   batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
 #endif
 
-  webServer.begin();
-
-  // ESP-NOW rides the same radio as the AP — init after WiFi/AP is up.
+  // Brings up the radio (STA, channel 1) and ESP-NOW.
   remoteLink.setup();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
@@ -97,7 +93,7 @@ void setup()
   // TWAI_GENERAL_CONFIG_DEFAULT leaves rx_queue_len at 5 frames, which is too
   // shallow here: a single ESC_STATUS is a 3-frame transfer, and PUSHCAN,
   // Status 5 and NodeStatus share the same queue. Any loop iteration slow
-  // enough to let 5 frames accumulate (BLE work, a web request) overflows it,
+  // enough to let 5 frames accumulate (BLE work, an NVS write) overflows it,
   // and one dropped frame discards the whole ESC_STATUS transfer — which
   // stalls lastReadEscStatus and makes hasTelemetry() flicker Stale.
   g_config.rx_queue_len = CAN_RX_QUEUE_LEN;
@@ -220,8 +216,6 @@ void loop()
   handleEsc();
   updateSoundState();
   powerAlert.handle();
-
-  webServer.handleClient();
 
   esp_task_wdt_reset();
 }

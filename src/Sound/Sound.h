@@ -5,7 +5,7 @@
 #include "../Buzzer/Buzzer.h"
 #include "SoundLogic.h"
 
-// One entry in the beep event ring -- for web telemetry transport.
+// One entry in the beep event ring -- for BLE telemetry transport.
 struct BeepEvent {
   uint32_t seq;       // monotonic counter; 0 = empty slot
   uint16_t frequency; // Hz

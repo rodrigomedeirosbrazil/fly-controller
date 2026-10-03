@@ -10,7 +10,7 @@
 // When adding a BMS type, bump the upper-bound checks that reject "invalid"
 // values, or the new type is silently coerced to BmsTypeNone:
 //   - Settings::setBmsType() and Settings::validate() (Settings.cpp)
-//   - the POST /api/config/bms handler (ControllerWebServer.cpp)
+//   - validateBmsType() (Settings/SettingsValidation.h), which CFG_SET uses
 // BmsTypeJk must remain the highest value.
 enum BmsType : uint8_t {
     BmsTypeNone = 0,

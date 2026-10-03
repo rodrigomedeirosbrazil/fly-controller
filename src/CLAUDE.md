@@ -1,6 +1,6 @@
 # src/ — Fly Controller Firmware Source
 
-This is the main source directory for an ESP32-C3 (LOLIN C3 Mini) Arduino/PlatformIO firmware that controls a drone/UAV motor system. It handles throttle input, ESC PWM output, CAN bus ESC communication, battery monitoring, BMS integration, telemetry, and a WiFi config portal.
+This is the main source directory for an ESP32-C3 (LOLIN C3 Mini) Arduino/PlatformIO firmware that controls a drone/UAV motor system. It handles throttle input, ESC PWM output, CAN bus ESC communication, battery monitoring, BMS integration, telemetry, and a BLE control service for the fly-app.
 
 ## Key Files
 
@@ -55,7 +55,7 @@ All global singletons follow the same pattern:
 - `setup()` / `init()` called from `main.cpp::setup()` in dependency order
 - `handle()` / `update()` called from `main.cpp::loop()`
 
-**Exception**: `ControllerWebServer webServer` and `Logger logger` are defined directly in `main.cpp` (not in `config.cpp`) because they are only used from `main.cpp`.
+**Exception**: `Logger logger` is defined directly in `main.cpp` (not in `config.cpp`) because it is only used from `main.cpp` and `BleControl`.
 
 `Telemetry telemetry` is defined at the bottom of `Telemetry/Telemetry.cpp`.
 
@@ -150,35 +150,32 @@ the state layer. The event layer is for momentary, finite, fire-and-forget sound
 
 `sound.getBeepEvents()` returns a ring buffer of up to 8 `BeepEvent` snapshots (oldest
 first), each `{seq, frequency, onMs, offMs, reps, layer, active}` -- `layer` is 0 for a
-queued event, 1 for the state layer. The web server reads this to include a `buzzer`
-array in `/api/telemetry`. The state layer only publishes on a real transition (one entry
-starting it, one stopping it), never repeatedly. On the first successful poll the
-telemetry page primes `bzLastSeq` to the highest seq (skipping queued-event replay) but
-still applies the most recent state event, so the page starts in sync with whatever the
-device is already doing. Subsequent polls play fresh queued events immediately and toggle
-the state loop on transition, pausing/resuming it around queued events.
+queued event, 1 for the state layer. `BleControl` reads this and pushes each new entry as
+an `EVT_BEEP` event, using a high-water mark on `seq` so nothing is resent. The state layer
+only publishes on a real transition (one entry starting it, one stopping it), never
+repeatedly. A client that connects mid-flight gets no backfill.
 
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
 `getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
-Owns the arm-time contract for the three power-limiting signals (motor temp, ESC temp, battery voltage) via `SignalArmContract` (`src/Power/SignalArmContract.h`, host-tested in `test/SignalArmContractTest.cpp`): `onArmed()` (called by `Throttle::setArmed()` on a successful arm) opens the contract; `Power::checkSignalLoss()` advances it once per main-loop iteration — never from the async web-server task, since disarming isn't safe to run concurrently with the loop. A signal valid at arm that goes invalid mid-flight disarms the system (`throttle.setDisarmed(DisarmReason::MotorTempLost)` etc.); a signal already invalid at arm has its limiting disabled for the whole session, even if it later reads valid again.
+Owns the arm-time contract for the three power-limiting signals (motor temp, ESC temp, battery voltage) via `SignalArmContract` (`src/Power/SignalArmContract.h`, host-tested in `test/SignalArmContractTest.cpp`): `onArmed()` (called by `Throttle::setArmed()` on a successful arm) opens the contract; `Power::checkSignalLoss()` advances it once per main-loop iteration — never from a BLE callback, since disarming isn't safe to run concurrently with the loop. A signal valid at arm that goes invalid mid-flight disarms the system (`throttle.setDisarmed(DisarmReason::MotorTempLost)` etc.); a signal already invalid at arm has its limiting disabled for the whole session, even if it later reads valid again.
 
 The contract also carries a **source tag** for the one signal with two sensors behind a single reading — motor temp (CAN vs NTC). `checkSignalLoss()` passes `(uint8_t)telemetry.getMotorTempOrigin()` as the tag; the origin is snapshotted on the same tick as validity, and a mid-flight change of source is treated as loss of the sensor the pilot armed with. After the 2 s debounce it disarms with `DisarmReason::MotorTempSourceChanged` (`MOT SRC`) when the new source reads *valid* but differs, or `MotorTempLost` (`MOT ERR`) when the reading is invalid (an invalid reading has no source worth reporting — that's the precedence rule). While the tag diverges, `shouldLimit()` returns false immediately, so the limiter never runs one sensor's thresholds against another's reading. Invalid at arm means no disarm either way — the pilot who arms with no motor-temp protection is not cut off when a source later appears. ESC temp and battery voltage pass a constant tag 0 (single source, tag guard inert); XAG is a no-op since its origin is always `None`. The tag argument is mandatory — a forgotten tag would silently compare against 0 and, on Tmotor where the origin is never 0, disable derating; making it required turns that bug into a compile error.
 
 Two properties keep that disarm off noise, both host-tested:
-- **The arm snapshot is deferred.** `onArmed()` takes no validity argument — it only marks a snapshot as due, and the first `checkSignalLoss()` captures it. Arming runs in `button.check()` at the top of `loop()` while the telemetry cache is refreshed near the bottom, so a snapshot taken inside `onArmed()` reads the *previous* iteration's sample and is then compared against the current one, with every slow component in between (BLE, web server) widening the gap. On Tmotor, where ESC temp validity is a 1 s CAN freshness window, that straddle alone was enough to disarm on the very tick after arming.
+- **The arm snapshot is deferred.** `onArmed()` takes no validity argument — it only marks a snapshot as due, and the first `checkSignalLoss()` captures it. Arming runs in `button.check()` at the top of `loop()` while the telemetry cache is refreshed near the bottom, so a snapshot taken inside `onArmed()` reads the *previous* iteration's sample and is then compared against the current one, with every slow component in between (BLE, BMS) widening the gap. On Tmotor, where ESC temp validity is a 1 s CAN freshness window, that straddle alone was enough to disarm on the very tick after arming.
 - **Loss is debounced by `SIGNAL_LOSS_GRACE_MS` (2 s).** The signal must read invalid continuously for the full window; any valid sample resets the timer. `shouldLimit()` is *not* debounced — an invalid sample stops that signal from driving the limiter immediately; the grace only delays the disarm.
 
 `checkSignalLoss()` early-returns when disarmed so the debounce timers don't accumulate across sessions.
 
 ### PowerAlert — `PowerAlert/`
-Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getAlertSeq()` (bumped on each fire) and `getActiveCauses()` for the web API. The telemetry page highlights the offending cards in red (persistent while limited) and shows a dismissible alert panel synced to `seq` (reopens on the next 10 s fire after dismissal).
+Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getActiveCauses()`, read by BLE telemetry (`TELEMETRY.limitCauses`). It carries no sequence number: the 10 s re-fire is `PowerAlertLogic`'s, and clients only need the persistent cause bitmask.
 
 ### BatteryMonitor — `BatteryMonitor/`
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.
 
 ### Settings — `Settings/`
-Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, WiFi behavior, BMS type and MAC, config PIN, and buzzer volume (key `buzzVol`, 0-100%, default 85%). Initialized first in `setup()`.
+Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, BMS type and MAC, config PIN, and buzzer volume (key `buzzVol`, 0-100%, default 85%). Initialized first in `setup()`.
 
 ### Telemetry — `Telemetry/`
 Unified facade over build-specific telemetry sources. `telemetry.getXxx()` delegates via a `TelemetryBackend` struct (function pointers, set at init time). Falls back to `bluetoothBms` data if the primary source returns zero. Consumers should always use `telemetry`, never call `tmotorTelemetry` directly.
@@ -205,7 +202,7 @@ XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors o
 `BatteryVoltageSensor`: voltage divider via `ReadFn` + `ReadOkFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds. `isValid()` checks the EMA-smoothed millivolt reading against a fixed plausible range (5000-65000 mV) plus I2C read health, via `SensorReadingValidity`.
 
 ### BluetoothBms — `BluetoothBms/`
-Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports web-triggered BLE scanning for BMS device discovery and a live status feed (`GET /api/bms/status`).
+Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports BLE scanning for BMS device discovery, triggered from fly-app (`BMS_SCAN_START` / `BMS_SCAN_STATUS` / `BMS_SCAN_RESULT`). The scan-result accessors keep their `getWebScanResult*` names.
 
 ### DalyBms / JbdBms / JkBms
 Per-vendor BLE BMS protocol implementations behind the `BluetoothBms` facade. All three are instantiated; routing is by `Settings::getBmsType()` at runtime (`BmsTypeJbd`/`BmsTypeDaly`/`BmsTypeJk`). JK uses the JK02 BLE protocol — fixed 300-byte frames, header `55 AA EB 90`, cells at frame offset 6, checksum at the last byte. Frame decoding lives in the host-tested `JkBms/JkBmsParser.h` (`test/JkBmsParserTest.cpp`); the aggregate-field base offset (pack voltage / current / temps / SoC) varies by firmware (118/134/150 seen), so it is auto-located by scanning for the `uint32` matching the cell-voltage sum (pack voltage = sum of series cells) rather than hard-coded. The JK is kicked once and then streams cell-info frames on its own (re-requesting on each poll makes it beep).
@@ -219,6 +216,8 @@ The NUS GATT service: frozen, advertised. Broadcasts telemetry in XCTRACK-compat
 ### BleControl — `BleControl/`
 The Fly Control GATT service: binary telemetry and request/response control protocol for the fly-app. Pure wire contract and dispatch decisions live in `ControlProtocol.h` (host-tested in `test/ControlProtocolTest.cpp`); the Arduino wrapper is in `BleControl.cpp`. The `CMD` write callback runs on the Bluedroid task and only enqueues requests into `ControlRequestQueue`; `BleControl::handle()` drains the queue on the main loop task, so nothing touches controller state from a BLE callback. The service is not advertised; capability detection is by presence discovery after connection. Registers on `BleServerHost`'s `BLEServer`.
 
+Log opcodes (`0x40-0x43`) and `BMS_SCAN_RESULT` (`0x2B`) are handled in `BleControl.cpp`. Every reply is bounded by `rspPayloadLimit(bleServerHost.getNegotiatedMtu())` — payload at most `min(240, MTU - 7)` — because iOS negotiates 185 and a longer notification is cut by the stack. `LOG_READ` and `LOG_DELETE` call `logger.closeLogFile()` first; `LOG_DELETE_ALL` ends with `logger.afterLogFilesClearedFromStorage()`. `LOG_*` answer `ErrBusy` while a DFU image is being received (`opRefusedDuringDfu`, checked after the armed/PIN gate), since flash writes and LittleFS share the loop task. `TELEMETRY` is 69 bytes (BMS pack voltage/current/SoC/cell count/link state appended at 58-68) and `INFO` is 51 (`defaultDividerRatioX100` at 49).
+
 ### DfuSession — `BleControl/DfuSession.{h,cpp}`
 Firmware update over BLE. `DfuSession.h` is the pure, host-tested transfer engine (`test/DfuSessionTest.cpp`): size validation, the offset acceptance rule, CRC accumulation, commit gating. Only an offset exactly equal to the accepted count is taken — a gap or a resend is dropped, never buffered, because the client restarts from `received()` and out-of-order retention would serve nobody. `DfuSession.cpp` wraps the Arduino `Update` library and owns a 16 KB FreeRTOS stream buffer, sized to absorb the burst that arrives while a flash sector erases; `flush()` moves one 4 KB chunk per loop tick, because every `Update.write()` can block and `loop()` owes the throttle and ESC their timing.
 
@@ -226,16 +225,17 @@ The stream buffer is not decoration. A plain shared buffer raced: `flush()` capt
 
 Two library facts drive the split, and both read backwards. `Update.begin()` does **not** erase (it resolves the OTA partition and resets state); the erase is lazy inside `_writeBuffer()`, per 64 KB block as data arrives. So `begin` is inline-safe. `Update.write()` is what blocks for ~150 ms on those erases, so it must not run on the Bluedroid task — the BLE callback stages, `BleControl::handle()` flushes. And the CRC is accumulated over arriving bytes, not read back from flash: the updater withholds the image's first 16 bytes until `end()` so a partial image is never bootable, which makes any read-back before then mismatch by construction.
 
-### WebServer — `WebServer/`
-WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTML headers in `Pages/`. Handles dashboard, telemetry, config (power, thermal, BMS, system), logs, and OTA firmware updates.
-
 ### Button — `Button/`
 Thin wrapper on GPIO5 over `ButtonGestureLogic` (pure, host-tested in `test/ButtonGestureLogicTest.cpp`). Reads the source — `digitalRead(pin)` wired, `remoteLink.remoteButtonPressed()` wireless, selected by `settings.getThrottleSource()`; wireless `rawPressed` is ANDed with `remoteLink.isLinkFresh()` so a stale link reads as released. Feeds the gesture every `check()` and translates intents: `Click` → beep, `Arm` → `throttle.setArmed()`, `Disarm` → `throttle.setDisarmed(Manual)`.
 
 Arming: short click → release → hold 2000 ms, with the hold starting within 600 ms of the click (`armCharge` 0→100). Releasing before the charge completes aborts the whole gesture back to `Idle` — the window closes and re-arming needs a fresh click, so a stray tap can never leave the controller one hold away from armed. Disarming: a hold ramps power down (`powerScale` 100→0 over 2000 ms, symmetric recovery); with the throttle un-engaged a press disarms immediately. `main.cpp` reads `getPowerScale()`/`getArmCharge()` each loop to drive the disarm ramp (`power.setDisarmScale()`) and the gesture tones.
 
 ### Logger — `Logger/`
-LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. Web UI can download or delete logs.
+LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. fly-app lists, downloads and deletes logs over BLE (`LOG_*`, see BleControl).
+
+Pure naming/paging/retention logic lives in `LogListing.h` (host-tested in `test/LogListingTest.cpp`): the log-name validator (shared with the wire contract — 1-24 printable chars, no `/` or `..`, `.csv`/`.txt`), the page builder behind `LOG_LIST`, and the retention picker. `LogStore.{h,cpp}` is the thin LittleFS wrapper and the only caller of the filesystem for both `BleControl` and the Logger's retention.
+
+**Retention.** The Logger keeps 24 KB of the partition free. At the start of each log file (`createNewFile()`) and every 30 s while logging, while free space is under the reserve it deletes the oldest log — smallest name byte-wise among valid names with size > 0, never the file being written — at most 8 deletions per check so the loop tick stays bounded. Legacy clockless `NNNNN.csv` names sort before dated `YYYYMMDD_NNN.csv` and rotate first regardless of real age (LittleFS keeps no trustworthy mtime without a clock). A single flight longer than the free space still fills the partition; failures of `print`/`flush` are logged on serial rather than ignored.
 
 ## Pin Assignments (ESP32-C3)
 

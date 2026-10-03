@@ -2,7 +2,7 @@
 #pragma once
 #include <stdint.h>
 
-// Why the system disarmed. One definition, shared by the telemetry web page,
+// Why the system disarmed. One definition, shared by BLE telemetry,
 // the CSV log, and Xctod's system-status field — so a reason never drifts
 // out of sync between surfaces.
 //

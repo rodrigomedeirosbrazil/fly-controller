@@ -40,9 +40,11 @@ public:
     // preference. The firmware-update path sizes its data packets from this.
     //
     // One value, not one per connection: only one central ever runs an
-    // update, and the cost of reporting a stale smaller number is a slower
-    // transfer, not a broken one. 23 is the BLE default, used until a peer
-    // negotiates something larger.
+    // update or a log download. A stale smaller number only slows a transfer,
+    // but a stale LARGER one would size replies past the current link, so the
+    // value is reset to the BLE default when the last central disconnects.
+    // 23 is that default, used until a peer negotiates something larger. While
+    // two centrals are connected at once the last writer still wins.
     uint16_t getNegotiatedMtu() const { return negotiatedMtu_; }
 
     // Called from the server callbacks, on the Bluedroid task. Stores only.
@@ -51,6 +53,9 @@ public:
             negotiatedMtu_ = mtu;
         }
     }
+
+    // Called from the server callbacks, on the Bluedroid task.
+    void resetNegotiatedMtu() { negotiatedMtu_ = 23; }
 
 private:
     BLEServer* server_ = nullptr;

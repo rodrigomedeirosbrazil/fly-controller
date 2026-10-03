@@ -22,6 +22,13 @@ public:
         if (param != nullptr) {
             bleControl.onCentralDisconnected(param->disconnect.conn_id);
         }
+        // The library fires this callback BEFORE it decrements its connected
+        // count, so "last central leaving" is a count of 1, not 0. Forget the
+        // MTU then: replies are sized from it, and a stale larger value would
+        // make them exceed the next central's link.
+        if (server != nullptr && server->getConnectedCount() <= 1) {
+            host_->resetNegotiatedMtu();
+        }
         host_->onConnectionChanged();
     }
 
@@ -41,7 +48,7 @@ void BleServerHost::init(const char* deviceName) {
     BLEDevice::init(deviceName);
 
     // Cap BLE TX power. The ESP32-C3 Supermini browns out under full-power
-    // radio (WiFi TX is already pinned to 8.5 dBm), and the default BLE power
+    // radio (the WiFi TX used by ESP-NOW is already pinned to 8.5 dBm), and the default BLE power
     // compounds the current spike now that an always-on BMS connection shares
     // the radio with the advertiser/notifier. All peers (BMS, phone, remote)
     // sit within ~2 m, so 0 dBm leaves a large link-budget margin. DEFAULT

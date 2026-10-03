@@ -13,7 +13,7 @@ A wireless remote-throttle firmware that pairs with this controller lives in a s
 
 ## Read these next
 
-- [`CLAUDE.md`](./CLAUDE.md) — **source of truth**, detailed. Build system, project structure, key patterns, pinouts, power & safety logic, web portal, ESP-NOW remote link. (Other agents: if your tool does not auto-load `CLAUDE.md`, read it manually before doing anything.)
+- [`CLAUDE.md`](./CLAUDE.md) — **source of truth**, detailed. Build system, project structure, key patterns, pinouts, power & safety logic, BLE control service, ESP-NOW remote link. (Other agents: if your tool does not auto-load `CLAUDE.md`, read it manually before doing anything.)
 - [`AGENTS.md`](./AGENTS.md) — cross-agent conventions (build commands, coding rules, file discovery). Start here if you are not Claude Code.
 - [`README.md`](./README.md) — human-facing overview, system architecture, hardware, features.
 - [`platformio.ini`](./platformio.ini) — build environments and library dependencies.
@@ -44,7 +44,7 @@ Host tests in `test/` are compiled with `c++ -std=c++17` and never touch hardwar
 
 ## Coding conventions (apply to every change)
 
-- All code, comments, commit messages, identifiers: **English**. The only exception is user-facing strings in the web portal (Brazilian Portuguese).
+- All code, comments, commit messages, identifiers: **English**. The only exception is the user manuals under `docs/MANUAL-*.md` (Brazilian Portuguese).
 - Build guards: `#if IS_TMOTOR` / `#if IS_XAG` / `#if USES_CAN_BUS` — these are always defined as 0 or 1. **Never** use `#ifdef`.
 - No `delay()` in `loop()` — use `millis()` timing.
 - Units everywhere: temperatures `int32_t` millicelsius, voltages `uint16_t` millivolts, currents `uint32_t` milliamps, capacity milliamp-hours.

@@ -1,14 +1,13 @@
 #pragma once
 #include <stdint.h>
 
-// Range validation for persisted settings, shared by the web portal's POST
-// handlers and BleControl's CFG_SET. Pure: no Arduino, no Settings instance,
+// Range validation for persisted settings: the single source of the ranges
+// BleControl's CFG_SET enforces. Pure: no Arduino, no Settings instance,
 // host-tested in test/SettingsValidationTest.cpp.
 //
-// These ranges were extracted verbatim from ControllerWebServer.cpp and must
-// stay behaviour-identical. In particular there is deliberately NO ordering
-// check (min < max, reductionStart < maxTemp): the portal has never had one,
-// and adding it here would silently change what it accepts.
+// There is deliberately NO ordering check (min < max, reductionStart <
+// maxTemp): none has ever existed, and adding one here would silently change
+// what is accepted.
 
 enum class SettingsError : uint8_t {
     None = 0,
@@ -31,9 +30,9 @@ inline SettingsError validatePower(uint32_t capacityMah, uint32_t minMv, uint32_
     return SettingsError::None;
 }
 
-// Kept separate because the web handler applies it only when the field is
-// present in the JSON body, and takes a float so that the boundary behaves
-// exactly as it does today.
+// Kept separate because the divider ratio is optional on the wire (a short
+// write from an older app does not carry it), so callers apply it only when
+// the field is present. Takes a float so the boundary is exact.
 inline SettingsError validateVoltageDividerRatio(float ratio) {
     if (ratio < 1.0f || ratio > 100.0f) return SettingsError::DividerRatioRange;
     return SettingsError::None;

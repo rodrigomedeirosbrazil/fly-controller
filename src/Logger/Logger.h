@@ -20,7 +20,7 @@ public:
      */
     void logFinalLine(const char* data);
     void setHeader(const String &header);
-    /** Call after log files were removed from LittleFS (e.g. web UI delete-all). */
+    /** Call after log files were removed from LittleFS (e.g. LOG_DELETE_ALL). */
     void afterLogFilesClearedFromStorage();
     /**
      * Flush and release the file handle so another reader can open the same file
@@ -41,6 +41,11 @@ private:
     bool wasArmed;
     bool fileHasDate;
     String csvHeader;
+    unsigned long lastRetentionCheckMs;
+    bool writeFailureReported;
+
+    /** Frees space by deleting the oldest logs, never the current one. */
+    void applyRetention();
 
     void createNewFile();
     void openLogFile();

@@ -29,7 +29,7 @@ Value `2` is a retired Hobbywing type. `USES_CAN_BUS` is 1 for Tmotor, 0 for XAG
 
 ## Coding conventions
 
-- All code, comments, commit messages, identifiers: **English**. Only exception: user-facing strings in the web portal (Brazilian Portuguese).
+- All code, comments, commit messages, identifiers: **English**. Only exception: the user manuals under `docs/MANUAL-*.md` (Brazilian Portuguese).
 - Build guards: `#if IS_TMOTOR` / `#if IS_XAG` / `#if USES_CAN_BUS` — always defined as 0 or 1. **Never** use `#ifdef`.
 - No `delay()` in `loop()` — use `millis()` timing.
 - Units: temperatures millicelsius (`int32_t`), voltages millivolts (`uint16_t`), currents milliamps (`uint32_t`), capacity milliamp-hours.
@@ -45,7 +45,7 @@ Each feature lives in `src/ComponentName/ComponentName.h` and `.cpp`. To add one
 3. Instantiate in `config.cpp`.
 4. Call `componentName.setup()` in `setup()` and `componentName.handle()` in `loop()`.
 
-Globals: only `config.cpp` instantiates global objects (`config.h` holds `extern` declarations). Exception: `ControllerWebServer webServer` and `Logger logger` live in `main.cpp`; `Telemetry telemetry` is defined at the bottom of `Telemetry/Telemetry.cpp`.
+Globals: only `config.cpp` instantiates global objects (`config.h` holds `extern` declarations). Exception: `Logger logger` lives in `main.cpp`; `Telemetry telemetry` is defined at the bottom of `Telemetry/Telemetry.cpp`.
 
 ## File discovery hierarchy
 
