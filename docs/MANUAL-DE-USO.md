@@ -65,7 +65,7 @@ O sistema desarma automaticamente, sem intervenção do piloto, se a leitura do 
 
 Em qualquer um dos dois casos:
 - O buzzer toca um padrão de alarme contínuo, mais rápido e mais agudo que o beep de desarme manual. Ele **para assim que você arma o sistema de novo**; se você não conseguir corrigir a falha no lugar, ele se cala sozinho depois de 1 minuto.
-- A página de Telemetria mostra um chip vermelho com o código da falha na barra de status (não desaparece sozinho; some ao rearmar). Toque nele para ler a explicação completa.
+- O app fly-app mostra um chip vermelho com o código da falha na barra de status (não desaparece sozinho; some ao rearmar). Toque nele para ler a explicação completa.
 - Para voltar a voar, primeiro corrija o problema (verifique a conexão do sensor/cabo, ou o link do remote) e depois arme novamente pelo procedimento normal.
 
 ---
@@ -106,7 +106,7 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 - Entre essa faixa, a **potência é reduzida gradualmente** (quanto mais quente, menos potência permitida).
 - Objetivo: evitar superaquecimento do motor.
 
-**ESC T-Motor recém-instalado sem temperatura na tela de Telemetria:** o controlador configura o ESC automaticamente para reportar a temperatura (via CAN) poucos segundos depois de detectá-lo pela primeira vez, mas essa configuração só entra em vigor depois que o **próprio ESC** é desligado e religado — reiniciar só o Fly Controller não é suficiente. Se a temperatura do motor não aparecer na Telemetria assim que o conjunto for montado, desligue e religue o ESC uma vez (com o Fly Controller já ligado e o ESC detectado) antes de investigar outra causa.
+**ESC T-Motor recém-instalado sem temperatura na telemetria do app:** o controlador configura o ESC automaticamente para reportar a temperatura (via CAN) poucos segundos depois de detectá-lo pela primeira vez, mas essa configuração só entra em vigor depois que o **próprio ESC** é desligado e religado — reiniciar só o Fly Controller não é suficiente. Se a temperatura do motor não aparecer na telemetria assim que o conjunto for montado, desligue e religue o ESC uma vez (com o Fly Controller já ligado e o ESC detectado) antes de investigar outra causa.
 
 ### 7.3 Temperatura do ESC
 
@@ -119,7 +119,7 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 
 - Enquanto bateria, motor e ESC estiverem dentro dos limites configurados, a **potência máxima permitida é 100%** (limitada apenas pela posição do acelerador).
 - Quando qualquer um dos três entra na faixa de proteção, o sistema **limita o teto de potência**; você pode abrir o acelerador todo, mas o valor enviado ao ESC será limitado pelo sensor que estiver mais restritivo.
-- Os pontos exatos de tensão mínima e temperaturas podem ser configurados (por exemplo, via servidor web ou configurações do firmware, conforme sua versão do Fly Controller).
+- Os pontos exatos de tensão mínima e temperaturas podem ser configurados (pelo app fly-app, via Bluetooth — ver seção 8).
 
 ### Sensor inválido ou perdido
 
@@ -129,6 +129,19 @@ Se a leitura de um sensor (temperatura do motor, temperatura do ESC ou tensão d
 - **Sensor válido ao armar, e fica inválido durante o voo:** se a leitura continuar inválida por **2 segundos seguidos**, o sistema **desarma automaticamente**, com o mesmo alarme sonoro contínuo e aviso permanente na tela usados para falha do acelerador. Falhas mais curtas que isso são ignoradas — uma piscada momentânea na comunicação é normal e não justifica cortar o motor. Uma temperatura ou tensão não muda de forma perigosa nesses 2 segundos, então essa tolerância não abre mão de nenhuma proteção real. Isso porque uma proteção que você esperava estar ativa deixou de funcionar no meio do voo, sem aviso — o sistema prefere parar o motor a continuar voando com uma proteção que parou de existir silenciosamente.
 
 Em ambos os casos, para voltar a operar normalmente, corrija o problema do sensor e desarme/arme novamente.
+
+---
+
+## 8. Configuração e manutenção pelo app
+
+O Fly Controller não tem mais interface web nem rede WiFi própria. Configuração, logs de voo, atualização de firmware e acerto do relógio são feitos no app **fly-app** ([github.com/rodrigomedeirosbrazil/fly-app](https://github.com/rodrigomedeirosbrazil/fly-app)), por **Bluetooth**:
+
+- **Configuração:** capacidade e tensões da bateria, limites de temperatura, BMS, volume do buzzer, origem do acelerador (com fio ou sem fio) e pareamento do remote.
+- **Logs de voo:** listar, baixar e apagar os registros gravados no controlador.
+- **Atualização de firmware:** enviada pelo app, ou por cabo USB.
+- **Relógio:** o app acerta a data e a hora ao conectar, para que os logs recebam o nome com a data do voo.
+
+Alterações só são aceitas com o sistema **desarmado**, e as que gravam dados no controlador pedem o **PIN**.
 
 ---
 
