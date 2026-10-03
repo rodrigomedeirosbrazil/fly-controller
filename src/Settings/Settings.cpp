@@ -157,7 +157,7 @@ void Settings::load() {
 }
 
 void Settings::save() {
-    // Protect against concurrent calls from WiFi task and main loop.
+    // Protect against concurrent calls from another task and the main loop.
     // NVS writes are slow (~ms each); holding the mutex ensures the main loop
     // never reads a partially-updated snapshot of member variables while we write.
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
@@ -259,11 +259,11 @@ uint16_t Settings::getDefaultBatteryMaxVoltage() const {
 }
 
 int32_t Settings::getDefaultMotorMaxTemp() const {
-    return 100000;  // 100 C, in millicelsius. Editable in the web portal.
+    return 100000;  // 100 C, in millicelsius. Editable from fly-app.
 }
 
 int32_t Settings::getDefaultMotorTempReductionStart() const {
-    return 80000;  // 80 C, in millicelsius. Editable in the web portal.
+    return 80000;  // 80 C, in millicelsius. Editable from fly-app.
 }
 
 int32_t Settings::getDefaultEscMaxTemp() const {
@@ -290,7 +290,7 @@ void Settings::setBmsType(uint8_t type) {
 }
 
 String Settings::getBmsMac() const {
-    // String is a heap-allocated object — protect against concurrent access from WiFi task.
+    // String is a heap-allocated object — protect against concurrent access from another task.
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     String copy = bmsMac;
     if (mutex_) xSemaphoreGive(mutex_);
@@ -345,7 +345,7 @@ void Settings::setThrottleSource(uint8_t source) {
 }
 
 String Settings::getRemoteMac() const {
-    // String is a heap-allocated object — protect against concurrent access from WiFi task.
+    // String is a heap-allocated object — protect against concurrent access from another task.
     if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
     String copy = remoteMac;
     if (mutex_) xSemaphoreGive(mutex_);

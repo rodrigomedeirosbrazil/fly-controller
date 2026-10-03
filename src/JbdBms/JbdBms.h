@@ -7,7 +7,7 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 
-// JBD BMS uses fixed BLE address (no scan). MAC is configured via Settings/web interface.
+// JBD BMS uses fixed BLE address (no scan). MAC is configured via Settings (fly-app).
 
 // JBD GATT: Service 0xFF00
 // FF01 = Module->Phone: Notify, Read → pCharRx_ (register notify here)

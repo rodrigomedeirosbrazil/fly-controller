@@ -24,7 +24,7 @@
 //   - unchanged:         nothing
 //
 // requestReset() only sets a flag; the reset is applied on the next tick() so a
-// caller on another task (web server) never touches loop-owned state — the same
+// caller on another task never touches loop-owned state — the same
 // deferral pattern as Throttle::setArmed()/setDisarmed().
 struct HourMeterLogic {
     uint32_t sessionSec = 0;        // committed session seconds (folded intervals)
@@ -32,8 +32,9 @@ struct HourMeterLogic {
     uint32_t sessionStartMs = 0;    // start of the running session interval
     uint32_t motorRunStartMs = 0;   // start of the running motor interval
     bool wasRunning = false;        // previous running predicate
-    // Set from the AsyncWebServer task, cleared from loop() — cross-task, so
-    // volatile (same as Throttle::throttleArmed / RemoteLink::hasState_).
+    // Requested by a command handler, cleared by tick() on the loop task.
+    // Volatile so the flag stays correct if a caller ever sits on another
+    // task (same as Throttle::throttleArmed / RemoteLink::hasState_).
     volatile bool resetRequested = false;
 
     // Request the session counter be cleared. Applied on the next tick().

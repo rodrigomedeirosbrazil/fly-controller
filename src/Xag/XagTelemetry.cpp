@@ -15,7 +15,7 @@ void XagTelemetry::update() {
     cachedHasData = true;
 
     // Cached in the same instant as the values above, so a single snapshot
-    // (e.g. one /api/telemetry response) can't pair a value from this tick
+    // (e.g. one BLE telemetry notification) can't pair a value from this tick
     // with a validity flag from a different one.
     cachedMotorTempState = motorTemp.isValid() ? SignalState::Valid : SignalState::Invalid;
     cachedEscTempState = escTemp.isValid() ? SignalState::Valid : SignalState::Invalid;

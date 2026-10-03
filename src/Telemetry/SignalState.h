@@ -9,8 +9,8 @@
 //   Valid   — trustworthy; zero is a legitimate value
 enum class SignalState : uint8_t { Absent, Stale, Invalid, Valid };
 
-// Single-letter code used identically across /api/telemetry's `signals`
-// object and (later) the CSV log.
+// Single-letter code used identically across the CSV log and the
+// Xctod/BLE telemetry surfaces.
 inline char signalStateCode(SignalState s) {
     switch (s) {
         case SignalState::Absent:  return 'a';
