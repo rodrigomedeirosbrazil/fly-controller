@@ -8,6 +8,7 @@
 #include <BLE2902.h>
 #include "ControlProtocol.h"
 #include "DfuSession.h"
+#include "../Logger/LogListing.h"
 
 // The Fly Control GATT service: the app's own protocol, independent of the
 // $XCTOD sentence that Xctod keeps broadcasting for XCTrack.
@@ -69,6 +70,10 @@ private:
     // that worked.
     bool dfuRebootPending_ = false;
 
+    // Lives here rather than on the loop task's stack: ~700 bytes, and
+    // dispatch() already holds two 240-byte frames.
+    LogPageBuilder logPage_;
+
     void drainQueue();
     void notifyNewBeeps();
     void dispatch(const QueuedRequest& req);
@@ -80,6 +85,8 @@ private:
     ControlStatus handleCfgSet(const QueuedRequest& req);
     ControlStatus handleAction(const QueuedRequest& req, uint8_t* out, uint8_t& outLen);
     ControlStatus handleDfu(const QueuedRequest& req, uint8_t* out, uint8_t& outLen);
+    ControlStatus handleLogs(const QueuedRequest& req, uint8_t* out, uint8_t& outLen);
+    bool          dfuTransferActive() const;
     uint16_t      dfuChunkSize() const;
     void          serviceDfu();
     bool seedCurrentConfig(const QueuedRequest& req, void* dst, size_t dstSize);

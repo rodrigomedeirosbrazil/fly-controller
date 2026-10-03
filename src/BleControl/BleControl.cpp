@@ -14,7 +14,9 @@
 #include "../BatteryMonitor/BatteryMonitor.h"
 #include "../BluetoothBms/BluetoothBms.h"
 #include "../Settings/SettingsValidation.h"
-#include <ElegantOTA.h>
+#include "../Logger/Logger.h"
+#include "../Logger/LogStore.h"
+#include <Update.h>
 #include <sys/time.h>
 #include "../Sound/Sound.h"
 #include "../RemoteLink/RemoteLink.h"
@@ -23,6 +25,8 @@
 #include "../Canbus/Canbus.h"
 #endif
 #include <math.h>
+
+extern Logger logger;   // defined in main.cpp
 
 namespace {
 
@@ -202,6 +206,10 @@ void BleControl::dispatch(const QueuedRequest& req) {
         respond(req.op, req.seq, gate, nullptr, 0);
         return;
     }
+    if (opRefusedDuringDfu(req.op) && dfuTransferActive()) {
+        respond(req.op, req.seq, ControlStatus::ErrBusy, nullptr, 0);
+        return;
+    }
 
     uint8_t out[CONTROL_MAX_PAYLOAD];
     uint8_t outLen = 0;
@@ -211,6 +219,12 @@ void BleControl::dispatch(const QueuedRequest& req) {
         case ControlOp::Auth:   status = handleAuth(req); break;
         case ControlOp::CfgGet: status = handleCfgGet(req, out, outLen); break;
         case ControlOp::CfgSet: status = handleCfgSet(req); break;
+        case ControlOp::LogList:
+        case ControlOp::LogRead:
+        case ControlOp::LogDelete:
+        case ControlOp::LogDeleteAll:
+            status = handleLogs(req, out, outLen);
+            break;
         default: status = handleAction(req, out, outLen); break;
     }
 
@@ -222,8 +236,8 @@ void BleControl::writeInfo() {
     info.protocolVersion = CONTROL_PROTOCOL_VERSION;
     info.controllerType  = (uint8_t) CONTROLLER_TYPE;
 
-    // VoltageSensor is unconditional: the web portal's hasVoltageSensor is
-    // true for IS_XAG and IS_TMOTOR, which is every build that exists.
+    // VoltageSensor is unconditional: every build that exists (XAG and Tmotor)
+    // has the sensor.
     uint16_t caps = Capability::RemoteLink | Capability::VoltageSensor;
 #if IS_TMOTOR
     caps |= Capability::CanTelemetry | Capability::MotorTempSourceSel;
@@ -233,6 +247,8 @@ void BleControl::writeInfo() {
     strncpy(info.appVersion, APP_VERSION, sizeof(info.appVersion) - 1);
     strncpy(info.buildDate,  __DATE__,    sizeof(info.buildDate)  - 1);
     strncpy(info.buildTime,  __TIME__,    sizeof(info.buildTime)  - 1);
+    info.defaultDividerRatioX100 =
+        (uint16_t) lroundf(settings.getDefaultVoltageDividerRatio() * 100.0f);
 
     infoChar_->setValue((uint8_t*) &info, sizeof(info));
 }
@@ -319,6 +335,20 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     // carried and not whatever an event is preempting it with -- see
     // SoundLogic::stateFreqHz().
     t.stateFreqHz = sound.getStateFreqHz();
+
+    // Same availability gate as the cell fields: zero with TelemValid::Bms
+    // clear when the BMS has produced nothing.
+    if (isBmsDataAvailable()) {
+        t.bmsPackMv    = bluetoothBms.getPackVoltageMilliVolts();
+        t.bmsCurrentMa = bluetoothBms.getPackCurrentMilliAmps();
+        t.bmsSoc       = bluetoothBms.getSoCPercent();
+        t.bmsCellCount = bluetoothBms.getCellCount();
+    }
+    // Always meaningful. NotConfigured follows the BmsConfigured flag rather
+    // than the driver's own "none", so the two can never disagree.
+    t.bmsLinkState = (flags & TelemFlag::BmsConfigured)
+        ? bmsLinkStateFromName(bluetoothBms.getConnectionState())
+        : (uint8_t) BmsLinkState::NotConfigured;
 }
 
 void BleControl::notifyTelemetry() {
@@ -461,8 +491,8 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             settings.setVoltageDividerRatio(ratio);
             settings.save();
 
-            // Same in-memory sync the web handler does: without it Coulomb
-            // counting uses the old capacity until reboot.
+            // Without this, Coulomb counting uses the old capacity until
+            // reboot.
             batteryMonitor.setCapacity(settings.getBatteryCapacityMah());
 #if IS_XAG || IS_TMOTOR
             batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
@@ -486,8 +516,8 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             settings.setEscTempReductionStart(cfg.escTempReductionStartMc);
             settings.setEscMaxTemp(cfg.escMaxTempMc);
 #if IS_TMOTOR
-            // The armed gate already refused this request if armed, which is
-            // the same protection the web handler applies to this one field.
+            // The armed gate already refused this request if armed, so a
+            // source change mid-flight is refused here.
             if (validateMotorTempSource(cfg.motorTempSource) != SettingsError::None) {
                 return ControlStatus::ErrBadArg;
             }
@@ -508,7 +538,7 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             }
             char macText[18];
             macBytesToString(cfg.bmsMac, macText);
-            // Same rule as the web handler: a configured type needs a MAC.
+            // A configured type needs a MAC.
             if (cfg.bmsType != BmsTypeNone && macText[0] == '\0') {
                 return ControlStatus::ErrBadArg;
             }
@@ -530,8 +560,8 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             settings.setBuzzerVolume(cfg.buzzerVolume);
             settings.setThrottleSource(cfg.throttleSource);
             settings.save();
-            // Same in-memory sync the web handler does. Without it the new
-            // volume is persisted but inaudible until the next reboot.
+            // Without this, the new volume is persisted but inaudible until
+            // the next reboot.
             buzzer.setVolume(cfg.buzzerVolume);
             return ControlStatus::Ok;
         }
@@ -670,6 +700,90 @@ ControlStatus BleControl::handleDfu(const QueuedRequest& req, uint8_t* out, uint
     }
 }
 
+bool BleControl::dfuTransferActive() const {
+    const DfuState s = dfu_.state();
+    return s == DfuState::Receiving || s == DfuState::Verifying;
+}
+
+ControlStatus BleControl::handleLogs(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
+    const uint16_t mtu = bleServerHost.getNegotiatedMtu();
+
+    switch (req.op) {
+        case ControlOp::LogList: {
+            LogNameRef cursor;
+            if (!decodeLogNameField(req.payload, req.len, cursor)) {
+                return ControlStatus::ErrBadArg;
+            }
+            if (cursor.len > 0 && !isValidLogName((const char*) cursor.name, cursor.len)) {
+                return ControlStatus::ErrBadArg;
+            }
+            logPage_.reset((const char*) cursor.name, cursor.len);
+            LogStore::list(logPage_);
+            // 0 only below MTU 48, which the app never negotiates.
+            const size_t n = logPage_.encode(out, rspPayloadLimit(mtu),
+                                             LogStore::usedBytes(), LogStore::totalBytes());
+            if (n == 0) {
+                return ControlStatus::ErrBadArg;
+            }
+            outLen = (uint8_t) n;
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::LogRead: {
+            LogReadRequest r;
+            if (!decodeLogReadRequest(req.payload, req.len, r) ||
+                !isValidLogName((const char*) r.name.name, r.name.len)) {
+                return ControlStatus::ErrBadArg;
+            }
+            const char* name = (const char*) r.name.name;
+            // Release the Logger's write handle so LittleFS reports the real
+            // size. Unreachable while armed (reads are refused), but cheap,
+            // and it removes the dependency on that reasoning.
+            logger.closeLogFile();
+
+            uint32_t fileSize = 0;
+            if (!LogStore::fileSize(name, r.name.len, fileSize)) {
+                return ControlStatus::ErrNotFound;
+            }
+            if (r.offset > fileSize) {
+                return ControlStatus::ErrBadArg;
+            }
+            const uint8_t n = logReadDataLength(r.maxLen, mtu, fileSize, r.offset);
+            memcpy(out,     &r.offset, 4);
+            memcpy(out + 4, &fileSize, 4);
+            if (n > 0 && LogStore::read(name, r.name.len, r.offset, out + 8, n) != n) {
+                // The file changed or vanished between stat and read. The app
+                // retries ErrBusy; it would treat a short chunk as data.
+                return ControlStatus::ErrBusy;
+            }
+            outLen = (uint8_t) (8 + n);
+            return ControlStatus::Ok;
+        }
+
+        case ControlOp::LogDelete: {
+            LogNameRef name;
+            if (!decodeLogNameField(req.payload, req.len, name) ||
+                !isValidLogName((const char*) name.name, name.len)) {
+                return ControlStatus::ErrBadArg;
+            }
+            logger.closeLogFile();
+            return LogStore::remove((const char*) name.name, name.len)
+                ? ControlStatus::Ok
+                : ControlStatus::ErrNotFound;
+        }
+
+        case ControlOp::LogDeleteAll:
+            LogStore::removeAll();
+            // Re-create the Logger's next file so a later arm does not open
+            // a deleted one.
+            logger.afterLogFilesClearedFromStorage();
+            return ControlStatus::Ok;
+
+        default:
+            return ControlStatus::ErrBadOp;
+    }
+}
+
 ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, uint8_t& outLen) {
     switch (req.op) {
         case ControlOp::DfuBegin:
@@ -721,6 +835,31 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
             return ControlStatus::Ok;
         }
 
+        case ControlOp::BmsScanResult: {
+            // What BMS_SCAN_STATUS cannot fit in eight bytes a result: the
+            // advertised name and service UUIDs, one result per request.
+            if (req.len < 1) {
+                return ControlStatus::ErrBadArg;
+            }
+            const uint8_t index = req.payload[0];
+            if (index >= bluetoothBms.getWebScanResultCount()) {
+                return ControlStatus::ErrBadArg;
+            }
+            const BluetoothBmsScanResult& r = bluetoothBms.getWebScanResults()[index];
+            uint8_t mac[6];
+            macStringToBytes(r.mac, mac);
+            const size_t n = encodeBmsScanResult(
+                out, rspPayloadLimit(bleServerHost.getNegotiatedMtu()), mac,
+                (int8_t) r.rssi, r.detectedType,
+                r.name.c_str(), r.name.length(),
+                r.advertisedServices.c_str(), r.advertisedServices.length());
+            if (n == 0) {
+                return ControlStatus::ErrBadArg;
+            }
+            outLen = (uint8_t) n;
+            return ControlStatus::Ok;
+        }
+
         case ControlOp::BmsDetect: {
             if (req.len < 6) {
                 return ControlStatus::ErrBadArg;
@@ -753,8 +892,7 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
         }
 
         case ControlOp::SetTime: {
-            // Payload is epoch milliseconds as i64 little-endian. The web
-            // route parses the same value out of a text body.
+            // Payload is epoch milliseconds as i64 little-endian.
             if (req.len < 8) {
                 return ControlStatus::ErrBadArg;
             }
@@ -797,8 +935,6 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
             memcpy(newPin, req.payload + 1 + currentLen + 1, newLen);
             settings.setConfigPin(String(newPin));
             settings.save();
-            // Keep the OTA portal's basic auth in step, as the web route does.
-            ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
             return ControlStatus::Ok;
         }
 
