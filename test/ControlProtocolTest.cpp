@@ -123,13 +123,14 @@ void test_events_use_seq_zero() {
 void test_info_layout_is_pinned() {
     // Hand-decoded in fly-app, same as ControlTelemetry, so it gets the same
     // protection.
-    assert(sizeof(ControlInfo) == 49);
+    assert(sizeof(ControlInfo) == 51);
     assert(offsetof(ControlInfo, protocolVersion) ==  0);
     assert(offsetof(ControlInfo, controllerType)  ==  1);
     assert(offsetof(ControlInfo, capabilities)    ==  2);
     assert(offsetof(ControlInfo, appVersion)      ==  4);
     assert(offsetof(ControlInfo, buildDate)       == 28);
     assert(offsetof(ControlInfo, buildTime)       == 40);
+    assert(offsetof(ControlInfo, defaultDividerRatioX100) == 49);
 
     // The compiler's own stamps must fit with room for the NUL. Pinned here
     // rather than trusted: a shorter field would silently truncate the year.
@@ -146,7 +147,7 @@ void test_telemetry_layout_is_pinned() {
     // Every offset is part of the contract with fly-app's Dart decoder.
     // A field inserted in the middle silently shifts everything after it,
     // which is the exact failure mode the $XCTOD sentence has.
-    assert(sizeof(ControlTelemetry) == 58);
+    assert(sizeof(ControlTelemetry) == 69);
     assert(offsetof(ControlTelemetry, ver)            ==  0);
     assert(offsetof(ControlTelemetry, flags)          ==  1);
     assert(offsetof(ControlTelemetry, validity)       ==  2);
@@ -175,6 +176,11 @@ void test_telemetry_layout_is_pinned() {
     assert(offsetof(ControlTelemetry, bmsTempMaxC)    == 50);
     assert(offsetof(ControlTelemetry, uptimeSec)      == 52);
     assert(offsetof(ControlTelemetry, stateFreqHz)    == 56);
+    assert(offsetof(ControlTelemetry, bmsPackMv)      == 58);
+    assert(offsetof(ControlTelemetry, bmsCurrentMa)   == 62);
+    assert(offsetof(ControlTelemetry, bmsSoc)         == 66);
+    assert(offsetof(ControlTelemetry, bmsCellCount)   == 67);
+    assert(offsetof(ControlTelemetry, bmsLinkState)   == 68);
 }
 
 void test_signal_states_pack_three_signals_into_one_byte() {
@@ -535,6 +541,170 @@ void test_the_rest_of_the_dfu_range_stays_unknown() {
     assert(gateRequest(0x5F, true, false) == ControlStatus::ErrBadOp);
 }
 
+void test_log_and_scan_result_opcode_values_are_pinned() {
+    // Hand-copied into fly-app's log_protocol.dart / bms_scan.dart.
+    assert(ControlOp::BmsScanResult == 0x2B);
+    assert(ControlOp::LogList       == 0x40);
+    assert(ControlOp::LogRead       == 0x41);
+    assert(ControlOp::LogDelete     == 0x42);
+    assert(ControlOp::LogDeleteAll  == 0x43);
+    assert((uint8_t) ControlStatus::ErrNotFound == 6);
+}
+
+void test_log_reads_are_open_and_deletes_need_auth() {
+    assert(gateRequest(ControlOp::LogList,      false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::LogRead,      false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::LogDelete,    false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::LogDeleteAll, false, false) == ControlStatus::ErrAuth);
+    assert(gateRequest(ControlOp::LogDelete,    true,  false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::LogDeleteAll, true,  false) == ControlStatus::Ok);
+}
+
+void test_log_ops_are_refused_while_armed_before_auth() {
+    // Default-deny: none of the four is an armed exception, and ErrState
+    // wins over ErrAuth so the app never prompts for a PIN in flight.
+    assert(gateRequest(ControlOp::LogList,      false, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::LogRead,      false, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::LogDelete,    false, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::LogDeleteAll, false, true) == ControlStatus::ErrState);
+    assert(gateRequest(ControlOp::LogDelete,    true,  true) == ControlStatus::ErrState);
+}
+
+void test_bms_scan_result_has_scan_status_gating() {
+    assert(gateRequest(ControlOp::BmsScanResult, false, false) == ControlStatus::Ok);
+    assert(gateRequest(ControlOp::BmsScanResult, false, true)  == ControlStatus::Ok);
+}
+
+void test_only_log_ops_are_refused_during_dfu() {
+    assert(opRefusedDuringDfu(ControlOp::LogList));
+    assert(opRefusedDuringDfu(ControlOp::LogRead));
+    assert(opRefusedDuringDfu(ControlOp::LogDelete));
+    assert(opRefusedDuringDfu(ControlOp::LogDeleteAll));
+    assert(!opRefusedDuringDfu(ControlOp::BmsScanResult));
+    assert(!opRefusedDuringDfu(ControlOp::DfuStatus));
+    assert(!opRefusedDuringDfu(ControlOp::CfgGet));
+}
+
+void test_the_rest_of_the_log_range_stays_unknown() {
+    assert(gateRequest(0x44, true, false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(0x4F, true, false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(0x2C, true, false) == ControlStatus::ErrBadOp);
+}
+
+void test_bms_current_is_signed_on_the_wire() {
+    // Charging current is a legitimate negative reading.
+    ControlTelemetry t;
+    memset(&t, 0, sizeof(t));
+    t.bmsCurrentMa = -2500;
+    t.bmsPackMv    = 70000;   // > 65535: why this is u32, not u16
+    int32_t current = 0;
+    memcpy(&current, ((const uint8_t*) &t) + 62, sizeof(current));
+    assert(current == -2500);
+    uint32_t pack = 0;
+    memcpy(&pack, ((const uint8_t*) &t) + 58, sizeof(pack));
+    assert(pack == 70000u);
+}
+
+void test_bms_link_state_values_and_mapping() {
+    assert(BmsLinkState::NotConfigured == 0);
+    assert(BmsLinkState::Idle          == 1);
+    assert(BmsLinkState::Connecting    == 2);
+    assert(BmsLinkState::Connected     == 3);
+    // BluetoothBms::getConnectionState() / JkBms::getStateName() strings.
+    assert(bmsLinkStateFromName("connected")  == BmsLinkState::Connected);
+    assert(bmsLinkStateFromName("connecting") == BmsLinkState::Connecting);
+    assert(bmsLinkStateFromName("idle")       == BmsLinkState::Idle);
+    assert(bmsLinkStateFromName("unknown")    == BmsLinkState::Idle);
+    assert(bmsLinkStateFromName("something")  == BmsLinkState::Idle);
+    assert(bmsLinkStateFromName("none")       == BmsLinkState::NotConfigured);
+    assert(bmsLinkStateFromName(nullptr)      == BmsLinkState::NotConfigured);
+}
+
+void test_reply_payload_fits_one_notification_at_the_negotiated_mtu() {
+    // RSP header 4 + payload must fit MTU - 3. iOS settles at MTU 185.
+    assert(rspPayloadLimit(185) == 178);
+    assert(rspPayloadLimit(247) == 240);
+    assert(rspPayloadLimit(517) == 240);   // never above CONTROL_MAX_PAYLOAD
+    assert(rspPayloadLimit(23)  == 16);
+    assert(rspPayloadLimit(7)   == 0);
+}
+
+void test_log_read_length_takes_every_bound() {
+    // min(maxLen, 232, MTU - 15, fileSize - offset)
+    assert(logReadDataLength(255, 247, 10000, 0)    == 232);
+    assert(logReadDataLength(255, 185, 10000, 0)    == 170);
+    assert(logReadDataLength(100, 247, 10000, 0)    == 100);
+    assert(logReadDataLength(255, 247, 10000, 9990) == 10);
+    assert(logReadDataLength(255, 247, 10000, 10000) == 0);   // end of file
+    assert(logReadDataLength(255, 247, 10000, 20000) == 0);   // caller rejects
+    assert(logReadDataLength(255, 15,  10000, 0)    == 0);
+}
+
+void test_log_list_request_decodes_cursor() {
+    const uint8_t empty[] = { 0 };
+    LogNameRef c;
+    assert(decodeLogNameField(empty, sizeof(empty), c) && c.len == 0);
+
+    const uint8_t named[] = { 3, 'a', 'b', 'c' };
+    assert(decodeLogNameField(named, sizeof(named), c));
+    assert(c.len == 3 && memcmp(c.name, "abc", 3) == 0);
+
+    const uint8_t lying[] = { 5, 'a', 'b' };
+    assert(!decodeLogNameField(lying, sizeof(lying), c));
+    assert(!decodeLogNameField(nullptr, 0, c));
+}
+
+void test_log_read_request_decodes_offset_maxlen_and_name() {
+    // [offset u32][maxLen u8][nameLen u8][name...]
+    const uint8_t frame[] = { 0x10, 0x27, 0x00, 0x00, 200, 5, 'a', '.', 'c', 's', 'v' };
+    LogReadRequest r;
+    assert(decodeLogReadRequest(frame, sizeof(frame), r));
+    assert(r.offset == 10000);
+    assert(r.maxLen == 200);
+    assert(r.name.len == 5 && memcmp(r.name.name, "a.csv", 5) == 0);
+
+    assert(!decodeLogReadRequest(frame, 5, r));               // no nameLen
+    assert(!decodeLogReadRequest(frame, sizeof(frame) - 1, r)); // name cut
+    const uint8_t zeroMax[] = { 0, 0, 0, 0, 0, 5, 'a', '.', 'c', 's', 'v' };
+    assert(!decodeLogReadRequest(zeroMax, sizeof(zeroMax), r)); // 0 would read as EOF
+}
+
+void test_longest_log_read_request_fits_the_queue_slot() {
+    // A 24-character name keeps LOG_READ at 30 bytes, under the 32-byte slot.
+    assert(4 + 1 + 1 + LOG_MAX_NAME_LEN <= CONTROL_QUEUED_PAYLOAD_MAX);
+}
+
+void test_bms_scan_result_layout_and_truncation() {
+    const uint8_t mac[6] = { 1, 2, 3, 4, 5, 6 };
+    uint8_t out[CONTROL_MAX_PAYLOAD];
+
+    size_t n = encodeBmsScanResult(out, 240, mac, -70, 3, "JK_B2A", 6, "ffe0", 4);
+    assert(n == 6 + 1 + 1 + 1 + 6 + 1 + 4);
+    assert(memcmp(out, mac, 6) == 0);
+    assert((int8_t) out[6] == -70);
+    assert(out[7] == 3);
+    assert(out[8] == 6 && memcmp(out + 9, "JK_B2A", 6) == 0);
+    assert(out[15] == 4 && memcmp(out + 16, "ffe0", 4) == 0);
+
+    // Name is cut at 32 first...
+    char longName[40];
+    memset(longName, 'N', sizeof(longName));
+    n = encodeBmsScanResult(out, 240, mac, -1, 0, longName, sizeof(longName), "", 0);
+    assert(out[8] == BMS_SCAN_NAME_MAX);
+    assert(n == 9 + BMS_SCAN_NAME_MAX + 1);
+
+    // ...then services are cut to fit the limit (iOS: 178).
+    char services[300];
+    memset(services, 'S', sizeof(services));
+    n = encodeBmsScanResult(out, 178, mac, -1, 0, longName, sizeof(longName),
+                            services, sizeof(services));
+    assert(n == 178);
+    assert(out[9 + BMS_SCAN_NAME_MAX] == 178 - (9 + BMS_SCAN_NAME_MAX + 1));
+
+    assert(encodeBmsScanResult(out, 9, mac, 0, 0, "", 0, "", 0) == 0);
+    assert(encodeBmsScanResult(out, 10, mac, 0, 0, "abc", 3, "", 0) == 10);  // name dropped to fit
+}
+
 int main() {
     test_info_layout_is_pinned();
     test_telemetry_layout_is_pinned();
@@ -581,6 +751,20 @@ int main() {
     test_dfu_status_is_open_and_allowed_in_flight();
     test_dfu_writes_need_auth_and_are_refused_in_flight();
     test_the_rest_of_the_dfu_range_stays_unknown();
+    test_log_and_scan_result_opcode_values_are_pinned();
+    test_log_reads_are_open_and_deletes_need_auth();
+    test_log_ops_are_refused_while_armed_before_auth();
+    test_bms_scan_result_has_scan_status_gating();
+    test_only_log_ops_are_refused_during_dfu();
+    test_the_rest_of_the_log_range_stays_unknown();
+    test_bms_current_is_signed_on_the_wire();
+    test_bms_link_state_values_and_mapping();
+    test_reply_payload_fits_one_notification_at_the_negotiated_mtu();
+    test_log_read_length_takes_every_bound();
+    test_log_list_request_decodes_cursor();
+    test_log_read_request_decodes_offset_maxlen_and_name();
+    test_longest_log_read_request_fits_the_queue_slot();
+    test_bms_scan_result_layout_and_truncation();
     cout << "ControlProtocolTest: all passed" << endl;
     return 0;
 }
