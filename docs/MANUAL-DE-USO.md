@@ -156,6 +156,25 @@ Configuração, logs de voo, atualização de firmware e acerto do relógio pode
 
 No app, alterações só são aceitas com o sistema **desarmado**; no app e na interface web, as que gravam dados no controlador pedem o **PIN**.
 
+### 8.1 Usar o app pelo navegador (inclusive no iPhone)
+
+O fly-app também funciona no navegador, sem instalar nada além do navegador, pelo endereço:
+
+**https://rodrigomedeirosbrazil.github.io/fly-app/**
+
+- **iPhone e iPad:** o Safari não tem acesso ao Bluetooth. Instale o **[Bluefy](https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055)** (gratuito, App Store) e digite ou cole o endereço **dentro do Bluefy**. Tocar no link fora dele abre o Safari, que não consegue falar com o controlador.
+- **Android e computador:** abra o endereço no **Chrome** ou no **Edge**. O Firefox e o Safari não funcionam.
+
+Para conectar, toque em **Conectar** e escolha o **FlyController** na lista que o navegador abre. Se a conexão cair, o app tenta reconectar sozinho e mostra **RECONECTANDO** na barra de status.
+
+Diferenças em relação ao app instalado:
+
+- **Atualização de firmware:** o app no navegador não baixa o firmware do GitHub. Baixe o arquivo `.bin` do seu controlador (T-Motor ou XAG) na [página de releases do fly-controller](https://github.com/rodrigomedeirosbrazil/fly-controller/releases) e escolha-o em **Escolher arquivo .bin**.
+- **Logs de voo:** depois de baixar um registro, escolha **Compartilhar**, **Salvar arquivo** ou **Abrir**. Se um não funcionar no seu navegador, tente outro; **Abrir** mostra o CSV numa aba, de onde dá para copiar o conteúdo.
+- **Sem internet no local de voo:** abra o endereço uma vez com internet, com a barra no final (`.../fly-app/`), e espere cerca de 30 segundos. Depois disso o Chrome abre o app mesmo sem sinal. No Bluefy, isso pode não funcionar: abra o app antes de sair de onde há sinal.
+
+Em qualquer versão do app, tocar no indicador de status (no alto da tela de voo) permite **Reconectar** ou **Desconectar**, sempre com confirmação. Desconectar o app não desliga o motor.
+
 ---
 
 *Fly Controller — Controlador de voo paramotores elétricos*

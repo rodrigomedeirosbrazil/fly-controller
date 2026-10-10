@@ -27,6 +27,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 - Two supported ESC/motor builds: `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`
 - Optional BMS: JBD, Daly D2 BLE, or JK (JK02 BLE) connected over Bluetooth
 - Configuration, logs, firmware update and clock sync are available both through the fly-app over BLE (see `BLE-CONTROL-PROTOCOL.md`) and through the web portal, a Wi-Fi AP at `192.168.4.1` (see `MANUAL-INTERFACE-WEB.md`). ESP-NOW to the remote throttle rides the AP interface.
+- The fly-app also runs in the browser over Web Bluetooth, at https://rodrigomedeirosbrazil.github.io/fly-app/ — on an iPhone through the Bluefy browser, since Safari has no Web Bluetooth. `MANUAL-DE-USO.md` section 8.1 is the pilot-facing description; keep it in step with the fly-app repo's README.
 
 ## Documentation maintenance guidelines
 
