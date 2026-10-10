@@ -155,6 +155,17 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ```
 See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
+### 9b. **WebServer** - WiFi Configuration Portal
+```cpp
+// WiFi Access Point with captive portal and OTA updates
+- AP mode for easy device discovery
+- Real-time telemetry dashboard
+- Configuration pages: power, thermal, BMS, system settings
+- Firmware Over-The-Air (OTA) updates via ElegantOTA
+- CSV flight log viewing and download
+```
+See docs/MANUAL-INTERFACE-WEB.md (Portuguese).
+
 ### 10. **BMS Integration** - Battery Management Systems
 ```cpp
 // BLE client for smart battery pack monitoring (Daly, JBD, and JK)
@@ -162,7 +173,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 - Pack voltage, current, and state-of-charge (SoC)
 - Temperature sensors per pack
 - Charge/discharge/balance status flags
-- BLE device scanning triggered from the fly-app
+- BLE device scanning triggered from the fly-app or the web portal
 ```
 
 ### 11. **Logger** - Flight Data Recording
@@ -170,7 +181,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 // CSV logging to LittleFS
 - Auto-start on arm, auto-stop on disarm
 - Configurable data fields and header
-- Log download and deletion from the fly-app
+- Log download and deletion from the fly-app or the web portal
 ```
 
 ## 📡 Communication Protocols
@@ -205,7 +216,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 - ✅ Direct ESC PWM control
 - ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
 - ✅ Bidirectional CAN bus communication (UAVCAN)
-- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), fly-app pairing, and status LEDs/buzzer on the remote
+- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), fly-app or web-portal pairing, and status LEDs/buzzer on the remote
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -218,6 +229,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 - ✅ State-of-charge (SoC) tracking
 - ✅ CSV flight logging to LittleFS (auto on arm/disarm)
 - ✅ Fly Control BLE service (fly-app) with OTA firmware updates
+- ✅ Web portal with OTA firmware updates
 
 ## 🔌 Supported Hardware
 
@@ -281,7 +293,11 @@ The required libraries are automatically managed by PlatformIO.
 lib_deps =
     bxparks/AceButton@^1.10.1
     madhephaestus/ESP32Servo
+    https://github.com/ESP32Async/ESPAsyncWebServer.git
+    ayushsharma82/ElegantOTA
+    AsyncTCP
     adafruit/Adafruit ADS1X15@^2.4.6
+    bblanchon/ArduinoJson@^6.21.3
 ```
 
 ### 4. Build and Upload
@@ -460,7 +476,9 @@ src/
 ├── JbdBms/               # JBD BMS protocol implementation
 ├── JkBms/                # JK BMS (JK02) protocol implementation + parser
 ├── Logger/               # CSV flight logging to LittleFS
-└── BleControl/           # Fly Control GATT service (fly-app)
+├── BleControl/           # Fly Control GATT service (fly-app)
+└── WebServer/            # WiFi AP, captive portal, OTA updates
+    └── Pages/            # HTML/JS page handlers
 ```
 
 ### Adding New Components

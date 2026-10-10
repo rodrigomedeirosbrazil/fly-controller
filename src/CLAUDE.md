@@ -55,7 +55,7 @@ All global singletons follow the same pattern:
 - `setup()` / `init()` called from `main.cpp::setup()` in dependency order
 - `handle()` / `update()` called from `main.cpp::loop()`
 
-**Exception**: `Logger logger` is defined directly in `main.cpp` (not in `config.cpp`) because it is only used from `main.cpp` and `BleControl`.
+**Exception**: `ControllerWebServer webServer` and `Logger logger` are defined directly in `main.cpp` (not in `config.cpp`) because they are only used from `main.cpp`, `BleControl` and the web server.
 
 `Telemetry telemetry` is defined at the bottom of `Telemetry/Telemetry.cpp`.
 
@@ -169,7 +169,7 @@ Two properties keep that disarm off noise, both host-tested:
 `checkSignalLoss()` early-returns when disarmed so the debounce timers don't accumulate across sessions.
 
 ### PowerAlert — `PowerAlert/`
-Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getActiveCauses()`, read by BLE telemetry (`TELEMETRY.limitCauses`). It carries no sequence number: the 10 s re-fire is `PowerAlertLogic`'s, and clients only need the persistent cause bitmask.
+Audible + visual alert when any limiter reduces power below 100%, while armed. Pure decision logic is in `PowerAlertLogic.h` (host-testable, no Arduino deps — see `test/PowerAlertLogicTest.cpp`). The component (`PowerAlert.cpp`) reads `power.getActiveLimitCauses()` + `throttle.isArmed()`, calls `sound.play(SoundEvent::PowerAlert)` + `remoteLink.requestBeep(RemoteBeep::PowerAlert)` on entry and every `POWER_ALERT_BEEP_INTERVAL_MS` (10 s) while limited. `PowerAlertLogic` is a thin wrapper over the shared `PeriodicTrigger` (see `Sound/`). Exposes `getActiveCauses()`, read by BLE telemetry (`TELEMETRY.limitCauses`) and `/api/telemetry`, and `getAlertSeq()` (bumped on each fire) for the web API. BLE clients only need the persistent cause bitmask.
 
 ### BatteryMonitor — `BatteryMonitor/`
 Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.
@@ -225,13 +225,16 @@ The stream buffer is not decoration. A plain shared buffer raced: `flush()` capt
 
 Two library facts drive the split, and both read backwards. `Update.begin()` does **not** erase (it resolves the OTA partition and resets state); the erase is lazy inside `_writeBuffer()`, per 64 KB block as data arrives. So `begin` is inline-safe. `Update.write()` is what blocks for ~150 ms on those erases, so it must not run on the Bluedroid task — the BLE callback stages, `BleControl::handle()` flushes. And the CRC is accumulated over arriving bytes, not read back from flash: the updater withholds the image's first 16 bytes until `end()` so a partial image is never bootable, which makes any read-back before then mismatch by construction.
 
+### WebServer — `WebServer/`
+WiFi AP + captive portal using AsyncWebServer + ElegantOTA. Pages are inline HTML headers in `Pages/`. Handles dashboard, telemetry, config (power, thermal, BMS, system), logs, and OTA firmware updates. Runs alongside `BleControl`; ESP-NOW rides its AP interface.
+
 ### Button — `Button/`
 Thin wrapper on GPIO5 over `ButtonGestureLogic` (pure, host-tested in `test/ButtonGestureLogicTest.cpp`). Reads the source — `digitalRead(pin)` wired, `remoteLink.remoteButtonPressed()` wireless, selected by `settings.getThrottleSource()`; wireless `rawPressed` is ANDed with `remoteLink.isLinkFresh()` so a stale link reads as released. Feeds the gesture every `check()` and translates intents: `Click` → beep, `Arm` → `throttle.setArmed()`, `Disarm` → `throttle.setDisarmed(Manual)`.
 
 Arming: short click → release → hold 2000 ms, with the hold starting within 600 ms of the click (`armCharge` 0→100). Releasing before the charge completes aborts the whole gesture back to `Idle` — the window closes and re-arming needs a fresh click, so a stray tap can never leave the controller one hold away from armed. Disarming: a hold ramps power down (`powerScale` 100→0 over 2000 ms, symmetric recovery); with the throttle un-engaged a press disarms immediately. `main.cpp` reads `getPowerScale()`/`getArmCharge()` each loop to drive the disarm ramp (`power.setDisarmScale()`) and the gesture tones.
 
 ### Logger — `Logger/`
-LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. fly-app lists, downloads and deletes logs over BLE (`LOG_*`, see BleControl).
+LittleFS CSV logger. `startLogging()` is called when the throttle arms; file is closed on disarm. fly-app lists, downloads and deletes logs over BLE (`LOG_*`, see BleControl); the web portal can do the same over HTTP.
 
 Pure naming/paging/retention logic lives in `LogListing.h` (host-tested in `test/LogListingTest.cpp`): the log-name validator (shared with the wire contract — 1-24 printable chars, no `/` or `..`, `.csv`/`.txt`), the page builder behind `LOG_LIST`, and the retention picker. `LogStore.{h,cpp}` is the thin LittleFS wrapper and the only caller of the filesystem for both `BleControl` and the Logger's retention.
 
