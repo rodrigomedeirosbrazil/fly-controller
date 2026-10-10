@@ -29,6 +29,7 @@
 #endif
 #include "RemoteLink/RemoteLink.h"
 #include "PowerAlert/PowerAlert.h"
+#include "TempProtectionAlert/TempProtectionAlert.h"
 
 // Debug logging - compiles to zero in production
 #ifdef DEBUG
@@ -83,6 +84,7 @@ extern HourMeter hourMeter;
 extern ADS1115 ads1115;
 extern RemoteLink remoteLink;
 extern PowerAlert powerAlert;
+extern TempProtectionAlert tempProtectionAlert;
 #include "Telemetry/Telemetry.h"
 
 // ========== ANALOG INPUTS (ADC1 - legacy, used only when ADS1115 not in use) ==========
@@ -139,17 +141,21 @@ extern PowerAlert powerAlert;
 
 #define ESC_TEMP_MAX_VALID 120000 // 120000 millicelsius = 120.000°C - Maximum valid temperature reading
 
-// How long a power-limiting signal (motor temp, ESC temp, battery voltage)
-// that was valid at arm must read invalid CONTINUOUSLY before the arm-time
-// contract disarms. See SignalArmContract.h.
-//
-// These signals are legitimately intermittent — on Tmotor the ESC temp comes
-// only from CAN, whose validity is a 1 s freshness window fed by multi-frame
-// ESC_STATUS transfers that are dropped whole if any single frame is lost, so
-// brief Stale flickers are normal. A temperature or pack voltage cannot change
-// dangerously in 2 s, so debouncing here costs no real protection; a genuinely
-// disconnected sensor still disarms well before it matters.
+// How long the battery voltage, valid at arm, must read invalid CONTINUOUSLY
+// before the arm-time contract disarms. See SignalArmContract.h. Pack voltage
+// cannot change dangerously in 2 s, so debouncing here costs no real
+// protection; a genuinely disconnected sensor still disarms well before it
+// matters.
 #define SIGNAL_LOSS_GRACE_MS 2000
+
+// How long a temperature protection (motor, ESC) must read lost — or, once
+// suspended, restored — CONTINUOUSLY before the alarm changes state. See
+// TempProtectionMonitor.h. On Tmotor the ESC temp, and motor temp when CAN is
+// the configured source, come from CAN, whose validity is a 1 s freshness
+// window fed by multi-frame transfers that are dropped whole if any single
+// frame is lost; without this a flaky bus would alternate the lost and
+// restored sounds. Derating itself does not wait for it.
+#define TEMP_PROTECTION_DEBOUNCE_MS 2000
 
 // ========== THROTTLE ENGAGE / MOTOR START TIMING ==========
 #define THROTTLE_DEADBAND_US           20

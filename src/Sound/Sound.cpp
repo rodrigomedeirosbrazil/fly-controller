@@ -9,6 +9,10 @@ namespace {
 constexpr uint16_t kDefaultFreqHz = 2300;
 constexpr uint16_t kArmedFreqHz   = 2000;
 constexpr uint16_t kPowerFreqHz   = 2500;
+// Two notes inside the loud 2000-2500 Hz band, far enough apart to read as a
+// fall or a rise over motor noise.
+constexpr uint16_t kTempProtHighFreqHz = 2500;
+constexpr uint16_t kTempProtLowFreqHz  = 2000;
 }
 
 Sound::Sound() :
@@ -35,6 +39,14 @@ Sound::Sound() :
   // of link loss), where today there is silence. Short and sharp so it's
   // unmistakably different from every other pattern.
   logic_.setEventPattern(SoundEvent::LinkLoss,            {kPowerFreqHz,   80,  60,  2});
+  // Temperature protection suspended: a long falling "nee-naw", unlike every
+  // short same-pitch beep above. Restored: a short rising "bip-bip". Each
+  // note is one event (reps=1, so offMs never plays); TempProtectionAlert
+  // queues them back to back.
+  logic_.setEventPattern(SoundEvent::TempProtectionLostHigh,     {kTempProtHighFreqHz, 300, 0, 1});
+  logic_.setEventPattern(SoundEvent::TempProtectionLostLow,      {kTempProtLowFreqHz,  700, 0, 1});
+  logic_.setEventPattern(SoundEvent::TempProtectionRestoredLow,  {kTempProtLowFreqHz,  120, 0, 1});
+  logic_.setEventPattern(SoundEvent::TempProtectionRestoredHigh, {kTempProtHighFreqHz, 200, 0, 1});
 
   // reps=0: genuinely continuous. This is the fix for the bug where
   // reps=255 was a literal repeat count and silenced itself after ~102s.

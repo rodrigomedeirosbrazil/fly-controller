@@ -208,10 +208,13 @@ void loop()
   // Update telemetry data
   telemetry.update();
 
-  // Detect a power-limiting signal that was valid at arm going invalid, and
-  // disarm if so. Must run here (main loop task) rather than inside
+  // Detect a battery voltage that was valid at arm going invalid, and disarm
+  // if so. Must run here (main loop task) rather than inside
   // Power::getPower() — see Power::checkSignalLoss()'s doc comment.
   power.checkSignalLoss();
+  // Temperature sensors never disarm: track whether each temperature
+  // protection is suspended, for TempProtectionAlert below.
+  power.updateTempProtection();
 
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
@@ -220,6 +223,7 @@ void loop()
   handleEsc();
   updateSoundState();
   powerAlert.handle();
+  tempProtectionAlert.handle();
 
   webServer.handleClient();
 

@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "SignalArmContract.h"
+#include "TempProtectionMonitor.h"
 
 enum PowerLimitCause : uint8_t {
     POWER_LIMIT_NONE       = 0,
@@ -29,16 +30,17 @@ public:
     // the limiter alert and paint the telemetry cards red.
     void setDisarmScale(uint8_t scale) { disarmScale_ = scale; }
 
-    // Opens the arm-time contract for each power-limiting signal. Called by
+    // Opens the battery-voltage arm-time contract. Called by
     // Throttle::setArmed() on a successful arm. Deliberately does NOT read
     // validity here: the snapshot is taken by the first checkSignalLoss()
     // after arming, so it comes from the same telemetry sample the first
     // loss check compares against — see SignalArmContract.h.
     void onArmed();
 
-    // Evaluates each power-limiting signal's arm-time contract and disarms
-    // if a signal that was valid at arm has since read invalid continuously
-    // for SIGNAL_LOSS_GRACE_MS. Must be
+    // Evaluates the battery-voltage arm-time contract and disarms if it was
+    // valid at arm and has since read invalid continuously for
+    // SIGNAL_LOSS_GRACE_MS. Temperature signals never disarm — see
+    // updateTempProtection(). Must be
     // called ONLY from the main loop task (main.cpp's loop()) — never from
     // an async context such as a BLE callback. getPower()/calcPower() can be
     // called from several places (handleEsc(), Xctod, TelemetryLogger,
@@ -54,6 +56,18 @@ public:
     // the case today (BleControl defers its work to its loop-task handle());
     // keep it that way.
     void checkSignalLoss();
+
+    // Advances the debounced "temperature protection suspended" state for
+    // motor and ESC temp. Runs every main-loop tick, armed or not, so a
+    // sensor already out when the pilot arms is reported at once. Main loop
+    // task only, like checkSignalLoss().
+    void updateTempProtection();
+
+    // POWER_LIMIT_MOTOR_TEMP / POWER_LIMIT_ESC_TEMP bits for each temperature
+    // protection currently suspended (debounced). Always 0 with power control
+    // disabled: there is no protection to lose then. Drives the
+    // TempProtectionAlert alarm and the BLE telemetry flags.
+    uint8_t getSuspendedTempProtections() const;
 
 private:
     enum class StartState {
@@ -73,9 +87,12 @@ private:
     uint8_t activeLimitCauses_;
     uint8_t disarmScale_;
 
-    SignalArmContract motorTempContract_;
-    SignalArmContract escTempContract_;
     SignalArmContract batteryContract_;
+    TempProtectionMonitor motorTempProtection_;
+    TempProtectionMonitor escTempProtection_;
+
+    bool isMotorTempProtecting() const;
+    bool isEscTempProtecting() const;
 
     unsigned int calcPower();
     unsigned int calcBatteryLimit();

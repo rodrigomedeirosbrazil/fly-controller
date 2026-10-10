@@ -1,5 +1,6 @@
 #include "config.h"
 #include "PowerAlert/PowerAlert.h"
+#include "TempProtectionAlert/TempProtectionAlert.h"
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
@@ -76,6 +77,7 @@ Temperature motorTemp(
 
 Power power;
 PowerAlert powerAlert;
+TempProtectionAlert tempProtectionAlert;
 BatteryMonitor batteryMonitor;
 BluetoothBms bluetoothBms;
 DalyBms dalyBms;

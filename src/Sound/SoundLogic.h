@@ -31,6 +31,13 @@ enum class SoundEvent : uint8_t {
     VolumePreview,
     PowerAlert,
     LinkLoss,
+    // Temperature protection suspended / restored (TempProtectionAlert). Each
+    // is a two-note motif played as two queued events: falling for lost,
+    // rising for restored -- a shape no other sound in the catalog has.
+    TempProtectionLostHigh,
+    TempProtectionLostLow,
+    TempProtectionRestoredLow,
+    TempProtectionRestoredHigh,
     kCount, // sentinel: "no event" / array size -- never a real event id
 };
 
@@ -39,8 +46,8 @@ enum class SoundEvent : uint8_t {
 enum class SoundState : uint8_t {
     None = 0, // silence
     ArmedIdle,
-    // Disarm the pilot did not ask for (throttle out of band, link lost, a
-    // power-limiting sensor lost mid-flight). Belongs on the state layer, not
+    // Disarm the pilot did not ask for (throttle out of band, link lost,
+    // battery voltage lost mid-flight). Belongs on the state layer, not
     // the event layer: it describes a condition that persists until the pilot
     // acts, so it must stop the moment they re-arm. As an event it could not
     // -- an in-flight event is uncancellable and preempts the state layer on
