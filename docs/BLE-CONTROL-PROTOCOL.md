@@ -480,9 +480,16 @@ moved, and resume from there.
 `DFU_COMMIT` is refused with `ErrState` unless `received == size` **and** the
 CRC32 accumulated over the received image matches the one from `DFU_BEGIN`.
 
-On success the controller answers `Ok` and then restarts on a later tick — the
-answer comes first, so a successful update is never reported as a failure.
-Expect the link to drop immediately after.
+On success the controller answers `Ok` and restarts about one second later —
+the answer comes first, and the delay gives the notification time to leave the
+radio, so a successful update is never reported as a failure. Expect the link
+to drop within a couple of seconds.
+
+Firmware older than this rule restarted on the very next loop tick, and the
+`Ok` could be lost with it (observed from Chrome over Web Bluetooth). A client
+talking to such a controller should treat a commit that times out and is
+followed by a disconnect as *probably applied*, and check the version reported
+in `INFO` after reconnecting.
 
 Note the CRC is accumulated over the bytes as they arrive, not computed by
 reading the flash back. Reading back is impossible here: the ESP32 updater

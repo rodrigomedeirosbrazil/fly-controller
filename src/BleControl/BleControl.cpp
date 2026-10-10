@@ -618,6 +618,9 @@ void BleControl::serviceDfu() {
     DfuFlash::releaseIfRetired();
 
     if (dfuRebootPending_) {
+        if (millis() - dfuCommittedMs_ < DFU_REBOOT_DELAY_MS) {
+            return;   // the session is Ready: nothing left to flush
+        }
         dfuRebootPending_ = false;
         Serial.println("[BleControl] DFU committed, restarting");
         ESP.restart();
@@ -680,7 +683,8 @@ ControlStatus BleControl::handleDfu(const QueuedRequest& req, uint8_t* out, uint
                 return ControlStatus::ErrState;
             }
             dfu_.markReady();
-            dfuRebootPending_ = true;   // answer first, restart next tick
+            dfuRebootPending_ = true;   // answer first, restart a second later
+            dfuCommittedMs_ = millis();
             return ControlStatus::Ok;
         }
 

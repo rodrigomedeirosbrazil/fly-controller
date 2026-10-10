@@ -48,6 +48,11 @@ public:
 
 private:
     static const unsigned long TELEMETRY_INTERVAL_MS = 1000;
+    // How long the commit's Ok gets to leave the radio before the restart.
+    // One loop tick was not enough: Chrome over Web Bluetooth never saw the
+    // reply and reported a failure on an update that had been written. A
+    // second covers any connection interval a phone or browser negotiates.
+    static const unsigned long DFU_REBOOT_DELAY_MS = 1000;
 
     BLEService*        service_      = nullptr;
     BLECharacteristic* infoChar_     = nullptr;
@@ -64,11 +69,12 @@ private:
     uint32_t beepWatermark_ = 0;
 
     DfuSession dfu_;
-    // Commit answers Ok and reboots on a LATER tick: the notification is
-    // queued by the BLE stack, not flushed synchronously, so restarting in
-    // the handler throws it away and the app reports a failure on an update
-    // that worked.
+    // Commit answers Ok and reboots DFU_REBOOT_DELAY_MS later: the
+    // notification is queued by the BLE stack, not flushed synchronously, so
+    // restarting in the handler -- or on the next tick -- throws it away and
+    // the app reports a failure on an update that worked.
     bool dfuRebootPending_ = false;
+    unsigned long dfuCommittedMs_ = 0;
 
     // Lives here rather than on the loop task's stack: ~700 bytes, and
     // dispatch() already holds two 240-byte frames.
