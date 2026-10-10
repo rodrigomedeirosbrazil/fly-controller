@@ -62,6 +62,8 @@ src/
 ├── Temperature/              # NTC thermistor via ReadFn
 ├── Throttle/                 # Hall sensor via ReadFn + calibration + cruise
 ├── Tmotor/                   # TmotorCan + TmotorTelemetry
+├── WebServer/                # ESPAsyncWebServer + ElegantOTA config portal
+│   └── Pages/                # HTML/JS page handlers
 ├── Xag/                      # XagTelemetry (analog sensors, PWM-only)
 └── Xctod/                    # BLE telemetry output for XCTRACK app
 ```
@@ -95,7 +97,7 @@ while (canbus.receive(&msg)) {
 
 ## Coding Conventions
 
-- **Language:** All code, comments, commit messages, documentation, and identifiers in **English**. The only exception is the user-facing manuals (`docs/MANUAL-*.md`), which are in **Brazilian Portuguese**.
+- **Language:** All code, comments, commit messages, documentation, and identifiers in **English**. The only exceptions are the user-facing manuals (`docs/MANUAL-*.md`) and user-facing strings rendered in the web portal (button labels, page text, error messages shown to the user) — those are in **Brazilian Portuguese**.
 - **No `delay()`** in main loop — use `millis()` for timing
 - **Naming:** camelCase for functions/variables, PascalCase for classes
 - **Constants:** `#define` or `const` — no magic numbers
@@ -119,18 +121,30 @@ while (canbus.receive(&msg)) {
 - **Battery voltage:** Progressive reduction below nominal (configurable via Settings)
 - **Motor temp:** Linear reduction between two configurable thresholds. Defaults: 80°C → 100°C (`Settings::getDefaultMotorTempReductionStart()` / `getDefaultMotorMaxTemp()`, stored in millicelsius).
 - **ESC temp:** Linear reduction between two configurable thresholds, defaults per board (`BoardConfig`): Tmotor 80°C → 110°C, XAG 70°C → 80°C.
-- All four thresholds are editable from fly-app (`CFG_SET` Thermal) and persist in NVS, so the numbers above are only the factory values. Anything that draws or documents a derating range must read `Settings`, never hardcode these.
+- All four thresholds are editable from fly-app (`CFG_SET` Thermal) or the web portal (Configurações → Proteção Térmica) and persist in NVS, so the numbers above are only the factory values. Anything that draws or documents a derating range must read `Settings`, never hardcode these.
 - **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
 - **XAG wake-up:** 1.5 s at 5% PWM before jumping directly to target when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
 - **Sensor validity & arm-time contract:** motor temp, ESC temp, and battery voltage each have a real validity check (`Temperature`/`BatteryVoltageSensor`'s `isValid()`, `SensorReadingValidity`, host-tested) instead of trusting every reading. Arming opens a per-signal contract (`Power::onArmed()`, `SignalArmContract`, host-tested): valid at arm and later invalid mid-flight disarms (`DisarmReason::MotorTempLost`/`EscTempLost`/`BatteryVoltageLost`); invalid at arm disables that signal's limiting for the whole session, even if it recovers. The arm snapshot is taken by the first `Power::checkSignalLoss()` rather than inside `onArmed()` (so it can't straddle two telemetry samples), and the disarm is debounced by `SIGNAL_LOSS_GRACE_MS` (2 s of continuous invalidity) — see `src/CLAUDE.md` under Power for why both are required. Motor temp has two sources behind one reading (CAN vs NTC), so its contract also snapshots the source tag (`telemetry.getMotorTempOrigin()`) on the same tick as validity: a mid-flight source change is treated as loss of the sensor the pilot armed with and disarms with `DisarmReason::MotorTempSourceChanged` (`MOT SRC`) after the same 2 s `SIGNAL_LOSS_GRACE_MS` debounce, and `shouldLimit()` stops the instant the source diverges so one sensor's thresholds are never applied to the other's reading. No sensor valid at arm (or XAG, whose origin is always `None`) → no source-change disarm.
 
 ## Settings (Persistent)
 
-All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences`. Changes survive reboots. Configurable from fly-app over BLE (`CFG_SET`).
+All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences`. Changes survive reboots. Configurable from fly-app over BLE (`CFG_SET`) and from the web portal (`WebServer/`).
 
 ## Power alert
 
-The `PowerAlert` component reports which limiters are cutting power via `TELEMETRY.limitCauses` (battery voltage, motor temp, ESC temp). It exposes `getActiveCauses()` only: its 10 s re-fire (beeps) is driven by `PowerAlertLogic`'s `PeriodicTrigger`, and there is no sequence counter for clients. See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
+The `PowerAlert` component reports which limiters are cutting power via `TELEMETRY.limitCauses` (battery voltage, motor temp, ESC temp). It also exposes `getAlertSeq()` (bumped on each fire), included in `/api/telemetry`'s `powerAlert` object; its 10 s re-fire (beeps) is driven by `PowerAlertLogic`'s `PeriodicTrigger`. See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
+
+## Web Portal
+
+Available on all builds, alongside the BLE control service. Connects to WiFi AP, serves config pages at `192.168.4.1`. OTA firmware update via ElegantOTA.
+
+Static assets (HTML/CSS/JS) are **gzipped at build time** by `scripts/gen_web_assets.py` into `$BUILD_DIR/generated/WebAssetsGz.h` and served with `Content-Encoding: gzip`. The files under `src/WebServer/Pages/` remain the source of truth but are **not `#included` by any translation unit**, so the uncompressed text is never linked in; add a new asset by listing it in the script's `ASSETS` table. Pages built at runtime through `renderPage()` link `/config.css` rather than inlining it (inlining built the whole stylesheet inside an Arduino `String` on every render).
+
+WiFi is enabled at boot and stays on for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d).
+
+Web handlers run on the AsyncTCP task, not the loop task, unlike `BleControl`, which only enqueues from its callback. `PIN_CHANGE` over BLE keeps ElegantOTA's basic auth in step with the new PIN. The portal's log routes and the Logger's retention share LittleFS; `/delete-all-logs` ends with `logger.afterLogFilesClearedFromStorage()` as `LOG_DELETE_ALL` does.
+
+The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirrors buzzer sounds in the browser via Web Audio API. See [docs/MANUAL-INTERFACE-WEB.md](docs/MANUAL-INTERFACE-WEB.md) for the pages and API routes.
 
 ## Flight time
 
@@ -138,12 +152,12 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 ## Wireless Throttle (ESP-NOW)
 
-An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with BLE on the C3's single radio; WiFi runs in STA mode only to carry ESP-NOW). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
+An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with the WiFi AP + BLE on the C3's single radio). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
 
 - **Source selection:** `Settings::getThrottleSource()` (wired/wireless), set from fly-app (`CFG_SET` System). In wireless mode the controller's `Throttle` `ReadFn` returns the last Hall value received over the link, and the existing AceButton runs on the remote's forwarded **raw button state** (via `SourceSwitchButtonConfig::readButton`) — so calibration and the arming gesture are identical wired/wireless. The remote stays "dumb"; the controller owns all logic.
 - **Signal validity & failsafe (`Throttle/ThrottleSignalLogic.h`, host-tested):** a single fault-escalation state machine shared by both wired and wireless throttle sources, parameterized per source. Wireless: no packet for >500 ms → ramp throttle to 0 (stay armed, via the ReadFn feeding 0); >3 s → disarm. Wired: zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately, no ramp-to-zero step. `RemoteLink::isLinkFresh()` supplies the raw "packet arrived recently" signal that feeds the wireless config; `RemoteLink/RemoteLinkLogic.h` no longer exists (absorbed into `ThrottleSignalLogic`). A disarm from either path is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `TELEMETRY.disarmReason` and shown by fly-app as a persistent red chip until the pilot fixes the fault and re-arms.
 - **Pairing:** `REMOTE_PAIR` (from fly-app) arms pairing; the next remote heard is saved (MAC in `Settings`). The remote persists the controller MAC in NVS and enters pairing by holding its button while unpaired.
-- **Radio:** `RemoteLink::setupRadio()` runs WiFi in STA mode (never associated) on channel 1 and moves the softAP MAC (base + 1) onto STA, because remotes paired while the controller still ran a WiFi AP know it by that address. WiFi stays up for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d). If setting the MAC fails it is logged on serial and the link continues on the base MAC (paired remotes would need re-pairing).
+- **Radio:** ESP-NOW rides the web portal's WiFi AP (`peer.ifidx = WIFI_IF_AP`), so `webServer.begin()` must run before `remoteLink.setup()`. Paired remotes know the controller by its softAP MAC.
 - **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`. The remote's `Armed`/`Stop`/`Disarmed` commands now mirror the controller's own armed+stopped state (`updateSoundState()` in `main.cpp`, using the same `throttle.isEngaged()` hysteresis as `Sound`'s `ArmedIdle` state) — the two used to disagree, with the remote beeping on armed alone.
 
 Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red LED=GPIO7 (armed), green LED=GPIO10 (disarmed). Pure decision logic (LED state machine, link-loss, failsafe) lives in host-testable headers tested with `c++ -std=c++17` like `test/PowerTest.cpp`.
@@ -192,7 +206,8 @@ bumped in both repos only when an existing field changes position or meaning.
 rather than individual keys, so paired values are validated together.
 `CFG_SET` seeds from the current settings and overlays only the prefix it
 received, so a short write from an older app cannot zero a field it does not
-know about. Ranges come from `Settings/SettingsValidation.h`.
+know about. Ranges come from `Settings/SettingsValidation.h`, shared with the
+web portal's POST handlers so the two transports cannot diverge.
 
 Reads are open; writes need the PIN (`AUTH`, per connection, cleared on
 disconnect). **While armed, requests are refused by default** with
@@ -200,7 +215,8 @@ disconnect). **While armed, requests are refused by default** with
 `BMS_SCAN_RESULT` (read-only) and `SESSION_RESET` (a RAM-only counter that
 cannot reach the motor). `LOG_*` are not exceptions: they touch flash, so they
 are refused while armed. Armed is reported before auth so the app never
-prompts for a PIN to do something that would be refused anyway.
+prompts for a PIN to do something that would be refused anyway. The web
+portal keeps its narrower guard on `motorTempSource` alone.
 
 `BMS_DETECT` looks like a read and is not: `detectBmsTypeByMac()` disables all
 three BMS drivers, pauses advertising and performs a **blocking**
