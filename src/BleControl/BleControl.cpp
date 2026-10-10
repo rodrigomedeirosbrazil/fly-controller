@@ -267,6 +267,9 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     if (settings.getBmsType() != BmsTypeNone && settings.getBmsMac().length() >= 17) {
         flags |= TelemFlag::BmsConfigured;
     }
+    const uint8_t tempOff = power.getSuspendedTempProtections();
+    if (tempOff & POWER_LIMIT_MOTOR_TEMP)   flags |= TelemFlag::MotorTempProtectionOff;
+    if (tempOff & POWER_LIMIT_ESC_TEMP)     flags |= TelemFlag::EscTempProtectionOff;
     t.flags = flags;
 
     uint16_t valid = 0;

@@ -62,7 +62,7 @@ This mirrors the same per-signal validity check the Fly Control
 |-------|---------|
 | `ARMED` | system is armed |
 | `DISARMED` | not armed, no fault (`DisarmReason::None` or `Manual`) |
-| fault code | not armed due to a fault — one of `THR ERR`, `LINK ERR`, `MOT ERR`, `ESC ERR`, `BATT ERR`, `MOT SRC` (see `src/DisarmReason.h`, `disarmReasonCode()`); all fault codes fit an 8-character field width |
+| fault code | not armed due to a fault — one of `THR ERR`, `LINK ERR`, `BATT ERR` (older firmware also sent `MOT ERR`, `ESC ERR`, `MOT SRC`; see `src/DisarmReason.h`, `disarmReasonCode()`); all fault codes fit an 8-character field width |
 
 ### `motor_temp_src` (field 9)
 

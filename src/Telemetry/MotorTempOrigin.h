@@ -13,11 +13,8 @@
 // should show a source badge only for Can/Ntc.
 enum class MotorTempOrigin : uint8_t { None, Can, Ntc };
 
-// `None` is aliased to 0 by SignalArmContract's source tag, where tag 0 is
-// the sentinel for "single-source signal, tag never changes" (ESC temp,
-// battery voltage). A reorder that moved Can or Ntc to 0 would silently make
-// those callers' tags collide with the sentinel and disable source-change
-// detection — this assert pins the layout.
+// The numeric values are the BLE wire contract (TELEMETRY.motorTempSrc), and
+// 0 is what a zeroed packet reads — "no source". This assert pins the layout.
 static_assert((uint8_t)MotorTempOrigin::None == 0, "MotorTempOrigin::None must stay 0");
 
 // JSON/UI code for a source origin. nullptr means "no source to report" —

@@ -19,51 +19,60 @@ Power::Power() {
 }
 
 void Power::onArmed() {
-    motorTempContract_.onArmed();
-    escTempContract_.onArmed();
     batteryContract_.onArmed();
 }
 
 void Power::checkSignalLoss() {
-    // Only advance the contracts while armed. They carry timing state now
-    // (the loss debounce), and letting it run while disarmed would leave a
-    // stale in-progress invalid episode to be re-measured against the next
-    // session. onArmed() re-opens them on the next arm anyway.
+    // Only advance the contract while armed. It carries timing state (the
+    // loss debounce), and letting it run while disarmed would leave a stale
+    // in-progress invalid episode to be re-measured against the next
+    // session. onArmed() re-opens it on the next arm anyway.
     if (!throttle.isArmed()) {
         return;
     }
 
-    const uint32_t now = millis();
-
-    // All three contracts are updated unconditionally, even if an earlier
-    // one in this same call already disarmed — every contract must see this
-    // tick's sample to keep its own debounce timer honest. Only the first
-    // one to fire actually latches a DisarmReason, since
-    // Throttle::setDisarmed() early-returns once already disarmed.
-    //
-    // The motor-temp contract passes the reading's origin (Can/Ntc) as its
-    // source tag, so a mid-flight switch of which sensor feeds the value is
-    // treated as loss of the sensor the pilot armed with. ESC temp and
-    // battery voltage have a single source and pass no tag.
-    SignalArmContract::Outcome motorOutcome = motorTempContract_.update(
-        telemetry.isMotorTempValid(), now, SIGNAL_LOSS_GRACE_MS,
-        (uint8_t)telemetry.getMotorTempOrigin());
-    SignalArmContract::Outcome escOutcome   = escTempContract_.update(
-        telemetry.isEscTempValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
-    SignalArmContract::Outcome battOutcome  = batteryContract_.update(
-        telemetry.isBatteryVoltageValid(), now, SIGNAL_LOSS_GRACE_MS, 0);
-
-    if (motorOutcome == SignalArmContract::Outcome::LostInvalid) {
-        throttle.setDisarmed(DisarmReason::MotorTempLost);
-    } else if (motorOutcome == SignalArmContract::Outcome::SourceChanged) {
-        throttle.setDisarmed(DisarmReason::MotorTempSourceChanged);
-    }
-    if (escOutcome == SignalArmContract::Outcome::LostInvalid) {
-        throttle.setDisarmed(DisarmReason::EscTempLost);
-    }
-    if (battOutcome == SignalArmContract::Outcome::LostInvalid) {
+    if (batteryContract_.update(telemetry.isBatteryVoltageValid(), millis(), SIGNAL_LOSS_GRACE_MS)) {
         throttle.setDisarmed(DisarmReason::BatteryVoltageLost);
     }
+}
+
+// The motor-temp reading the limiter trusts comes from the CONFIGURED source
+// only. On Tmotor the telemetry falls back from CAN to the NTC when CAN goes
+// stale, but the two sensors sit in different places and read differently,
+// so the fallback is shown to the pilot and never used for derating: CAN
+// lost means motor-temp protection is suspended until CAN returns. XAG has
+// a single source and reports origin None.
+static MotorTempOrigin configuredMotorTempOrigin() {
+#if IS_TMOTOR
+    return settings.getMotorTempSource() == MotorTempSourceAds1115
+        ? MotorTempOrigin::Ntc
+        : MotorTempOrigin::Can;
+#else
+    return MotorTempOrigin::None;
+#endif
+}
+
+bool Power::isMotorTempProtecting() const {
+    return telemetry.isMotorTempValid()
+        && telemetry.getMotorTempOrigin() == configuredMotorTempOrigin();
+}
+
+bool Power::isEscTempProtecting() const {
+    return telemetry.isEscTempValid();
+}
+
+void Power::updateTempProtection() {
+    const uint32_t now = millis();
+    motorTempProtection_.update(isMotorTempProtecting(), now, TEMP_PROTECTION_DEBOUNCE_MS);
+    escTempProtection_.update(isEscTempProtecting(), now, TEMP_PROTECTION_DEBOUNCE_MS);
+}
+
+uint8_t Power::getSuspendedTempProtections() const {
+    if (!settings.getPowerControlEnabled()) return POWER_LIMIT_NONE;
+    uint8_t mask = POWER_LIMIT_NONE;
+    if (motorTempProtection_.isSuspended()) mask |= POWER_LIMIT_MOTOR_TEMP;
+    if (escTempProtection_.isSuspended())   mask |= POWER_LIMIT_ESC_TEMP;
+    return mask;
 }
 
 unsigned int Power::getPwm() {
@@ -178,9 +187,9 @@ unsigned int Power::getPower() {
 
 unsigned int Power::calcPower() {
     // Note: disabling power control here only stops the percentage-based
-    // limiting below — disarm-on-signal-loss is a separate safety behavior
-    // handled by checkSignalLoss(), called independently every loop tick,
-    // and is not affected by this setting.
+    // limiting below — battery disarm-on-signal-loss is a separate safety
+    // behavior handled by checkSignalLoss(), called independently every loop
+    // tick, and is not affected by this setting.
     if (!settings.getPowerControlEnabled()) {
         activeLimitCauses_ = POWER_LIMIT_NONE;
         return 100;
@@ -201,7 +210,7 @@ unsigned int Power::calcPower() {
 unsigned int Power::calcBatteryLimit() {
     if (!getBoardConfig().useBatteryLimit) return 100;
 
-    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid(), 0)) return 100;
+    if (!batteryContract_.shouldLimit(telemetry.isBatteryVoltageValid())) return 100;
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     const unsigned int STEP_DECREASE = 5;
@@ -218,11 +227,10 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    // The origin tag matters here as much as in checkSignalLoss(): omitting
-    // it would compare against 0 while the armed snapshot is Can(1)/Ntc(2)
-    // and silently disable motor-temp derating for the whole session.
-    if (!motorTempContract_.shouldLimit(telemetry.isMotorTempValid(),
-                                        (uint8_t)telemetry.getMotorTempOrigin())) return 100;
+    // Not debounced: derating stops on the very sample the configured
+    // source goes bad, and resumes on the first good one. Only the alarm
+    // (TempProtectionMonitor) waits out the debounce window.
+    if (!isMotorTempProtecting()) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();
     int32_t reductionStart = settings.getMotorTempReductionStart();
@@ -235,7 +243,7 @@ unsigned int Power::calcMotorTempLimit() {
 }
 
 unsigned int Power::calcEscTempLimit() {
-    if (!escTempContract_.shouldLimit(telemetry.isEscTempValid(), 0)) return 100;
+    if (!isEscTempProtecting()) return 100;
 
     int32_t escTempMilliCelsius = telemetry.getEscTempMilliCelsius();
     int32_t reductionStart = settings.getEscTempReductionStart();

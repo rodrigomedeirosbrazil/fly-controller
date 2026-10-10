@@ -12,6 +12,9 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `VoltageFormatTest.cpp` - Unit tests for `formatMilliVolts` (`src/Telemetry/VoltageFormat.h`), covering the three-digit decimal at every boundary and an exhaustive round-trip over all 65536 millivolt values — the property the old per-site formatting broke silently.
 - `DfuSessionTest.cpp` - Unit tests for `DfuSession` (`src/BleControl/DfuSession.h`), the firmware-update transfer engine: size validation, the offset acceptance rule (exact match only — gaps, resends and overshoots are all dropped rather than buffered), CRC accumulation, commit gating on completeness and CRC, and that abort is safe before begin.
 - `LogListingTest.cpp` - Unit tests for `LogListing` (`src/Logger/LogListing.h`): the log-name validator (identical to fly-app's), byte-wise cursor ordering, hiding zero-byte placeholders, page fit at the iOS (178) and Android (240) payload limits, the fixed-window builder over unsorted input, and the retention picker.
+- `SignalArmContractTest.cpp` - Unit tests for `SignalArmContract` (`src/Power/SignalArmContract.h`), the battery-voltage arm-time contract: the deferred snapshot, the loss debounce, invalid-at-arm disabling the signal, re-arming, and millis() rollover.
+- `TempProtectionMonitorTest.cpp` - Unit tests for `TempProtectionMonitor` (`src/Power/TempProtectionMonitor.h`): both edges debounced, a flapping signal held suspended, millis() rollover.
+- `TempProtectionAlertLogicTest.cpp` - Unit tests for `TempProtectionAlertLogic` (`src/TempProtectionAlert/TempProtectionAlertLogic.h`): the 0/10/30/60 s-then-60 s backoff, alarm on arming with a protection already suspended, restart when another protection joins, "restored" only when every protection is back, silence while disarmed.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

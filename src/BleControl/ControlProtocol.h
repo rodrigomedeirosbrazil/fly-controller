@@ -187,6 +187,14 @@ namespace TelemFlag {
         PowerControlEnabled = 1 << 3,
         BmsConnected        = 1 << 4,
         BmsConfigured       = 1 << 5,
+        // Temperature protection suspended: the configured sensor stopped
+        // producing a trustworthy reading (debounced 2 s), so that derating
+        // is off and the buzzer is alarming. Never set with power control
+        // disabled. Bit 6 also covers "motor temp shown from the NTC fallback
+        // while CAN is the configured source" -- signalStates cannot say that
+        // on its own, since the fallback reading itself is Valid.
+        MotorTempProtectionOff = 1 << 6,
+        EscTempProtectionOff   = 1 << 7,
     };
 }
 

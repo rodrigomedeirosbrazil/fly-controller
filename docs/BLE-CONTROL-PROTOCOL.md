@@ -164,6 +164,16 @@ bug.
 | `0x08` | Power control enabled |
 | `0x10` | BMS connected |
 | `0x20` | BMS configured |
+| `0x40` | Motor temperature protection off |
+| `0x80` | ESC temperature protection off |
+
+`0x40` / `0x80` mean the configured sensor stopped producing a trustworthy
+reading (held for 2 s), so that temperature no longer limits power and the
+buzzer is alarming. The motor is **not** cut. They clear 2 s after the sensor
+is back. Never set while power control is disabled. `0x40` is the only way to
+see "motor temp shown from the NTC fallback while CAN is the configured
+source": the fallback reading itself is `Valid` in `signalStates`, but it is
+not used for derating. Show it as a warning (amber), not as a fault.
 
 ### `validity` — availability, not health
 
@@ -218,12 +228,15 @@ Non-zero means `powerPct` is below 100 for that reason.
 | 1 | `MANUAL` | pilot disarmed |
 | 2 | `THR ERR` | wired throttle reading invalid |
 | 3 | `LINK ERR` | wireless throttle link lost |
-| 4 | `MOT ERR` | motor temp sensor lost mid-flight |
-| 5 | `ESC ERR` | ESC temp sensor lost mid-flight |
+| 4 | `MOT ERR` | retired — motor temp sensor lost mid-flight |
+| 5 | `ESC ERR` | retired — ESC temp sensor lost mid-flight |
 | 6 | `BATT ERR` | battery voltage lost mid-flight |
-| 7 | `MOT SRC` | motor temp source changed mid-flight |
+| 7 | `MOT SRC` | retired — motor temp source changed mid-flight |
 
 Values 2–7 are faults and should stay visible until the pilot re-arms.
+Current firmware never sends 4, 5 or 7: a lost temperature sensor suspends
+that protection and alarms instead (see the `flags` bits `0x40` / `0x80`).
+Keep decoding them for older firmware.
 
 ## `CMD` / `RSP` — the request protocol
 

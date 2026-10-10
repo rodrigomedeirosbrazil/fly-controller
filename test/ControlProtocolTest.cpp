@@ -214,6 +214,8 @@ void test_telemetry_bit_values_are_pinned() {
     assert(TelemFlag::PowerControlEnabled == 0x08);
     assert(TelemFlag::BmsConnected        == 0x10);
     assert(TelemFlag::BmsConfigured       == 0x20);
+    assert(TelemFlag::MotorTempProtectionOff == 0x40);
+    assert(TelemFlag::EscTempProtectionOff   == 0x80);
 
     assert(TelemValid::Current  == 0x0001);
     assert(TelemValid::Rpm      == 0x0002);

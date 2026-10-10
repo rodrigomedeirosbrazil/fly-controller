@@ -123,12 +123,25 @@ O controlador **reduz automaticamente a potência máxima** enviada ao motor com
 
 ### Sensor inválido ou perdido
 
-Se a leitura de um sensor (temperatura do motor, temperatura do ESC ou tensão da bateria) for fisicamente impossível (por exemplo, sensor desconectado ou falha de comunicação), o sistema trata isso de duas formas, dependendo de quando o problema aparece:
+**Sensores de temperatura (motor e ESC): o motor nunca é cortado.** Se o sensor de temperatura configurado deixar de dar uma leitura confiável (cabo solto, falha na rede CAN, sensor desconectado), o sistema:
 
-- **Sensor já inválido no momento em que você arma:** a proteção daquele sensor específico fica desabilitada durante todo o voo — a potência não é limitada por ele, mesmo que a leitura volte ao normal depois. A tela mostra um aviso permanente indicando qual sensor está com problema.
-- **Sensor válido ao armar, e fica inválido durante o voo:** se a leitura continuar inválida por **2 segundos seguidos**, o sistema **desarma automaticamente**, com o mesmo alarme sonoro contínuo e aviso permanente na tela usados para falha do acelerador. Falhas mais curtas que isso são ignoradas — uma piscada momentânea na comunicação é normal e não justifica cortar o motor. Uma temperatura ou tensão não muda de forma perigosa nesses 2 segundos, então essa tolerância não abre mão de nenhuma proteção real. Isso porque uma proteção que você esperava estar ativa deixou de funcionar no meio do voo, sem aviso — o sistema prefere parar o motor a continuar voando com uma proteção que parou de existir silenciosamente.
+- **para de limitar a potência por aquele sensor** imediatamente — sem leitura confiável, não há como saber a temperatura real;
+- depois de **2 segundos seguidos** sem o sensor, toca o **alarme de proteção de temperatura desligada**: duas notas descendentes, uma aguda curta e uma mais grave longa ("niii-nóóó"). O controle remoto toca o seu alerta;
+- repete o alarme aos **10 s, 30 s e 60 s**, e depois **a cada 1 minuto**, enquanto o sensor continuar fora. Se o outro sensor de temperatura também cair, o alarme toca na hora e a contagem recomeça;
+- quando **todos** os sensores de temperatura voltam (por 2 segundos seguidos), toca **duas notas ascendentes curtas** ("bip-biip"), os lembretes param e a limitação volta a funcionar normalmente, se for necessária.
 
-Em ambos os casos, para voltar a operar normalmente, corrija o problema do sensor e desarme/arme novamente.
+O alarme só toca com o sistema **armado**. Se você armar com um sensor de temperatura já fora, o alarme toca logo após armar. O app mostra um aviso âmbar indicando qual proteção está desligada.
+
+**Temperatura do motor em builds T-Motor:** a fonte configurada (CAN ou NTC) é a única usada para limitar. Com a fonte em **CAN**, se a rede CAN cair, o app passa a mostrar a temperatura do NTC (se houver), mas ela **não é usada para limitar** — os dois sensores ficam em lugares diferentes do motor e medem valores diferentes. A proteção fica desligada, com alarme, até o CAN voltar. Se o seu motor não reporta temperatura pelo CAN, configure a fonte como **NTC**.
+
+Voar com a proteção de temperatura desligada é responsabilidade do piloto: ao ouvir o alarme, reduza a potência e considere pousar.
+
+**Tensão da bateria:**
+
+- **Sensor já inválido no momento em que você arma:** a proteção da bateria fica desabilitada durante todo o voo — a potência não é limitada por ela, mesmo que a leitura volte ao normal depois. A tela mostra um aviso permanente.
+- **Sensor válido ao armar, e fica inválido durante o voo:** se a leitura continuar inválida por **2 segundos seguidos**, o sistema **desarma automaticamente**, com o mesmo alarme sonoro contínuo e aviso permanente na tela usados para falha do acelerador. Falhas mais curtas que isso são ignoradas — uma piscada momentânea na comunicação é normal e não justifica cortar o motor.
+
+Para voltar a operar normalmente depois de uma falha na bateria, corrija o problema do sensor e desarme/arme novamente.
 
 ---
 
