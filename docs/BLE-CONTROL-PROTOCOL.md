@@ -60,7 +60,7 @@ negotiated MTU**: payload ≤ `min(240, MTU − 7)`. iOS settles at 185 (178-byt
 payloads), Android usually 247. There is no fragmentation layer. Measured
 working on a Galaxy A12 (API 31).
 
-## `INFO` — 51 bytes, read once
+## `INFO` — 53 bytes, read once
 
 Static for the whole session; the firmware writes it at boot.
 
@@ -73,9 +73,12 @@ Static for the whole session; the firmware writes it at boot.
 | 28 | `char[12]` | `buildDate` — compiler `__DATE__`, e.g. `Sep 12 2026`, NUL-padded |
 | 40 | `char[9]` | `buildTime` — compiler `__TIME__`, e.g. `12:46:03`, NUL-padded |
 | 49 | `uint16` | `defaultDividerRatioX100` — the factory voltage-divider ratio × 100 |
+| 51 | `uint16` | `defaultReferenceCurrentA` — the factory reference current, A (90 Tmotor, 75 XAG) |
 
 `defaultDividerRatioX100` lets a client tell a calibrated ratio from the
-default and restore it with `CFG_SET` Power.
+default and restore it with `CFG_SET` Power. `defaultReferenceCurrentA`
+likewise lets the client restore the factory reference current with `CFG_SET`
+Power.
 
 `buildDate`/`buildTime` are appended at the end, so a client written against
 the 28-byte layout keeps working unchanged — read `min(received, known)` here
@@ -98,7 +101,7 @@ append rule does *not* rescue, since appending saves nothing if offsets
 shifted underneath. Gate on the telemetry struct's own `ver` and on the
 received length instead, and log `protocolVersion` for support.
 
-## `TELEMETRY` — 69 bytes at 1 Hz
+## `TELEMETRY` — 74 bytes at 1 Hz
 
 Two rules govern this struct, and together they are what replaces the CSV.
 
@@ -109,10 +112,11 @@ absent field.** Every offset below is constant forever.
 `min(received, known)`.** New firmware with an old client: the client reads the
 prefix it understands and ignores the tail. Old firmware with a new client: the
 client sees a short packet and treats the fields beyond it as absent. Neither
-breaks. **Decode by offset against the received length — never assume 69.**
+breaks. **Decode by offset against the received length — never assume 74.**
 `stateFreqHz` was appended after the first release and is the worked example:
 firmware without it sends 56 bytes and nothing else changes. The BMS fields at
-58–68 are the second: firmware without them sends 58.
+58–68 are the second: firmware without them sends 58. The remaining-time fields at 69–73 are the
+third: firmware without them sends 69.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -149,6 +153,9 @@ firmware without it sends 56 bytes and nothing else changes. The BMS fields at
 | 66 | `uint8` | `bmsSoc` | %, from the BMS; validity `Bms` |
 | 67 | `uint8` | `bmsCellCount` | validity `Bms` |
 | 68 | `uint8` | `bmsLinkState` | 0 not configured · 1 idle · 2 connecting · 3 connected; no validity bit |
+| 69 | `uint16` | `remainingMin` | remaining **motor** time, whole minutes (floored); 0 when `remainingQuality` is 0. Updates every 10 s |
+| 71 | `uint8` | `remainingQuality` | 0 unavailable · 1 voltage estimate (no current reading; approximate, does not follow the throttle) · 2 coulomb count; no validity bit |
+| 72 | `uint16` | `avgCurrentDa` | consumption average behind `remainingMin`, 0.1 A; the reference current before the first 10 s of motor time |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -366,7 +373,7 @@ validated as a pair.
 
 | Group | Id | Size | Fields |
 |---|---|---|---|
-| Power | 0 | 9 | `uint16` capacityMah, `uint16` minVoltageMv, `uint16` maxVoltageMv, `uint8` powerControlEnabled, `uint16` dividerRatioX100 |
+| Power | 0 | 11 | `uint16` capacityMah, `uint16` minVoltageMv, `uint16` maxVoltageMv, `uint8` powerControlEnabled, `uint16` dividerRatioX100, `uint16` referenceCurrentA (offset 9) |
 | Thermal | 1 | 17 | `int32` motorReductionStartMc, `int32` motorMaxMc, `int32` escReductionStartMc, `int32` escMaxMc, `uint8` motorTempSource |
 | Bms | 2 | 7 | `uint8` bmsType, `uint8[6]` bmsMac |
 | System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource, `uint8[6]` remoteMac |
@@ -375,6 +382,9 @@ Two encodings differ from how the firmware stores them, because the stored
 types cannot be sent raw:
 
 - **`dividerRatioX100`** is the voltage divider ratio times 100.
+- **`referenceCurrentA`** is the remaining-flight-time reference current in
+  whole amps, 10–300. Learning rewrites it after each flight with at least
+  3 minutes of measured motor time.
 - **MAC addresses are 6 raw bytes**, not the 17-character text form. All zero
   means unset.
 

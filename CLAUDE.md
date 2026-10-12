@@ -154,7 +154,7 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 ## Remaining flight time
 
-`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
+`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
 
 ## Wireless Throttle (ESP-NOW)
 
@@ -194,7 +194,7 @@ stops advertising on the first connection and XCTrack and the app can never
 both be connected.
 
 Four characteristics for everything but firmware images — a new feature is a new opcode,
-not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 69-byte
+not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 74-byte
 struct at 1 Hz), `CMD` (write), `RSP` (notify, responses plus events with
 `seq = 0`). `D4CF0006-…` is the DFU image channel (write without response),
 a fifth characteristic that exists only because bulk data cannot go through

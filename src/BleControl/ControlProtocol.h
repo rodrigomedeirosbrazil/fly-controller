@@ -160,6 +160,9 @@ struct ControlInfo {
     // Appended: Settings::getDefaultVoltageDividerRatio() x 100, so the app
     // can tell a calibrated ratio from the factory one and restore it.
     uint16_t defaultDividerRatioX100;
+    // Appended: Settings::getDefaultReferenceCurrentA(), the factory seed of
+    // the remaining-flight-time average, so the app can restore it.
+    uint16_t defaultReferenceCurrentA;
 };
 #pragma pack(pop)
 
@@ -297,6 +300,11 @@ struct ControlTelemetry {
     uint8_t  bmsCellCount;
     // Always meaningful, no validity bit: BmsLinkState below.
     uint8_t  bmsLinkState;
+    // Appended: remaining motor time (src/RemainingTime/). No validity bit:
+    // remainingQuality is the availability answer, like bmsLinkState.
+    uint16_t remainingMin;      // whole minutes, floored; 0 when Unavailable
+    uint8_t  remainingQuality;  // RemainingTimeQuality: 0 unavailable, 1 voltage, 2 coulomb count
+    uint16_t avgCurrentDa;      // in-flight consumption average, 0.1 A
 };
 #pragma pack(pop)
 
@@ -469,6 +477,9 @@ struct ConfigPower {
     uint16_t batteryMaxVoltageMv;
     uint8_t  powerControlEnabled;
     uint16_t voltageDividerRatioX100;
+    // Appended: seed of the remaining-flight-time average, whole amps
+    // (validateReferenceCurrent). Learning also writes it after each flight.
+    uint16_t referenceCurrentA;
 };
 
 struct ConfigThermal {

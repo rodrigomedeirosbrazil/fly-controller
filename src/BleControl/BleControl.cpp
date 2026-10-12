@@ -250,6 +250,7 @@ void BleControl::writeInfo() {
     strncpy(info.buildTime,  __TIME__,    sizeof(info.buildTime)  - 1);
     info.defaultDividerRatioX100 =
         (uint16_t) lroundf(settings.getDefaultVoltageDividerRatio() * 100.0f);
+    info.defaultReferenceCurrentA = settings.getDefaultReferenceCurrentA();
 
     infoChar_->setValue((uint8_t*) &info, sizeof(info));
 }
@@ -353,6 +354,12 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     t.bmsLinkState = (flags & TelemFlag::BmsConfigured)
         ? bmsLinkStateFromName(bluetoothBms.getConnectionState())
         : (uint8_t) BmsLinkState::NotConfigured;
+
+    // Always meaningful: remainingQuality says whether remainingMin is.
+    t.remainingMin     = remainingTime.getRemainingMin();
+    t.remainingQuality = (uint8_t) remainingTime.getQuality();
+    const uint32_t avgDa = (remainingTime.getAverageCurrentMa() + 50) / 100;
+    t.avgCurrentDa     = avgDa > 0xFFFF ? 0xFFFF : (uint16_t) avgDa;
 }
 
 void BleControl::notifyTelemetry() {
@@ -418,6 +425,7 @@ ControlStatus BleControl::handleCfgGet(const QueuedRequest& req, uint8_t* out, u
             cfg.batteryMaxVoltageMv     = settings.getBatteryMaxVoltage();
             cfg.powerControlEnabled     = settings.getPowerControlEnabled() ? 1 : 0;
             cfg.voltageDividerRatioX100 = (uint16_t) lroundf(settings.getVoltageDividerRatio() * 100.0f);
+            cfg.referenceCurrentA       = settings.getReferenceCurrentA();
             memcpy(out, &cfg, sizeof(cfg));
             outLen = sizeof(cfg);
             return ControlStatus::Ok;
@@ -487,12 +495,17 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             if (validateVoltageDividerRatio(ratio) != SettingsError::None) {
                 return ControlStatus::ErrBadArg;
             }
+            if (validateReferenceCurrent(cfg.referenceCurrentA) != SettingsError::None) {
+                return ControlStatus::ErrBadArg;
+            }
+            const bool referenceChanged = cfg.referenceCurrentA != settings.getReferenceCurrentA();
 
             settings.setBatteryCapacityMah(cfg.batteryCapacityMah);
             settings.setBatteryMinVoltage(cfg.batteryMinVoltageMv);
             settings.setBatteryMaxVoltage(cfg.batteryMaxVoltageMv);
             settings.setPowerControlEnabled(cfg.powerControlEnabled != 0);
             settings.setVoltageDividerRatio(ratio);
+            settings.setReferenceCurrentA(cfg.referenceCurrentA);
             settings.save();
 
             // Without this, Coulomb counting uses the old capacity until
@@ -501,6 +514,11 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
 #if IS_XAG || IS_TMOTOR
             batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
 #endif
+            // Only an actual change restarts the average: saving the capacity
+            // after landing must not discard the regime of the flight just flown.
+            if (referenceChanged) {
+                remainingTime.setReferenceCurrentA(settings.getReferenceCurrentA());
+            }
             return ControlStatus::Ok;
         }
         case ConfigGroup::Thermal: {

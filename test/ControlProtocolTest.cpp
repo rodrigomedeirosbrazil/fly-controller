@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include "../src/BleControl/ControlProtocol.h"
+#include "../src/RemainingTime/RemainingTimeLogic.h"
 using namespace std;
 
 void test_protocol_version_is_declared() {
@@ -123,7 +124,7 @@ void test_events_use_seq_zero() {
 void test_info_layout_is_pinned() {
     // Hand-decoded in fly-app, same as ControlTelemetry, so it gets the same
     // protection.
-    assert(sizeof(ControlInfo) == 51);
+    assert(sizeof(ControlInfo) == 53);
     assert(offsetof(ControlInfo, protocolVersion) ==  0);
     assert(offsetof(ControlInfo, controllerType)  ==  1);
     assert(offsetof(ControlInfo, capabilities)    ==  2);
@@ -131,6 +132,7 @@ void test_info_layout_is_pinned() {
     assert(offsetof(ControlInfo, buildDate)       == 28);
     assert(offsetof(ControlInfo, buildTime)       == 40);
     assert(offsetof(ControlInfo, defaultDividerRatioX100) == 49);
+    assert(offsetof(ControlInfo, defaultReferenceCurrentA) == 51);
 
     // The compiler's own stamps must fit with room for the NUL. Pinned here
     // rather than trusted: a shorter field would silently truncate the year.
@@ -147,7 +149,7 @@ void test_telemetry_layout_is_pinned() {
     // Every offset is part of the contract with fly-app's Dart decoder.
     // A field inserted in the middle silently shifts everything after it,
     // which is the exact failure mode the $XCTOD sentence has.
-    assert(sizeof(ControlTelemetry) == 69);
+    assert(sizeof(ControlTelemetry) == 74);
     assert(offsetof(ControlTelemetry, ver)            ==  0);
     assert(offsetof(ControlTelemetry, flags)          ==  1);
     assert(offsetof(ControlTelemetry, validity)       ==  2);
@@ -181,6 +183,9 @@ void test_telemetry_layout_is_pinned() {
     assert(offsetof(ControlTelemetry, bmsSoc)         == 66);
     assert(offsetof(ControlTelemetry, bmsCellCount)   == 67);
     assert(offsetof(ControlTelemetry, bmsLinkState)   == 68);
+    assert(offsetof(ControlTelemetry, remainingMin)     == 69);
+    assert(offsetof(ControlTelemetry, remainingQuality) == 71);
+    assert(offsetof(ControlTelemetry, avgCurrentDa)     == 72);
 }
 
 void test_signal_states_pack_three_signals_into_one_byte() {
@@ -344,7 +349,7 @@ void test_gate_reports_armed_before_auth() {
 }
 
 void test_config_struct_sizes_are_pinned() {
-    assert(sizeof(ConfigPower)   == 9);
+    assert(sizeof(ConfigPower)   == 11);
     assert(sizeof(ConfigThermal) == 17);
     assert(sizeof(ConfigBms)     == 7);
     assert(sizeof(ConfigSystem)  == 8);
@@ -360,6 +365,25 @@ void test_config_set_partial_prefix_keeps_unknown_tail() {
     assert(current.batteryCapacityMah == 10000);
     assert(current.powerControlEnabled == 1);        // untouched
     assert(current.voltageDividerRatioX100 == 1100); // untouched
+}
+
+void test_config_power_short_write_keeps_reference_current() {
+    // An app that predates referenceCurrentA sends the 9-byte ConfigPower.
+    // The reference the pilot (or learning) set must survive it.
+    ConfigPower current = { 20000, 48000, 58800, 1, 1100, 90 };
+    const ConfigPower older = { 34000, 44100, 58500, 1, 2313, 0 };
+    copyKnownPrefix(&current, sizeof(current), &older, 9);
+
+    assert(current.batteryCapacityMah == 34000);
+    assert(current.voltageDividerRatioX100 == 2313);
+    assert(current.referenceCurrentA == 90);         // untouched
+}
+
+void test_remaining_quality_values_are_pinned() {
+    // The Dart decoder hardcodes these, like the TelemValid bits.
+    assert((uint8_t) RemainingTimeQuality::Unavailable  == 0);
+    assert((uint8_t) RemainingTimeQuality::Voltage      == 1);
+    assert((uint8_t) RemainingTimeQuality::CoulombCount == 2);
 }
 
 void test_config_set_ignores_a_longer_struct_than_we_know() {
@@ -737,6 +761,8 @@ int main() {
     test_gate_reports_armed_before_auth();
     test_config_struct_sizes_are_pinned();
     test_config_set_partial_prefix_keeps_unknown_tail();
+    test_config_power_short_write_keeps_reference_current();
+    test_remaining_quality_values_are_pinned();
     test_config_set_ignores_a_longer_struct_than_we_know();
     test_config_group_is_decoded_from_the_payload();
     test_config_group_rejects_missing_or_unknown_group();
