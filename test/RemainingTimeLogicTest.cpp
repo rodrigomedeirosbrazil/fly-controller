@@ -291,6 +291,38 @@ void test_switch_to_voltage_keeps_the_energy() {
     cout << "PASS: losing current mid-flight continues from the coulomb count\n";
 }
 
+void test_learning_skipped_after_current_loss_while_gliding() {
+    Sim s = coulombSim(90, 30000);
+    s.motor(60000);
+    s.run(200000);
+    s.glide();
+    s.in.currentAvailable = false;             // lost during a glide, still armed
+    s.run(10000);
+    s.in.currentAvailable = true;
+    s.run(1000);
+    s.in.armed = false;
+    s.run(100);
+    assert(s.learned == 0);
+    cout << "PASS: a current loss while armed vetoes learning even off-motor\n";
+}
+
+void test_switch_after_long_rest_keeps_coulomb_energy() {
+    Sim s = coulombSim(90, 18000);
+    s.motor(90000);
+    s.run(10000);
+    assert(s.l.remainingMin() == 12);
+    s.glide();
+    s.run(40000);                              // well past the 30 s settle
+    s.in.currentAvailable = false;
+    s.in.voltageUsableMah = 12000;
+    s.run(100);
+    assert(s.l.quality() == RemainingTimeQuality::Voltage);
+    assert(s.l.remainingMin() == 12);          // CC energy, not the voltage's 8
+    s.run(30000);                              // a full settle after the loss
+    assert(s.l.remainingMin() == 8);           // now anchored on 12000 mAh
+    cout << "PASS: a loss after a long rest keeps the coulomb energy until a fresh settle\n";
+}
+
 void test_empty_battery_reads_zero() {
     Sim s = coulombSim(90, 0);
     assert(s.l.remainingMin() == 0);
@@ -381,6 +413,8 @@ int main() {
     test_voltage_mode_anchors_at_rest_and_dead_reckons();
     test_voltage_anchor_needs_a_full_settle();
     test_switch_to_voltage_keeps_the_energy();
+    test_learning_skipped_after_current_loss_while_gliding();
+    test_switch_after_long_rest_keeps_coulomb_energy();
     test_empty_battery_reads_zero();
     test_tiny_average_never_divides_by_zero();
     test_millis_rollover();

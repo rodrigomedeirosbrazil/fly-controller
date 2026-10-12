@@ -62,6 +62,11 @@ public:
             sessionMotorMs_     = 0;
             sessionCurrentLost_ = false;
         }
+        // Any loss of current while armed vetoes learning for the session,
+        // including a loss during a glide, when accumulate() never looks.
+        if (in.armed && !in.currentAvailable) {
+            sessionCurrentLost_ = true;
+        }
 
         accumulate(in, dt);
         const RemainingTimeQuality q = modeFor(in);
@@ -129,7 +134,6 @@ private:
             return;
         }
         if (!in.currentAvailable) {
-            sessionCurrentLost_ = true;
             return;
         }
         const uint64_t maMs = (uint64_t) in.currentMa * dt;
@@ -158,10 +162,13 @@ private:
             return;
         }
         // Current just disappeared: carry on from the coulomb count rather
-        // than jumping to whatever the loaded pack voltage says.
+        // than jumping to whatever the loaded pack voltage says. The rest
+        // clock restarts too, so a voltage anchor needs a full settle after
+        // the loss even if the motor had been off for longer than that.
         if (quality_ == RemainingTimeQuality::CoulombCount) {
             anchorMah_          = lastCcMah_;
             motorMsSinceAnchor_ = 0;
+            restMs_             = 0;
             hasAnchor_          = true;
         }
         // Rested long enough for the open-circuit voltage to settle.
