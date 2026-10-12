@@ -21,6 +21,7 @@ enum class SettingsError : uint8_t {
     BmsTypeInvalid,
     BuzzerVolumeRange,
     ThrottleSourceInvalid,
+    ReferenceCurrentRange,
 };
 
 inline SettingsError validatePower(uint32_t capacityMah, uint32_t minMv, uint32_t maxMv) {
@@ -64,4 +65,23 @@ inline SettingsError validateSystem(uint8_t buzzerVolume, uint8_t throttleSource
     if (buzzerVolume > 100)  return SettingsError::BuzzerVolumeRange;
     if (throttleSource > 1)  return SettingsError::ThrottleSourceInvalid;
     return SettingsError::None;
+}
+
+// Reference current for the remaining-flight-time estimate, in whole amps:
+// the seed of the in-flight consumption average and the value learning
+// writes back after each flight. See src/RemainingTime/RemainingTimeLogic.h.
+static const uint16_t REFERENCE_CURRENT_MIN_A = 10;
+static const uint16_t REFERENCE_CURRENT_MAX_A = 300;
+
+inline SettingsError validateReferenceCurrent(uint32_t amps) {
+    if (amps < REFERENCE_CURRENT_MIN_A || amps > REFERENCE_CURRENT_MAX_A) {
+        return SettingsError::ReferenceCurrentRange;
+    }
+    return SettingsError::None;
+}
+
+inline uint16_t clampReferenceCurrent(uint32_t amps) {
+    if (amps < REFERENCE_CURRENT_MIN_A) return REFERENCE_CURRENT_MIN_A;
+    if (amps > REFERENCE_CURRENT_MAX_A) return REFERENCE_CURRENT_MAX_A;
+    return (uint16_t) amps;
 }

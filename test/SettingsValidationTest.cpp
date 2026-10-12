@@ -65,6 +65,20 @@ void test_system_ranges() {
     assert(validateSystem(50,  2) == SettingsError::ThrottleSourceInvalid);
 }
 
+void test_reference_current_range() {
+    assert(validateReferenceCurrent(10)  == SettingsError::None);
+    assert(validateReferenceCurrent(300) == SettingsError::None);
+    assert(validateReferenceCurrent(9)   == SettingsError::ReferenceCurrentRange);
+    assert(validateReferenceCurrent(301) == SettingsError::ReferenceCurrentRange);
+    assert(validateReferenceCurrent(0)   == SettingsError::ReferenceCurrentRange);
+}
+
+void test_reference_current_clamp() {
+    assert(clampReferenceCurrent(0)    == 10);
+    assert(clampReferenceCurrent(90)   == 90);
+    assert(clampReferenceCurrent(5000) == 300);
+}
+
 int main() {
     test_power_capacity_range();
     test_power_voltage_ranges();
@@ -75,6 +89,8 @@ int main() {
     test_motor_temp_source_range();
     test_bms_type_range();
     test_system_ranges();
+    test_reference_current_range();
+    test_reference_current_clamp();
     cout << "SettingsValidationTest: all passed" << endl;
     return 0;
 }

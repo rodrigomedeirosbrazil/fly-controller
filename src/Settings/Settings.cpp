@@ -1,6 +1,7 @@
 #include "Settings.h"
 #include "../config.h"
 #include "../BoardConfig.h"
+#include "SettingsValidation.h"
 #include <cstring>
 
 namespace {
@@ -58,6 +59,7 @@ Settings::Settings() {
     bmsType = BmsTypeNone;
     buzzerVolume = getDefaultBuzzerVolume();
     voltageDividerRatio = getDefaultVoltageDividerRatio();
+    referenceCurrentA = getDefaultReferenceCurrentA();
     throttleSource = ThrottleSourceWired;
     remoteMac = "";
     mutex_ = nullptr;
@@ -119,6 +121,12 @@ void Settings::load() {
     voltageDividerRatio = preferences.getFloat("vDivR", getDefaultVoltageDividerRatio());
     if (voltageDividerRatio < 1.0f || voltageDividerRatio > 100.0f) voltageDividerRatio = getDefaultVoltageDividerRatio();
 
+    // Remaining-flight-time reference current; out of range falls back to the board default.
+    referenceCurrentA = preferences.getUInt("refCurA", getDefaultReferenceCurrentA());
+    if (validateReferenceCurrent(referenceCurrentA) != SettingsError::None) {
+        referenceCurrentA = getDefaultReferenceCurrentA();
+    }
+
     // Wireless throttle source + paired remote MAC
     throttleSource = preferences.getUChar("thrSrc", ThrottleSourceWired);
     if (throttleSource > ThrottleSourceWireless) throttleSource = ThrottleSourceWired;
@@ -174,6 +182,7 @@ void Settings::save() {
     preferences.putString("bmsMac", bmsMac);
     preferences.putUChar("buzzVol", buzzerVolume);
     preferences.putFloat("vDivR", voltageDividerRatio);
+    preferences.putUInt("refCurA", referenceCurrentA);
     preferences.putUChar("thrSrc", throttleSource);
     preferences.putString("rmtMac", remoteMac);
 #if IS_TMOTOR
@@ -375,6 +384,18 @@ float Settings::getVoltageDividerRatio() const {
 void Settings::setVoltageDividerRatio(float ratio) {
     if (ratio < 1.0f || ratio > 100.0f) return;
     voltageDividerRatio = ratio;
+}
+
+uint16_t Settings::getReferenceCurrentA() const {
+    return referenceCurrentA;
+}
+
+void Settings::setReferenceCurrentA(uint16_t amps) {
+    referenceCurrentA = clampReferenceCurrent(amps);
+}
+
+uint16_t Settings::getDefaultReferenceCurrentA() const {
+    return getBoardConfig().defaultReferenceCurrentA;
 }
 
 float Settings::getDefaultVoltageDividerRatio() const {

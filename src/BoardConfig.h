@@ -15,6 +15,7 @@ struct BoardConfig {
     uint16_t defaultBatteryCapacity;
     int32_t defaultEscMaxTemp;
     int32_t defaultEscTempReductionStart;
+    uint16_t defaultReferenceCurrentA;  // seed of the remaining-flight-time average, A
 };
 
 const BoardConfig& getBoardConfig();
