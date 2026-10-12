@@ -16,6 +16,10 @@ public:
     // Public SoC access methods
     uint8_t getSoC();                  // Returns 0-100%
     uint8_t getSoCFromVoltage();       // Returns 0-100% based on voltage only
+    // Usable mAh above the reserve that this pack voltage corresponds to, in
+    // the coulomb-count window [SoC(batMinV), 100] -- the same scale as
+    // getRemainingMah() with current, so the two can be compared directly.
+    uint32_t usableMahFromVoltage(uint16_t batteryMilliVolts) const;
     uint16_t getRemainingMah();        // Returns mAh remaining
     uint16_t getConsumedMah();         // Returns mAh consumed
     uint16_t getCapacity();            // Returns battery capacity in mAh
@@ -39,6 +43,7 @@ private:
     uint8_t estimateSoCFromConfiguredVoltageRange(uint16_t batteryMilliVolts) const;
     void getConfiguredSocWindow(uint8_t& socMin, uint8_t& socMax) const;
     uint32_t remainingMahFromScaledSoc(uint8_t scaledSoc) const;
+    uint8_t scaledSocFromVoltage(uint16_t batteryMilliVolts) const;
     void updateUsableCapacity();
     uint32_t getUsableRemainingMah() const;
 };

@@ -177,7 +177,15 @@ Audible + visual alert when any limiter reduces power below 100%, while armed. P
 Alarm for a temperature protection that stopped working (see Power). Reads `power.getSuspendedTempProtections()` + `throttle.isArmed()`; timing is the pure `TempProtectionAlertLogic.h` (host-tested in `test/TempProtectionAlertLogicTest.cpp`). While armed: a falling two-note motif (`SoundEvent::TempProtectionLostHigh` + `LostLow`, 2500→2000 Hz) plus `RemoteBeep::Alert` the moment a protection is suspended — including on arming with one already out — and again at 10, 30, 60 s and every 60 s after; another protection joining restarts the schedule. A rising motif (`RestoredLow` + `RestoredHigh`) plays once when *every* protection is back; a partial recovery plays nothing and the reminders continue. Silent while disarmed. The remote has no dedicated pattern for this; it plays its generic alert.
 
 ### BatteryMonitor — `BatteryMonitor/`
-Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds.
+Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integrates current from `telemetry.getBatteryCurrentMilliAmps()`. Auto-recalibrates from voltage when current is near zero for 2 seconds. `usableMahFromVoltage()` returns the voltage-based usable mAh on the same scale as `getRemainingMah()`, so the two compare directly.
+
+### RemainingTime — `RemainingTime/`
+Remaining **motor** time in whole minutes (floored): usable energy ÷ a slow average of the current drawn while the motor runs. Pure logic in `RemainingTimeLogic.h` (host-tested in `test/RemainingTimeLogicTest.cpp`); `RemainingTime.cpp` gathers inputs after `batteryMonitor.update()` each tick.
+
+- **Average:** EMA over 10 s blocks of motor-on time (`isMotorRunning()`), tau = 120 s. Seeded from `Settings::getReferenceCurrentA()` (factory 90 A Tmotor / 75 A XAG from `BoardConfig`) at boot and on a `CFG_SET` that changes it. Frozen whenever the motor is not running and whenever current is not measured, so a glide never drags it toward zero.
+- **Quality:** `CoulombCount` when `isCurrentAvailable()` (energy = `batteryMonitor.getRemainingMah()`), `Voltage` otherwise if the pack voltage is valid, else `Unavailable`. In voltage mode the energy is anchored on `usableMahFromVoltage()` after 30 s at rest, dead-reckoned at the average while the motor runs, floored at the loaded-voltage reading, and carried over from the last coulomb count when current disappears mid-flight.
+- **Publication:** recomputed every 10 s, immediately on a quality change.
+- **Learning:** on disarm, if the arm session had ≥ 180 s of motor time with current measured throughout, `reference = round((reference + flightAvg) / 2)`, clamped 10–300 A, saved to NVS. Learning does not reseed the in-flight average.
 
 ### Settings — `Settings/`
 Persistent config via ESP32 `Preferences` (NVS). Stores: battery capacity/voltage range, motor/ESC temp limits, BMS type and MAC, config PIN, and buzzer volume (key `buzzVol`, 0-100%, default 85%). Initialized first in `setup()`.

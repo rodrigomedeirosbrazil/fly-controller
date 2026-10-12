@@ -84,6 +84,9 @@ void setup()
   // Initialize battery monitor (uses settings for capacity)
   batteryMonitor.init();
 
+  // Seeds the consumption average from the reference current in Settings.
+  remainingTime.init();
+
   // Initialize telemetry
   telemetry.init();
 
@@ -219,6 +222,8 @@ void loop()
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
   batteryMonitor.update();
+  // After batteryMonitor.update(): reads this tick's coulomb count.
+  remainingTime.handle(throttle.isArmed(), isMotorRunning());
 
   handleEsc();
   updateSoundState();
