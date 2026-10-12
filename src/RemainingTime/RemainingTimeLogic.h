@@ -217,6 +217,11 @@ private:
             return 0;
         }
         const float flightAvgA = (float) sessionMaMs_ / (float) sessionMotorMs_ / 1000.0f;
+        // A real flight never averages under the reference floor; an average
+        // that low is a sensor reporting zero, and must not drag the seed down.
+        if (flightAvgA < (float) REFERENCE_CURRENT_MIN_A) {
+            return 0;
+        }
         const float blended    = ((float) referenceA_ + flightAvgA) / 2.0f;
         referenceA_ = clampReferenceCurrent((uint32_t) (blended + 0.5f));
         return referenceA_;

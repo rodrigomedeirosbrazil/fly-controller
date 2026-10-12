@@ -197,8 +197,20 @@ void test_learning_clamps_to_the_valid_range() {
     low.glide();
     low.in.armed = false;
     low.run(100);
-    assert(low.learned == 10);
-    cout << "PASS: the learned reference is clamped to 10-300 A\n";
+    assert(low.learned == 0);
+    cout << "PASS: the learned reference is clamped to 300 A at the top\n";
+}
+
+void test_learning_refuses_a_zero_reading_flight() {
+    Sim s = coulombSim(90, 30000);
+    s.motor(0);                                // fresh telemetry, but 0 mA
+    s.run(200000);
+    s.glide();
+    s.in.armed = false;
+    s.run(100);
+    assert(s.learned == 0);
+    assert(s.l.referenceCurrentA() == 90);
+    cout << "PASS: a flight that averaged under 10 A teaches nothing\n";
 }
 
 void test_learning_counts_one_arm_session_only() {
@@ -407,6 +419,7 @@ int main() {
     test_learning_needs_three_minutes_of_motor();
     test_learning_skipped_after_current_loss();
     test_learning_clamps_to_the_valid_range();
+    test_learning_refuses_a_zero_reading_flight();
     test_learning_counts_one_arm_session_only();
     test_learning_does_not_reseed_the_average();
     test_voltage_mode_before_any_anchor();
