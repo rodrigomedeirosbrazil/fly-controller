@@ -15,6 +15,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `SignalArmContractTest.cpp` - Unit tests for `SignalArmContract` (`src/Power/SignalArmContract.h`), the battery-voltage arm-time contract: the deferred snapshot, the loss debounce, invalid-at-arm disabling the signal, re-arming, and millis() rollover.
 - `TempProtectionMonitorTest.cpp` - Unit tests for `TempProtectionMonitor` (`src/Power/TempProtectionMonitor.h`): both edges debounced, a flapping signal held suspended, millis() rollover.
 - `TempProtectionAlertLogicTest.cpp` - Unit tests for `TempProtectionAlertLogic` (`src/TempProtectionAlert/TempProtectionAlertLogic.h`): the 0/10/30/60 s-then-60 s backoff, alarm on arming with a protection already suspended, restart when another protection joins, "restored" only when every protection is back, silence while disarmed.
+- `RemainingTimeLogicTest.cpp` - Unit tests for `RemainingTimeLogic` (`src/RemainingTime/RemainingTimeLogic.h`), the remaining-flight-time estimator: 10 s motor-time blocks and the tau = 120 s EMA, the average frozen off-motor, 10 s publication with immediate quality changes, voltage-mode anchoring/dead-reckoning/loaded-voltage floor, the coulomb-count-to-voltage switch without a jump, learning (180 s minimum, current-loss veto, ½ blend, clamp, one arm session, no reseed), the 1 A divisor floor, millis() rollover, and a takeoff/climb/cruise/glide profile replay.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works
