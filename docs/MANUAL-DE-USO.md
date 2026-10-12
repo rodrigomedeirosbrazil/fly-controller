@@ -147,14 +147,14 @@ Para voltar a operar normalmente depois de uma falha na bateria, corrija o probl
 
 ## 8. Configuração e manutenção pelo app
 
-Configuração, logs de voo, atualização de firmware e acerto do relógio podem ser feitos no app **fly-app** ([github.com/rodrigomedeirosbrazil/fly-app](https://github.com/rodrigomedeirosbrazil/fly-app)), por **Bluetooth**, ou pela **interface web**: conecte-se à rede WiFi `FlyController` e abra `192.168.4.1` no navegador (ver [MANUAL-INTERFACE-WEB.md](MANUAL-INTERFACE-WEB.md)). Pelo app:
+O Fly Controller não tem mais interface web nem rede WiFi própria. Configuração, logs de voo, atualização de firmware e acerto do relógio são feitos no app **fly-app** ([github.com/rodrigomedeirosbrazil/fly-app](https://github.com/rodrigomedeirosbrazil/fly-app)), por **Bluetooth**:
 
 - **Configuração:** capacidade e tensões da bateria, consumo de referência para o tempo restante, limites de temperatura, BMS, volume do buzzer, origem do acelerador (com fio ou sem fio) e pareamento do remote.
 - **Logs de voo:** listar, baixar e apagar os registros gravados no controlador.
 - **Atualização de firmware:** enviada pelo app, ou por cabo USB.
 - **Relógio:** o app acerta a data e a hora ao conectar, para que os logs recebam o nome com a data do voo.
 
-No app, alterações só são aceitas com o sistema **desarmado**; no app e na interface web, as que gravam dados no controlador pedem o **PIN**.
+Alterações só são aceitas com o sistema **desarmado**, e as que gravam dados no controlador pedem o **PIN**.
 
 ### 8.1 Usar o app pelo navegador (inclusive no iPhone)
 

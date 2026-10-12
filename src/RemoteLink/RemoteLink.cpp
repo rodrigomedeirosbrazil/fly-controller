@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
+#include <esp_system.h>
 #include <string.h>
 #include "RemoteLink.h"
 #include "../Settings/Settings.h"
@@ -24,8 +26,32 @@ static bool parseMac(const String &s, uint8_t out[6]) {
     return true;
 }
 
+void RemoteLink::setupRadio() {
+    // Station mode, never associated: the canonical ESP-NOW setup, with no AP
+    // beaconing for nothing.
+    WiFi.mode(WIFI_STA);
+    // The ESP32-C3 Supermini is unstable at full TX power (commit f06aa0d).
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+
+    // Paired remotes learned this controller's MAC from packets sent on the
+    // softAP interface (base MAC + 1). Carry that address over to STA so they
+    // keep working without re-pairing.
+    uint8_t apMac[6];
+    uint8_t staMac[6];
+    const bool moved = esp_read_mac(apMac, ESP_MAC_WIFI_SOFTAP) == ESP_OK &&
+                       esp_wifi_set_mac(WIFI_IF_STA, apMac) == ESP_OK &&
+                       esp_wifi_get_mac(WIFI_IF_STA, staMac) == ESP_OK &&
+                       memcmp(apMac, staMac, 6) == 0;
+    if (!moved) {
+        Serial.println("[RemoteLink] could not move the softAP MAC onto STA -- "
+                       "paired remotes must be re-paired");
+    }
+
+    esp_wifi_set_channel(REMOTE_LINK_CHANNEL, WIFI_SECOND_CHAN_NONE);
+}
+
 void RemoteLink::setup() {
-    // WiFi AP is already up (webServer.begin()); ESP-NOW rides the same radio.
+    setupRadio();
     if (esp_now_init() != ESP_OK) {
         Serial.println("[RemoteLink] ESP-NOW init failed");
         return;
@@ -68,7 +94,7 @@ void RemoteLink::addPeer(const uint8_t mac[6]) {
     esp_now_peer_info_t peer{};
     memcpy(peer.peer_addr, mac, 6);
     peer.channel = REMOTE_LINK_CHANNEL;
-    peer.ifidx = WIFI_IF_AP; // controller runs in AP mode; STA interface is not up
+    peer.ifidx = WIFI_IF_STA; // STA, carrying the old softAP MAC (setupRadio)
     peer.encrypt = false;
     esp_now_add_peer(&peer);
 }

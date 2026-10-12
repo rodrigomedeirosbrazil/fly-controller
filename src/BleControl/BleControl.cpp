@@ -17,7 +17,6 @@
 #include "../Logger/Logger.h"
 #include "../Logger/LogStore.h"
 #include <Update.h>
-#include <ElegantOTA.h>
 #include <sys/time.h>
 #include "../Sound/Sound.h"
 #include "../RemoteLink/RemoteLink.h"
@@ -964,8 +963,6 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
             memcpy(newPin, req.payload + 1 + currentLen + 1, newLen);
             settings.setConfigPin(String(newPin));
             settings.save();
-            // Keep the OTA portal's basic auth in step, as the web route does.
-            ElegantOTA.setAuth("admin", settings.getConfigPin().c_str());
             return ControlStatus::Ok;
         }
 

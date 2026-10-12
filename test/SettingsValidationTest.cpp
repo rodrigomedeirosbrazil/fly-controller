@@ -20,8 +20,8 @@ void test_power_voltage_ranges() {
 }
 
 void test_power_does_not_check_voltage_ordering() {
-    // The web handler has never enforced min < max. This extraction must not
-    // start: adding the rule is a separate decision about existing behaviour.
+    // min < max has never been enforced. Adding the rule is a separate
+    // decision about existing behaviour.
     assert(validatePower(20000, 58800, 48000) == SettingsError::None);
 }
 
@@ -42,7 +42,7 @@ void test_thermal_ranges() {
 }
 
 void test_thermal_does_not_check_ordering() {
-    // Same reasoning as the voltage pair: not a rule the portal has today.
+    // Same reasoning as the voltage pair: not a rule enforced today.
     assert(validateThermal(100000, 80000, 110000, 80000) == SettingsError::None);
 }
 
