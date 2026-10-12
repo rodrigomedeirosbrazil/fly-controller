@@ -89,5 +89,6 @@ JbdBms jbdBms;
 JkBms jkBms;
 Settings settings;
 HourMeter hourMeter;
+RemainingTime remainingTime;
 ADS1115 ads1115;
 RemoteLink remoteLink;

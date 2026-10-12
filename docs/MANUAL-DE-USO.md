@@ -149,7 +149,7 @@ Para voltar a operar normalmente depois de uma falha na bateria, corrija o probl
 
 Configuração, logs de voo, atualização de firmware e acerto do relógio podem ser feitos no app **fly-app** ([github.com/rodrigomedeirosbrazil/fly-app](https://github.com/rodrigomedeirosbrazil/fly-app)), por **Bluetooth**, ou pela **interface web**: conecte-se à rede WiFi `FlyController` e abra `192.168.4.1` no navegador (ver [MANUAL-INTERFACE-WEB.md](MANUAL-INTERFACE-WEB.md)). Pelo app:
 
-- **Configuração:** capacidade e tensões da bateria, limites de temperatura, BMS, volume do buzzer, origem do acelerador (com fio ou sem fio) e pareamento do remote.
+- **Configuração:** capacidade e tensões da bateria, consumo de referência para o tempo restante, limites de temperatura, BMS, volume do buzzer, origem do acelerador (com fio ou sem fio) e pareamento do remote.
 - **Logs de voo:** listar, baixar e apagar os registros gravados no controlador.
 - **Atualização de firmware:** enviada pelo app, ou por cabo USB.
 - **Relógio:** o app acerta a data e a hora ao conectar, para que os logs recebam o nome com a data do voo.
@@ -174,6 +174,20 @@ Diferenças em relação ao app instalado:
 - **Sem internet no local de voo:** abra o endereço uma vez com internet, com a barra no final (`.../fly-app/`), e espere cerca de 30 segundos. Depois disso o Chrome abre o app mesmo sem sinal. No Bluefy, isso pode não funcionar: abra o app antes de sair de onde há sinal.
 
 Em qualquer versão do app, tocar no indicador de status (no alto da tela de voo) permite **Reconectar** ou **Desconectar**, sempre com confirmação. Desconectar o app não desliga o motor.
+
+---
+
+## 9. Tempo de voo restante
+
+O controlador estima quantos **minutos de motor** ainda restam no ritmo em que você está voando, e envia esse número ao fly-app, ao XCTrack e ao log de voo. Ele é atualizado a cada 10 segundos.
+
+- **No chão**, antes de decolar, a estimativa usa o **consumo de referência** (de fábrica 90 A no Tmotor e 75 A no XAG; dá para mudar no app em Configuração).
+- **Na decolagem e em subida** o consumo médio sobe aos poucos e o tempo restante cai. **No cruzeiro** a média volta a cair e o tempo restante melhora. A média reage em cerca de 2 minutos, para o número não pular a cada mexida no acelerador.
+- **Planando, com o motor parado,** o consumo médio fica congelado: planeio não gasta bateria e não puxa a média para baixo. O número quase não muda; ele só se ajusta se a estimativa da bateria for corrigida (por exemplo, pela tensão depois de um tempo parado).
+- **Depois de cada voo** com pelo menos 3 minutos de motor e medição de corrente o tempo todo enquanto armado, o consumo de referência é ajustado para a média entre o valor anterior e a média daquele voo. Assim a estimativa no chão vai se aproximando do seu jeito de voar. Voos com média abaixo de 10 A são ignorados (indicam um sensor lendo zero).
+- **Sem medição de corrente** (XAG sem BMS, ou se a leitura de corrente cair no meio do voo), a estimativa passa a usar a tensão da bateria e o consumo de referência. Ela fica aproximada e não acompanha o acelerador; o firmware informa ao app quando a estimativa está nesse modo.
+
+O número é tempo de **motor ligado**, não tempo total de voo: com planeios, o voo dura mais do que ele mostra.
 
 ---
 

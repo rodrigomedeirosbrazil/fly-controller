@@ -84,6 +84,9 @@ void setup()
   // Initialize battery monitor (uses settings for capacity)
   batteryMonitor.init();
 
+  // Seeds the consumption average from the reference current in Settings.
+  remainingTime.init();
+
   // Initialize telemetry
   telemetry.init();
 
@@ -221,6 +224,9 @@ void loop()
   batteryMonitor.update();
 
   handleEsc();
+  // After batteryMonitor.update() (reads this tick's coulomb count) and after
+  // handleEsc(), so a learning NVS write never delays the ESC output.
+  remainingTime.handle(throttle.isArmed(), isMotorRunning());
   updateSoundState();
   powerAlert.handle();
   tempProtectionAlert.handle();

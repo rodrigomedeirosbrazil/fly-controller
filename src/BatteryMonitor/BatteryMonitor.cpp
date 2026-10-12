@@ -182,25 +182,29 @@ uint32_t BatteryMonitor::remainingMahFromScaledSoc(uint8_t scaledSoc) const {
     return remaining;
 }
 
+uint8_t BatteryMonitor::scaledSocFromVoltage(uint16_t batteryMilliVolts) const {
+    // Scale absolute OCV-based SOC into the CC window [socMin, 100].
+    // Configured max voltage is display-only; the CC always references the native cell range.
+    uint8_t absoluteSoc = estimateSoCFromVoltageLiPo(batteryMilliVolts);
+    uint8_t socMin = estimateSoCFromVoltageLiPo(settings.getBatteryMinVoltage());
+    if (absoluteSoc <= socMin) {
+        return 0;
+    }
+    // absoluteSoc > socMin here implies socMin < 100, so the division by (100 - socMin) is safe.
+    return (uint8_t)(((uint32_t)(absoluteSoc - socMin) * 100) / (100 - socMin));
+}
+
+uint32_t BatteryMonitor::usableMahFromVoltage(uint16_t batteryMilliVolts) const {
+    return ((uint32_t)scaledSocFromVoltage(batteryMilliVolts) * usableCapacityMilliAh) / 100U;
+}
+
 void BatteryMonitor::recalibrateFromVoltage() {
     if (!telemetry.hasData()) {
         return;
     }
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
-
-    // Scale absolute OCV-based SOC into the CC window [socMin, 100].
-    // Configured max voltage is display-only; the CC always references the native cell range.
-    uint8_t absoluteSoc = estimateSoCFromVoltageLiPo(batteryMilliVolts);
-    uint8_t socMin = estimateSoCFromVoltageLiPo(settings.getBatteryMinVoltage());
-    uint8_t scaledSoc;
-    if (absoluteSoc <= socMin) {
-        scaledSoc = 0;
-    } else {
-        scaledSoc = (uint8_t)(((uint32_t)(absoluteSoc - socMin) * 100) / (100 - socMin));
-    }
-
-    uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSoc);
+    uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSocFromVoltage(batteryMilliVolts));
 
     if (isCurrentAvailable()) {
         // Current available: voltage recalibration is only used as a downward correction.

@@ -20,6 +20,7 @@ private:
     void writeMotorInfo(char* data, size_t size, size_t& used);
     void writeEscInfo(char* data, size_t size, size_t& used);
     void writeBmsInfo(char* data, size_t size, size_t& used);
+    void writeRemainingTime(char* data, size_t size, size_t& used);
     void writeDisarmLine();
 };
 

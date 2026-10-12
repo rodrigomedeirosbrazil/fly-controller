@@ -152,6 +152,10 @@ The **telemetry page** (`/telemetry`) polls `/api/telemetry` every 1 s and mirro
 
 The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly-app, reset with `SESSION_RESET`) that survives disarm/re-arm cycles within a power cycle: it counts only while `isArmed && motorRunning`, pauses on disarm or motor stop, resumes from the same value, and is RAM-only (resets on boot). Pure decision logic lives in `src/HourMeter/HourMeterLogic.h` (host-tested in `test/HourMeterLogicTest.cpp`); `src/HourMeter/HourMeter.cpp` is the Arduino wrapper that also owns the persistent `hourMeterSec` total (motor-run seconds, saved to NVS). `SESSION_RESET` zeroes the session counter via a deferred flag — the reset is applied on the next `loop()` tick, never from the BLE callback.
 
+## Remaining flight time
+
+`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
+
 ## Wireless Throttle (ESP-NOW)
 
 An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with the WiFi AP + BLE on the C3's single radio). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
@@ -175,9 +179,13 @@ Two GATT services share one BLE server, owned by `BleServerHost` (which also
 owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
 `BleControl` only register services on it).
 
-- **NUS** (`6E400001-…`, advertised) — the `$XCTOD` sentence, **frozen**. It
-  has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
-  `xctod_parser.dart`, with no version handshake, so no field is ever added.
+- **NUS** (`6E400001-…`, advertised) — the `$XCTOD` sentence, **append-only**.
+  It has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
+  `xctod_parser.dart`, with no version handshake, so fields 1–16 never move or
+  change meaning; new fields go at the end only (field 17 is `remaining_min`),
+  and the fly-app accepts trailing fields since the release before field 17
+  (branch `fix/xctod-accept-trailing-fields`, to be released before this
+  firmware). Anything richer still belongs in Fly Control.
 - **Fly Control** (`D4CF0001-9B9D-4BFD-8F7F-40C6989D3EA9`, not advertised) —
   everything the fly-app uses. Not advertised because the 31-byte payload
   cannot hold a second 128-bit UUID; the app discovers it after connecting,
@@ -190,7 +198,7 @@ stops advertising on the first connection and XCTrack and the app can never
 both be connected.
 
 Four characteristics for everything but firmware images — a new feature is a new opcode,
-not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 69-byte
+not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 74-byte
 struct at 1 Hz), `CMD` (write), `RSP` (notify, responses plus events with
 `seq = 0`). `D4CF0006-…` is the DFU image channel (write without response),
 a fifth characteristic that exists only because bulk data cannot go through

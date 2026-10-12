@@ -19,10 +19,12 @@ public:
     // Registers the Nordic UART service on the shared BLE server. The radio
     // itself belongs to BleServerHost.
     //
-    // FROZEN: this service is the XCTrack compatibility surface and nothing
-    // else. No field is ever added to the $XCTOD sentence — it has two
-    // positional consumers (XCTrack's .xcfg and fly-app's xctod_parser.dart)
-    // and no version handshake. Everything new goes in BleControl.
+    // APPEND-ONLY: this service is the XCTrack compatibility surface and
+    // nothing else. Fields 1-16 of the $XCTOD sentence never move or change
+    // meaning; new fields go at the end only (field 17 is remaining_min). It
+    // has two positional consumers (XCTrack's .xcfg and fly-app's
+    // xctod_parser.dart) and no version handshake. Everything richer goes in
+    // BleControl.
     void init();
     void write();
 
@@ -40,6 +42,7 @@ private:
     void writeEscInfo(char* data, size_t size, size_t& used);
     void writeSystemStatus(char* data, size_t size, size_t& used);
     void writeBmsInfo(char* data, size_t size, size_t& used);
+    void writeRemainingTime(char* data, size_t size, size_t& used);
 };
 
 #endif // XCTOD_H

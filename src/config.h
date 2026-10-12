@@ -20,6 +20,7 @@
 #include "DalyBms/DalyBms.h"
 #include "Settings/Settings.h"
 #include "HourMeter/HourMeter.h"
+#include "RemainingTime/RemainingTime.h"
 #include "ADS1115/ADS1115.h"
 #if IS_XAG || IS_TMOTOR
 #include "Sensors/BatteryVoltageSensor.h"
@@ -81,6 +82,7 @@ extern JbdBms jbdBms;
 extern JkBms jkBms;
 extern Settings settings;
 extern HourMeter hourMeter;
+extern RemainingTime remainingTime;
 extern ADS1115 ads1115;
 extern RemoteLink remoteLink;
 extern PowerAlert powerAlert;

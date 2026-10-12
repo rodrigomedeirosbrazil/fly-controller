@@ -50,7 +50,7 @@ TelemetryLogger::TelemetryLogger() {
 }
 
 void TelemetryLogger::init() {
-    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,disarm_reason");
+    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,disarm_reason,remaining_min");
 }
 
 void TelemetryLogger::handle() {
@@ -74,6 +74,7 @@ void TelemetryLogger::handle() {
     writeEscInfo(data, sizeof(data), used);
     writeBmsInfo(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, ","); // disarm_reason: blank on regular rows
+    writeRemainingTime(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.log(data);
@@ -89,6 +90,7 @@ void TelemetryLogger::writeDisarmLine() {
     // i.e. 15 commas (14 separators + 1 before disarm_reason).
     appendToBuffer(data, sizeof(data), used, ",,,,,,,,,,,,,,,");
     appendToBuffer(data, sizeof(data), used, "%s", disarmReasonCode(throttle.getDisarmReason()));
+    appendToBuffer(data, sizeof(data), used, ","); // remaining_min: blank on the disarm row
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.logFinalLine(data);
@@ -187,5 +189,14 @@ void TelemetryLogger::writeBmsInfo(char* data, size_t size, size_t& used) {
         );
     } else {
         appendToBuffer(data, size, used, ",,");
+    }
+}
+
+void TelemetryLogger::writeRemainingTime(char* data, size_t size, size_t& used) {
+    // Last column, after disarm_reason. Logged next to the real current so
+    // the estimator's tau and reference can be checked against later flights.
+    appendToBuffer(data, size, used, ",");
+    if (remainingTime.getQuality() != RemainingTimeQuality::Unavailable) {
+        appendToBuffer(data, size, used, "%u", (unsigned) remainingTime.getRemainingMin());
     }
 }

@@ -83,6 +83,12 @@ public:
     void setVoltageDividerRatio(float ratio);
     float getDefaultVoltageDividerRatio() const;
 
+    // Remaining-flight-time reference current (A): seeds the consumption
+    // average; learning rewrites it after each qualifying flight.
+    uint16_t getReferenceCurrentA() const;
+    void setReferenceCurrentA(uint16_t amps);
+    uint16_t getDefaultReferenceCurrentA() const;
+
     // Wireless throttle (ESP-NOW remote). Setters mutate in memory; call save() to persist.
     uint8_t getThrottleSource() const;
     void setThrottleSource(uint8_t source);
@@ -130,6 +136,7 @@ private:
     uint8_t bmsType;
     uint8_t buzzerVolume;
     float voltageDividerRatio;
+    uint16_t referenceCurrentA;
 };
 
 #endif // SETTINGS_H

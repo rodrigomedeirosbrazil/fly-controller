@@ -46,6 +46,18 @@ value after the prefix). Apps that read by position (e.g. XCTrack's
 | 14 | `bms_temp` | integer °C | `bluetoothBms.getTempCelsius()` (max across sensors) | no BMS temp data |
 | 15 | `cell_voltage_min_mv` | integer mV | `bluetoothBms.getCellMinMilliVolts()` | no BMS cell data |
 | 16 | `cell_voltage_max_mv` | integer mV | `bluetoothBms.getCellMaxMilliVolts()` | no BMS cell data |
+| 17 | `remaining_min` | integer minutes | `remainingTime.getRemainingMin()` — remaining **motor** time, updated every 10 s | no estimate (`RemainingTimeQuality::Unavailable`) |
+
+### Appending fields
+
+Fields are **appended at the end only**; fields 1–16 never move or change
+meaning. Consumers must accept trailing fields they do not know: fly-app's
+`xctod_parser.dart` accepts ≥ 16 fields since the release that preceded
+field 17 (fly-app branch `fix/xctod-accept-trailing-fields`; release it
+before this firmware), and XCTrack reads by index, so a new field never
+shifts an existing widget. Field 17 is a voltage-based approximation when
+no current is measured — the sentence has no way to say so; the Fly Control
+`TELEMETRY` characteristic carries the quality.
 
 ### Signal validity
 
@@ -76,24 +88,29 @@ itself reads invalid.
 ## Differences from the CSV log
 
 The CSV log (`TelemetryLogger`) uses the exact same field order and
-values for fields 1-12 and 14-16 above (as CSV columns, same names). It
-differs from the BLE sentence in three ways:
+values for fields 1-12, 14-16 and 17 above (as CSV columns, same names). It
+differs from the BLE sentence in four ways:
 
 1. No `$XCTOD,` prefix / `\r\n`-terminated sentence framing — it's a plain
    CSV row, prefixed with a `timestamp` column by `Logger`.
 2. No `system_status` column — the CSV only ever logs while armed
    (`Logger::log()` gates on `throttle.isArmed()`), so "armed" is implicit
    in a row existing at all.
-3. An additional `disarm_reason` column, appended as the **last** column
-   (after `cell_voltage_max_mv`). It's blank on every regular 1 Hz row and
+3. An additional `disarm_reason` column, appended after
+   `cell_voltage_max_mv`. It's blank on every regular 1 Hz row and
    populated only on one final row, written at the exact armed→disarmed
    transition via `Logger::logFinalLine()`, holding the same fault code
    table as BLE's `system_status` (or `MANUAL` for a manual disarm).
+4. `remaining_min` (field 17 here) is the CSV's **last** column, after
+   `disarm_reason`, so it sits at a different column position. It is
+   blank on the final disarm row.
 
 ## Breaking changes
 
-Any change to field count or order here is a breaking change for external
-consumers reading by position — both the XCTrack `WExternalData` widget
-`index` values (see `xctrack-pages.xcfg`) and any offline tool parsing the
-CSV by column index need to be updated in lockstep with firmware changes
-to this protocol.
+Inserting, removing or reordering a field is a breaking change for every
+consumer reading by position — XCTrack `WExternalData` `index` values (see
+`xctrack-pages.xcfg`), fly-app's parser, and any tool reading the CSV by
+column index. Appending a field at the end is not, provided the consumers
+accept trailing fields (fly-app does from the release before field 17:
+branch `fix/xctod-accept-trailing-fields`, to be released before this
+firmware).
