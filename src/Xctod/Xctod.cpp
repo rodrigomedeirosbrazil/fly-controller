@@ -230,7 +230,7 @@ void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
 }
 
 void Xctod::writeRemainingTime(char* data, size_t size, size_t& used) {
-    // Field 17, appended after the frozen 16. Blank when there is no
+    // Field 17, appended after the fixed 16. Blank when there is no
     // estimate; a voltage-mode estimate is still sent because XCTrack has no
     // way to show quality and an approximate number beats none.
     if (remainingTime.getQuality() == RemainingTimeQuality::Unavailable) {

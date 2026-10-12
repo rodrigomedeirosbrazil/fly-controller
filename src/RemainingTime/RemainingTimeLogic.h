@@ -36,6 +36,11 @@ static const uint32_t REMAINING_TIME_PUBLISH_MS     = 10000;
 static const uint32_t REMAINING_TIME_REST_SETTLE_MS = 30000;      // matches BATTERY_RECALIBRATION_STABLE_MS
 static const uint32_t REMAINING_TIME_LEARN_MIN_MS   = 180000;
 static const uint32_t REMAINING_TIME_MIN_DIVISOR_MA = 1000;       // never divide by less than 1 A
+static const float    REMAINING_TIME_MA_PER_A       = 1000.0f;     // mA per A, as a float
+static const uint64_t REMAINING_TIME_MS_PER_HOUR    = 3600000ULL;
+static const uint64_t REMAINING_TIME_MIN_PER_HOUR   = 60ULL;
+static const uint16_t REMAINING_TIME_MAX_MINUTES    = 65535;       // uint16 cap on the published value
+static const float    REMAINING_TIME_LEARN_BLEND_WEIGHT = 0.5f;    // flight average's share of the blend
 
 class RemainingTimeLogic {
 public:
@@ -44,7 +49,7 @@ public:
     // the regime of the flight in progress.
     void seed(uint16_t referenceCurrentA) {
         referenceA_ = referenceCurrentA;
-        emaMa_      = (float) referenceCurrentA * 1000.0f;
+        emaMa_      = (float) referenceCurrentA * REMAINING_TIME_MA_PER_A;
         blockMaMs_  = 0;
         blockMs_    = 0;
         published_  = false;
@@ -189,7 +194,7 @@ private:
         if (!hasAnchor_) {
             return in.voltageUsableMah;
         }
-        const uint64_t usedMah = (uint64_t) divisorMa() * motorMsSinceAnchor_ / 3600000ULL;
+        const uint64_t usedMah = (uint64_t) divisorMa() * motorMsSinceAnchor_ / REMAINING_TIME_MS_PER_HOUR;
         const uint32_t dead = usedMah >= anchorMah_ ? 0 : (uint32_t) (anchorMah_ - usedMah);
         // The loaded voltage underestimates the charge, so it is a floor.
         return dead > in.voltageUsableMah ? dead : in.voltageUsableMah;
@@ -208,21 +213,22 @@ private:
             return;
         }
         // mAh / mA = hours; x 60 = minutes. Integer division floors it.
-        const uint64_t minutes = (uint64_t) energyMah(in, q) * 60ULL / divisorMa();
-        remainingMin_ = minutes > 65535ULL ? 65535 : (uint16_t) minutes;
+        const uint64_t minutes = (uint64_t) energyMah(in, q) * REMAINING_TIME_MIN_PER_HOUR / divisorMa();
+        remainingMin_ = minutes > REMAINING_TIME_MAX_MINUTES ? REMAINING_TIME_MAX_MINUTES : (uint16_t) minutes;
     }
 
     uint16_t learn() {
         if (sessionMotorMs_ < REMAINING_TIME_LEARN_MIN_MS || sessionCurrentLost_) {
             return 0;
         }
-        const float flightAvgA = (float) sessionMaMs_ / (float) sessionMotorMs_ / 1000.0f;
-        // A real flight never averages under the reference floor; an average
-        // that low is a sensor reporting zero, and must not drag the seed down.
+        const float flightAvgA = (float) sessionMaMs_ / (float) sessionMotorMs_ / REMAINING_TIME_MA_PER_A;
+        // A real flight never averages under the 10 A minimum
+        // (REFERENCE_CURRENT_MIN_A); an average that low is a sensor reporting
+        // zero, and must not drag the seed down.
         if (flightAvgA < (float) REFERENCE_CURRENT_MIN_A) {
             return 0;
         }
-        const float blended    = ((float) referenceA_ + flightAvgA) / 2.0f;
+        const float blended    = ((float) referenceA_ + flightAvgA) * REMAINING_TIME_LEARN_BLEND_WEIGHT;
         referenceA_ = clampReferenceCurrent((uint32_t) (blended + 0.5f));
         return referenceA_;
     }

@@ -255,6 +255,8 @@ void BleControl::writeInfo() {
     infoChar_->setValue((uint8_t*) &info, sizeof(info));
 }
 
+static const uint32_t MA_PER_DECIAMP = 100;   // the wire field is average current in 0.1 A
+
 void BleControl::fillTelemetry(ControlTelemetry& t) const {
     memset(&t, 0, sizeof(t));
     t.ver = CONTROL_PROTOCOL_VERSION;
@@ -358,8 +360,9 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     // Always meaningful: remainingQuality says whether remainingMin is.
     t.remainingMin     = remainingTime.getRemainingMin();
     t.remainingQuality = (uint8_t) remainingTime.getQuality();
-    const uint32_t avgDa = (remainingTime.getAverageCurrentMa() + 50) / 100;
-    t.avgCurrentDa     = avgDa > 0xFFFF ? 0xFFFF : (uint16_t) avgDa;
+    const uint32_t avgMa = remainingTime.getAverageCurrentMa();
+    const uint32_t avgDa = (avgMa + MA_PER_DECIAMP / 2) / MA_PER_DECIAMP;
+    t.avgCurrentDa     = avgDa > UINT16_MAX ? UINT16_MAX : (uint16_t) avgDa;
 }
 
 void BleControl::notifyTelemetry() {

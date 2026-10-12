@@ -190,11 +190,11 @@ uint8_t BatteryMonitor::scaledSocFromVoltage(uint16_t batteryMilliVolts) const {
     if (absoluteSoc <= socMin) {
         return 0;
     }
+    // absoluteSoc > socMin here implies socMin < 100, so the division by (100 - socMin) is safe.
     return (uint8_t)(((uint32_t)(absoluteSoc - socMin) * 100) / (100 - socMin));
 }
 
 uint32_t BatteryMonitor::usableMahFromVoltage(uint16_t batteryMilliVolts) const {
-    // absoluteSoc > socMin implies socMin < 100, so the division above is safe.
     return ((uint32_t)scaledSocFromVoltage(batteryMilliVolts) * usableCapacityMilliAh) / 100U;
 }
 

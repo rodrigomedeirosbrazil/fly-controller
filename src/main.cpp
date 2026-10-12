@@ -222,10 +222,11 @@ void loop()
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
   batteryMonitor.update();
-  // After batteryMonitor.update(): reads this tick's coulomb count.
-  remainingTime.handle(throttle.isArmed(), isMotorRunning());
 
   handleEsc();
+  // After batteryMonitor.update() (reads this tick's coulomb count) and after
+  // handleEsc(), so a learning NVS write never delays the ESC output.
+  remainingTime.handle(throttle.isArmed(), isMotorRunning());
   updateSoundState();
   powerAlert.handle();
   tempProtectionAlert.handle();

@@ -177,20 +177,19 @@ Em qualquer versão do app, tocar no indicador de status (no alto da tela de voo
 
 ---
 
-*Fly Controller — Controlador de voo paramotores elétricos*
-*Documentação em português do Brasil.*
-
-
----
-
 ## 9. Tempo de voo restante
 
 O controlador estima quantos **minutos de motor** ainda restam no ritmo em que você está voando, e envia esse número ao fly-app, ao XCTrack e ao log de voo. Ele é atualizado a cada 10 segundos.
 
 - **No chão**, antes de decolar, a estimativa usa o **consumo de referência** (de fábrica 90 A no Tmotor e 75 A no XAG; dá para mudar no app em Configuração).
 - **Na decolagem e em subida** o consumo médio sobe aos poucos e o tempo restante cai. **No cruzeiro** a média volta a cair e o tempo restante melhora. A média reage em cerca de 2 minutos, para o número não pular a cada mexida no acelerador.
-- **Planando, com o motor parado,** o número fica parado: planeio não gasta bateria e não conta.
-- **Depois de cada voo** com pelo menos 3 minutos de motor e medição de corrente, o consumo de referência é ajustado para a média entre o valor anterior e a média daquele voo. Assim a estimativa no chão vai se aproximando do seu jeito de voar.
-- **Sem medição de corrente** (XAG sem BMS, ou se a leitura de corrente cair no meio do voo), a estimativa passa a usar a tensão da bateria e o consumo de referência. Ela fica aproximada e não acompanha o acelerador; o app indica quando está nesse modo.
+- **Planando, com o motor parado,** o consumo médio fica congelado: planeio não gasta bateria e não puxa a média para baixo. O número quase não muda; ele só se ajusta se a estimativa da bateria for corrigida (por exemplo, pela tensão depois de um tempo parado).
+- **Depois de cada voo** com pelo menos 3 minutos de motor e medição de corrente o tempo todo enquanto armado, o consumo de referência é ajustado para a média entre o valor anterior e a média daquele voo. Assim a estimativa no chão vai se aproximando do seu jeito de voar. Voos com média abaixo de 10 A são ignorados (indicam um sensor lendo zero).
+- **Sem medição de corrente** (XAG sem BMS, ou se a leitura de corrente cair no meio do voo), a estimativa passa a usar a tensão da bateria e o consumo de referência. Ela fica aproximada e não acompanha o acelerador; o firmware informa ao app quando a estimativa está nesse modo.
 
 O número é tempo de **motor ligado**, não tempo total de voo: com planeios, o voo dura mais do que ele mostra.
+
+---
+
+*Fly Controller — Controlador de voo paramotores elétricos*
+*Documentação em português do Brasil.*

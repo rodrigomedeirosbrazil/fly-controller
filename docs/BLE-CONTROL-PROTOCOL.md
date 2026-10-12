@@ -116,8 +116,8 @@ client sees a short packet and treats the fields beyond it as absent. Neither
 breaks. **Decode by offset against the received length — never assume 74.**
 `stateFreqHz` was appended after the first release and is the worked example:
 firmware without it sends 56 bytes and nothing else changes. The BMS fields at
-58–68 are the second: firmware without them sends 58. The remaining-time fields at 69–73 are the
-third: firmware without them sends 69.
+58–68 are the second: firmware without them sends 58. The remaining-time
+fields at 69–73 are the third: firmware without them sends 69.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -385,7 +385,9 @@ types cannot be sent raw:
 - **`dividerRatioX100`** is the voltage divider ratio times 100.
 - **`referenceCurrentA`** is the remaining-flight-time reference current in
   whole amps, 10–300. Learning rewrites it after each flight with at least
-  3 minutes of measured motor time.
+  3 minutes of measured motor time and current measured throughout the armed
+  session; a flight averaging under 10 A teaches nothing. A `CFG_SET` reseeds
+  the in-flight average only when the value actually changes.
 - **MAC addresses are 6 raw bytes**, not the 17-character text form. All zero
   means unset.
 
@@ -400,6 +402,12 @@ sending a short struct updates the fields it knows and leaves the rest alone.
 A client may therefore send a truncated struct deliberately. Ranges are
 validated against `Settings/SettingsValidation.h`; a failure is `ErrBadArg`
 and nothing is written.
+
+A client must `CFG_GET` a group immediately before writing it. Learning
+rewrites `referenceCurrentA` on the controller after each qualifying flight,
+so writing back a POWER group read before the flight silently reverts what was
+learned (and reseeds the average). Edit the freshly read values, then
+`CFG_SET`.
 
 ### Events
 

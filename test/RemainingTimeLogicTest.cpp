@@ -213,6 +213,25 @@ void test_learning_refuses_a_zero_reading_flight() {
     cout << "PASS: a flight that averaged under 10 A teaches nothing\n";
 }
 
+void test_learning_refusal_boundary_is_ten_amps() {
+    Sim below = coulombSim(90, 30000);
+    below.motor(9000);
+    below.run(200000);
+    below.glide();
+    below.in.armed = false;
+    below.run(100);
+    assert(below.learned == 0);              // 9 A: a sensor reading near zero
+
+    Sim at = coulombSim(90, 30000);
+    at.motor(10000);
+    at.run(200000);
+    at.glide();
+    at.in.armed = false;
+    at.run(100);
+    assert(at.learned == 50);                // 10 A learns: (90 + 10) / 2
+    cout << "PASS: learning refuses under 10 A and learns at 10 A\n";
+}
+
 void test_learning_counts_one_arm_session_only() {
     Sim s = coulombSim(90, 30000);
     s.motor(60000);
@@ -420,6 +439,7 @@ int main() {
     test_learning_skipped_after_current_loss();
     test_learning_clamps_to_the_valid_range();
     test_learning_refuses_a_zero_reading_flight();
+    test_learning_refusal_boundary_is_ten_amps();
     test_learning_counts_one_arm_session_only();
     test_learning_does_not_reseed_the_average();
     test_voltage_mode_before_any_anchor();

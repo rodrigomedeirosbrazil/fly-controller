@@ -53,10 +53,11 @@ value after the prefix). Apps that read by position (e.g. XCTrack's
 Fields are **appended at the end only**; fields 1–16 never move or change
 meaning. Consumers must accept trailing fields they do not know: fly-app's
 `xctod_parser.dart` accepts ≥ 16 fields since the release that preceded
-field 17, and XCTrack reads by index, so a new field never shifts an
-existing widget. Field 17 is a voltage-based approximation when no current
-is measured — the sentence has no way to say so; the fly-app's `TELEMETRY`
-carries the quality.
+field 17 (fly-app branch `fix/xctod-accept-trailing-fields`; release it
+before this firmware), and XCTrack reads by index, so a new field never
+shifts an existing widget. Field 17 is a voltage-based approximation when
+no current is measured — the sentence has no way to say so; the Fly Control
+`TELEMETRY` characteristic carries the quality.
 
 ### Signal validity
 
@@ -95,7 +96,8 @@ differs from the BLE sentence in four ways:
 2. No `system_status` column — the CSV only ever logs while armed
    (`Logger::log()` gates on `throttle.isArmed()`), so "armed" is implicit
    in a row existing at all.
-3. An additional `disarm_reason` column, appended after `cell_voltage_max_mv`. It's blank on every regular 1 Hz row and
+3. An additional `disarm_reason` column, appended after
+   `cell_voltage_max_mv`. It's blank on every regular 1 Hz row and
    populated only on one final row, written at the exact armed→disarmed
    transition via `Logger::logFinalLine()`, holding the same fault code
    table as BLE's `system_status` (or `MANUAL` for a manual disarm).
@@ -109,4 +111,6 @@ Inserting, removing or reordering a field is a breaking change for every
 consumer reading by position — XCTrack `WExternalData` `index` values (see
 `xctrack-pages.xcfg`), fly-app's parser, and any tool reading the CSV by
 column index. Appending a field at the end is not, provided the consumers
-accept trailing fields (fly-app does from the release before field 17).
+accept trailing fields (fly-app does from the release before field 17:
+branch `fix/xctod-accept-trailing-fields`, to be released before this
+firmware).

@@ -122,8 +122,12 @@ void Settings::load() {
     if (voltageDividerRatio < 1.0f || voltageDividerRatio > 100.0f) voltageDividerRatio = getDefaultVoltageDividerRatio();
 
     // Remaining-flight-time reference current; out of range falls back to the board default.
-    referenceCurrentA = preferences.getUInt("refCurA", getDefaultReferenceCurrentA());
-    if (validateReferenceCurrent(referenceCurrentA) != SettingsError::None) {
+    // Validate the full uint32 before narrowing into the uint16 member, so a stored
+    // value that only fits after truncation (65626 -> 90) is rejected, not accepted.
+    const uint32_t raw = preferences.getUInt("refCurA", getDefaultReferenceCurrentA());
+    if (validateReferenceCurrent(raw) == SettingsError::None) {
+        referenceCurrentA = (uint16_t) raw;
+    } else {
         referenceCurrentA = getDefaultReferenceCurrentA();
     }
 
