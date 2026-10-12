@@ -100,6 +100,7 @@ void Xctod::write() {
     writeEscInfo(data, sizeof(data), used);
     writeSystemStatus(data, sizeof(data), used);
     writeBmsInfo(data, sizeof(data), used);
+    writeRemainingTime(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     pCharacteristic->setValue(reinterpret_cast<uint8_t*>(data), used);
@@ -226,4 +227,15 @@ void Xctod::writeBmsInfo(char* data, size_t size, size_t& used) {
     } else {
         appendToBuffer(data, size, used, ",,");
     }
+}
+
+void Xctod::writeRemainingTime(char* data, size_t size, size_t& used) {
+    // Field 17, appended after the frozen 16. Blank when there is no
+    // estimate; a voltage-mode estimate is still sent because XCTrack has no
+    // way to show quality and an approximate number beats none.
+    if (remainingTime.getQuality() == RemainingTimeQuality::Unavailable) {
+        appendToBuffer(data, size, used, ",");
+        return;
+    }
+    appendToBuffer(data, size, used, ",%u", (unsigned) remainingTime.getRemainingMin());
 }

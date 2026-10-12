@@ -179,9 +179,12 @@ Two GATT services share one BLE server, owned by `BleServerHost` (which also
 owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
 `BleControl` only register services on it).
 
-- **NUS** (`6E400001-…`, advertised) — the `$XCTOD` sentence, **frozen**. It
-  has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
-  `xctod_parser.dart`, with no version handshake, so no field is ever added.
+- **NUS** (`6E400001-…`, advertised) — the `$XCTOD` sentence, **append-only**.
+  It has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
+  `xctod_parser.dart`, with no version handshake, so fields 1–16 never move or
+  change meaning; new fields go at the end only (field 17 is `remaining_min`),
+  and the fly-app accepts trailing fields since the release before field 17.
+  Anything richer still belongs in Fly Control.
 - **Fly Control** (`D4CF0001-9B9D-4BFD-8F7F-40C6989D3EA9`, not advertised) —
   everything the fly-app uses. Not advertised because the 31-byte payload
   cannot hold a second 128-bit UUID; the app discovers it after connecting,

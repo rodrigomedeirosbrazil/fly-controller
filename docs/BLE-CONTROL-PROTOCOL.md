@@ -7,10 +7,11 @@ one-off actions. It is the only interface the controller has: the WiFi web
 portal no longer exists.
 
 It exists alongside the Nordic UART service documented in
-[XCTOD-PROTOCOL.md](XCTOD-PROTOCOL.md), which is **frozen**: that CSV sentence
-has two positional consumers (XCTrack's hand-written `.xcfg` and fly-app's
-`xctod_parser.dart`) with no version handshake, so no field is ever added to
-it. Everything new lives here instead.
+[XCTOD-PROTOCOL.md](XCTOD-PROTOCOL.md), which is **append-only**: that CSV
+sentence has two positional consumers (XCTrack's hand-written `.xcfg` and
+fly-app's `xctod_parser.dart`) with no version handshake, so existing fields
+never move and new ones go only at the end. Everything beyond a plain number
+for XCTrack lives here instead.
 
 The definition of record is `src/BleControl/ControlProtocol.h`, host-tested by
 `test/ControlProtocolTest.cpp`. **This document describes that header; the
