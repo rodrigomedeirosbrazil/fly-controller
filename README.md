@@ -4,6 +4,8 @@
 
 Fly Controller is an advanced firmware that implements a complete flight control system with CAN bus communication and intelligent power management. Designed to work with T-Motor (UAVCAN) ESCs and XAG (PWM-only) motors on the ESP32-C3 platform.
 
+**Pilots:** the user manual, in Portuguese, is at [docs/manual](docs/manual/README.md).
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)

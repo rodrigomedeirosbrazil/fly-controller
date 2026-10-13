@@ -6,7 +6,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 
 | File | Purpose |
 |------|---------|
-| `MANUAL-DE-USO.md` | End-user operating manual (Portuguese). Covers startup, throttle calibration, arm/disarm procedure, power limiting behavior (battery voltage, motor temp, ESC temp). |
+| `manual/README.md` | End-user manual (Portuguese), the one pilots read on GitHub. Covers operation (startup, calibration, arm/disarm gestures, automatic disarm, power limiting, remaining flight time) and the fly-app (install, connect, flight panel, alerts, settings, logs, firmware update). Figures live in `manual/img/`; the app screenshots are generated from the fly-app code (see the fly-app repo's `tool/manual_screens/`). |
 | `BLE-CONTROL-PROTOCOL.md` | Client-facing reference (English) for the Fly Control GATT service the fly-app talks to — UUIDs, the packed telemetry/INFO/config struct layouts field by field, the CMD/RSP frame format, opcodes, status codes, the auth/armed gate, flight-log access and firmware update. The header it describes is `src/BleControl/ControlProtocol.h`, duplicated by hand as Dart in the fly-app repo; update this file whenever that header changes, and remember the struct layouts are pinned by `test/ControlProtocolTest.cpp` on this side and must be pinned on the Dart side too. |
 | `XCTOD-PROTOCOL.md` | Field-by-field reference (English) for the Xctod BLE telemetry sentence and its matching CSV log columns — field order/index, units, validity/blanking rules, and the differences between the two formats. Update whenever `src/Xctod/Xctod.cpp` or `src/TelemetryLogger/TelemetryLogger.cpp` changes field order, count, or meaning; a field-order change there also requires updating `xctrack-pages.xcfg`'s `WExternalData` `index` values. |
 | `Schematic_flycontroller_2025-10-29.png` | Circuit schematic for the fly controller PCB (dated 2025-10-29). |
@@ -15,7 +15,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 
 ## Language conventions
 
-- **User-facing manuals** (`MANUAL-*.md`) are written in **Brazilian Portuguese**. Keep them in Portuguese when editing.
+- **The user manual** (`manual/README.md`) is written in **Brazilian Portuguese**. Keep them in Portuguese when editing.
 - **Internal planning/dev docs** (`XCTOD-PROTOCOL.md`, `BLE-CONTROL-PROTOCOL.md`) are in **English**. New dev docs should also be in English.
 - **Code and comments** in the firmware (`src/`) are in English.
 
@@ -26,11 +26,11 @@ This directory contains hardware documentation and user-facing manuals for the F
 - Two supported ESC/motor builds: `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`
 - Optional BMS: JBD, Daly D2 BLE, or JK (JK02 BLE) connected over Bluetooth
 - There is no web interface or WiFi AP: configuration, logs, firmware update and clock sync go through the fly-app over BLE (see `BLE-CONTROL-PROTOCOL.md`). The radio runs WiFi in STA mode only for ESP-NOW to the remote throttle.
-- The fly-app also runs in the browser over Web Bluetooth, at https://rodrigomedeirosbrazil.github.io/fly-app/ — on an iPhone through the Bluefy browser, since Safari has no Web Bluetooth. `MANUAL-DE-USO.md` section 8.1 is the pilot-facing description; keep it in step with the fly-app repo's README.
+- The fly-app also runs in the browser over Web Bluetooth, at https://rodrigomedeirosbrazil.github.io/fly-app/ — on an iPhone through the Bluefy browser, since Safari has no Web Bluetooth. The manual's "O Fly App" section is the pilot-facing description; keep it in step with the fly-app repo's README.
 
 ## Documentation maintenance guidelines
 
 - When firmware adds or renames a configuration field, or changes the telemetry/INFO structs or opcodes, update `BLE-CONTROL-PROTOCOL.md` (and keep it matching `src/BleControl/ControlProtocol.h`).
-- When a user-visible setting or procedure changes, update `MANUAL-DE-USO.md` (section 8 covers configuration through the app).
-- When arm/disarm logic or calibration behavior changes, update `MANUAL-DE-USO.md`.
+- When a user-visible setting or procedure changes, update `manual/README.md` (its "Configurações" section covers the settings screens).
+- When arm/disarm logic, automatic disarm or calibration behavior changes, update `manual/README.md` in the same change. The manual drifted from the firmware twice before (the #72 arm gesture and the wireless failsafe) because it was edited separately.
 - The Schematic and PCB images are static artifacts tied to a specific board revision. Do not replace them without also updating the Gerber zip and noting the new revision date in filenames.
