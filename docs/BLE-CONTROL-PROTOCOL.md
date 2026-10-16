@@ -102,7 +102,7 @@ append rule does *not* rescue, since appending saves nothing if offsets
 shifted underneath. Gate on the telemetry struct's own `ver` and on the
 received length instead, and log `protocolVersion` for support.
 
-## `TELEMETRY` — 74 bytes at 1 Hz
+## `TELEMETRY` — 78 bytes at 1 Hz
 
 Two rules govern this struct, and together they are what replaces the CSV.
 
@@ -113,11 +113,11 @@ absent field.** Every offset below is constant forever.
 `min(received, known)`.** New firmware with an old client: the client reads the
 prefix it understands and ignores the tail. Old firmware with a new client: the
 client sees a short packet and treats the fields beyond it as absent. Neither
-breaks. **Decode by offset against the received length — never assume 74.**
+breaks. **Decode by offset against the received length — never assume 78.**
 `stateFreqHz` was appended after the first release and is the worked example:
 firmware without it sends 56 bytes and nothing else changes. The BMS fields at
 58–68 are the second: firmware without them sends 58. The remaining-time
-fields at 69–73 are the third: firmware without them sends 69.
+fields at 69–73 are the third: firmware without them sends 69. The BMS capacity at 74–77 is the fourth: firmware without it sends 74.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -157,6 +157,7 @@ fields at 69–73 are the third: firmware without them sends 69.
 | 69 | `uint16` | `remainingMin` | remaining **motor** time, whole minutes (floored); 0 when `remainingQuality` is 0. Updates every 10 s |
 | 71 | `uint8` | `remainingQuality` | 0 unavailable · 1 voltage estimate (no current reading; approximate, does not follow the throttle) · 2 coulomb count; no validity bit |
 | 72 | `uint16` | `avgCurrentDa` | consumption average behind `remainingMin`, 0.1 A; the reference current before the first 10 s of motor time |
+| 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK; Daly never reports it); validity `BmsCapacity`. While valid and within 1000–65000 the firmware has adopted it as the `POWER` capacity, and a `CFG_SET` capacity is overwritten again within a tick |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -195,6 +196,7 @@ all", which is a different question from whether a sensor is currently healthy.
 | `0x0004` | `powerKwX10` is real |
 | `0x0008` | BMS data present |
 | `0x0010` | BMS per-cell data present |
+| `0x0020` | BMS nominal capacity present (`bmsDesignCapacityMah`) |
 
 Motor temp, ESC temp and battery voltage deliberately have **no** bit here —
 their health is in `signalStates`. A bit would be a second answer to the same
@@ -378,6 +380,8 @@ validated as a pair.
 | Thermal | 1 | 17 | `int32` motorReductionStartMc, `int32` motorMaxMc, `int32` escReductionStartMc, `int32` escMaxMc, `uint8` motorTempSource |
 | Bms | 2 | 7 | `uint8` bmsType, `uint8[6]` bmsMac |
 | System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource, `uint8[6]` remoteMac |
+
+While a BMS reports a nominal capacity (telemetry validity `BmsCapacity`), the firmware overwrites the Power group's `capacityMah` with it; a client should show it as set by the BMS.
 
 Two encodings differ from how the firmware stores them, because the stored
 types cannot be sent raw:

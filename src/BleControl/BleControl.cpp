@@ -280,6 +280,8 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     if (isPowerKwAvailable())               valid |= TelemValid::PowerKw;
     if (isBmsDataAvailable())               valid |= TelemValid::Bms;
     if (isBmsCellDataAvailable())           valid |= TelemValid::BmsCells;
+    const uint32_t bmsCapacityMah = bluetoothBms.getDesignCapacityMah();
+    if (bmsCapacityMah > 0)                 valid |= TelemValid::BmsCapacity;
     t.validity = valid;
 
     // Motor temp, ESC temp and battery voltage report health through
@@ -362,6 +364,9 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
     const uint32_t avgMa = remainingTime.getAverageCurrentMa();
     const uint32_t avgDa = (avgMa + MA_PER_DECIAMP / 2) / MA_PER_DECIAMP;
     t.avgCurrentDa     = avgDa > UINT16_MAX ? UINT16_MAX : (uint16_t) avgDa;
+
+    // Zero with TelemValid::BmsCapacity clear when unknown.
+    t.bmsDesignCapacityMah = bmsCapacityMah;
 }
 
 void BleControl::notifyTelemetry() {
