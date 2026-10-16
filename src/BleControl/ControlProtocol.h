@@ -218,11 +218,11 @@ namespace TelemFlag {
 // breaking change, so there is nothing to reserve now.
 namespace TelemValid {
     enum : uint16_t {
-        Current   = 1 << 0,
-        Rpm       = 1 << 1,
-        PowerKw   = 1 << 2,
-        Bms       = 1 << 3,
-        BmsCells  = 1 << 4,
+        Current     = 1 << 0,
+        Rpm         = 1 << 1,
+        PowerKw     = 1 << 2,
+        Bms         = 1 << 3,
+        BmsCells    = 1 << 4,
         BmsCapacity = 1 << 5,  // bmsDesignCapacityMah is the BMS's own value
     };
 }

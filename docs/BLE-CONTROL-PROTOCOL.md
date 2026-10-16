@@ -117,7 +117,8 @@ breaks. **Decode by offset against the received length — never assume 78.**
 `stateFreqHz` was appended after the first release and is the worked example:
 firmware without it sends 56 bytes and nothing else changes. The BMS fields at
 58–68 are the second: firmware without them sends 58. The remaining-time
-fields at 69–73 are the third: firmware without them sends 69. The BMS capacity at 74–77 is the fourth: firmware without it sends 74.
+fields at 69–73 are the third: firmware without them sends 69. The BMS
+capacity at 74–77 is the fourth: firmware without it sends 74.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -204,7 +205,7 @@ question, populated from a second call site and free to drift. SoC has no bit
 either: the firmware has no validity concept for it (`socVolt` follows the
 battery-voltage signal state; coulomb counting has none).
 
-Eleven bits are spare. Adding one later is **not** a breaking change.
+Ten bits are spare. Adding one later is **not** a breaking change.
 
 ### `signalStates` — sensor health, 2 bits each
 
