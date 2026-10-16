@@ -28,7 +28,7 @@ void test_clamped_to_new_capacity() {
 }
 
 void test_no_overflow_at_largest_values() {
-    // 65000 * 65000 = 4.2e9 overflows nothing in 32 bits, but 65000 * 1e5 does.
+    // 65000 * 65000 fits in 32 bits; 64999 * 100000 does not, so the 64-bit intermediate is required.
     assert(rescaleRemainingMah(65000, 65000, 65000) == 65000);
     assert(rescaleRemainingMah(64999, 65000, 100000) == 99998);
     cout << "test_no_overflow_at_largest_values passed\n";

@@ -158,7 +158,7 @@ capacity at 74–77 is the fourth: firmware without it sends 74.
 | 69 | `uint16` | `remainingMin` | remaining **motor** time, whole minutes (floored); 0 when `remainingQuality` is 0. Updates every 10 s |
 | 71 | `uint8` | `remainingQuality` | 0 unavailable · 1 voltage estimate (no current reading; approximate, does not follow the throttle) · 2 coulomb count; no validity bit |
 | 72 | `uint16` | `avgCurrentDa` | consumption average behind `remainingMin`, 0.1 A; the reference current before the first 10 s of motor time |
-| 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK; Daly never reports it); validity `BmsCapacity`. While valid and within 1000–65000 the firmware has adopted it as the `POWER` capacity, and a `CFG_SET` capacity is overwritten again within a tick |
+| 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK; Daly never reports it); validity `BmsCapacity`. The firmware adopts it as the `POWER` capacity once it has been stable 3 s, is within 1000–65000 and the controller is disarmed (pending while armed); outside that range the bit stays set but the manual value is kept |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -382,7 +382,7 @@ validated as a pair.
 | Bms | 2 | 7 | `uint8` bmsType, `uint8[6]` bmsMac |
 | System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource, `uint8[6]` remoteMac |
 
-While a BMS reports a nominal capacity (telemetry validity `BmsCapacity`), the firmware overwrites the Power group's `capacityMah` with it; a client should show it as set by the BMS.
+While a BMS reports a nominal capacity (telemetry validity `BmsCapacity`), the firmware overwrites the Power group's `capacityMah` with it once the value has been stable 3 s, is within 1000–65000 mAh and the controller is disarmed (pending while armed); outside that range the setting keeps the manual value. A client should show it as set by the BMS only when the adopted value matches.
 
 Two encodings differ from how the firmware stores them, because the stored
 types cannot be sent raw:

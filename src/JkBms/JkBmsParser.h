@@ -195,6 +195,7 @@ static inline bool jkParseCellInfo(const uint8_t* buf, size_t frameSize,
     // uint32 closest to the cell sum.
     size_t   packPos  = 0;
     uint32_t bestDiff = 0xFFFFFFFFu;
+    bool     scanMatched = true;
     if (cellSum > 0) {
         for (size_t o = JK_CELL_BASE_OFFSET; o + JK_SOC_DELTA < frameSize; o++) {
             const uint32_t v = jkGet32LE(buf, o);
@@ -206,6 +207,7 @@ static inline bool jkParseCellInfo(const uint8_t* buf, size_t frameSize,
     if (bestDiff > JK_PACK_MATCH_TOLERANCE_MV) {
         // Scan inconclusive — fall back to the protocol hint's fixed base offset.
         packPos = JK_PACK_VOLTAGE_OFFSET + jkProtocolOffset(protocol);
+        scanMatched = false;
     }
 
     if (packPos + JK_SOC_DELTA >= frameSize) {
@@ -223,9 +225,11 @@ static inline bool jkParseCellInfo(const uint8_t* buf, size_t frameSize,
 
     // The capacity pair sits right after SoC. Firmware whose aggregate block
     // ends earlier still reports everything above; capacity reads as unknown.
+    // It is read only from a scan-matched base: a guessed base could yield a
+    // stable in-range constant that BmsCapacitySync would persist to NVS.
     out->remainingCapacityMah = 0;
     out->nominalCapacityMah   = 0;
-    if (packPos + JK_NOMINAL_CAPACITY_DELTA + 3 < frameSize) {
+    if (scanMatched && packPos + JK_NOMINAL_CAPACITY_DELTA + 3 < frameSize) {
         out->remainingCapacityMah = jkGet32LE(buf, packPos + JK_REMAINING_CAPACITY_DELTA);
         out->nominalCapacityMah   = jkGet32LE(buf, packPos + JK_NOMINAL_CAPACITY_DELTA);
     }

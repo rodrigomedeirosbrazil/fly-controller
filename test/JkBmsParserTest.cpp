@@ -386,6 +386,21 @@ int main() {
         cout << "PASS: test_short_frame_leaves_capacity_zero\n";
     }
 
+    {   // test_capacity_zero_when_scan_misses: the pack-voltage field does not match
+        // the cell sum, so the parser falls back to the fixed base. Voltage, SoC etc.
+        // still decode there, but a guessed base must not yield a capacity.
+        uint8_t f[JK_TEST_FRAME_LEN];
+        makeCellInfoFrame(f, sizeof(f), JkProtocol_24S, -5000, 55, 250, 260,
+                          14, 3700, 9900, 18000);
+        putLE32(f, JK_PACK_VOLTAGE_OFFSET, 30000);   // far from 14 * 3700
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_24S, &d));
+        assert(d.socPercent == 55);                  // fallback base still decodes
+        assert(d.remainingCapacityMah == 0);
+        assert(d.nominalCapacityMah   == 0);
+        cout << "PASS: test_capacity_zero_when_scan_misses\n";
+    }
+
     cout << "\nAll JkBmsParser tests passed.\n";
     return 0;
 }

@@ -146,15 +146,15 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 `BmsCapacitySync` (`src/BmsCapacitySync/`) adopts the BMS-reported nominal
 capacity as `Settings::batteryCapacityMah` — **always**, no toggle: a manual
-`CFG_SET` value is overwritten on the next tick while a BMS reports one. JBD
-(register 0x03) and JK (cell-info frame, +28 from the pack-voltage field)
-report it; Daly does not, and keeps the manual value. Applied once the value
+`CFG_SET` value is overwritten once the sync's conditions below hold again, while a BMS reports one. JBD
+(register 0x03) and JK (cell-info frame, +28 from the pack-voltage field, read only when the
+pack-voltage scan matched the cell sum) report it; Daly does not, and keeps the manual value. Applied once the value
 has been stable 3 s (`BMS_CAPACITY_STABLE_MS`), is inside the `CFG_SET` range
 (`validateCapacity`, 1000–65000 mAh; outside it is logged once and ignored),
 differs from the setting (NVS written only on change) and the controller is
 disarmed (pending while armed). The coulomb count is **rescaled keeping the
 percentage** (`BatteryMonitor::rescaleCapacity`), never reset to full —
-`setCapacity()` keeps that for `CFG_SET`. The value is in `TELEMETRY`
+`setCapacity()` still resets to full and remains the `CFG_SET` path. The value is in `TELEMETRY`
 (`bmsDesignCapacityMah`, validity `BmsCapacity`). Decision logic is host-tested
 in `test/BmsCapacitySyncLogicTest.cpp`.
 
