@@ -128,6 +128,17 @@ uint8_t BluetoothBms::getCellCount() const {
     return 0;
 }
 
+uint32_t BluetoothBms::getDesignCapacityMah() const {
+    // Drivers keep their last decoded values after a disconnect; a stale
+    // capacity must not keep re-syncing the setting.
+    if (!isConnected() || !hasData()) return 0;
+    const uint8_t activeType = getActiveType();
+    if (activeType == BmsTypeJbd) return jbdBms.getDesignCapacityMahl();
+    if (activeType == BmsTypeJk)  return jkBms.getDesignCapacityMah();
+    // Daly: the decoded status block has no nominal capacity.
+    return 0;
+}
+
 uint8_t BluetoothBms::getTempCount() const {
     const uint8_t activeType = getActiveType();
     if (activeType == BmsTypeJbd)  return jbdBms.getNtcCount();
