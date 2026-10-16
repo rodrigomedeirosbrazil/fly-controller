@@ -1,4 +1,5 @@
 #include "BatteryMonitor.h"
+#include "CapacityRescale.h"
 #include "../config.h"
 #include "../Telemetry/TelemetryAvailability.h"
 
@@ -273,6 +274,14 @@ void BatteryMonitor::setCapacity(uint16_t mAh) {
     remainingMilliAh = mAh;  // Reset to full charge
     coulombRemainderMaMs = 0;
     zeroCurrentStartMs = 0;
+}
+
+void BatteryMonitor::rescaleCapacity(uint16_t mAh) {
+    // The coulomb remainder (sub-mAh carry) and the rest-recalibration window
+    // are independent of capacity, so neither is cleared.
+    remainingMilliAh = rescaleRemainingMah(remainingMilliAh, batteryCapacityMilliAh, mAh);
+    batteryCapacityMilliAh = mAh;
+    updateUsableCapacity();
 }
 
 void BatteryMonitor::resetToFullCharge() {
