@@ -24,6 +24,7 @@ public:
     uint16_t getConsumedMah();         // Returns mAh consumed
     uint16_t getCapacity();            // Returns battery capacity in mAh
     void setCapacity(uint16_t mAh);    // Configure battery capacity
+    void rescaleCapacity(uint16_t mAh); // Change capacity keeping the SoC %
     void resetToFullCharge();          // Reset to 100% charge
 
 private:

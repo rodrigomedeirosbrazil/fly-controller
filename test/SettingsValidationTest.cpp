@@ -79,8 +79,19 @@ void test_reference_current_clamp() {
     assert(clampReferenceCurrent(5000) == 300);
 }
 
+void test_capacity_range_alone() {
+    // validateCapacity is the range validatePower applies; BmsCapacitySync
+    // uses it directly so the two can never disagree.
+    assert(validateCapacity(1000)  == SettingsError::None);
+    assert(validateCapacity(65000) == SettingsError::None);
+    assert(validateCapacity(999)   == SettingsError::CapacityRange);
+    assert(validateCapacity(65001) == SettingsError::CapacityRange);
+    assert(validateCapacity(0)     == SettingsError::CapacityRange);
+}
+
 int main() {
     test_power_capacity_range();
+    test_capacity_range_alone();
     test_power_voltage_ranges();
     test_power_does_not_check_voltage_ordering();
     test_voltage_divider_ratio_range();

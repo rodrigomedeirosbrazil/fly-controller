@@ -90,5 +90,6 @@ JkBms jkBms;
 Settings settings;
 HourMeter hourMeter;
 RemainingTime remainingTime;
+BmsCapacitySync bmsCapacitySync;
 ADS1115 ads1115;
 RemoteLink remoteLink;

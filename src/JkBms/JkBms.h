@@ -45,6 +45,7 @@ public:
     uint8_t  getSoCPercent()            const { return data_.socPercent; }
     uint8_t  getCellCount()             const { return data_.cellCount; }
     uint8_t  getTempCount()             const { return data_.tempCount; }
+    uint32_t getDesignCapacityMah()     const { return data_.nominalCapacityMah; }
     int16_t  getTempCelsius(uint8_t index) const;
 
     uint16_t getCellVoltageMilliVolts(uint8_t index) const;

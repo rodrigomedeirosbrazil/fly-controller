@@ -215,6 +215,10 @@ void loop()
   // protection is suspended, for TempProtectionAlert below.
   power.updateTempProtection();
 
+  // Before batteryMonitor.update(), so this tick's coulomb count already uses
+  // a capacity the BMS just reported.
+  bmsCapacitySync.handle(throttle.isArmed());
+
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
   batteryMonitor.update();

@@ -35,6 +35,9 @@ public:
     int32_t getPackCurrentMilliAmps() const;
     uint8_t getSoCPercent() const;
     uint8_t getCellCount() const;
+    // The pack's nominal capacity as configured in the BMS, mAh. 0 when not
+    // connected or unknown (Daly does not report it; a JK may have it unset).
+    uint32_t getDesignCapacityMah() const;
     uint8_t getTempCount() const;
     int16_t getTempCelsius(uint8_t index) const;
 
