@@ -8,6 +8,7 @@ extern Settings settings;
 BatteryMonitor::BatteryMonitor() {
     // Capacity will be set from Settings in init()
     batteryCapacityMilliAh = 0;
+    bmsCapacityMilliAh = 0;
     usableCapacityMilliAh = 0;
     reserveMilliAh = 0;
     remainingMilliAh = 0;
@@ -268,7 +269,16 @@ uint16_t BatteryMonitor::getCapacity() {
     return (uint16_t)batteryCapacityMilliAh;
 }
 
+uint16_t BatteryMonitor::getBmsCapacity() const {
+    return (uint16_t)bmsCapacityMilliAh;
+}
+
 void BatteryMonitor::setCapacity(uint16_t mAh) {
+    if (bmsCapacityMilliAh != 0) {
+        // The BMS capacity stays in use and the pack has not changed, so the
+        // count is left alone. Settings keeps the configured value.
+        return;
+    }
     batteryCapacityMilliAh = mAh;
     updateUsableCapacity();
     remainingMilliAh = mAh;  // Reset to full charge
@@ -276,7 +286,8 @@ void BatteryMonitor::setCapacity(uint16_t mAh) {
     zeroCurrentStartMs = 0;
 }
 
-void BatteryMonitor::rescaleCapacity(uint16_t mAh) {
+void BatteryMonitor::setBmsCapacity(uint16_t mAh) {
+    bmsCapacityMilliAh = mAh;
     // The coulomb remainder (sub-mAh carry) and the rest-recalibration window
     // are independent of capacity, so neither is cleared.
     remainingMilliAh = rescaleRemainingMah(remainingMilliAh, batteryCapacityMilliAh, mAh);

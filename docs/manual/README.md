@@ -339,14 +339,14 @@ O relógio do controlador é acertado pelo app automaticamente a cada conexão, 
 
 | Parâmetro | Descrição | Faixa |
 |---|---|---|
-| **Capacidade** | 18, 34 ou 65 Ah, ou um valor personalizado. Com um BMS JBD ou JK conectado, é preenchida automaticamente com a capacidade configurada no BMS. | 1 a 65 Ah |
+| **Capacidade** | 18, 34 ou 65 Ah, ou um valor personalizado. Com um BMS JBD ou JK conectado, o controlador usa a capacidade informada pelo BMS no lugar desta. | 1 a 65 Ah |
 | **Tensão mínima** | Por célula. Abaixo dela, a potência é reduzida. O app mostra o total do pack (14 células). | 2,5 a 63,0 V no pack |
 | **Tensão máxima** | Por célula. Referência de bateria cheia. | 2,5 a 63,0 V no pack |
 | **Ativar Controle de Energia** | Liga ou desliga a limitação de potência por tensão e temperaturas. Desligado, a potência total fica sempre disponível. | Ligado ou desligado |
 
 A tensão mínima precisa ser menor que a máxima. Os campos aceitam vírgula ou ponto como separador decimal.
 
-Com um BMS JBD ou JK conectado, o controlador usa a capacidade que o BMS informa: alguns segundos depois da conexão, com o sistema desarmado, o valor é gravado e a porcentagem de carga atual é mantida. Um valor digitado no app é substituído enquanto o BMS estiver conectado. Se o BMS informar mais de 65 Ah, vale o valor manual. O BMS Daly não informa a capacidade, então ela continua manual.
+Com um BMS JBD ou JK conectado, o controlador usa a capacidade que o BMS informa: alguns segundos depois da conexão, com o sistema desarmado, ela passa a valer para o cálculo da carga, mantendo a porcentagem atual. O valor configurado no app não é alterado e volta a valer quando não houver BMS informando a capacidade. Se o BMS informar mais de 65 Ah, vale o valor configurado. O BMS Daly não informa a capacidade, então ela continua manual.
 
 **Calibração** (quando o controlador tem sensor de tensão):
 

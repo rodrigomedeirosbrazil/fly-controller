@@ -3,8 +3,9 @@
 #include <Arduino.h>
 #include "BmsCapacitySyncLogic.h"
 
-// Arduino wrapper over BmsCapacitySyncLogic: adopts the BMS-reported nominal
-// capacity as the battery capacity setting. Runs on the loop task only.
+// Arduino wrapper over BmsCapacitySyncLogic: hands the BMS-reported nominal
+// capacity to BatteryMonitor as the capacity in use. Never writes Settings or
+// NVS. Runs on the loop task only.
 class BmsCapacitySync {
 public:
     void handle(bool isArmed);

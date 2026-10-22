@@ -7,11 +7,11 @@
 #include "../src/BmsCapacitySync/BmsCapacitySyncLogic.h"
 using namespace std;
 
-static BmsCapacitySyncInput in(uint32_t now, uint32_t bms, uint32_t configured, bool armed = false) {
+static BmsCapacitySyncInput in(uint32_t now, uint32_t bms, uint32_t adopted, bool armed = false) {
     BmsCapacitySyncInput i;
     i.nowMs          = now;
     i.bmsCapacityMah = bms;
-    i.configuredMah  = configured;
+    i.adoptedMah     = adopted;
     i.armed          = armed;
     return i;
 }
@@ -40,12 +40,12 @@ void test_applies_after_stable_window() {
     cout << "test_applies_after_stable_window passed\n";
 }
 
-void test_equal_to_configured_never_applies() {
+void test_equal_to_adopted_never_applies() {
     BmsCapacitySyncLogic l;
     for (uint32_t t = 0; t <= 10000; t += 500) {
         assert(isNone(l.update(in(t, 18000, 18000))));
     }
-    cout << "test_equal_to_configured_never_applies passed\n";
+    cout << "test_equal_to_adopted_never_applies passed\n";
 }
 
 void test_change_restarts_window() {
@@ -125,7 +125,7 @@ void test_range_edges() {
 }
 
 void test_after_apply_settles() {
-    // The wrapper writes the setting; next tick configured == candidate.
+    // The wrapper hands the value to BatteryMonitor; next tick adopted == candidate.
     BmsCapacitySyncLogic l;
     l.update(in(0, 34000, 18000));
     assert(isApply(l.update(in(3000, 34000, 18000)), 34000));
@@ -134,14 +134,22 @@ void test_after_apply_settles() {
     cout << "test_after_apply_settles passed\n";
 }
 
-void test_manual_edit_is_reverted() {
-    // Pilot sets 20000 via CFG_SET while the BMS keeps reporting 34000:
-    // the candidate is already stable, so the revert is immediate.
+void test_first_value_applies_even_if_equal_to_configured() {
+    // Nothing adopted yet (0): a BMS value equal to the configured capacity
+    // is still adopted, so a later CFG_SET cannot take the count over.
     BmsCapacitySyncLogic l;
-    l.update(in(0, 34000, 34000));
-    l.update(in(5000, 34000, 34000));
-    assert(isApply(l.update(in(6000, 34000, 20000)), 34000));
-    cout << "test_manual_edit_is_reverted passed\n";
+    l.update(in(0, 18000, 0));
+    assert(isApply(l.update(in(3000, 18000, 0)), 18000));
+    cout << "test_first_value_applies_even_if_equal_to_configured passed\n";
+}
+
+void test_new_bms_value_reapplies() {
+    // A different stable value from the BMS replaces the adopted one.
+    BmsCapacitySyncLogic l;
+    l.update(in(0, 20000, 34000));
+    assert(isNone(l.update(in(2999, 20000, 34000))));
+    assert(isApply(l.update(in(3000, 20000, 34000)), 20000));
+    cout << "test_new_bms_value_reapplies passed\n";
 }
 
 void test_millis_wrap_across_window() {
@@ -156,7 +164,7 @@ void test_millis_wrap_across_window() {
 int main() {
     test_no_bms_value_does_nothing();
     test_applies_after_stable_window();
-    test_equal_to_configured_never_applies();
+    test_equal_to_adopted_never_applies();
     test_change_restarts_window();
     test_alternating_values_never_apply();
     test_dropout_restarts_window();
@@ -164,7 +172,8 @@ int main() {
     test_out_of_range_reported_once_per_value();
     test_range_edges();
     test_after_apply_settles();
-    test_manual_edit_is_reverted();
+    test_first_value_applies_even_if_equal_to_configured();
+    test_new_bms_value_reapplies();
     test_millis_wrap_across_window();
     cout << "BmsCapacitySyncLogicTest: all passed\n";
     return 0;
