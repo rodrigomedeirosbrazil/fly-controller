@@ -43,7 +43,9 @@ static size_t makeCellInfoFrame(uint8_t* buf, size_t bufSize,
                                  JkProtocol protocol,
                                  int32_t currentMa, uint8_t soc,
                                  int16_t temp1Raw, int16_t temp2Raw,
-                                 uint8_t cellCount, uint16_t cellMv) {
+                                 uint8_t cellCount, uint16_t cellMv,
+                                 uint32_t remainingMah = 0,
+                                 uint32_t nominalMah = 0) {
     if (JK_TEST_FRAME_LEN > bufSize) return 0;
     memset(buf, 0, JK_TEST_FRAME_LEN);
 
@@ -67,6 +69,8 @@ static size_t makeCellInfoFrame(uint8_t* buf, size_t bufSize,
     putLE16(buf, JK_TEMP1_OFFSET + offset, (uint16_t)temp1Raw);
     putLE16(buf, JK_TEMP2_OFFSET + offset, (uint16_t)temp2Raw);
     buf[JK_SOC_OFFSET + offset] = soc;
+    putLE32(buf, JK_REMAINING_CAPACITY_OFFSET + offset, remainingMah);
+    putLE32(buf, JK_NOMINAL_CAPACITY_OFFSET + offset, nominalMah);
 
     buf[JK_TEST_FRAME_LEN - 1] = jkComputeChecksum(buf, JK_TEST_FRAME_LEN - 1);
     return JK_TEST_FRAME_LEN;
@@ -321,7 +325,80 @@ int main() {
         assert(d.tempsCelsius[0] == 20);            // frame[162] -> 20.2 C
         assert(d.tempsCelsius[1] == 21);            // frame[164] -> 21.1 C
         assert(d.socPercent == 6);                  // frame[173]
+        assert(d.remainingCapacityMah == 1065);     // frame[174]
+        assert(d.nominalCapacityMah   == 18000);    // frame[178]
         cout << "PASS: real captured frame (base offset 150) decoded correctly\n";
+    }
+
+    // ── Capacity fields ───────────────────────────────────────────────────────
+
+    {   // test_capacity_decoded_24s: base 118 -> remaining at 142, nominal at 146
+        uint8_t f[JK_TEST_FRAME_LEN];
+        makeCellInfoFrame(f, sizeof(f), JkProtocol_24S, -5000, 55, 250, 260,
+                          14, 3700, 9900, 18000);
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_24S, &d));
+        assert(d.remainingCapacityMah == 9900);
+        assert(d.nominalCapacityMah   == 18000);
+        cout << "PASS: test_capacity_decoded_24s\n";
+    }
+
+    {   // test_capacity_decoded_32s: base 134 -> remaining at 158, nominal at 162
+        uint8_t f[JK_TEST_FRAME_LEN];
+        makeCellInfoFrame(f, sizeof(f), JkProtocol_32S, -5000, 80, 250, 260,
+                          14, 3900, 27200, 34000);
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_32S, &d));
+        assert(d.remainingCapacityMah == 27200);
+        assert(d.nominalCapacityMah   == 34000);
+        cout << "PASS: test_capacity_decoded_32s\n";
+    }
+
+    {   // test_zero_nominal_capacity_reports_zero: BMS never configured
+        uint8_t f[JK_TEST_FRAME_LEN];
+        makeCellInfoFrame(f, sizeof(f), JkProtocol_24S, 0, 50, 250, 260,
+                          14, 3700, 0, 0);
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_24S, &d));
+        assert(d.nominalCapacityMah == 0);
+        assert(d.valid);   // the rest of the frame still decodes
+        cout << "PASS: test_zero_nominal_capacity_reports_zero\n";
+    }
+
+    {   // test_short_frame_leaves_capacity_zero: room for SoC, not for capacity.
+        // frameSize below JK_FRAME_LENGTH is rejected outright, so this pins
+        // the bound check by placing the aggregate block at the frame's tail:
+        // build a normal frame, then scan-match the pack voltage near the end.
+        uint8_t f[JK_TEST_FRAME_LEN];
+        memset(f, 0, sizeof(f));
+        f[0] = 0x55; f[1] = 0xAA; f[2] = 0xEB; f[3] = 0x90;
+        f[4] = JK_FRAME_TYPE_CELL_INFO;
+        for (uint8_t i = 0; i < 14; i++) putLE16(f, JK_CELL_BASE_OFFSET + i * 2, 3700);
+        // Pack voltage placed so SoC (base+23) fits but nominal (base+28..31) does not.
+        const size_t base = JK_TEST_FRAME_LEN - 1 - JK_SOC_DELTA - 2;   // 274
+        putLE32(f, base, 14u * 3700u);
+        f[base + JK_SOC_DELTA] = 42;
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_24S, &d));
+        assert(d.socPercent == 42);
+        assert(d.remainingCapacityMah == 0);
+        assert(d.nominalCapacityMah   == 0);
+        cout << "PASS: test_short_frame_leaves_capacity_zero\n";
+    }
+
+    {   // test_capacity_zero_when_scan_misses: the pack-voltage field does not match
+        // the cell sum, so the parser falls back to the fixed base. Voltage, SoC etc.
+        // still decode there, but a guessed base must not yield a capacity.
+        uint8_t f[JK_TEST_FRAME_LEN];
+        makeCellInfoFrame(f, sizeof(f), JkProtocol_24S, -5000, 55, 250, 260,
+                          14, 3700, 9900, 18000);
+        putLE32(f, JK_PACK_VOLTAGE_OFFSET, 30000);   // far from 14 * 3700
+        JkBmsData d = {};
+        assert(jkParseCellInfo(f, sizeof(f), JkProtocol_24S, &d));
+        assert(d.socPercent == 55);                  // fallback base still decodes
+        assert(d.remainingCapacityMah == 0);
+        assert(d.nominalCapacityMah   == 0);
+        cout << "PASS: test_capacity_zero_when_scan_misses\n";
     }
 
     cout << "\nAll JkBmsParser tests passed.\n";

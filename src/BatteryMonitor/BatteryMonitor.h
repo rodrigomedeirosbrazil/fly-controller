@@ -22,13 +22,20 @@ public:
     uint32_t usableMahFromVoltage(uint16_t batteryMilliVolts) const;
     uint16_t getRemainingMah();        // Returns mAh remaining
     uint16_t getConsumedMah();         // Returns mAh consumed
-    uint16_t getCapacity();            // Returns battery capacity in mAh
-    void setCapacity(uint16_t mAh);    // Configure battery capacity
+    uint16_t getCapacity();            // Capacity in use, mAh (BMS-reported, else configured)
+    // The configured capacity (CFG_SET). Resets to full when it becomes the
+    // capacity in use; while a BMS capacity is in use it is only stored.
+    void setCapacity(uint16_t mAh);
+    // The BMS-reported capacity (BmsCapacitySync). Runtime only, wins over the
+    // configured one, and keeps the SoC % instead of resetting to full.
+    void setBmsCapacity(uint16_t mAh);
+    uint16_t getBmsCapacity() const;   // Adopted BMS capacity, 0 = none this boot
     void resetToFullCharge();          // Reset to 100% charge
 
 private:
     // Coulomb counting state
-    uint32_t batteryCapacityMilliAh;  // Capacity in mAh (18Ah default)
+    uint32_t batteryCapacityMilliAh;  // Capacity in use, mAh
+    uint32_t bmsCapacityMilliAh;      // From the BMS, 0 = none reported this boot
     uint32_t usableCapacityMilliAh;   // Usable capacity in mAh (internal reserve applied)
     uint32_t reserveMilliAh;          // Reserved capacity in mAh
     uint32_t remainingMilliAh;         // Remaining capacity in mAh

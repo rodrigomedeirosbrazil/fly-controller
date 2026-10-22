@@ -24,8 +24,14 @@ enum class SettingsError : uint8_t {
     ReferenceCurrentRange,
 };
 
-inline SettingsError validatePower(uint32_t capacityMah, uint32_t minMv, uint32_t maxMv) {
+// Split out so BmsCapacitySync applies exactly the range CFG_SET accepts.
+inline SettingsError validateCapacity(uint32_t capacityMah) {
     if (capacityMah < 1000 || capacityMah > 65000) return SettingsError::CapacityRange;
+    return SettingsError::None;
+}
+
+inline SettingsError validatePower(uint32_t capacityMah, uint32_t minMv, uint32_t maxMv) {
+    if (validateCapacity(capacityMah) != SettingsError::None) return SettingsError::CapacityRange;
     if (minMv < 2500 || minMv > 63000)             return SettingsError::MinVoltageRange;
     if (maxMv < 2500 || maxMv > 63000)             return SettingsError::MaxVoltageRange;
     return SettingsError::None;

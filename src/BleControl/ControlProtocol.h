@@ -214,15 +214,16 @@ namespace TelemFlag {
 // SoC has no bit either, because the firmware has no validity concept for
 // it: socVolt's trustworthiness follows the battery-voltage SignalState and
 // coulomb counting has none. A bit that is always 1 is worse than no bit.
-// This mask is a uint16_t with 11 spare, and adding one later is not a
+// This mask is a uint16_t with 10 spare, and adding one later is not a
 // breaking change, so there is nothing to reserve now.
 namespace TelemValid {
     enum : uint16_t {
-        Current   = 1 << 0,
-        Rpm       = 1 << 1,
-        PowerKw   = 1 << 2,
-        Bms       = 1 << 3,
-        BmsCells  = 1 << 4,
+        Current     = 1 << 0,
+        Rpm         = 1 << 1,
+        PowerKw     = 1 << 2,
+        Bms         = 1 << 3,
+        BmsCells    = 1 << 4,
+        BmsCapacity = 1 << 5,  // bmsDesignCapacityMah is the BMS's own value
     };
 }
 
@@ -305,6 +306,11 @@ struct ControlTelemetry {
     uint16_t remainingMin;      // whole minutes, floored; 0 when Unavailable
     uint8_t  remainingQuality;  // RemainingTimeQuality: 0 unavailable, 1 voltage, 2 coulomb count
     uint16_t avgCurrentDa;      // in-flight consumption average, 0.1 A
+    // Appended: the BMS's nominal pack capacity (JBD, JK), validity
+    // BmsCapacity. When valid and inside the CFG_SET range the firmware has
+    // adopted it as the battery capacity setting (BmsCapacitySync); compare
+    // with CFG_GET POWER to tell. u32 because packs above 65.5 Ah exist.
+    uint32_t bmsDesignCapacityMah;
 };
 #pragma pack(pop)
 

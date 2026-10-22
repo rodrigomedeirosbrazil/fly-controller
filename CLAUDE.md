@@ -142,6 +142,27 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 `RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
 
+## BMS capacity sync
+
+`BmsCapacitySync` (`src/BmsCapacitySync/`) makes the BMS-reported nominal
+capacity the capacity the coulomb count uses — **always**, no toggle, and
+**runtime only**: `Settings::batteryCapacityMah` and NVS are never touched,
+since the BMS reports the value again on every connection. The configured
+value stays saved and is used whenever no BMS reports one (no BMS, Daly, or
+before the BMS connects after boot); once adopted, the BMS value stays in
+use until reboot even if the BMS link drops, since the pack has not changed. JBD (register 0x03) and JK (cell-info
+frame, +28 from the pack-voltage field, read only when the pack-voltage scan
+matched the cell sum) report it; Daly does not. Applied once the value has
+been stable 3 s (`BMS_CAPACITY_STABLE_MS`), is inside the `CFG_SET` range
+(`validateCapacity`, 1000–65000 mAh; outside it is logged once and ignored),
+differs from the BMS value already adopted and the controller is disarmed (pending while
+armed). `BatteryMonitor` keeps both values: `setBmsCapacity()` rescales the
+count **keeping the percentage**; `setCapacity()` (`CFG_SET`) stores the
+configured value and resets to full only when that value is the one in use.
+The BMS value is in `TELEMETRY` (`bmsDesignCapacityMah`, validity
+`BmsCapacity`); `CFG_GET POWER` returns the configured value. Decision logic is
+host-tested in `test/BmsCapacitySyncLogicTest.cpp`.
+
 ## Wireless Throttle (ESP-NOW)
 
 An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with BLE on the C3's single radio; WiFi runs in STA mode only to carry ESP-NOW). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
@@ -184,7 +205,7 @@ stops advertising on the first connection and XCTrack and the app can never
 both be connected.
 
 Four characteristics for everything but firmware images — a new feature is a new opcode,
-not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 74-byte
+not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 78-byte
 struct at 1 Hz), `CMD` (write), `RSP` (notify, responses plus events with
 `seq = 0`). `D4CF0006-…` is the DFU image channel (write without response),
 a fifth characteristic that exists only because bulk data cannot go through
