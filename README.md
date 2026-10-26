@@ -301,7 +301,7 @@ lib_deps =
 
 **Using PlatformIO CLI:**
 
-The project supports two controller types, each with its own build environment:
+The project supports three controller types, each with its own build environment:
 
 #### T-Motor Controller (Default - UAVCAN)
 ```bash
@@ -337,7 +337,7 @@ The project supports two controller types, each with its own build environment:
 ```
 
 **Features:**
-- Throttle to the ESC by PWM only; the firmware sends nothing on CAN
+- Throttle to the ESC by PWM only; the firmware sends no throttle or configuration commands over CAN, only the generic NodeStatus / GetNodeInfo frames
 - Current, RPM and ESC temperature read from the ESC's DroneCAN status frames (receive-only)
 - Battery voltage from the voltage divider and motor temperature from the NTC (not from CAN)
 
