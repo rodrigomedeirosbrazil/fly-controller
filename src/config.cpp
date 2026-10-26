@@ -38,6 +38,10 @@ twai_message_t canMsg;
 TmotorCan tmotorCan;
 TmotorTelemetry tmotorTelemetry;
 #endif
+#if IS_HOBBYWING
+HobbywingCan hobbywingCan;
+HobbywingTelemetry hobbywingTelemetry;
+#endif
 Button button(BUTTON_PIN);
 #if IS_XAG
 BatteryVoltageSensor batterySensor(

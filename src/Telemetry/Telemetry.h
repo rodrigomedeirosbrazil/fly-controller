@@ -7,7 +7,7 @@
 #include "MotorTempOrigin.h"
 
 /**
- * Unified telemetry facade: delegates to TmotorTelemetry or XagTelemetry.
+ * Unified telemetry facade: delegates to TmotorTelemetry, XagTelemetry or HobbywingTelemetry.
  * Provides stable getter API for Power, BatteryMonitor, Xctod.
  */
 class Telemetry {

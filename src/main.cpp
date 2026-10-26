@@ -272,6 +272,8 @@ void checkCanbus()
 #if IS_TMOTOR
         extern TmotorCan tmotorCan;
         tmotorCan.parseEscMessage(&msg);
+#elif IS_HOBBYWING
+        hobbywingCan.parseEscMessage(&msg);
 #endif
     }
 

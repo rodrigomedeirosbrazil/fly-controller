@@ -16,6 +16,10 @@
 #include "Tmotor/TmotorCan.h"
 #include "Tmotor/TmotorTelemetry.h"
 #endif
+#if IS_HOBBYWING
+#include "Hobbywing/HobbywingCan.h"
+#include "Hobbywing/HobbywingTelemetry.h"
+#endif
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
@@ -67,6 +71,10 @@ extern twai_message_t canMsg;
 #if IS_TMOTOR
 extern TmotorCan tmotorCan;
 extern TmotorTelemetry tmotorTelemetry;
+#endif
+#if IS_HOBBYWING
+extern HobbywingCan hobbywingCan;
+extern HobbywingTelemetry hobbywingTelemetry;
 #endif
 #if IS_XAG
 extern Temperature escTemp;

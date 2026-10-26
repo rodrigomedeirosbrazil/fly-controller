@@ -8,7 +8,7 @@
 
 /**
  * Telemetry backend interface: function pointers for runtime dispatch.
- * Eliminates repetitive #if IS_TMOTOR / #elif IS_XAG in Telemetry.cpp.
+ * Eliminates repetitive #if IS_TMOTOR / #elif IS_XAG / #elif IS_HOBBYWING in Telemetry.cpp.
  */
 struct TelemetryBackend {
     void (*update)(void);
