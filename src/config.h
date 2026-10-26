@@ -10,9 +10,11 @@
 #include "Temperature/Temperature.h"
 #if USES_CAN_BUS
 #include "Canbus/Canbus.h"
+#include <driver/twai.h>
+#endif
+#if IS_TMOTOR
 #include "Tmotor/TmotorCan.h"
 #include "Tmotor/TmotorTelemetry.h"
-#include <driver/twai.h>
 #endif
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
@@ -23,7 +25,7 @@
 #include "RemainingTime/RemainingTime.h"
 #include "BmsCapacitySync/BmsCapacitySync.h"
 #include "ADS1115/ADS1115.h"
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
 #include "Sensors/BatteryVoltageSensor.h"
 #endif
 #if IS_XAG
@@ -60,15 +62,17 @@ extern Button button;
 extern Temperature motorTemp;
 #if USES_CAN_BUS
 extern Canbus canbus;
+extern twai_message_t canMsg;
+#endif
+#if IS_TMOTOR
 extern TmotorCan tmotorCan;
 extern TmotorTelemetry tmotorTelemetry;
-extern twai_message_t canMsg;
 #endif
 #if IS_XAG
 extern Temperature escTemp;
 extern XagTelemetry xagTelemetry;
 #endif
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
 extern BatteryVoltageSensor batterySensor;
 #endif
 extern Power power;
@@ -104,7 +108,11 @@ extern TempProtectionAlert tempProtectionAlert;
 #if USES_CAN_BUS
 #define CAN_TX_PIN 2  // GPIO2 - Connect to SN65HVD230 CTX (TXD)
 #define CAN_RX_PIN 3  // GPIO3 - Connect to SN65HVD230 CRX (RXD)
+#if IS_HOBBYWING
+#define CAN_BITRATE TWAI_TIMING_CONFIG_500KBITS()  // Hobbywing DroneCAN
+#else
 #define CAN_BITRATE TWAI_TIMING_CONFIG_1MBITS()  // T-Motor UAVCAN
+#endif
 
 // TWAI RX queue depth, overriding the driver default of 5. See the rationale
 // where it's applied in main.cpp's setup(). ~32 bytes/frame of DMA-capable RAM.
@@ -117,7 +125,7 @@ extern TempProtectionAlert tempProtectionAlert;
 #define BATTERY_RECALIBRATION_CURRENT_MA 200
 #define BATTERY_RECALIBRATION_STABLE_MS 30000
 // BATTERY_MIN_VOLTAGE and BATTERY_MAX_VOLTAGE are now managed by Settings class
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
 // Battery voltage divider: R1 = 2.2 MΩ, R2 = 100 kΩ
 // Ratio = (R1 + R2) / R2 = (2,200,000 + 100,000) / 100,000 = 23.0
 // Calibrated: 20.90 * (51.45V / 46.493V) = 23.13 (corrected under-reading)
@@ -136,9 +144,11 @@ extern TempProtectionAlert tempProtectionAlert;
 #elif IS_XAG
 #define ESC_MIN_PWM 1130
 #define ESC_MAX_PWM 2000
-#else
+#elif IS_HOBBYWING
 #define ESC_MIN_PWM 1050
 #define ESC_MAX_PWM 1950
+#else
+#error "ESC PWM range not defined for this CONTROLLER_TYPE"
 #endif
 
 // ESC_MAX_TEMP and ESC_TEMP_REDUCTION_START are now managed by Settings class
@@ -210,6 +220,6 @@ extern TempProtectionAlert tempProtectionAlert;
 #define ADS1115_THROTTLE_CHANNEL   0  // ADS1115 Channel A0 - Throttle Hall Sensor
 #define ADS1115_MOTOR_TEMP_CHANNEL 1  // ADS1115 Channel A1 - Motor NTC Sensor
 #define ADS1115_ESC_TEMP_CHANNEL   2  // ADS1115 Channel A2 - ESC NTC (XAG only)
-#define ADS1115_BATTERY_CHANNEL    3  // ADS1115 Channel A3 - Battery voltage divider (XAG, Tmotor)
+#define ADS1115_BATTERY_CHANNEL    3  // ADS1115 Channel A3 - Battery voltage divider (XAG, Tmotor, Hobbywing)
 
 #endif

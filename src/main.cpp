@@ -52,7 +52,7 @@ void setup()
 
   hourMeter.init();
 
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
   batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
 #endif
 
@@ -200,7 +200,7 @@ void loop()
   extern Temperature escTemp;
   escTemp.handle();
 #endif
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
   batterySensor.handle();
 #endif
 

@@ -15,6 +15,13 @@ static const BoardConfig s_config = {
     18000, 110000, 80000,
     90
 };
+#elif IS_HOBBYWING
+// Hobbywing: current via CAN, no smooth start, 60Ah, 110/80°C ESC, 90 A reference
+static const BoardConfig s_config = {
+    true, false, true,
+    60000, 110000, 80000,
+    90
+};
 #else
 static const BoardConfig s_config = {
     false, false, false,

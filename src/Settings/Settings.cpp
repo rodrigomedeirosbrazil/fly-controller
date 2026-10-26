@@ -403,7 +403,7 @@ uint16_t Settings::getDefaultReferenceCurrentA() const {
 }
 
 float Settings::getDefaultVoltageDividerRatio() const {
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
     return BATTERY_DIVIDER_RATIO;
 #else
     return 1.0f;
