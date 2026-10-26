@@ -68,7 +68,7 @@ Static for the whole session; the firmware writes it at boot.
 | Offset | Type | Field |
 |---|---|---|
 | 0 | `uint8` | `protocolVersion` — `CONTROL_PROTOCOL_VERSION` |
-| 1 | `uint8` | `controllerType` — 1 = XAG, 3 = Tmotor |
+| 1 | `uint8` | `controllerType` — 1 = XAG, 2 = Hobbywing, 3 = Tmotor |
 | 2 | `uint16` | `capabilities` |
 | 4 | `char[24]` | `appVersion` — firmware version, NUL-padded |
 | 28 | `char[12]` | `buildDate` — compiler `__DATE__`, e.g. `Sep 12 2026`, NUL-padded |

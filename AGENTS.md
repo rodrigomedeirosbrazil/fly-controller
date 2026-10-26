@@ -11,6 +11,7 @@ PlatformIO on ESP32-C3 (`lolin_c3_mini`), Arduino framework. **Never** call `pio
 ```bash
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor     # default, CAN/UAVCAN
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag        # PWM-only, no CAN
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing  # PWM throttle, DroneCAN telemetry
 ~/.platformio/penv/bin/pio run -e <env> -t upload
 ~/.platformio/penv/bin/pio device monitor -e <env>
 ~/.platformio/penv/bin/pio test -e <env> --filter <name>
@@ -24,13 +25,14 @@ Host tests under `test/` compile with `c++ -std=c++17` and never touch hardware.
 |---|---|---|---|
 | `lolin_c3_mini_tmotor` (default) | 3 | `IS_TMOTOR=1` | 1 Mbps |
 | `lolin_c3_mini_xag` | 1 | `IS_XAG=1` | None |
+| `lolin_c3_mini_hobbywing` | 2 | `IS_HOBBYWING=1` | 500 kbps |
 
-Value `2` is a retired Hobbywing type. `USES_CAN_BUS` is 1 for Tmotor, 0 for XAG.
+`USES_CAN_BUS` is 1 for Tmotor and Hobbywing, 0 for XAG.
 
 ## Coding conventions
 
 - All code, comments, commit messages, identifiers: **English**. Only exception: the user manuals under `docs/MANUAL-*.md` (Brazilian Portuguese).
-- Build guards: `#if IS_TMOTOR` / `#if IS_XAG` / `#if USES_CAN_BUS` — always defined as 0 or 1. **Never** use `#ifdef`.
+- Build guards: `#if IS_TMOTOR` / `#if IS_XAG` / `#if IS_HOBBYWING` / `#if USES_CAN_BUS` — always defined as 0 or 1. **Never** use `#ifdef`.
 - No `delay()` in `loop()` — use `millis()` timing.
 - Units: temperatures millicelsius (`int32_t`), voltages millivolts (`uint16_t`), currents milliamps (`uint32_t`), capacity milliamp-hours.
 - Naming: camelCase for functions/variables, PascalCase for classes.

@@ -12,7 +12,7 @@ O Fly Controller é um controlador eletrônico para paramotores elétricos, base
 
 Principais funções:
 
-- Leitura do acelerador (sensor Hall) e controle do ESC, por PWM ou CAN, conforme o modelo do controlador (XAG ou T-Motor).
+- Leitura do acelerador (sensor Hall) e controle do ESC, por PWM ou CAN, conforme o modelo do controlador (XAG, Hobbywing ou T-Motor). No Hobbywing, o acelerador vai ao ESC por PWM e a telemetria (corrente, RPM e temperatura do ESC) chega pelo CAN. O controlador Hobbywing exige a placa com o divisor de tensão da bateria; placas antigas, sem o divisor, não são suportadas.
 - Limitação automática de potência pela tensão da bateria e pelas temperaturas do motor e do ESC.
 - Carga da bateria por contagem de corrente (coulomb counting) e, opcionalmente, integração com um BMS Bluetooth (JBD, Daly ou JK).
 - Estimativa do tempo de motor restante.
@@ -90,7 +90,7 @@ O controlador reduz a potência máxima com base em três fontes: tensão da bat
 
 - **Bateria:** abaixo da tensão mínima configurada, a potência é reduzida progressivamente. Ao armar, o piso de potência da bateria é reajustado.
 - **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC.
-- **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor) ou do sensor analógico (XAG).
+- **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor e Hobbywing) ou do sensor analógico (XAG).
 
 Os limites são configurados no Fly App (veja Configurações).
 
@@ -111,7 +111,7 @@ O alarme só toca com o sistema armado. Em controladores T-Motor, só a fonte co
 
 O controlador estima quantos minutos de motor ainda restam no ritmo atual e envia o número ao Fly App, ao XCTrack e ao registro de voo, a cada 10 segundos.
 
-- No chão, a estimativa usa o consumo de referência (de fábrica, 90 A no T-Motor e 75 A no XAG).
+- No chão, a estimativa usa o consumo de referência (de fábrica, 90 A no T-Motor, 90 A no Hobbywing e 75 A no XAG).
 - Em voo, usa o consumo médio, que reage em cerca de 2 minutos. Na decolagem o número cai; no cruzeiro, melhora.
 - Planando com o motor parado, a média fica congelada e o número quase não muda.
 - Depois de cada voo com pelo menos 3 minutos de motor e corrente medida o tempo todo, o consumo de referência é ajustado em direção à média daquele voo.
@@ -166,7 +166,7 @@ No Android, quando há uma versão nova do app, a tela inicial mostra "Nova vers
 
 ### Diferenças da versão no navegador
 
-- **Atualização de firmware:** a versão web não baixa o firmware do GitHub. Baixe o arquivo .bin do seu controlador (T-Motor ou XAG) na [página de versões do fly-controller](https://github.com/rodrigomedeirosbrazil/fly-controller/releases) e escolha-o em Escolher arquivo .bin.
+- **Atualização de firmware:** a versão web não baixa o firmware do GitHub. Baixe o arquivo .bin do seu controlador (T-Motor, Hobbywing ou XAG) na [página de versões do fly-controller](https://github.com/rodrigomedeirosbrazil/fly-controller/releases) e escolha-o em Escolher arquivo .bin.
 - **Registros de voo:** depois de baixar um registro, escolha Compartilhar, Salvar arquivo ou Abrir. Abrir mostra o CSV numa aba nova, de onde dá para copiar o conteúdo.
 - **Sem internet no local de voo:** abra o endereço uma vez com internet e espere cerca de 30 segundos. Depois disso o Chrome abre o app mesmo sem sinal. No Bluefy isso pode não funcionar, então abra o app antes de sair de onde há sinal.
 - **Orientação da tela:** a opção não existe na versão web.
@@ -193,7 +193,7 @@ O painel é atualizado a cada segundo e mantém a tela acesa. Os cartões ficam 
 | **Linha inferior** | Tensão, potência e RPM. Toque na tensão para alternar entre o pack (TENSÃO) e a célula (CÉLULA); toque na potência para alternar com a corrente (CORRENTE). |
 | **Configurações** | Barra no rodapé que abre a gaveta. Mostra quantos alertas estão ativos. |
 
-A linha inferior depende do controlador. No T-Motor tem três cartões (tensão, potência e RPM). No XAG com BMS, dois (tensão e potência). No XAG sem BMS, um cartão largo com a tensão do pack e a tensão por célula.
+A linha inferior depende do controlador. No T-Motor e no Hobbywing tem três cartões (tensão, potência e RPM). No XAG com BMS, dois (tensão e potência). No XAG sem BMS, um cartão largo com a tensão do pack e a tensão por célula.
 
 A tensão por célula é a menor célula informada pelo BMS. Sem BMS, é a tensão do pack dividida por 14 e aparece com um til (~3,68), indicando que é cálculo e não medida.
 
@@ -432,7 +432,7 @@ Lista os registros gravados no controlador, do mais recente para o mais antigo, 
 
 ### Atualização de firmware
 
-No app para Android, a tela compara o firmware do controlador com a versão mais recente publicada no GitHub. Se houver uma mais nova, oferece baixar a imagem do tipo do seu controlador (T-Motor ou XAG). Também é possível escolher um arquivo .bin.
+No app para Android, a tela compara o firmware do controlador com a versão mais recente publicada no GitHub. Se houver uma mais nova, oferece baixar a imagem do tipo do seu controlador (T-Motor, Hobbywing ou XAG). Também é possível escolher um arquivo .bin.
 
 <p align="center">
   <img src="img/19_firmware.png" width="300" alt="Firmware: nova versão disponível no GitHub"><br>
