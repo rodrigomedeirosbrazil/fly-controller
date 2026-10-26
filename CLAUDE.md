@@ -36,7 +36,7 @@ Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which buil
 | `lolin_c3_mini_xag` | 1 | `IS_XAG` | None | PWM-only |
 | `lolin_c3_mini_hobbywing` | 2 | `IS_HOBBYWING` | 500 kbps | PWM throttle, DroneCAN telemetry (receive-only) |
 
-`config_controller.h` derives `IS_TMOTOR` / `IS_XAG` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_TMOTOR` (not `#ifdef`).
+`config_controller.h` derives `IS_TMOTOR` / `IS_XAG` / `IS_HOBBYWING` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_TMOTOR` (not `#ifdef`).
 
 ## Project Structure
 
@@ -52,6 +52,7 @@ src/
 ├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
+├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── JbdBms/                   # JBD BMS (BLE) protocol
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
@@ -63,7 +64,6 @@ src/
 ├── Telemetry/                # Facade (delegates to *Telemetry) + TelemetryData struct
 ├── Temperature/              # NTC thermistor via ReadFn
 ├── Throttle/                 # Hall sensor via ReadFn + calibration + cruise
-├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── Tmotor/                   # TmotorCan + TmotorTelemetry
 ├── Xag/                      # XagTelemetry (analog sensors, PWM-only)
 └── Xctod/                    # BLE telemetry output for XCTRACK app

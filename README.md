@@ -37,7 +37,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **Build System**: PlatformIO
 
 ### Communication
-- **CAN Bus**: Built-in ESP32 TWAI controller for UAVCAN.
+- **CAN Bus**: Built-in ESP32 TWAI controller for UAVCAN (1 Mbps, T-Motor). The Hobbywing build uses it at 500 kbps for receive-only DroneCAN telemetry.
 - **Bluetooth LE**: For telemetry transmission.
 - **Serial**: Telemetry and debug (115200 baud).
 - **PWM**: Direct ESC control.
