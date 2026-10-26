@@ -43,10 +43,30 @@ static const TelemetryBackend s_backend = {
     wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
     wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState, wrapGetMotorTempOrigin
 };
+#elif IS_HOBBYWING
+static void wrapUpdate() { hobbywingTelemetry.update(); }
+static bool wrapHasData() { return hobbywingTelemetry.hasData(); }
+static uint16_t wrapGetBatteryVoltageMilliVolts() { return hobbywingTelemetry.getBatteryVoltageMilliVolts(); }
+static uint32_t wrapGetBatteryCurrentMilliAmps() { return hobbywingTelemetry.getBatteryCurrentMilliAmps(); }
+static uint16_t wrapGetRpm() { return hobbywingTelemetry.getRpm(); }
+static int32_t wrapGetMotorTempMilliCelsius() { return hobbywingTelemetry.getMotorTempMilliCelsius(); }
+static int32_t wrapGetEscTempMilliCelsius() { return hobbywingTelemetry.getEscTempMilliCelsius(); }
+static unsigned long wrapGetLastUpdate() { return hobbywingTelemetry.getLastUpdate(); }
+static SignalState wrapGetMotorTempState() { return hobbywingTelemetry.getMotorTempState(); }
+static SignalState wrapGetEscTempState() { return hobbywingTelemetry.getEscTempState(); }
+static SignalState wrapGetBatteryVoltageState() { return hobbywingTelemetry.getBatteryVoltageState(); }
+// Hobbywing has a single motor-temp source (NTC/ADS1115), as on XAG, so it
+// reports no origin and the UI shows no source badge.
+static MotorTempOrigin wrapGetMotorTempOrigin() { return MotorTempOrigin::None; }
+static const TelemetryBackend s_backend = {
+    wrapUpdate, wrapHasData, wrapGetBatteryVoltageMilliVolts, wrapGetBatteryCurrentMilliAmps,
+    wrapGetRpm, wrapGetMotorTempMilliCelsius, wrapGetEscTempMilliCelsius, wrapGetLastUpdate,
+    wrapGetMotorTempState, wrapGetEscTempState, wrapGetBatteryVoltageState, wrapGetMotorTempOrigin
+};
 #endif
 
 void Telemetry::init() {
-#if IS_TMOTOR || IS_XAG
+#if IS_TMOTOR || IS_XAG || IS_HOBBYWING
     s_backend_ptr = &s_backend;
 #endif
 }

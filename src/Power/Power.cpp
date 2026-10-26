@@ -40,8 +40,8 @@ void Power::checkSignalLoss() {
 // only. On Tmotor the telemetry falls back from CAN to the NTC when CAN goes
 // stale, but the two sensors sit in different places and read differently,
 // so the fallback is shown to the pilot and never used for derating: CAN
-// lost means motor-temp protection is suspended until CAN returns. XAG has
-// a single source and reports origin None.
+// lost means motor-temp protection is suspended until CAN returns. XAG and
+// Hobbywing have a single source and report origin None.
 static MotorTempOrigin configuredMotorTempOrigin() {
 #if IS_TMOTOR
     return settings.getMotorTempSource() == MotorTempSourceAds1115

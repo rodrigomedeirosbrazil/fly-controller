@@ -10,7 +10,7 @@ This is the main source directory for an ESP32-C3 (LOLIN C3 Mini) Arduino/Platfo
 | `main.h` | Declarations for free functions in main.cpp (`handleEsc`, `checkCanbus`, etc.) |
 | `config.h` | All `extern` global object declarations, pin defines, and build constants |
 | `config.cpp` | Single translation unit that instantiates all global objects |
-| `config_controller.h` | Derives `IS_TMOTOR`, `IS_XAG`, `USES_CAN_BUS` from `CONTROLLER_TYPE` |
+| `config_controller.h` | Derives `IS_TMOTOR`, `IS_XAG`, `IS_HOBBYWING`, `USES_CAN_BUS` from `CONTROLLER_TYPE` |
 
 ## Build Targets
 
@@ -19,11 +19,10 @@ Defined via `-D CONTROLLER_TYPE=N` in `platformio.ini`:
 | `CONTROLLER_TYPE` | Env suffix | Macros set | CAN bus |
 |---|---|---|---|
 | 1 (`XAG`) | `_xag` | `IS_XAG=1` | No |
+| 2 (`HOBBYWING`) | `_hobbywing` | `IS_HOBBYWING=1` | Yes (500 kbps, receive-only telemetry) |
 | 3 (`TMOTOR`) | `_tmotor` (default) | `IS_TMOTOR=1` | Yes (1 Mbps) |
 
-Value `2` was the retired `HOBBYWING` type (removed; recoverable from pre-removal git tags) — the numeric gap is intentional.
-
-`USES_CAN_BUS` is 1 for Tmotor, 0 for XAG. The XAG env also excludes `Tmotor/` and `Canbus/` from the build via `build_src_filter`.
+`USES_CAN_BUS` is 1 for Tmotor and Hobbywing, 0 for XAG. Each env compiles only its own ESC folder via `build_src_filter`: the XAG env excludes `Tmotor/`, `Hobbywing/` and `Canbus/`; the Tmotor env excludes `Hobbywing/`; the Hobbywing env excludes `Tmotor/`.
 
 Build command: `~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor`
 
@@ -84,12 +83,12 @@ Temperature motorTemp(
 - Capacity: milliamp-hours (`uint16_t` / `uint32_t`)
 
 ### Conditional compilation
-Use `#if IS_TMOTOR`, `#if IS_XAG`, `#if USES_CAN_BUS` — not `#ifdef`. These are always defined as 0 or 1 by `config_controller.h`.
+Use `#if IS_TMOTOR`, `#if IS_XAG`, `#if IS_HOBBYWING`, `#if USES_CAN_BUS` — not `#ifdef`. These are always defined as 0 or 1 by `config_controller.h`.
 
 ## Component Reference
 
 ### ADC — `ADS1115/`
-I2C 16-bit ADC (Adafruit ADS1X15). All analog readings go through `ads1115.readChannel(N)`. Channels: 0=Throttle, 1=MotorTemp, 2=EscTemp (XAG), 3=Battery voltage (XAG/Tmotor). Initialized first in `setup()`.
+I2C 16-bit ADC (Adafruit ADS1X15). All analog readings go through `ads1115.readChannel(N)`. Channels: 0=Throttle, 1=MotorTemp, 2=EscTemp (XAG), 3=Battery voltage (XAG/Tmotor/Hobbywing). Initialized first in `setup()`.
 
 ### Throttle — `Throttle/`
 Hall sensor input. Accepts a `ReadFn` (value) and `ReadOkFn` (was the read good/fresh). Handles arming state machine, calibration (3-second sweep), and an 8-sample moving average. `throttle.isArmed()` gates ESC output. A separate engage/release hysteresis gate (`ThrottleEngagementLogic`, host-tested in `test/ThrottleEngagementLogicTest.cpp`) protects against Hall-sensor drift/noise at idle — `throttle.isEngaged()` must be true (filtered reading > `throttlePinMin + 2%` of range, released below `+1%`) before `Power` will output anything above `ESC_MIN_PWM`.
@@ -99,7 +98,7 @@ Throttle signal validity is split into two host-tested pieces:
 - `ThrottleWiredValidity` (`test/ThrottleWiredValidityTest.cpp`) — decides whether a *wired* sample itself is valid: the filtered reading must sit inside the calibrated band (asymmetric -20%/+10% margin, clamped inside `[1, adcMaxValue-1]` so it can still catch an open-circuit or short-to-rail reading regardless of calibration span), and the I2C read must not have failed 3+ times in a row (small tolerance for a transient bus glitch).
 
 ### Temperature — `Temperature/`
-NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `ReadOkFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only). `isValid()` checks the averaged raw ADC counts against a fixed physical band (91-2954, i.e. -20..150°C) plus I2C read health, via the shared `SensorReadingValidity` (`src/ADS1115/SensorReadingValidity.h`) — also used by `BatteryVoltageSensor`.
+NTC thermistor via Steinhart-Hart (beta=3600, R0=10kΩ). Accepts `ReadFn` + `ReadOkFn` + `adcVoltageRef`. Multiple instances: `motorTemp` (all builds), `escTemp` (XAG only; Tmotor and Hobbywing read ESC temperature from CAN). `isValid()` checks the averaged raw ADC counts against a fixed physical band (91-2954, i.e. -20..150°C) plus I2C read health, via the shared `SensorReadingValidity` (`src/ADS1115/SensorReadingValidity.h`) — also used by `BatteryVoltageSensor`.
 
 ### Buzzer — `Buzzer/`
 Pure LEDC PWM tone driver: `toneOn(freqHz)`, `toneOff()`, `setVolume(percent)`,
@@ -158,7 +157,7 @@ repeatedly. A client that connects mid-flight gets no backfill.
 ### Power — `Power/`
 Computes ESC PWM from throttle position, applying battery voltage limiting, motor temp limiting, and ESC temp limiting. `getPwm()` is called every loop to get the current pulse width for `esc.writeMicroseconds()`; output is gated to `ESC_MIN_PWM` unless `throttle.isEngaged()` (see Throttle). No acceleration ramp — PWM tracks the mapped throttle position directly, except on XAG builds where `useSmoothStart` still applies the 1.5 s wake-up delay before jumping to target.
 `getActiveLimitCauses()` returns a bitmask (`PowerLimitCause`) of which limiters are currently active. Enum values: `POWER_LIMIT_BATTERY`, `POWER_LIMIT_MOTOR_TEMP`, `POWER_LIMIT_ESC_TEMP`.
-**Temperature protection never disarms.** Motor and ESC temp derating apply only while the reading the limiter trusts is valid (`isMotorTempProtecting()` / `isEscTempProtecting()`, checked directly in `calc*Limit()`, not debounced). For motor temp that means valid *and* coming from the configured source: on Tmotor, `Settings::getMotorTempSource()` picks CAN (default) or NTC; the telemetry still falls back from CAN to the NTC so the pilot sees a number, but the two sensors sit in different places and read differently, so derating never runs on the fallback. XAG has one source (origin `None`). Recovery is immediate too — there is no "invalid at arm disables it for the session" rule for temperatures.
+**Temperature protection never disarms.** Motor and ESC temp derating apply only while the reading the limiter trusts is valid (`isMotorTempProtecting()` / `isEscTempProtecting()`, checked directly in `calc*Limit()`, not debounced). For motor temp that means valid *and* coming from the configured source: on Tmotor, `Settings::getMotorTempSource()` picks CAN (default) or NTC; the telemetry still falls back from CAN to the NTC so the pilot sees a number, but the two sensors sit in different places and read differently, so derating never runs on the fallback. XAG and Hobbywing have one source (origin `None`). Recovery is immediate too — there is no "invalid at arm disables it for the session" rule for temperatures.
 
 `updateTempProtection()` (main loop, every tick, armed or not) feeds one `TempProtectionMonitor` per signal (`src/Power/TempProtectionMonitor.h`, host-tested in `test/TempProtectionMonitorTest.cpp`): the protection becomes *suspended* after `TEMP_PROTECTION_DEBOUNCE_MS` (2 s) of continuous loss and un-suspended after 2 s of continuous validity, so a flaky CAN bus cannot alternate the alarm. `getSuspendedTempProtections()` returns the debounced state as `POWER_LIMIT_MOTOR_TEMP`/`POWER_LIMIT_ESC_TEMP` bits (always 0 with power control disabled) for `TempProtectionAlert` and `TELEMETRY.flags`.
 
@@ -182,7 +181,7 @@ Coulomb counting SoC. `init()` loads capacity from `Settings`. `update()` integr
 ### RemainingTime — `RemainingTime/`
 Remaining **motor** time in whole minutes (floored): usable energy ÷ a slow average of the current drawn while the motor runs. Pure logic in `RemainingTimeLogic.h` (host-tested in `test/RemainingTimeLogicTest.cpp`); `RemainingTime.cpp` gathers inputs after `batteryMonitor.update()` each tick.
 
-- **Average:** EMA over 10 s blocks of motor-on time (`isMotorRunning()`), tau = 120 s. Seeded from `Settings::getReferenceCurrentA()` (factory 90 A Tmotor / 75 A XAG from `BoardConfig`) at boot and on a `CFG_SET` that changes it. Frozen whenever the motor is not running and whenever current is not measured, so a glide never drags it toward zero.
+- **Average:** EMA over 10 s blocks of motor-on time (`isMotorRunning()`), tau = 120 s. Seeded from `Settings::getReferenceCurrentA()` (factory 90 A Tmotor / 90 A Hobbywing / 75 A XAG from `BoardConfig`) at boot and on a `CFG_SET` that changes it. Frozen whenever the motor is not running and whenever current is not measured, so a glide never drags it toward zero.
 - **Quality:** `CoulombCount` when `isCurrentAvailable()` (energy = `batteryMonitor.getRemainingMah()`), `Voltage` otherwise if the pack voltage is valid, else `Unavailable`. In voltage mode the energy is anchored on `usableMahFromVoltage()` after 30 s at rest, dead-reckoned at the average while the motor runs, floored at the loaded-voltage reading, and carried over from the last coulomb count when current disappears mid-flight.
 - **Publication:** recomputed every 10 s, immediately on a quality change.
 - **Learning:** on disarm, if the arm session had ≥ 180 s of motor time with current measured throughout, `reference = round((reference + flightAvg) / 2)`, clamped 10–300 A, saved to NVS. A flight whose motor-on average is under 10 A teaches nothing: that average means a sensor reading zero, and it must not drag the seed down. Learning does not reseed the in-flight average.
@@ -198,9 +197,10 @@ Unified facade over build-specific telemetry sources. `telemetry.getXxx()` deleg
 
 - `TmotorTelemetry`: aggregates `batterySensor` + `tmotorCan`; motor temp falls back to ADS1115 when CAN temp is stale. The selected source is reported alongside the value via `getMotorTempOrigin()` (`Can`/`Ntc`) so the UI can show where the reading came from; XAG reports `None` since it has a single source.
 - `XagTelemetry`: aggregates `motorTemp`, `escTemp`, `batterySensor` (all ADS1115)
+- `HobbywingTelemetry`: battery voltage from the ADS1115 divider (`batterySensor`) and motor temp from the NTC (`motorTemp`, origin `None`) only; current, RPM and ESC temperature come from `hobbywingCan`
 
 ### CAN Bus — `Canbus/`
-Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `tmotorCan.parseEscMessage()`.
+Wraps ESP32 TWAI driver. `canbus.receive(&msg)` returns `true` only for frames that should be routed to the ESC handler (returns `false` for internally consumed protocol frames like NodeStatus and GetNodeInfo). `checkCanbus()` in `main.cpp` drains the receive queue each loop and dispatches to `tmotorCan.parseEscMessage()` (Tmotor) or `hobbywingCan.parseEscMessage()` (Hobbywing).
 
 The RX queue is set to `CAN_RX_QUEUE_LEN` (32) instead of the driver default of 5, and `MAX_CAN_FRAMES_PER_TICK` matches it — an ESC_STATUS is a 3-frame transfer that is discarded whole if any one frame is dropped, so a shallow queue plus a slow loop iteration silently costs entire telemetry updates.
 
@@ -211,11 +211,21 @@ TM-UAVCAN v2.3 ESC (T-Motor). `TmotorCan`: multi-frame transfer reassembly for E
 
 Status 5 (1154) is only emitted when the ESC's CloudLink-configured "Status protocol" is `DRONECAN-S` — `CUBECAN` mode sends none of Status 1-5 on this ESC/firmware, confirmed by a 150+ second bench capture across every open/closed × protocol combination (see [issue #73](https://github.com/rodrigomedeirosbrazil/fly-controller/issues/73)). `TmotorCan::sendStatusUploadSet()` (byte 29 of the section-0x10 payload) already sets `DRONECAN-S`, but **a protocol change only takes effect after the ESC itself is power-cycled** — restarting this firmware alone re-detects the ESC and re-sends the SET, but does not make the ESC re-read it. A freshly connected ESC showing no motor temperature on Telemetry needs one manual power-cycle, not a code change.
 
+### Hobbywing — `Hobbywing/`
+Hobbywing DroneCAN ESC at 500 kbps. The throttle reaches the ESC **only by PWM** on `ESC_PIN` (GPIO7, 1050–1950 µs); this code sends nothing on CAN, so the only frames the controller puts on the bus are the generic `Canbus` NodeStatus (1 Hz) and GetNodeInfo reply.
+
+- `HobbywingCanParser.h` — pure and host-tested (`test/HobbywingCanParserTest.cpp`). Decodes StatusMsg1 `0x4E52` (RPM, direction) and StatusMsg2 `0x4E53` (current in 0.1 A, read signed with negatives clamped to 0; ESC temperature in °C). Accepts only single-frame transfers of the exact length, and `classifyEscTemp(fresh, celsius, maxValid)` returns `Stale` / `Invalid` / `Valid`. The voltage bytes of StatusMsg2 are deliberately ignored.
+- `HobbywingCan` — receive-only, with per-message freshness (1000 ms).
+- `HobbywingTelemetry` — battery voltage from the voltage divider (ADS1115 channel 3) and motor temperature from the NTC (channel 1) only, never from CAN; current, RPM and ESC temperature from CAN.
+- `BoardConfig` for this build: current sensor present, no smooth start, battery limiting on, 60000 mAh, ESC temperature 80 °C → 110 °C, reference current 90 A.
+- The build requires the board with the battery voltage divider; older boards without it are not supported.
+- StatusMsg3 (`0x4E54`) is not decoded: it may carry more temperatures, but that is unverified.
+
 ### Xag — `Xag/`
 XAG-specific PWM-only build. No CAN bus. `XagTelemetry` reads from ADC sensors only.
 
 ### Sensors — `Sensors/`
-`BatteryVoltageSensor`: voltage divider via `ReadFn` + `ReadOkFn` + divider ratio + ADS1115 VREF. Used in XAG and Tmotor builds. `isValid()` checks the EMA-smoothed millivolt reading against a fixed plausible range (5000-65000 mV) plus I2C read health, via `SensorReadingValidity`.
+`BatteryVoltageSensor`: voltage divider via `ReadFn` + `ReadOkFn` + divider ratio + ADS1115 VREF. Used in XAG, Tmotor and Hobbywing builds. `isValid()` checks the EMA-smoothed millivolt reading against a fixed plausible range (5000-65000 mV) plus I2C read health, via `SensorReadingValidity`.
 
 ### BluetoothBms — `BluetoothBms/`
 Facade over the JBD, Daly, and JK BLE BMS backends. Provides pack voltage, current, SoC, cell voltages. Acts as a fallback voltage/current source in `Telemetry`. Also supports BLE scanning for BMS device discovery, triggered from fly-app (`BMS_SCAN_START` / `BMS_SCAN_STATUS` / `BMS_SCAN_RESULT`). The scan-result accessors keep their `getWebScanResult*` names. `getDesignCapacityMah()` returns the pack's nominal capacity (JBD, JK) and 0 when not connected or unknown, feeding `BmsCapacitySync`.
@@ -267,4 +277,4 @@ Pure naming/paging/retention logic lives in `LogListing.h` (host-tested in `test
 | GPIO20 | I2C SDA (ADS1115) |
 | GPIO21 | I2C SCL (ADS1115) |
 
-ADS1115 channels: A0=Throttle, A1=MotorTemp, A2=EscTemp (XAG), A3=Battery voltage (XAG/Tmotor).
+ADS1115 channels: A0=Throttle, A1=MotorTemp, A2=EscTemp (XAG), A3=Battery voltage (XAG/Tmotor/Hobbywing).

@@ -1,6 +1,6 @@
 # Fly Controller — Claude Code Guide
 
-ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports two ESC types via two build targets.
+ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports three ESC types via three build targets.
 
 The wireless remote-throttle firmware that pairs with this controller lives in a separate
 repo, [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
@@ -13,6 +13,7 @@ repo, [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
 # Build
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
 
 # Upload
 ~/.platformio/penv/bin/pio run -e <env> -t upload
@@ -25,7 +26,7 @@ Do NOT run `pio` without the full path — it may not be in PATH.
 
 ## Releases
 
-Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds both controller targets and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
+Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which builds all three controller targets and publishes a GitHub Release with the firmware binaries. Tags follow the `YYYY-MM-DD.N` convention (e.g. `2026-05-29.1`, where `N` increments for multiple releases on the same day). The tag becomes `APP_VERSION` (via generated `src/Version.h`) and the release-notes changelog spans from the previous tag (resolved via `git describe` on the tagged commit's parent) to the new tag.
 
 ## Build Targets
 
@@ -33,8 +34,9 @@ Pushing a git tag triggers `.github/workflows/build-and-release.yml`, which buil
 |---|---|---|---|---|
 | `lolin_c3_mini_tmotor` (default) | 3 | `IS_TMOTOR` | 1 Mbps | UAVCAN |
 | `lolin_c3_mini_xag` | 1 | `IS_XAG` | None | PWM-only |
+| `lolin_c3_mini_hobbywing` | 2 | `IS_HOBBYWING` | 500 kbps | PWM throttle, DroneCAN telemetry (receive-only) |
 
-`config_controller.h` derives `IS_TMOTOR` / `IS_XAG` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_TMOTOR` (not `#ifdef`). (`CONTROLLER_TYPE=2` is a retired Hobbywing value — recoverable from pre-removal git tags if ever needed.)
+`config_controller.h` derives `IS_TMOTOR` / `IS_XAG` / `IS_HOBBYWING` / `USES_CAN_BUS` from `CONTROLLER_TYPE`. Always use `#if IS_TMOTOR` (not `#ifdef`).
 
 ## Project Structure
 
@@ -50,6 +52,7 @@ src/
 ├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
+├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── JbdBms/                   # JBD BMS (BLE) protocol
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
@@ -78,13 +81,14 @@ src/
 `Temperature` and `Throttle` accept a `ReadFn` (function pointer) for ADC reading — either `ADS1115` or `analogRead`. This keeps sensor logic hardware-agnostic.
 
 ### Telemetry Facade
-`telemetry.getXxx()` delegates to `TmotorTelemetry` / `XagTelemetry` based on build target. Always use the facade — never access ESC objects directly for telemetry.
+`telemetry.getXxx()` delegates to `TmotorTelemetry` / `XagTelemetry` / `HobbywingTelemetry` based on build target. Always use the facade — never access ESC objects directly for telemetry.
 
 ### CAN Bus Routing
 `Canbus::receive()` is non-blocking and returns raw frames. `main.cpp` routes them:
 ```cpp
 while (canbus.receive(&msg)) {
-    tmotorCan.parseEscMessage(msg);
+    tmotorCan.parseEscMessage(msg);   // Tmotor build
+    // hobbywingCan.parseEscMessage(msg) on the Hobbywing build
 }
 ```
 `Canbus` handles NodeStatus/GetNodeInfo internally.
@@ -107,8 +111,8 @@ while (canbus.receive(&msg)) {
 |---|---|---|
 | 0 | Throttle (Hall sensor) | ADC / ADS1115 ch0 |
 | 1 | Motor temperature (NTC) | ADC / ADS1115 ch1 |
-| 2 | CAN TX (TWAI) | Tmotor only |
-| 3 | CAN RX (TWAI) / Battery voltage | XAG: voltage divider |
+| 2 | CAN TX (TWAI) | Tmotor, Hobbywing |
+| 3 | CAN RX (TWAI) / Battery voltage | Tmotor, Hobbywing: CAN RX; XAG: voltage divider |
 | 4 | ESC temperature (NTC) | XAG only |
 | 5 | Button | AceButton, interrupt |
 | 6 | Buzzer | PWM, passive piezo |
@@ -118,7 +122,7 @@ while (canbus.receive(&msg)) {
 
 - **Battery voltage:** Progressive reduction below nominal (configurable via Settings)
 - **Motor temp:** Linear reduction between two configurable thresholds. Defaults: 80°C → 100°C (`Settings::getDefaultMotorTempReductionStart()` / `getDefaultMotorMaxTemp()`, stored in millicelsius).
-- **ESC temp:** Linear reduction between two configurable thresholds, defaults per board (`BoardConfig`): Tmotor 80°C → 110°C, XAG 70°C → 80°C.
+- **ESC temp:** Linear reduction between two configurable thresholds, defaults per board (`BoardConfig`): Tmotor 80°C → 110°C, Hobbywing 80°C → 110°C, XAG 70°C → 80°C.
 - All four thresholds are editable from fly-app (`CFG_SET` Thermal) and persist in NVS, so the numbers above are only the factory values. Anything that draws or documents a derating range must read `Settings`, never hardcode these.
 - **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
 - **XAG wake-up:** 1.5 s at 5% PWM before jumping directly to target when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
@@ -140,7 +144,7 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 ## Remaining flight time
 
-`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
+`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 90 A Hobbywing / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
 
 ## BMS capacity sync
 

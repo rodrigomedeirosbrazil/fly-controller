@@ -78,7 +78,7 @@ public:
     uint8_t getBuzzerVolume() const;
     void setBuzzerVolume(uint8_t percent);
 
-    // Voltage divider calibration ratio (XAG/Tmotor: compensates resistor tolerance)
+    // Voltage divider calibration ratio (XAG/Tmotor/Hobbywing: compensates resistor tolerance)
     float getVoltageDividerRatio() const;
     void setVoltageDividerRatio(float ratio);
     float getDefaultVoltageDividerRatio() const;

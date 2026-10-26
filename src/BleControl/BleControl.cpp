@@ -236,11 +236,14 @@ void BleControl::writeInfo() {
     info.protocolVersion = CONTROL_PROTOCOL_VERSION;
     info.controllerType  = (uint8_t) CONTROLLER_TYPE;
 
-    // VoltageSensor is unconditional: every build that exists (XAG and Tmotor)
-    // has the sensor.
+    // VoltageSensor is unconditional: every build that exists (XAG, Tmotor
+    // and Hobbywing) has the sensor.
     uint16_t caps = Capability::RemoteLink | Capability::VoltageSensor;
+#if IS_TMOTOR || IS_HOBBYWING
+    caps |= Capability::CanTelemetry;
+#endif
 #if IS_TMOTOR
-    caps |= Capability::CanTelemetry | Capability::MotorTempSourceSel;
+    caps |= Capability::MotorTempSourceSel;
 #endif
     info.capabilities = caps;
 
@@ -518,7 +521,7 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             // Without this, Coulomb counting uses the old capacity until
             // reboot.
             batteryMonitor.setCapacity(settings.getBatteryCapacityMah());
-#if IS_XAG || IS_TMOTOR
+#if IS_XAG || IS_TMOTOR || IS_HOBBYWING
             batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
 #endif
             // Only an actual change restarts the average: saving the capacity

@@ -38,7 +38,7 @@ value after the prefix). Apps that read by position (e.g. XCTrack's
 | 6 | `throttle_raw` | integer | `throttle.getThrottleRaw()` | never |
 | 7 | `power_percent` | integer % | `power.getPower()` | never |
 | 8 | `motor_temp` | integer °C | `telemetry.getMotorTempMilliCelsius()` | motor temp signal not `Valid` |
-| 9 | `motor_temp_src` | `can` / `ntc` | `telemetry.getMotorTempOrigin()` | XAG builds, or before the first Tmotor reading |
+| 9 | `motor_temp_src` | `can` / `ntc` | `telemetry.getMotorTempOrigin()` | XAG and Hobbywing builds, or before the first Tmotor reading |
 | 10 | `rpm` | integer | `telemetry.getRpm()` | current/RPM not available (see `isCurrentAvailable()`) |
 | 11 | `esc_current` | integer A | `telemetry.getBatteryCurrentMilliAmps()` | current/RPM not available |
 | 12 | `esc_temp` | integer °C | `telemetry.getEscTempMilliCelsius()` | ESC temp signal not `Valid` |
@@ -80,7 +80,7 @@ This mirrors the same per-signal validity check the Fly Control
 
 Reports which sensor fed the (possibly blank) `motor_temp` reading in
 field 8 — `can` (T-Motor ESC's CAN Status 5) or `ntc` (thermistor
-fallback). Always blank on XAG builds, which have a single motor temp
+fallback). Always blank on XAG and Hobbywing builds, which have a single motor temp
 source. Independent of the field 8 validity check: it's populated
 whenever a source has been selected, even on a tick where the reading
 itself reads invalid.

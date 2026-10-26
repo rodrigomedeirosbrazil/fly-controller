@@ -4,10 +4,11 @@ Neutral entry point for any coding agent working on this repository (Cursor, Gem
 
 ## What this is
 
-ESP32-C3 (Lolin C3 Mini) Arduino/PlatformIO firmware for an intelligent drone/UAV flight controller. Two build targets:
+ESP32-C3 (Lolin C3 Mini) Arduino/PlatformIO firmware for an intelligent drone/UAV flight controller. Three build targets:
 
 - `lolin_c3_mini_tmotor` (default) — UAVCAN ESC over CAN bus at 1 Mbps
 - `lolin_c3_mini_xag` — PWM-only ESC, analog sensors, no CAN bus
+- `lolin_c3_mini_hobbywing` — PWM throttle, receive-only DroneCAN telemetry over CAN bus at 500 kbps (`CONTROLLER_TYPE` 2, `IS_HOBBYWING`)
 
 A wireless remote-throttle firmware that pairs with this controller lives in a separate repo: [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
 
@@ -57,4 +58,4 @@ These are gitignored working documents for agentic workflows — keep local only
 
 ## Releases
 
-Pushing a git tag (`YYYY-MM-DD.N` convention, e.g. `2026-05-29.1`) triggers `.github/workflows/build-and-release.yml`, which builds both targets and publishes a GitHub Release with firmware binaries. The tag becomes `APP_VERSION` via a generated `src/Version.h`.
+Pushing a git tag (`YYYY-MM-DD.N` convention, e.g. `2026-05-29.1`) triggers `.github/workflows/build-and-release.yml`, which builds all three targets and publishes a GitHub Release with firmware binaries. The tag becomes `APP_VERSION` via a generated `src/Version.h`.

@@ -2,7 +2,7 @@
 
 **An intelligent and modular flight controller for drones and UAVs**
 
-Fly Controller is an advanced firmware that implements a complete flight control system with CAN bus communication and intelligent power management. Designed to work with T-Motor (UAVCAN) ESCs and XAG (PWM-only) motors on the ESP32-C3 platform.
+Fly Controller is an advanced firmware that implements a complete flight control system with CAN bus communication and intelligent power management. Designed to work with T-Motor (UAVCAN) ESCs, Hobbywing (PWM throttle, DroneCAN telemetry) ESCs and XAG (PWM-only) motors on the ESP32-C3 platform.
 
 **Pilots:** the user manual, in Portuguese, is at [docs/manual](docs/manual/README.md).
 
@@ -37,7 +37,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **Build System**: PlatformIO
 
 ### Communication
-- **CAN Bus**: Built-in ESP32 TWAI controller for UAVCAN.
+- **CAN Bus**: Built-in ESP32 TWAI controller for UAVCAN (1 Mbps, T-Motor). The Hobbywing build uses it at 500 kbps for receive-only DroneCAN telemetry.
 - **Bluetooth LE**: For telemetry transmission.
 - **Serial**: Telemetry and debug (115200 baud).
 - **PWM**: Direct ESC control.
@@ -46,7 +46,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - **Hall Sensor**: Throttle control (ADS1115 Channel 0)
 - **NTC Sensor**: Motor temperature (ADS1115 Channel 1)
 - **NTC Sensor** *(XAG only)*: ESC temperature (ADS1115 Channel 2)
-- **Voltage Divider** *(XAG/Tmotor)*: Battery voltage (ADS1115 Channel 3)
+- **Voltage Divider** *(all builds)*: Battery voltage (ADS1115 Channel 3)
 
 ### Digital I/O
 - **ESC PWM**: GPIO 7 (1050-1950μs)
@@ -88,6 +88,8 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 *XAG uses XagTelemetry with analog sensors (PWM-only, no CAN).*
 
+*Hobbywing uses HobbywingCan (receive-only) for current, RPM and ESC temperature, and HobbywingTelemetry for the rest; the throttle goes to the ESC by PWM.*
+
 ### 3. **Power** - Power Management
 ```cpp
 // Intelligent available power calculation
@@ -116,7 +118,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ```cpp
 // CAN message handling using ESP32 TWAI controller
 - receive() non-blocking API - returns raw ESC frames
-- main.cpp routes frames to TmotorCan
+- main.cpp routes frames to TmotorCan (Tmotor) or HobbywingCan (Hobbywing)
 - NodeStatus and GetNodeInfo handled internally
 - sendNodeStatus() for periodic announcements
 ```
@@ -228,6 +230,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### ESC
 - **T-Motor** (UAVCAN mode - default): Full telemetry via CAN bus
+- **Hobbywing** (Hobbywing mode): PWM throttle, with current, RPM and ESC temperature read from DroneCAN status frames (receive-only, 500 kbps)
 - **XAG Motors** (XAG mode): PWM-only control with NTC temperature sensors
 - Any ESC with PWM input (compatible with all modes)
 
@@ -246,7 +249,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### Build Environments
 
-The project supports two controller types. An optional wireless remote throttle
+The project supports three controller types. An optional wireless remote throttle
 (firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle)
 repo) can replace the wired Hall sensor via ESP-NOW.
 
@@ -254,12 +257,14 @@ repo) can replace the wired Hall sensor via ESP-NOW.
 |------------|-------------|----------|---------|
 | **T-Motor** (default) | `lolin_c3_mini_tmotor` | UAVCAN | ✅ Required |
 | **XAG** | `lolin_c3_mini_xag` | PWM-only | ❌ Not required |
+| **Hobbywing** | `lolin_c3_mini_hobbywing` | PWM throttle, DroneCAN telemetry | ✅ Required (500 kbps, receive-only) |
 
 **Quick Build Commands:**
 ```bash
 # Controller targets
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_tmotor
 ~/.platformio/penv/bin/pio run -e lolin_c3_mini_xag
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
 ```
 
 ### 1. Prerequisites
@@ -296,7 +301,7 @@ lib_deps =
 
 **Using PlatformIO CLI:**
 
-The project supports two controller types, each with its own build environment:
+The project supports three controller types, each with its own build environment:
 
 #### T-Motor Controller (Default - UAVCAN)
 ```bash
@@ -318,6 +323,25 @@ The project supports two controller types, each with its own build environment:
 - UAVCAN protocol communication
 - Complete telemetry (RPM, voltage, current, temperature)
 - ESC configuration and control
+
+#### Hobbywing Controller (PWM throttle, DroneCAN telemetry)
+```bash
+# Build for Hobbywing ESCs (PWM throttle, DroneCAN telemetry at 500 kbps)
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing
+
+# Upload firmware
+~/.platformio/penv/bin/pio run -e lolin_c3_mini_hobbywing -t upload
+
+# Monitor serial output
+~/.platformio/penv/bin/pio device monitor -e lolin_c3_mini_hobbywing
+```
+
+**Features:**
+- Throttle to the ESC by PWM only; the firmware sends no throttle or configuration commands over CAN, only the generic NodeStatus / GetNodeInfo frames
+- Current, RPM and ESC temperature read from the ESC's DroneCAN status frames (receive-only)
+- Battery voltage from the voltage divider and motor temperature from the NTC (not from CAN)
+
+**Note:** Requires the board with the battery voltage divider; older boards without it are not supported.
 
 #### XAG Controller (PWM-only)
 ```bash
@@ -351,7 +375,7 @@ The project supports two controller types, each with its own build environment:
 #define ADS1115_THROTTLE_CHANNEL   0  // Channel A0 - Hall Sensor
 #define ADS1115_MOTOR_TEMP_CHANNEL 1  // Channel A1 - Motor NTC 10K
 #define ADS1115_ESC_TEMP_CHANNEL   2  // Channel A2 - ESC NTC 10K (XAG only)
-#define ADS1115_BATTERY_CHANNEL    3  // Channel A3 - Battery voltage divider (XAG, Tmotor)
+#define ADS1115_BATTERY_CHANNEL    3  // Channel A3 - Battery voltage divider (XAG, Tmotor, Hobbywing)
 
 // Digital I/O
 #define BUTTON_PIN 5  // GPIO5 - Push button
@@ -429,6 +453,12 @@ The optional wireless throttle (remote firmware in the separate [fly-throttle](h
 - ESC must be configured for UAVCAN mode
 - Full telemetry available via CAN bus
 
+**Hobbywing (PWM throttle, DroneCAN telemetry):**
+- Connect the CAN bus (H/L lines) at 500 kbps; telemetry is receive-only
+- Throttle is PWM on GPIO7, as on XAG
+- Motor temperature sensor (NTC) and battery voltage divider must be connected
+- Needs the board with the battery voltage divider (older boards without it are not supported)
+
 **XAG (PWM-only):**
 - No CAN bus required
 - Temperature sensors must be connected (motor and ESC)
@@ -442,13 +472,14 @@ The optional wireless throttle (remote firmware in the separate [fly-throttle](h
 src/
 ├── main.cpp              # Main loop
 ├── config.h, config.cpp  # Configuration and object instances
-├── config_controller.h   # Build type (IS_TMOTOR, IS_XAG)
+├── config_controller.h   # Build type (IS_TMOTOR, IS_XAG, IS_HOBBYWING)
 ├── ADS1115/              # I2C 16-bit ADC (primary sensor interface, all builds)
 ├── Throttle/             # Throttle control (ReadFn via ADS1115)
 ├── Temperature/          # Thermal sensor (ReadFn via ADS1115)
 ├── Power/                # Power management & throttle ramp limiting
-├── Canbus/               # CAN receive() API (Tmotor only)
+├── Canbus/               # CAN receive() API (Tmotor, Hobbywing)
 ├── Tmotor/               # TmotorCan, TmotorTelemetry
+├── Hobbywing/            # HobbywingCan (receive-only), HobbywingTelemetry, HobbywingCanParser
 ├── Xag/                  # XagTelemetry (PWM-only)
 ├── Sensors/              # BatteryVoltageSensor (XAG)
 ├── Telemetry/            # Telemetry facade, TelemetryFormatter

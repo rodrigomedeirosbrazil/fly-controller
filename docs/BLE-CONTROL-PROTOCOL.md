@@ -68,13 +68,13 @@ Static for the whole session; the firmware writes it at boot.
 | Offset | Type | Field |
 |---|---|---|
 | 0 | `uint8` | `protocolVersion` — `CONTROL_PROTOCOL_VERSION` |
-| 1 | `uint8` | `controllerType` — 1 = XAG, 3 = Tmotor |
+| 1 | `uint8` | `controllerType` — 1 = XAG, 2 = Hobbywing, 3 = Tmotor |
 | 2 | `uint16` | `capabilities` |
 | 4 | `char[24]` | `appVersion` — firmware version, NUL-padded |
 | 28 | `char[12]` | `buildDate` — compiler `__DATE__`, e.g. `Sep 12 2026`, NUL-padded |
 | 40 | `char[9]` | `buildTime` — compiler `__TIME__`, e.g. `12:46:03`, NUL-padded |
 | 49 | `uint16` | `defaultDividerRatioX100` — the factory voltage-divider ratio × 100 |
-| 51 | `uint16` | `defaultReferenceCurrentA` — the factory reference current, A (90 Tmotor, 75 XAG) |
+| 51 | `uint16` | `defaultReferenceCurrentA` — the factory reference current, A (90 Tmotor, 90 Hobbywing, 75 XAG) |
 
 `defaultDividerRatioX100` lets a client tell a calibrated ratio from the
 default and restore it with `CFG_SET` Power. `defaultReferenceCurrentA`
@@ -346,7 +346,7 @@ watchdog and reboot the controller. In flight that cuts the motor.
 | `0x42` | `LOG_DELETE` | `[nameLen u8][name…]` → — (`ErrNotFound` if missing) |
 | `0x43` | `LOG_DELETE_ALL` | — → — |
 
-On XAG the two direction opcodes return `ErrBadOp`.
+On XAG and Hobbywing the two direction opcodes return `ErrBadOp`.
 
 `SET_TIME` rejects anything at or below `1577836800000` (2020-01-01). It needs
 no `AUTH` but is refused with `ErrState` while armed: a clock jump mid-flight
@@ -523,8 +523,8 @@ would never match.
 
 ### What neither side can check
 
-Nothing in an ESP32 image says which controller it is for. XAG and Tmotor run
-different builds and both pass the magic byte, the size and the CRC. Warn the
+Nothing in an ESP32 image says which controller it is for. XAG, Hobbywing and Tmotor
+run different builds and all pass the magic byte, the size and the CRC. Warn the
 pilot; the recovery is a USB cable.
 
 ## Flight logs

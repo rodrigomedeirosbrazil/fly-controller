@@ -32,9 +32,15 @@ Throttle throttle(
 );
 #if USES_CAN_BUS
 Canbus canbus;
+twai_message_t canMsg;
+#endif
+#if IS_TMOTOR
 TmotorCan tmotorCan;
 TmotorTelemetry tmotorTelemetry;
-twai_message_t canMsg;
+#endif
+#if IS_HOBBYWING
+HobbywingCan hobbywingCan;
+HobbywingTelemetry hobbywingTelemetry;
 #endif
 Button button(BUTTON_PIN);
 #if IS_XAG
@@ -55,7 +61,7 @@ Temperature escTemp(
     []() -> bool { return ads1115.lastReadOk(ADS1115_ESC_TEMP_CHANNEL); },
     4.096f  // ADS1115 reference (GAIN_ONE)
 );
-#elif IS_TMOTOR
+#elif IS_TMOTOR || IS_HOBBYWING
 BatteryVoltageSensor batterySensor(
     []() { return ads1115.readChannel(ADS1115_BATTERY_CHANNEL); },
     []() -> bool { return ads1115.lastReadOk(ADS1115_BATTERY_CHANNEL); },
