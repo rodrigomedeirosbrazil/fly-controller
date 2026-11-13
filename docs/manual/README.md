@@ -225,7 +225,12 @@ Os alertas aparecem sempre no cartão de alerta, nunca em faixas ou janelas. A c
 | **MOTOR ou ESC · SEM SENSOR, BATERIA · SEM TENSÃO** | Com o sistema desarmado, o sensor não está dando leitura válida. Confira o cabo antes de armar. |
 | **ESC · SEM DADOS** | O controlador não recebe dados do ESC. Confira o cabo de dados. |
 | **BATERIA · SEM BMS** | Há um BMS configurado, mas a conexão com ele caiu. |
+| **BMS · CÉLULA BAIXA** | Uma célula chegou à tensão mínima por célula enquanto a diferença entre células está acima do limite configurado. |
+| **BMS · DIFERENÇA ENTRE CÉLULAS** | A diferença entre a maior e a menor célula passou do limite configurado. |
+| **BMS · TEMPERATURA ALTA** | A temperatura do BMS passou do limite configurado. |
 | **MOTOR ou ESC · PERTO DO LIMITE** | A temperatura está a até 10 °C do início da redução. |
+
+Os três alertas do BMS apenas avisam: eles nunca reduzem a potência nem desarmam o motor. O som toca somente com o sistema armado, no buzzer e no remote. Um alerta só liga ou desliga depois de 3 segundos na mesma condição, e some na hora se a conexão com o BMS cair.
 
 O cartão de alerta pode ficar âmbar com os mostradores ainda verdes: ele também reflete a limitação que o próprio controlador informa.
 
@@ -384,6 +389,11 @@ Esses valores são os traços âmbar e vermelho dos mostradores de temperatura n
 |---|---|
 | **Tipo de BMS** | Nenhum, JBD, Daly (D2 BLE) ou JK BMS. |
 | **Endereço** | Endereço Bluetooth do BMS (AA:BB:CC:DD:EE:FF), escolhido pela busca ou digitado em Digitar manualmente. |
+| **Diferença mínima para célula baixa** | O alerta de célula baixa só vale quando a diferença entre células passa deste valor. Padrão 100 mV, de 20 a 500 mV. |
+| **Diferença máxima entre células** | Acima disto, o alerta de diferença entre células liga. Padrão 200 mV, de 50 a 1000 mV. |
+| **Temperatura máxima do BMS** | Acima disto, o alerta de temperatura alta liga. Padrão 55 °C, de 30 a 80 °C. |
+
+Os alertas do BMS só avisam: não reduzem a potência. Os limites ficam salvos no controlador.
 
 A seção Estado mostra a conexão com o BMS e, quando conectado, a tensão, a corrente, a carga, o número de células, a temperatura máxima e a diferença entre células.
 

@@ -5,6 +5,7 @@
 #include <iostream>
 #include "../src/BleControl/ControlProtocol.h"
 #include "../src/RemainingTime/RemainingTimeLogic.h"
+#include "../src/BmsAlert/BmsAlertLogic.h"
 using namespace std;
 
 void test_protocol_version_is_declared() {
@@ -149,7 +150,8 @@ void test_telemetry_layout_is_pinned() {
     // Every offset is part of the contract with fly-app's Dart decoder.
     // A field inserted in the middle silently shifts everything after it,
     // which is the exact failure mode the $XCTOD sentence has.
-    assert(sizeof(ControlTelemetry) == 78);
+    assert(sizeof(ControlTelemetry) == 79);
+    assert(offsetof(ControlTelemetry, bmsAlerts)      == 78);
     assert(offsetof(ControlTelemetry, ver)            ==  0);
     assert(offsetof(ControlTelemetry, flags)          ==  1);
     assert(offsetof(ControlTelemetry, validity)       ==  2);
@@ -353,7 +355,10 @@ void test_gate_reports_armed_before_auth() {
 void test_config_struct_sizes_are_pinned() {
     assert(sizeof(ConfigPower)   == 11);
     assert(sizeof(ConfigThermal) == 17);
-    assert(sizeof(ConfigBms)     == 7);
+    assert(sizeof(ConfigBms)     == 13);
+    assert(offsetof(ConfigBms, lowCellDeltaGateMv) == 7);
+    assert(offsetof(ConfigBms, maxDeltaMv)         == 9);
+    assert(offsetof(ConfigBms, tempLimitC)         == 11);
     assert(sizeof(ConfigSystem)  == 8);
 }
 
@@ -389,7 +394,7 @@ void test_remaining_quality_values_are_pinned() {
 }
 
 void test_config_set_ignores_a_longer_struct_than_we_know() {
-    ConfigBms current = { 0, { 0, 0, 0, 0, 0, 0 } };
+    ConfigBms current = { 0, { 0, 0, 0, 0, 0, 0 }, 100, 200, 55 };
     uint8_t longWrite[16];
     memset(longWrite, 0xEE, sizeof(longWrite));
     longWrite[0] = 3;
@@ -397,6 +402,22 @@ void test_config_set_ignores_a_longer_struct_than_we_know() {
                                           longWrite, sizeof(longWrite));
     assert(copied == sizeof(ConfigBms));
     assert(current.bmsType == 3);
+}
+
+void test_bms_alert_bits_are_pinned() {
+    assert(BmsAlertBit::LowCell   == 0x01);
+    assert(BmsAlertBit::HighDelta == 0x02);
+    assert(BmsAlertBit::HighTemp  == 0x04);
+}
+
+void test_config_bms_short_write_keeps_alert_thresholds() {
+    ConfigBms current = { 3, { 1, 2, 3, 4, 5, 6 }, 100, 200, 55 };
+    uint8_t older[7] = { 1, 1, 2, 3, 4, 5, 6 };
+    copyKnownPrefix(&current, sizeof(current), older, 7);
+    assert(current.bmsType == 1);
+    assert(current.lowCellDeltaGateMv == 100);
+    assert(current.maxDeltaMv == 200);
+    assert(current.tempLimitC == 55);
 }
 
 void test_config_group_is_decoded_from_the_payload() {
@@ -766,6 +787,8 @@ int main() {
     test_config_power_short_write_keeps_reference_current();
     test_remaining_quality_values_are_pinned();
     test_config_set_ignores_a_longer_struct_than_we_know();
+    test_bms_alert_bits_are_pinned();
+    test_config_bms_short_write_keeps_alert_thresholds();
     test_config_group_is_decoded_from_the_payload();
     test_config_group_rejects_missing_or_unknown_group();
     test_request_queue_fifo_order();

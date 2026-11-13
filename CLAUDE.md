@@ -216,7 +216,7 @@ stops advertising on the first connection and XCTrack and the app can never
 both be connected.
 
 Four characteristics for everything but firmware images — a new feature is a new opcode,
-not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 78-byte
+not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 79-byte
 struct at 1 Hz), `CMD` (write), `RSP` (notify, responses plus events with
 `seq = 0`). `D4CF0006-…` is the DFU image channel (write without response),
 a fifth characteristic that exists only because bulk data cannot go through
