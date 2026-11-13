@@ -109,6 +109,26 @@ void JbdBms::applyResetConnectionLocked() {
     pCharTx_   = nullptr;
     rxLen_     = 0;
     state_     = Idle;
+
+    // Drop the last decoded readings with the link, as JkBms does. Kept, they
+    // read as live through hasData()/hasCellData(): TELEMETRY, $XCTOD and the
+    // CSV log froze on them, and Telemetry's current fallback fed a frozen
+    // pack current into the coulomb count for the rest of an armed session
+    // (the BMS does not reconnect while armed).
+    hasData_               = false;
+    hasCellData_           = false;
+    packVoltageMilliVolts_ = 0;
+    packCurrentMilliAmps_  = 0;
+    socPercent_            = 0;
+    cellCount_             = 0;
+    ntcCount_              = 0;
+    memset(ntcTempsCelsius_, 0, sizeof(ntcTempsCelsius_));
+    memset(cellVoltagesMv_, 0, sizeof(cellVoltagesMv_));
+    designCapacityMahl_    = 0;
+    balanceCapacityMahl_   = 0;
+    chgFetEnabled_         = 0;
+    dsgFetEnabled_         = 0;
+    currentErrors_         = 0;
 }
 
 // ---------------------------------------------------------------------------

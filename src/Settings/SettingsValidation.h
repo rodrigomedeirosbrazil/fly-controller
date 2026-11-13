@@ -22,6 +22,7 @@ enum class SettingsError : uint8_t {
     BuzzerVolumeRange,
     ThrottleSourceInvalid,
     ReferenceCurrentRange,
+    BmsAlertRange,
 };
 
 // Split out so BmsCapacitySync applies exactly the range CFG_SET accepts.
@@ -90,4 +91,26 @@ inline uint16_t clampReferenceCurrent(uint32_t amps) {
     if (amps < REFERENCE_CURRENT_MIN_A) return REFERENCE_CURRENT_MIN_A;
     if (amps > REFERENCE_CURRENT_MAX_A) return REFERENCE_CURRENT_MAX_A;
     return (uint16_t) amps;
+}
+
+// BMS alert thresholds (low cell delta gate, max cell delta, pack temperature
+// limit). Like the other validators there is NO ordering check between the
+// gate and the max delta.
+static const uint16_t BMS_ALERT_DELTA_GATE_MIN_MV = 20;
+static const uint16_t BMS_ALERT_DELTA_GATE_MAX_MV = 500;
+static const uint16_t BMS_ALERT_MAX_DELTA_MIN_MV  = 50;
+static const uint16_t BMS_ALERT_MAX_DELTA_MAX_MV  = 1000;
+static const int16_t  BMS_ALERT_TEMP_MIN_C        = 30;
+static const int16_t  BMS_ALERT_TEMP_MAX_C        = 80;
+
+// Factory values.
+static const uint16_t BMS_ALERT_DEFAULT_DELTA_GATE_MV = 100;
+static const uint16_t BMS_ALERT_DEFAULT_MAX_DELTA_MV  = 200;
+static const int16_t  BMS_ALERT_DEFAULT_TEMP_C        = 55;
+
+inline SettingsError validateBmsAlerts(uint32_t deltaGateMv, uint32_t maxDeltaMv, int32_t tempLimitC) {
+    if (deltaGateMv < BMS_ALERT_DELTA_GATE_MIN_MV || deltaGateMv > BMS_ALERT_DELTA_GATE_MAX_MV) return SettingsError::BmsAlertRange;
+    if (maxDeltaMv < BMS_ALERT_MAX_DELTA_MIN_MV || maxDeltaMv > BMS_ALERT_MAX_DELTA_MAX_MV)     return SettingsError::BmsAlertRange;
+    if (tempLimitC < BMS_ALERT_TEMP_MIN_C || tempLimitC > BMS_ALERT_TEMP_MAX_C)                 return SettingsError::BmsAlertRange;
+    return SettingsError::None;
 }

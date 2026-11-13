@@ -311,6 +311,9 @@ struct ControlTelemetry {
     // adopted it as the battery capacity setting (BmsCapacitySync); compare
     // with CFG_GET POWER to tell. u32 because packs above 65.5 Ah exist.
     uint32_t bmsDesignCapacityMah;
+    // Appended: active BMS alerts (src/BmsAlert/), bits BmsAlertBit. Always
+    // meaningful, no validity bit: 0 when the BMS reports no cell/temp data.
+    uint8_t  bmsAlerts;
 };
 #pragma pack(pop)
 
@@ -499,6 +502,10 @@ struct ConfigThermal {
 struct ConfigBms {
     uint8_t bmsType;
     uint8_t bmsMac[6];
+    // Appended: BMS alert thresholds (Settings::getBmsAlert*).
+    uint16_t lowCellDeltaGateMv;  // low-cell alert needs cell delta above this
+    uint16_t maxDeltaMv;          // high-delta alert threshold
+    int16_t  tempLimitC;          // high-temperature alert threshold
 };
 
 struct ConfigSystem {

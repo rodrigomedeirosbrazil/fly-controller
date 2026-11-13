@@ -102,7 +102,7 @@ append rule does *not* rescue, since appending saves nothing if offsets
 shifted underneath. Gate on the telemetry struct's own `ver` and on the
 received length instead, and log `protocolVersion` for support.
 
-## `TELEMETRY` — 78 bytes at 1 Hz
+## `TELEMETRY` — 79 bytes at 1 Hz
 
 Two rules govern this struct, and together they are what replaces the CSV.
 
@@ -113,12 +113,12 @@ absent field.** Every offset below is constant forever.
 `min(received, known)`.** New firmware with an old client: the client reads the
 prefix it understands and ignores the tail. Old firmware with a new client: the
 client sees a short packet and treats the fields beyond it as absent. Neither
-breaks. **Decode by offset against the received length — never assume 78.**
+breaks. **Decode by offset against the received length — never assume 79.**
 `stateFreqHz` was appended after the first release and is the worked example:
 firmware without it sends 56 bytes and nothing else changes. The BMS fields at
 58–68 are the second: firmware without them sends 58. The remaining-time
 fields at 69–73 are the third: firmware without them sends 69. The BMS
-capacity at 74–77 is the fourth: firmware without it sends 74.
+capacity at 74–77 is the fourth: firmware without it sends 74. The BMS alerts at 78 are the fifth: firmware without them sends 78.
 
 | Offset | Type | Field | Notes |
 |---|---|---|---|
@@ -159,6 +159,7 @@ capacity at 74–77 is the fourth: firmware without it sends 74.
 | 71 | `uint8` | `remainingQuality` | 0 unavailable · 1 voltage estimate (no current reading; approximate, does not follow the throttle) · 2 coulomb count; no validity bit |
 | 72 | `uint16` | `avgCurrentDa` | consumption average behind `remainingMin`, 0.1 A; the reference current before the first 10 s of motor time |
 | 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK; Daly never reports it); validity `BmsCapacity`. Once it has been stable 3 s, is within 1000–65000 and the controller is disarmed (pending while armed), the firmware uses it for coulomb counting instead of the `POWER` capacity, at runtime only; outside that range the bit stays set and the configured capacity is used |
+| 78 | `uint8` | `bmsAlerts` | active BMS alerts, informational only (they never limit power or disarm); no validity bit. `0x01` low cell, `0x02` high cell delta, `0x04` high BMS temperature. 0 when the BMS reports no cell or temperature data; a dropped BMS link clears the bits at once. Each bit is debounced 3 s on both edges and has hysteresis (low cell clears at cutoff + 50 mV or delta below gate − 10 mV; delta clears 10 mV below the limit; temperature clears 3 °C below the limit). The low-cell cutoff is the pack minimum voltage divided by `bmsCellCount`, and is off while the cell count is 0. Total struct size is 79 |
 
 Temperatures are millicelsius because that is the unit the firmware uses
 everywhere; decigrees would have saved 8 bytes and bought a class of conversion
@@ -379,7 +380,7 @@ validated as a pair.
 |---|---|---|---|
 | Power | 0 | 11 | `uint16` capacityMah, `uint16` minVoltageMv, `uint16` maxVoltageMv, `uint8` powerControlEnabled, `uint16` dividerRatioX100, `uint16` referenceCurrentA (offset 9) |
 | Thermal | 1 | 17 | `int32` motorReductionStartMc, `int32` motorMaxMc, `int32` escReductionStartMc, `int32` escMaxMc, `uint8` motorTempSource |
-| Bms | 2 | 7 | `uint8` bmsType, `uint8[6]` bmsMac |
+| Bms | 2 | 13 | `uint8` bmsType, `uint8[6]` bmsMac, `uint16` lowCellDeltaGateMv (offset 7), `uint16` maxDeltaMv (offset 9), `int16` tempLimitC (offset 11) |
 | System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource, `uint8[6]` remoteMac |
 
 While a BMS reports a nominal capacity (telemetry validity `BmsCapacity`) within 1000–65000 mAh, the firmware uses it for coulomb counting instead of the Power group's `capacityMah`. This is runtime only: `capacityMah` is not changed, `CFG_GET` keeps returning the configured value, and a `CFG_SET` of it is stored and used again whenever no BMS reports a capacity. A client should show `bmsDesignCapacityMah` as the capacity in use while the bit is set and the value is in range.
@@ -395,6 +396,8 @@ types cannot be sent raw:
   the in-flight average only when the value actually changes.
 - **MAC addresses are 6 raw bytes**, not the 17-character text form. All zero
   means unset.
+
+BMS alert thresholds: `lowCellDeltaGateMv` (the low-cell alert only applies while the cell delta exceeds it) default 100, range 20–500 mV; `maxDeltaMv` default 200, range 50–1000 mV; `tempLimitC` default 55, range 30–80 °C. Out of range is `ERR_BAD_ARG`. There is no ordering check between the gate and the max delta. An older client writing only the first 7 bytes leaves the three thresholds at their stored values.
 
 `bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK. A non-zero type requires a non-zero
 MAC or the write is rejected. `throttleSource`: 0 wired, 1 wireless.

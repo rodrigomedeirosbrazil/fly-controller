@@ -89,6 +89,26 @@ void test_capacity_range_alone() {
     assert(validateCapacity(0)     == SettingsError::CapacityRange);
 }
 
+void test_bms_alerts_accept_defaults_and_edges() {
+    assert(validateBmsAlerts(100, 200, 55)  == SettingsError::None);
+    assert(validateBmsAlerts(20, 50, 30)    == SettingsError::None);
+    assert(validateBmsAlerts(500, 1000, 80) == SettingsError::None);
+}
+
+void test_bms_alerts_reject_out_of_range() {
+    assert(validateBmsAlerts(19, 200, 55)   == SettingsError::BmsAlertRange);
+    assert(validateBmsAlerts(501, 200, 55)  == SettingsError::BmsAlertRange);
+    assert(validateBmsAlerts(100, 49, 55)   == SettingsError::BmsAlertRange);
+    assert(validateBmsAlerts(100, 1001, 55) == SettingsError::BmsAlertRange);
+    assert(validateBmsAlerts(100, 200, 29)  == SettingsError::BmsAlertRange);
+    assert(validateBmsAlerts(100, 200, 81)  == SettingsError::BmsAlertRange);
+}
+
+void test_bms_alerts_no_ordering_check() {
+    // A gate above the max delta is accepted: no ordering check, like the rest.
+    assert(validateBmsAlerts(300, 100, 55) == SettingsError::None);
+}
+
 int main() {
     test_power_capacity_range();
     test_capacity_range_alone();
@@ -102,6 +122,9 @@ int main() {
     test_system_ranges();
     test_reference_current_range();
     test_reference_current_clamp();
+    test_bms_alerts_accept_defaults_and_edges();
+    test_bms_alerts_reject_out_of_range();
+    test_bms_alerts_no_ordering_check();
     cout << "SettingsValidationTest: all passed" << endl;
     return 0;
 }

@@ -38,6 +38,8 @@ enum class SoundEvent : uint8_t {
     TempProtectionLostLow,
     TempProtectionRestoredLow,
     TempProtectionRestoredHigh,
+    // BMS alert (low cell, high delta, high temperature): see Sound.cpp.
+    BmsAlert,
     kCount, // sentinel: "no event" / array size -- never a real event id
 };
 

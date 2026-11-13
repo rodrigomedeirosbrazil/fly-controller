@@ -370,6 +370,9 @@ void BleControl::fillTelemetry(ControlTelemetry& t) const {
 
     // Zero with TelemValid::BmsCapacity clear when unknown.
     t.bmsDesignCapacityMah = bmsCapacityMah;
+
+    // Always meaningful: 0 when the BMS reports no cell or temperature data.
+    t.bmsAlerts = bmsAlert.getActiveAlerts();
 }
 
 void BleControl::notifyTelemetry() {
@@ -459,6 +462,9 @@ ControlStatus BleControl::handleCfgGet(const QueuedRequest& req, uint8_t* out, u
             ConfigBms cfg;
             cfg.bmsType = settings.getBmsType();
             macStringToBytes(settings.getBmsMac(), cfg.bmsMac);
+            cfg.lowCellDeltaGateMv = settings.getBmsAlertDeltaGateMv();
+            cfg.maxDeltaMv         = settings.getBmsAlertMaxDeltaMv();
+            cfg.tempLimitC         = settings.getBmsAlertTempLimitC();
             memcpy(out, &cfg, sizeof(cfg));
             outLen = sizeof(cfg);
             return ControlStatus::Ok;
@@ -574,8 +580,14 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
             if (cfg.bmsType != BmsTypeNone && macText[0] == '\0') {
                 return ControlStatus::ErrBadArg;
             }
+            if (validateBmsAlerts(cfg.lowCellDeltaGateMv, cfg.maxDeltaMv, cfg.tempLimitC) != SettingsError::None) {
+                return ControlStatus::ErrBadArg;
+            }
             settings.setBmsType(cfg.bmsType);
             settings.setBmsMac(macText);
+            settings.setBmsAlertDeltaGateMv(cfg.lowCellDeltaGateMv);
+            settings.setBmsAlertMaxDeltaMv(cfg.maxDeltaMv);
+            settings.setBmsAlertTempLimitC(cfg.tempLimitC);
             settings.save();
             return ControlStatus::Ok;
         }

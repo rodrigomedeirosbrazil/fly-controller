@@ -230,6 +230,7 @@ void loop()
   updateSoundState();
   powerAlert.handle();
   tempProtectionAlert.handle();
+  bmsAlert.handle();
 
   esp_task_wdt_reset();
 }

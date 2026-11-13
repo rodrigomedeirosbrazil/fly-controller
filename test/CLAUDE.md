@@ -19,6 +19,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `BmsCapacitySyncLogicTest.cpp` - Unit tests for `BmsCapacitySyncLogic` (`src/BmsCapacitySync/BmsCapacitySyncLogic.h`): the 3 s stability window, restart on a changed or dropped value, alternating values never applying, the range edges and once-per-value out-of-range report, pending while armed, nothing applied when equal to the adopted value, the first value adopted even if equal to the configured one, and millis() rollover.
 - `HobbywingCanParserTest.cpp` - Unit tests for `HobbywingCanParser` (`src/Hobbywing/HobbywingCanParser.h`): StatusMsg1 (RPM, direction) and StatusMsg2 (current, ESC temperature) decoding, signed current with negatives clamped to 0, single-frame and exact-length acceptance, and `classifyEscTemp` (`Stale` / `Invalid` / `Valid`).
 - `CapacityRescaleTest.cpp` - Unit tests for `rescaleRemainingMah` (`src/BatteryMonitor/CapacityRescale.h`): percentage kept, unknown old capacity reported full, clamp, no overflow.
+- `BmsAlertLogicTest.cpp` - Unit tests for `BmsAlertLogic` (`src/BmsAlert/BmsAlertLogic.h`): the per-cell cutoff (zero cells disables low cell), low cell needing both the cutoff and the delta gate, enter/exit hysteresis for all three alerts, 3 s debounce on both edges, flapping never raising, an unavailable source clearing immediately and resetting its timer, independent bits, and millis() rollover.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

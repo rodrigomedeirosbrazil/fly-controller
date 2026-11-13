@@ -192,6 +192,25 @@ void DalyBms::applyResetConnectionLocked() {
     pCharTx_ = nullptr;
     rxLen_ = 0;
     state_ = Idle;
+
+    // Drop the last decoded readings with the link, as JkBms does. Kept, they
+    // read as live through hasData()/hasCellData(): TELEMETRY, $XCTOD and the
+    // CSV log froze on them, and Telemetry's current fallback fed a frozen
+    // pack current into the coulomb count for the rest of an armed session
+    // (the BMS does not reconnect while armed).
+    hasData_ = false;
+    hasCellData_ = false;
+    packVoltageMilliVolts_ = 0;
+    packCurrentMilliAmps_ = 0;
+    socPercent_ = 0;
+    remainingCapacityMilliAh_ = 0;
+    cellCount_ = 0;
+    tempCount_ = 0;
+    memset(tempsCelsius_, 0, sizeof(tempsCelsius_));
+    memset(cellVoltagesMv_, 0, sizeof(cellVoltagesMv_));
+    balanceEnabled_ = false;
+    chargeEnabled_ = false;
+    dischargeEnabled_ = false;
 }
 
 // connectTask — runs BLEClient::connect AND service discovery off the main loop.

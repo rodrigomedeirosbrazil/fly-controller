@@ -60,6 +60,9 @@ Settings::Settings() {
     buzzerVolume = getDefaultBuzzerVolume();
     voltageDividerRatio = getDefaultVoltageDividerRatio();
     referenceCurrentA = getDefaultReferenceCurrentA();
+    bmsAlertDeltaGateMv = BMS_ALERT_DEFAULT_DELTA_GATE_MV;
+    bmsAlertMaxDeltaMv = BMS_ALERT_DEFAULT_MAX_DELTA_MV;
+    bmsAlertTempLimitC = BMS_ALERT_DEFAULT_TEMP_C;
     throttleSource = ThrottleSourceWired;
     remoteMac = "";
     mutex_ = nullptr;
@@ -131,6 +134,21 @@ void Settings::load() {
         referenceCurrentA = getDefaultReferenceCurrentA();
     }
 
+    // BMS alert thresholds; the set must validate together, otherwise all three
+    // fall back to defaults. Validate the full widths before narrowing.
+    const uint32_t alGate = preferences.getUInt("bmsAlGateMv", BMS_ALERT_DEFAULT_DELTA_GATE_MV);
+    const uint32_t alMaxD = preferences.getUInt("bmsAlMaxDMv", BMS_ALERT_DEFAULT_MAX_DELTA_MV);
+    const int32_t alTemp = preferences.getInt("bmsAlTempC", BMS_ALERT_DEFAULT_TEMP_C);
+    if (validateBmsAlerts(alGate, alMaxD, alTemp) == SettingsError::None) {
+        bmsAlertDeltaGateMv = (uint16_t) alGate;
+        bmsAlertMaxDeltaMv = (uint16_t) alMaxD;
+        bmsAlertTempLimitC = (int16_t) alTemp;
+    } else {
+        bmsAlertDeltaGateMv = BMS_ALERT_DEFAULT_DELTA_GATE_MV;
+        bmsAlertMaxDeltaMv = BMS_ALERT_DEFAULT_MAX_DELTA_MV;
+        bmsAlertTempLimitC = BMS_ALERT_DEFAULT_TEMP_C;
+    }
+
     // Wireless throttle source + paired remote MAC
     throttleSource = preferences.getUChar("thrSrc", ThrottleSourceWired);
     if (throttleSource > ThrottleSourceWireless) throttleSource = ThrottleSourceWired;
@@ -187,6 +205,9 @@ void Settings::save() {
     preferences.putUChar("buzzVol", buzzerVolume);
     preferences.putFloat("vDivR", voltageDividerRatio);
     preferences.putUInt("refCurA", referenceCurrentA);
+    preferences.putUInt("bmsAlGateMv", bmsAlertDeltaGateMv);
+    preferences.putUInt("bmsAlMaxDMv", bmsAlertMaxDeltaMv);
+    preferences.putInt("bmsAlTempC", bmsAlertTempLimitC);
     preferences.putUChar("thrSrc", throttleSource);
     preferences.putString("rmtMac", remoteMac);
 #if IS_TMOTOR
@@ -397,6 +418,13 @@ uint16_t Settings::getReferenceCurrentA() const {
 void Settings::setReferenceCurrentA(uint16_t amps) {
     referenceCurrentA = clampReferenceCurrent(amps);
 }
+
+uint16_t Settings::getBmsAlertDeltaGateMv() const { return bmsAlertDeltaGateMv; }
+void Settings::setBmsAlertDeltaGateMv(uint16_t mv) { bmsAlertDeltaGateMv = mv; }
+uint16_t Settings::getBmsAlertMaxDeltaMv() const { return bmsAlertMaxDeltaMv; }
+void Settings::setBmsAlertMaxDeltaMv(uint16_t mv) { bmsAlertMaxDeltaMv = mv; }
+int16_t Settings::getBmsAlertTempLimitC() const { return bmsAlertTempLimitC; }
+void Settings::setBmsAlertTempLimitC(int16_t celsius) { bmsAlertTempLimitC = celsius; }
 
 uint16_t Settings::getDefaultReferenceCurrentA() const {
     return getBoardConfig().defaultReferenceCurrentA;
