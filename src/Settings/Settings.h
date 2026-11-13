@@ -89,6 +89,15 @@ public:
     void setReferenceCurrentA(uint16_t amps);
     uint16_t getDefaultReferenceCurrentA() const;
 
+    // BMS alert thresholds (alerts only, never limit power). Setters mutate in
+    // memory; call save() to persist.
+    uint16_t getBmsAlertDeltaGateMv() const;
+    void setBmsAlertDeltaGateMv(uint16_t mv);
+    uint16_t getBmsAlertMaxDeltaMv() const;
+    void setBmsAlertMaxDeltaMv(uint16_t mv);
+    int16_t getBmsAlertTempLimitC() const;
+    void setBmsAlertTempLimitC(int16_t celsius);
+
     // Wireless throttle (ESP-NOW remote). Setters mutate in memory; call save() to persist.
     uint8_t getThrottleSource() const;
     void setThrottleSource(uint8_t source);
@@ -137,6 +146,9 @@ private:
     uint8_t buzzerVolume;
     float voltageDividerRatio;
     uint16_t referenceCurrentA;
+    uint16_t bmsAlertDeltaGateMv;
+    uint16_t bmsAlertMaxDeltaMv;
+    int16_t bmsAlertTempLimitC;
 };
 
 #endif // SETTINGS_H
