@@ -48,6 +48,7 @@ src/
 ├── ADS1115/                  # I2C ADC (Tmotor: throttle + motor temp)
 ├── BatteryMonitor/           # Coulomb counting + SoC from voltage
 ├── BluetoothBms/             # BLE BMS integration
+├── BmsAlert/                 # BMS alerts (low cell, high delta, high temp): BmsAlertLogic (pure) + BmsAlert component
 ├── Button/                   # AceButton single-click (arm) + long-press (cruise)
 ├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
@@ -133,6 +134,12 @@ while (canbus.receive(&msg)) {
 ## Settings (Persistent)
 
 All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences`. Changes survive reboots. Configurable from fly-app over BLE (`CFG_SET`).
+
+## BMS alerts
+
+`BmsAlert` (`src/BmsAlert/`) raises three informational alerts from BMS data: **low cell** (min cell at or under the per-cell cutoff *and* cell delta above a gate), **high delta** (delta above a maximum) and **high temperature** (BMS max probe temperature at or above a limit). The per-cell cutoff is `Settings::getBatteryMinVoltage()` divided by the cell count the BMS reports (`BluetoothBms::getCellCount()`, never `BATTERY_CELL_COUNT`); cell count 0 disables low cell. Defaults: delta gate 100 mV, max delta 200 mV, temp limit 55 C (ranges 20-500 mV, 50-1000 mV, 30-80 C, persisted in `Settings`). Hysteresis: low cell exits at cell >= cutoff + 50 mV or delta < gate - 10 mV; delta exits 10 mV under the max; temperature exits 3 C under the limit. Every edge is debounced 3 s (`BMS_ALERT_DEBOUNCE_MS`), except that unavailable BMS data clears the alerts at once; availability also requires a live BMS link, since the JBD and Daly drivers keep their last values after a disconnect.
+
+Sound plays only while armed, reusing `TempProtectionAlertLogic`'s cadence (0, 10, 30, 60 s, then every 60 s, and a rising "all clear" motif when the mask returns to zero) with its own motif (`SoundEvent::BmsAlert`, three long 2200 Hz pulses) and `RemoteBeep::Alert` on the remote. The bitmask is exposed by `getActiveAlerts()` regardless of armed state. **These alerts never reach `Power`: they never limit the motor and never disarm.** The decision logic is `src/BmsAlert/BmsAlertLogic.h`, host-tested in `test/BmsAlertLogicTest.cpp`.
 
 ## Power alert
 

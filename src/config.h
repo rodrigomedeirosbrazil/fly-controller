@@ -38,6 +38,7 @@
 #include "RemoteLink/RemoteLink.h"
 #include "PowerAlert/PowerAlert.h"
 #include "TempProtectionAlert/TempProtectionAlert.h"
+#include "BmsAlert/BmsAlert.h"
 
 // Debug logging - compiles to zero in production
 #ifdef DEBUG
@@ -101,6 +102,7 @@ extern ADS1115 ads1115;
 extern RemoteLink remoteLink;
 extern PowerAlert powerAlert;
 extern TempProtectionAlert tempProtectionAlert;
+extern BmsAlert bmsAlert;
 #include "Telemetry/Telemetry.h"
 
 // ========== ANALOG INPUTS (ADC1 - legacy, used only when ADS1115 not in use) ==========

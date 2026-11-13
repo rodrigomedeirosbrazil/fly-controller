@@ -13,6 +13,8 @@ constexpr uint16_t kPowerFreqHz   = 2500;
 // fall or a rise over motor noise.
 constexpr uint16_t kTempProtHighFreqHz = 2500;
 constexpr uint16_t kTempProtLowFreqHz  = 2000;
+// BMS alert pitch: inside the loud band but matching no other constant above.
+constexpr uint16_t kBmsAlertFreqHz = 2200;
 }
 
 Sound::Sound() :
@@ -47,6 +49,9 @@ Sound::Sound() :
   logic_.setEventPattern(SoundEvent::TempProtectionLostLow,      {kTempProtLowFreqHz,  700, 0, 1});
   logic_.setEventPattern(SoundEvent::TempProtectionRestoredLow,  {kTempProtLowFreqHz,  120, 0, 1});
   logic_.setEventPattern(SoundEvent::TempProtectionRestoredHigh, {kTempProtHighFreqHz, 200, 0, 1});
+  // Three long same-pitch pulses: distinct from PowerAlert's short triple and
+  // from the temperature falling motif.
+  logic_.setEventPattern(SoundEvent::BmsAlert, {kBmsAlertFreqHz, 400, 150, 3});
 
   // reps=0: genuinely continuous. This is the fix for the bug where
   // reps=255 was a literal repeat count and silenced itself after ~102s.
