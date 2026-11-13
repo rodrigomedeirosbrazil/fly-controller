@@ -232,6 +232,13 @@ Os alertas aparecem sempre no cartão de alerta, nunca em faixas ou janelas. A c
 
 Os três alertas do BMS apenas avisam: eles nunca reduzem a potência nem desarmam o motor. O som toca somente com o sistema armado, no buzzer e no remote. Um alerta só liga ou desliga depois de 3 segundos na mesma condição, e some na hora se a conexão com o BMS cair.
 
+O cartão mostra os alertas do BMS com o sistema armado ou desarmado; só o som depende de estar armado. Eles exigem um firmware com alertas do BMS e uma versão do app que os conheça. Com um firmware mais antigo, nenhum deles aparece.
+
+<p align="center">
+  <img src="img/21_bms_alerta.png" width="300" alt="Célula baixa no BMS"><br>
+  <em>Figura 6: Célula baixa no BMS</em>
+</p>
+
 O cartão de alerta pode ficar âmbar com os mostradores ainda verdes: ele também reflete a limitação que o próprio controlador informa.
 
 ### Desarme por falha
@@ -240,7 +247,7 @@ Quando o controlador desarma por falha, o código aparece em vermelho na barra d
 
 <p align="center">
   <img src="img/05_falha_desarme.png" width="300" alt="Desarme por falha do acelerador (THR ERR)"><br>
-  <em>Figura 6: Desarme por falha do acelerador (THR ERR)</em>
+  <em>Figura 7: Desarme por falha do acelerador (THR ERR)</em>
 </p>
 
 | Código | Alerta | Causa |
@@ -257,7 +264,7 @@ Uma leitura sem valor confiável mostra um traço, nunca zero, com o motivo abai
 
 <p align="center">
   <img src="img/07_sensor_ausente.png" width="300" alt="Temperatura do motor sem leitura"><br>
-  <em>Figura 7: Temperatura do motor sem leitura</em>
+  <em>Figura 8: Temperatura do motor sem leitura</em>
 </p>
 
 ### Perda de conexão
@@ -266,14 +273,14 @@ Se os dados param de chegar por 3 segundos, todos os valores viram traço e a ba
 
 <p align="center">
   <img src="img/06_reconectando.png" width="300" alt="Conexão perdida, app reconectando"><br>
-  <em>Figura 8: Conexão perdida, app reconectando</em>
+  <em>Figura 9: Conexão perdida, app reconectando</em>
 </p>
 
 Toque no indicador de status para escolher: **Reconectar** tenta de novo sem sair do painel; **Desconectar** volta para a tela inicial. Se o último dado dizia ARMADO, o app avisa. Desconectar o app não desliga o motor.
 
 <p align="center">
   <img src="img/10_dialogo_conexao.png" width="300" alt="Toque no indicador de status: Reconectar ou Desconectar"><br>
-  <em>Figura 9: Toque no indicador de status: Reconectar ou Desconectar</em>
+  <em>Figura 10: Toque no indicador de status: Reconectar ou Desconectar</em>
 </p>
 
 ### Gaveta
@@ -287,7 +294,7 @@ Toque na barra CONFIGURAÇÕES no rodapé, ou no cartão de alerta, para abrir a
 
 <p align="center">
   <img src="img/08_gaveta.png" width="300" alt="Gaveta: alertas, som, orientação e configurações"><br>
-  <em>Figura 10: Gaveta: alertas, som, orientação e configurações</em>
+  <em>Figura 11: Gaveta: alertas, som, orientação e configurações</em>
 </p>
 
 ### Detalhes
@@ -301,7 +308,7 @@ Arraste a barra de status para baixo, até cerca de 40 % da altura da tela, para
 
 <p align="center">
   <img src="img/09_detalhes.png" width="300" alt="Tela de detalhes"><br>
-  <em>Figura 11: Tela de detalhes</em>
+  <em>Figura 12: Tela de detalhes</em>
 </p>
 
 ## Configurações
@@ -310,7 +317,7 @@ Abra pela gaveta, em Configurações, com a aeronave desarmada. O topo mostra a 
 
 <p align="center">
   <img src="img/12_configuracoes.png" width="300" alt="Índice de configurações"><br>
-  <em>Figura 12: Índice de configurações</em>
+  <em>Figura 13: Índice de configurações</em>
 </p>
 
 ### PIN de configuração
@@ -319,7 +326,7 @@ Ver as configurações não pede PIN. O PIN é pedido na primeira gravação de 
 
 <p align="center">
   <img src="img/20_pin.png" width="300" alt="Pedido do PIN na primeira gravação"><br>
-  <em>Figura 13: Pedido do PIN na primeira gravação</em>
+  <em>Figura 14: Pedido do PIN na primeira gravação</em>
 </p>
 
 | Ação | Pede PIN |
@@ -339,7 +346,7 @@ O relógio do controlador é acertado pelo app automaticamente a cada conexão, 
 
 <p align="center">
   <img src="img/13_energia.png" width="300" alt="Bateria e Energia"><br>
-  <em>Figura 14: Bateria e Energia</em>
+  <em>Figura 15: Bateria e Energia</em>
 </p>
 
 | Parâmetro | Descrição | Faixa |
@@ -363,7 +370,7 @@ Com um BMS JBD ou JK conectado, o controlador usa a capacidade que o BMS informa
 
 <p align="center">
   <img src="img/14_termica.png" width="300" alt="Proteção Térmica"><br>
-  <em>Figura 15: Proteção Térmica</em>
+  <em>Figura 16: Proteção Térmica</em>
 </p>
 
 | Parâmetro | Descrição | Faixa |
@@ -382,7 +389,7 @@ Esses valores são os traços âmbar e vermelho dos mostradores de temperatura n
 
 <p align="center">
   <img src="img/15_bms.png" width="300" alt="BMS configurado e conectado"><br>
-  <em>Figura 16: BMS configurado e conectado</em>
+  <em>Figura 17: BMS configurado e conectado</em>
 </p>
 
 | Parâmetro | Descrição |
@@ -395,13 +402,15 @@ Esses valores são os traços âmbar e vermelho dos mostradores de temperatura n
 
 Os alertas do BMS só avisam: não reduzem a potência. Os limites ficam salvos no controlador.
 
+Os três limites ficam no cartão Alertas, que só aparece com um firmware que tenha os alertas do BMS. Com um firmware mais antigo, a tela mostra apenas o tipo e o endereço.
+
 A seção Estado mostra a conexão com o BMS e, quando conectado, a tensão, a corrente, a carga, o número de células, a temperatura máxima e a diferença entre células.
 
 **Busca:** o botão Buscar BMS só aparece quando o tipo gravado é Nenhum, porque o controlador não consegue buscar enquanto está ligado a um BMS. Para trocar de BMS, escolha Nenhum, salve e então busque. A busca leva 5 segundos; durante esse tempo o controlador não aparece para novas conexões.
 
 <p align="center">
   <img src="img/16_bms_busca.png" width="300" alt="BMS: busca disponível sem BMS configurado"><br>
-  <em>Figura 17: BMS: busca disponível sem BMS configurado</em>
+  <em>Figura 18: BMS: busca disponível sem BMS configurado</em>
 </p>
 
 Toque num resultado para preencher o endereço. Se o BMS se identificou, o tipo também é preenchido; senão, escolha o tipo na lista. Quando há muitos dispositivos, a lista mostra "Mostrando N de M".
@@ -410,7 +419,7 @@ Toque num resultado para preencher o endereço. Se o BMS se identificou, o tipo 
 
 <p align="center">
   <img src="img/17_sistema.png" width="300" alt="Sistema: buzzer, acelerador, remote, cronômetro e PIN"><br>
-  <em>Figura 18: Sistema: buzzer, acelerador, remote, cronômetro e PIN</em>
+  <em>Figura 19: Sistema: buzzer, acelerador, remote, cronômetro e PIN</em>
 </p>
 
 | Parâmetro | Descrição | Padrão |
@@ -433,7 +442,7 @@ Lista os registros gravados no controlador, do mais recente para o mais antigo, 
 
 <p align="center">
   <img src="img/18_registros.png" width="300" alt="Registros de voo"><br>
-  <em>Figura 19: Registros de voo</em>
+  <em>Figura 20: Registros de voo</em>
 </p>
 
 - Toque no ícone de compartilhar para baixar o registro (CSV) e enviá-lo pela folha de compartilhamento do celular. No navegador, escolha Compartilhar, Salvar arquivo ou Abrir.
@@ -446,7 +455,7 @@ No app para Android, a tela compara o firmware do controlador com a versão mais
 
 <p align="center">
   <img src="img/19_firmware.png" width="300" alt="Firmware: nova versão disponível no GitHub"><br>
-  <em>Figura 20: Firmware: nova versão disponível no GitHub</em>
+  <em>Figura 21: Firmware: nova versão disponível no GitHub</em>
 </p>
 
 1. Toque em **Baixar** (ou em **Escolher arquivo .bin**).
