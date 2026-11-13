@@ -12,18 +12,15 @@ extern Sound sound;
 extern RemoteLink remoteLink;
 
 void BmsAlert::handle() {
-    // The JBD and Daly drivers keep hasData_/hasCellData_ true after the BLE
-    // link drops (only JK clears them), so availability alone would hold a
-    // stale reading -- and a stale alert -- on. Gate on the live link too.
-    const bool linked = bluetoothBms.isConnected();
-
+    // Every BMS driver clears its data flags when the link drops, so
+    // availability alone is enough to keep a stale alert from holding on.
     BmsAlertReading reading;
-    reading.cellDataAvailable = linked && isBmsCellDataAvailable();
+    reading.cellDataAvailable = isBmsCellDataAvailable();
     reading.cellMinMv         = bluetoothBms.getCellMinMilliVolts();
     reading.cellDeltaMv       = bluetoothBms.getCellDeltaMilliVolts();
 
     const uint8_t tempCount = bluetoothBms.getTempCount();
-    reading.tempAvailable = linked && isBmsDataAvailable() && tempCount > 0;
+    reading.tempAvailable = isBmsDataAvailable() && tempCount > 0;
     reading.tempMaxC = 0;
     if (reading.tempAvailable) {
         int16_t maxC = bluetoothBms.getTempCelsius(0);
