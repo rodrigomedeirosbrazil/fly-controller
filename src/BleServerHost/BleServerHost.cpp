@@ -51,10 +51,17 @@ void BleServerHost::init(const char* deviceName) {
     // radio (the WiFi TX used by ESP-NOW is already pinned to 8.5 dBm), and the default BLE power
     // compounds the current spike now that an always-on BMS connection shares
     // the radio with the advertiser/notifier. All peers (BMS, phone, remote)
-    // sit within ~2 m, so 0 dBm leaves a large link-budget margin. DEFAULT
-    // also applies to connection handles that aren't set explicitly.
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N0);
-    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_N0);
+    // sit within ~2 m, but 0 dBm -- below the chip's +3 dBm default -- proved
+    // too little for the phone: the pilot's body and a pocket between the two
+    // cost far more than free-space distance, and the fly-app kept dropping
+    // the connection. Links and advertising run at +9 dBm, level with the
+    // 8.5 dBm WiFi cap already proven stable on this board. Going higher buys
+    // nothing: a phone transmits at roughly that level, so past it the
+    // phone-to-controller direction becomes the limit. Scan stays at 0 dBm
+    // since it only carries scan requests. DEFAULT also applies to connection
+    // handles that aren't set explicitly.
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
+    esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_P9);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_N0);
 
     server_ = BLEDevice::createServer();
