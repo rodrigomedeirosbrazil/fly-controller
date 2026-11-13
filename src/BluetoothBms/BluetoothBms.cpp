@@ -129,8 +129,8 @@ uint8_t BluetoothBms::getCellCount() const {
 }
 
 uint32_t BluetoothBms::getDesignCapacityMah() const {
-    // Drivers keep their last decoded values after a disconnect; a stale
-    // capacity must not keep re-syncing the setting.
+    // Every driver clears its decoded values on disconnect; the link check
+    // stays as a second guard so a stale capacity can never re-sync.
     if (!isConnected() || !hasData()) return 0;
     const uint8_t activeType = getActiveType();
     if (activeType == BmsTypeJbd) return jbdBms.getDesignCapacityMahl();
