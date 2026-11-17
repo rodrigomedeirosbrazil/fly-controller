@@ -70,7 +70,8 @@ inline SettingsError validateBmsType(uint8_t type) {
 
 inline SettingsError validateSystem(uint8_t buzzerVolume, uint8_t throttleSource) {
     if (buzzerVolume > 100)  return SettingsError::BuzzerVolumeRange;
-    if (throttleSource > 1)  return SettingsError::ThrottleSourceInvalid;
+    // Wired is the only throttle source since the remote was removed.
+    if (throttleSource != 0) return SettingsError::ThrottleSourceInvalid;
     return SettingsError::None;
 }
 

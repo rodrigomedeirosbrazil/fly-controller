@@ -60,7 +60,8 @@ void test_bms_type_range() {
 
 void test_system_ranges() {
     assert(validateSystem(0,   0) == SettingsError::None);
-    assert(validateSystem(100, 1) == SettingsError::None);
+    assert(validateSystem(100, 0) == SettingsError::None);
+    assert(validateSystem(50,  1) == SettingsError::ThrottleSourceInvalid);
     assert(validateSystem(101, 0) == SettingsError::BuzzerVolumeRange);
     assert(validateSystem(50,  2) == SettingsError::ThrottleSourceInvalid);
 }

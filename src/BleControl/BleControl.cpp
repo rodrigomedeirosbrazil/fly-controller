@@ -238,7 +238,7 @@ void BleControl::writeInfo() {
 
     // VoltageSensor is unconditional: every build that exists (XAG, Tmotor
     // and Hobbywing) has the sensor.
-    uint16_t caps = Capability::RemoteLink | Capability::VoltageSensor;
+    uint16_t caps = Capability::VoltageSensor;
 #if IS_TMOTOR || IS_HOBBYWING
     caps |= Capability::CanTelemetry;
 #endif
@@ -472,8 +472,9 @@ ControlStatus BleControl::handleCfgGet(const QueuedRequest& req, uint8_t* out, u
         case ConfigGroup::System: {
             ConfigSystem cfg;
             cfg.buzzerVolume   = settings.getBuzzerVolume();
-            cfg.throttleSource = settings.getThrottleSource();
-            macStringToBytes(settings.getRemoteMac(), cfg.remoteMac);
+            // Retired fields, kept for the wire layout: wired only, no remote.
+            cfg.throttleSource = 0;
+            memset(cfg.remoteMac, 0, sizeof(cfg.remoteMac));
             memcpy(out, &cfg, sizeof(cfg));
             outLen = sizeof(cfg);
             return ControlStatus::Ok;
@@ -602,7 +603,6 @@ ControlStatus BleControl::handleCfgSet(const QueuedRequest& req) {
                 return ControlStatus::ErrBadArg;
             }
             settings.setBuzzerVolume(cfg.buzzerVolume);
-            settings.setThrottleSource(cfg.throttleSource);
             settings.save();
             // Without this, the new volume is persisted but inaudible until
             // the next reboot.
@@ -918,17 +918,6 @@ ControlStatus BleControl::handleAction(const QueuedRequest& req, uint8_t* out, u
             outLen = 1;
             return ControlStatus::Ok;
         }
-
-        case ControlOp::RemotePair:
-            remoteLink.enterPairing();
-            return ControlStatus::Ok;
-
-        case ControlOp::RemoteForget:
-            settings.clearRemoteMac();
-            settings.save();
-            // Clearing NVS alone leaves the running link paired until reboot.
-            remoteLink.forgetPeer();
-            return ControlStatus::Ok;
 
         case ControlOp::BuzzerPreview: {
             if (req.len < 1 || req.payload[0] > 100) {

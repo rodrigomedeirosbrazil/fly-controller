@@ -40,6 +40,8 @@ namespace ControlOp {
         BmsScanStart     = 0x21,
         BmsScanStatus    = 0x22,
         BmsDetect        = 0x23,
+        // 0x24 / 0x25: retired 2026-11-17 with the wireless remote. opIsKnown()
+        // rejects them; never reuse these values.
         RemotePair       = 0x24,
         RemoteForget     = 0x25,
         BuzzerPreview    = 0x26,
@@ -142,6 +144,8 @@ namespace Capability {
         CanTelemetry       = 1 << 0,
         VoltageSensor      = 1 << 1,
         MotorTempSourceSel = 1 << 2,
+        // Reserved: the wireless remote was removed 2026-11-17. The bit stays
+        // defined for the wire contract but is never set.
         RemoteLink         = 1 << 3,
     };
 }
@@ -362,8 +366,6 @@ inline bool opIsKnown(uint8_t op) {
         case ControlOp::BmsScanStart:
         case ControlOp::BmsScanStatus:
         case ControlOp::BmsDetect:
-        case ControlOp::RemotePair:
-        case ControlOp::RemoteForget:
         case ControlOp::BuzzerPreview:
         case ControlOp::SetTime:
         case ControlOp::PinChange:

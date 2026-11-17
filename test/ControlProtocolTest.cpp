@@ -309,7 +309,6 @@ void test_gate_allows_reads_without_auth() {
 void test_gate_requires_auth_for_writes() {
     assert(gateRequest(ControlOp::CfgSet,       false, false) == ControlStatus::ErrAuth);
     assert(gateRequest(ControlOp::SessionReset, false, false) == ControlStatus::ErrAuth);
-    assert(gateRequest(ControlOp::RemotePair,   false, false) == ControlStatus::ErrAuth);
     // BmsDetect reads like a query but tears down the BMS link and blocks on
     // a BLE connect -- it is a write in every way that matters.
     assert(gateRequest(ControlOp::BmsDetect,    false, false) == ControlStatus::ErrAuth);
@@ -319,13 +318,18 @@ void test_gate_requires_auth_for_writes() {
     assert(gateRequest(ControlOp::SessionReset, true,  false) == ControlStatus::Ok);
 }
 
+void test_gate_retired_remote_ops() {
+    assert(gateRequest(ControlOp::RemotePair,   true,  false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(ControlOp::RemoteForget, true,  false) == ControlStatus::ErrBadOp);
+    assert(gateRequest(ControlOp::RemotePair,   false, true)  == ControlStatus::ErrBadOp);
+    assert(ControlOp::RemotePair == 0x24 && ControlOp::RemoteForget == 0x25);
+}
+
 void test_gate_blocks_by_default_while_armed() {
     assert(gateRequest(ControlOp::CfgSet,           true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::BuzzerPreview,    true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::BmsScanStart,     true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::BmsDetect,        true, true) == ControlStatus::ErrState);
-    assert(gateRequest(ControlOp::RemotePair,       true, true) == ControlStatus::ErrState);
-    assert(gateRequest(ControlOp::RemoteForget,     true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::SetTime,          true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::PinChange,        true, true) == ControlStatus::ErrState);
     assert(gateRequest(ControlOp::TmotorDirForward, true, true) == ControlStatus::ErrState);
@@ -779,6 +783,7 @@ int main() {
     test_gate_rejects_unknown_opcodes();
     test_gate_allows_reads_without_auth();
     test_gate_requires_auth_for_writes();
+    test_gate_retired_remote_ops();
     test_gate_blocks_by_default_while_armed();
     test_gate_armed_exceptions();
     test_gate_reports_armed_before_auth();
