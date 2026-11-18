@@ -7,6 +7,7 @@
 #include <BLEUtils.h>
 #include <cstring>
 #include <esp_gap_ble_api.h>
+#include "../BluetoothBms/BmsLinkParams.h"
 
 #define DALY_SERVICE_UUID "0000fff0-0000-1000-8000-00805f9b34fb"
 #define DALY_CHAR_UUID_RX "0000fff1-0000-1000-8000-00805f9b34fb"
@@ -254,6 +255,7 @@ void DalyBms::connectTask(void* arg) {
             self->pClient_ = BLEDevice::createClient();
         }
         BLEAddress addr(mac);
+        applyBmsPreferredConnParams(addr);
         bool connectedOk = self->pClient_ != nullptr
             && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);
 

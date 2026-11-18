@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include "../src/BleServerHost/BleLinkPolicy.h"
+#include "../src/BluetoothBms/BmsLinkParams.h"
 
 using namespace BleLinkPolicy;
 
@@ -78,6 +79,15 @@ static void test_rerequest_only_once() {
     assert(l.shouldReRequest(A, 72));
 }
 
+static void test_bms_params_valid() {
+    uint32_t mn = BMS_CONN_MIN_INTERVAL, mx = BMS_CONN_MAX_INTERVAL;
+    uint32_t lat = BMS_CONN_LATENCY, to = BMS_CONN_TIMEOUT;
+    assert(6 <= mn && mn <= mx && mx <= 3200);
+    assert(lat <= 499);
+    assert(10 <= to && to <= 3200);
+    assert(to * 10000 > mx * 1250 * (lat + 1) * 2);
+}
+
 int main() {
     test_phone_params_meet_apple_rules();
     test_adv_interval();
@@ -86,6 +96,7 @@ int main() {
     test_duplicate_and_unknown();
     test_capacity();
     test_rerequest_only_once();
+    test_bms_params_valid();
     printf("BleLinkPolicyTest: all passed\n");
     return 0;
 }
