@@ -31,8 +31,8 @@
 // 2. Loss is DEBOUNCED via graceMs. The signal must read invalid
 //    continuously for graceMs before update() reports a disarm. A single
 //    valid sample resets the timer. Every other validity path in this
-//    firmware has tolerance (wired throttle: 3 consecutive I2C failures;
-//    wireless: 500 ms to ramp, 3 s to disarm), and pack voltage cannot
+//    firmware has tolerance (wired throttle: 3 consecutive I2C failures),
+//    and pack voltage cannot
 //    change dangerously within the grace window, so this costs no real
 //    protection.
 //

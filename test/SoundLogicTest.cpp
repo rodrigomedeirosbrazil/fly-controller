@@ -172,7 +172,7 @@ void test_queue_full_drops_newest_preserves_inflight() {
     logic.setEventPattern(SoundEvent::CalibrationStep, {2000, 20, 0, 1});
     logic.setEventPattern(SoundEvent::ButtonClick,     {3000, 5,  0, 1});
     logic.setEventPattern(SoundEvent::Disarmed,        {4000, 15, 0, 1});
-    logic.setEventPattern(SoundEvent::LinkLoss,        {9999, 999, 0, 1}); // must never play
+    logic.setEventPattern(SoundEvent::PowerAlert,      {9999, 999, 0, 1}); // must never play
 
     logic.pushEvent(SoundEvent::SystemStart);
     logic.pushEvent(SoundEvent::CalibrationStep);
@@ -180,16 +180,16 @@ void test_queue_full_drops_newest_preserves_inflight() {
     logic.pushEvent(SoundEvent::Disarmed);
     assert(logic.queueLength() == 4);
 
-    logic.pushEvent(SoundEvent::LinkLoss); // queue full -> dropped
+    logic.pushEvent(SoundEvent::PowerAlert); // queue full -> dropped
     assert(logic.droppedEvents() == 1);
     assert(logic.queueLength() == 4); // unchanged
 
-    bool sawLinkLossFreq = false;
+    bool sawDroppedFreq = false;
     for (uint32_t t = 0; t <= 60; t++) {
         SoundOutput o = logic.update(t);
-        if (o.toneOn && o.freqHz == 9999) sawLinkLossFreq = true;
+        if (o.toneOn && o.freqHz == 9999) sawDroppedFreq = true;
     }
-    assert(!sawLinkLossFreq);
+    assert(!sawDroppedFreq);
     assert(logic.currentEvent() == SoundEvent::kCount);
     assert(logic.queueLength() == 0);
     cout << "PASS: queue full drops the newest event; in-flight sequence plays intact\n";

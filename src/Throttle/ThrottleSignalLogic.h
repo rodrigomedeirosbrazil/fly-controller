@@ -10,10 +10,10 @@
 //     No fallback to a held value: a wired fault does not heal on its own,
 //     and riding a stale command while the pilot is unaware is worse than a
 //     clean stop they can diagnose on the ground.
-//   - Wireless: debounceMs=500, disarmMs=3000 — matches the previous
-//     RemoteLinkLogic timings. A radio dropout heals constantly (the pilot
-//     turns, someone steps clear of the antenna), so it keeps its existing
-//     tolerance via the ForceZero intermediate state.
+//   - Wireless (the ESP-NOW remote, removed 2026-11-17; kept generic here for
+//     when it returns): debounceMs=500, disarmMs=3000. A radio dropout heals
+//     constantly (the pilot turns, someone steps clear of the antenna), so it
+//     tolerates a short fade via the ForceZero intermediate state.
 //
 // recoveryMs guards against a flapping signal: the invalid-episode clock only
 // resets after recoveryMs of *consecutive* valid samples. Without it, a link

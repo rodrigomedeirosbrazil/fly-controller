@@ -8,9 +8,7 @@
 class Throttle;
 class Sound;
 
-// Thin wrapper over ButtonGestureLogic: reads the raw button source (physical
-// pin wired, remote-forwarded state wireless — selected by
-// settings.getThrottleSource()), feeds the gesture logic every check(), and
+// Thin wrapper over ButtonGestureLogic: reads the physical button pin, feeds the gesture logic every check(), and
 // translates the resulting intents into the throttle/sound calls. All policy
 // lives in ButtonGestureLogic.h so it is host-testable.
 class Button
@@ -24,7 +22,7 @@ class Button
         uint8_t getArmCharge() const { return armCharge_; }
 
     private:
-        bool readRawPressed(uint32_t nowMs);
+        bool readRawPressed();
 
         uint8_t pin;
         ButtonGestureLogic logic_;

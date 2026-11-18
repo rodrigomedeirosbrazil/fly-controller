@@ -19,7 +19,6 @@
 #include <Update.h>
 #include <sys/time.h>
 #include "../Sound/Sound.h"
-#include "../RemoteLink/RemoteLink.h"
 #if IS_TMOTOR
 #include "../Tmotor/TmotorCan.h"
 #include "../Canbus/Canbus.h"

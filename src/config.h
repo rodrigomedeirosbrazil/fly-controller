@@ -35,7 +35,6 @@
 #if IS_XAG
 #include "Xag/XagTelemetry.h"
 #endif
-#include "RemoteLink/RemoteLink.h"
 #include "PowerAlert/PowerAlert.h"
 #include "TempProtectionAlert/TempProtectionAlert.h"
 #include "BmsAlert/BmsAlert.h"
@@ -99,7 +98,6 @@ extern HourMeter hourMeter;
 extern RemainingTime remainingTime;
 extern BmsCapacitySync bmsCapacitySync;
 extern ADS1115 ads1115;
-extern RemoteLink remoteLink;
 extern PowerAlert powerAlert;
 extern TempProtectionAlert tempProtectionAlert;
 extern BmsAlert bmsAlert;
@@ -194,10 +192,6 @@ extern BmsAlert bmsAlert;
 #define POWER_ALERT_BEEP_INTERVAL_MS 10000
 
 // ========== SOUND ==========
-// Repeat interval for the audible warning during the wireless failsafe ramp
-// window (500ms-3s of link loss). Short enough to give several warnings
-// before the 3s disarm.
-#define SOUND_LINK_LOSS_INTERVAL_MS 500
 
 // How long SoundState::FaultDisarm keeps sounding after an unrequested
 // disarm. Re-arming clears it immediately (setArmed() resets the latched

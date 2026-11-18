@@ -3,13 +3,10 @@
 #include "../Throttle/Throttle.h"
 #include "../Power/Power.h"
 #include "../Sound/Sound.h"
-#include "../RemoteLink/RemoteLink.h"
-#include "../RemoteLink/RemoteLinkProtocol.h"
 
 extern Throttle throttle;
 extern Power power;
 extern Sound sound;
-extern RemoteLink remoteLink;
 
 PowerAlert::PowerAlert() : activeCauses_(0) {}
 
@@ -18,6 +15,5 @@ void PowerAlert::handle() {
 
     if (logic_.update(throttle.isArmed(), activeCauses_, millis(), POWER_ALERT_BEEP_INTERVAL_MS)) {
         sound.play(SoundEvent::PowerAlert);
-        remoteLink.requestBeep(RemoteBeep::PowerAlert);
     }
 }
