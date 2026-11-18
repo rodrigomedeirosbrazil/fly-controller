@@ -1,4 +1,5 @@
 #include "BatteryMonitor.h"
+#include "BatteryRecalibrationLogic.h"
 #include "CapacityRescale.h"
 #include "../config.h"
 #include "../Telemetry/TelemetryAvailability.h"
@@ -14,7 +15,6 @@ BatteryMonitor::BatteryMonitor() {
     remainingMilliAh = 0;
     lastCoulombTs = 0;
     coulombRemainderMaMs = 0;
-    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::init() {
@@ -24,8 +24,19 @@ void BatteryMonitor::init() {
     remainingMilliAh = batteryCapacityMilliAh;
 }
 
-void BatteryMonitor::update() {
+void BatteryMonitor::update(bool motorRunning) {
     updateUsableCapacity();
+
+    const BatteryRecalibrationInput in = {millis(), motorRunning, telemetry.isBatteryVoltageValid()};
+    const BatteryRecalibration action = recalibration.tick(in);
+    if (action == BatteryRecalibration::Boot) {
+        recalibrateFromVoltage(true);
+        coulombRemainderMaMs = 0;
+    } else if (action == BatteryRecalibration::Rest) {
+        recalibrateFromVoltage(!isCurrentAvailable());
+        coulombRemainderMaMs = 0;
+    }
+
     updateCoulombCount();
 }
 
@@ -34,35 +45,16 @@ void BatteryMonitor::updateCoulombCount() {
 
     if (!isCurrentAvailable()) {
         lastCoulombTs = currentTs;
-        zeroCurrentStartMs = 0;
         return;
     }
 
     // Initialize timestamp on first call
     if (lastCoulombTs == 0) {
         lastCoulombTs = currentTs;
-        zeroCurrentStartMs = 0;
-        recalibrateFromVoltage();
         return;
     }
 
-    // Check if we should recalibrate from voltage (no load condition)
     const uint32_t currentMa = telemetry.getBatteryCurrentMilliAmps();
-    if (currentMa <= BATTERY_RECALIBRATION_CURRENT_MA) {
-        if (zeroCurrentStartMs == 0) {
-            zeroCurrentStartMs = currentTs;
-        } else if (currentTs - zeroCurrentStartMs >= BATTERY_RECALIBRATION_STABLE_MS) {
-            recalibrateFromVoltage();
-            coulombRemainderMaMs = 0;
-            lastCoulombTs = currentTs;
-            // Clear the window so recalibration only fires once per stop event.
-            // It will re-arm the next time current rises above the threshold and drops back.
-            zeroCurrentStartMs = 0;
-            return;
-        }
-    } else {
-        zeroCurrentStartMs = 0;
-    }
 
     // Calculate time delta in milliseconds
     unsigned long deltaMs = currentTs - lastCoulombTs;
@@ -200,26 +192,27 @@ uint32_t BatteryMonitor::usableMahFromVoltage(uint16_t batteryMilliVolts) const 
     return ((uint32_t)scaledSocFromVoltage(batteryMilliVolts) * usableCapacityMilliAh) / 100U;
 }
 
-void BatteryMonitor::recalibrateFromVoltage() {
-    if (!telemetry.hasData()) {
+void BatteryMonitor::recalibrateFromVoltage(bool trustVoltageFully) {
+    if (!telemetry.isBatteryVoltageValid()) {
         return;
     }
 
     uint16_t batteryMilliVolts = telemetry.getBatteryVoltageMilliVolts();
     uint32_t voltageBasedRemaining = remainingMahFromScaledSoc(scaledSocFromVoltage(batteryMilliVolts));
 
-    if (isCurrentAvailable()) {
-        // Current available: voltage recalibration is only used as a downward correction.
-        // When the motor stops, battery voltage recovers (IR drop disappears), making
-        // voltage-based SoC appear higher than the true discharge state. Pulling
-        // remainingMilliAh upward in that case would corrupt the coulomb count, so
-        // we only nudge downward — trusting coulomb counting when voltage looks better.
+    if (trustVoltageFully) {
+        // Boot (the count has no history yet) or no current source: voltage is
+        // all we have, so it sets the count outright.
+        remainingMilliAh = voltageBasedRemaining;
+    } else {
+        // Rest with current available: voltage recalibration is only a downward
+        // correction. When the motor stops, battery voltage recovers (IR drop
+        // disappears), making voltage-based SoC appear higher than the true
+        // discharge state. Pulling remainingMilliAh upward would corrupt the
+        // coulomb count, so we only nudge downward.
         if (voltageBasedRemaining < remainingMilliAh) {
             remainingMilliAh = (remainingMilliAh * 9 + voltageBasedRemaining) / 10;
         }
-    } else {
-        // No current source available: voltage is all we have.
-        remainingMilliAh = voltageBasedRemaining;
     }
 
     if (remainingMilliAh > batteryCapacityMilliAh) {
@@ -283,7 +276,6 @@ void BatteryMonitor::setCapacity(uint16_t mAh) {
     updateUsableCapacity();
     remainingMilliAh = mAh;  // Reset to full charge
     coulombRemainderMaMs = 0;
-    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::setBmsCapacity(uint16_t mAh) {
@@ -298,7 +290,6 @@ void BatteryMonitor::setBmsCapacity(uint16_t mAh) {
 void BatteryMonitor::resetToFullCharge() {
     remainingMilliAh = batteryCapacityMilliAh;
     coulombRemainderMaMs = 0;
-    zeroCurrentStartMs = 0;
 }
 
 void BatteryMonitor::updateUsableCapacity() {
