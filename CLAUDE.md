@@ -2,9 +2,6 @@
 
 ESP32-C3 Arduino/PlatformIO firmware for intelligent drone/UAV flight control. Supports three ESC types via three build targets.
 
-The wireless remote-throttle firmware that pairs with this controller lives in a separate
-repo, [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
-
 ## Build System
 
 **Platform:** PlatformIO · **Board:** `lolin_c3_mini` (ESP32-C3) · **Framework:** Arduino
@@ -58,7 +55,6 @@ src/
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
 ├── Power/                    # Available-power calculation + throttle ramp limiting
-├── RemoteLink/               # ESP-NOW remote-throttle link + host-tested failsafe logic
 ├── Sensors/                  # BatteryVoltageSensor (XAG voltage divider)
 ├── Settings/                 # Persistent config via ESP32 Preferences
 ├── Sound/                    # Layered audio policy: event queue + persistent state
@@ -128,7 +124,8 @@ while (canbus.receive(&msg)) {
 - **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
 - **XAG wake-up:** 1.5 s at 5% PWM before jumping directly to target when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
 - **Sensor validity:** motor temp, ESC temp, and battery voltage each have a real validity check (`Temperature`/`BatteryVoltageSensor`'s `isValid()`, `SensorReadingValidity`, host-tested) instead of trusting every reading.
-- **Temperature sensors never cut the motor:** motor/ESC temp derating applies only while the *configured* source reads valid — for motor temp on Tmotor that is `Settings::getMotorTempSource()` (CAN, or NTC when forced); the CAN→NTC fallback is shown to the pilot but never used for derating. When it stops, derating stops on that tick and `TempProtectionMonitor` (host-tested) flips the protection to *suspended* after 2 s (`TEMP_PROTECTION_DEBOUNCE_MS`, both edges). `TempProtectionAlert` (host-tested `TempProtectionAlertLogic`) then alarms while armed: a falling two-note motif at 0, 10, 30, 60 s and every 60 s after, `RemoteBeep::Alert` on the remote, and a rising motif once when every protection is back. Suspended state is in `TELEMETRY.flags` (`MotorTempProtectionOff`/`EscTempProtectionOff`). `MOT ERR`/`ESC ERR`/`MOT SRC` are retired and never emitted.
+- **Temperature sensors never cut the motor:** motor/ESC temp derating applies only while the *configured* source reads valid — for motor temp on Tmotor that is `Settings::getMotorTempSource()` (CAN, or NTC when forced); the CAN→NTC fallback is shown to the pilot but never used for derating. When it stops, derating stops on that tick and `TempProtectionMonitor` (host-tested) flips the protection to *suspended* after 2 s (`TEMP_PROTECTION_DEBOUNCE_MS`, both edges). `TempProtectionAlert` (host-tested `TempProtectionAlertLogic`) then alarms while armed: a falling two-note motif at 0, 10, 30, 60 s and every 60 s after, and a rising motif once when every protection is back. Suspended state is in `TELEMETRY.flags` (`MotorTempProtectionOff`/`EscTempProtectionOff`). `MOT ERR`/`ESC ERR`/`MOT SRC` are retired and never emitted.
+- **Wired throttle failsafe:** zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately through `ThrottleSignalLogic` (host-tested; generic, kept for the day a second source returns). The disarm is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `TELEMETRY.disarmReason` and shown by fly-app as a persistent red chip until the pilot fixes the fault and re-arms.
 - **Battery arm-time contract:** arming opens `SignalArmContract` (host-tested) for battery voltage only: valid at arm and later invalid mid-flight disarms (`DisarmReason::BatteryVoltageLost`); invalid at arm disables battery limiting for the whole session. The snapshot is taken by the first `Power::checkSignalLoss()` rather than inside `onArmed()` (so it can't straddle two telemetry samples), and the disarm is debounced by `SIGNAL_LOSS_GRACE_MS` (2 s) — see `src/CLAUDE.md` under Power.
 
 ## Settings (Persistent)
@@ -139,7 +136,7 @@ All tunable parameters live in `Settings/` and are stored via `ESP32 Preferences
 
 `BmsAlert` (`src/BmsAlert/`) raises three informational alerts from BMS data: **low cell** (min cell at or under the per-cell cutoff *and* cell delta above a gate), **high delta** (delta above a maximum) and **high temperature** (BMS max probe temperature at or above a limit). The per-cell cutoff is `Settings::getBatteryMinVoltage()` divided by the cell count the BMS reports (`BluetoothBms::getCellCount()`, never `BATTERY_CELL_COUNT`); cell count 0 disables low cell. Defaults: delta gate 100 mV, max delta 200 mV, temp limit 55 C (ranges 20-500 mV, 50-1000 mV, 30-80 C, persisted in `Settings`). Hysteresis: low cell exits at cell >= cutoff + 50 mV or delta < gate - 10 mV; delta exits 10 mV under the max; temperature exits 3 C under the limit. Every edge is debounced 3 s (`BMS_ALERT_DEBOUNCE_MS`), except that unavailable BMS data clears the alerts at once. Availability alone is enough for that: every BMS driver clears its readings when the link drops (see `src/CLAUDE.md`, BluetoothBms).
 
-Sound plays only while armed, reusing `TempProtectionAlertLogic`'s cadence (0, 10, 30, 60 s, then every 60 s, and a rising "all clear" motif when the mask returns to zero) with its own motif (`SoundEvent::BmsAlert`, three long 2200 Hz pulses) and `RemoteBeep::Alert` on the remote. The bitmask is exposed by `getActiveAlerts()` regardless of armed state. **These alerts never reach `Power`: they never limit the motor and never disarm.** The decision logic is `src/BmsAlert/BmsAlertLogic.h`, host-tested in `test/BmsAlertLogicTest.cpp`.
+Sound plays only while armed, reusing `TempProtectionAlertLogic`'s cadence (0, 10, 30, 60 s, then every 60 s, and a rising "all clear" motif when the mask returns to zero) with its own motif (`SoundEvent::BmsAlert`, three long 2200 Hz pulses) The bitmask is exposed by `getActiveAlerts()` regardless of armed state. **These alerts never reach `Power`: they never limit the motor and never disarm.** The decision logic is `src/BmsAlert/BmsAlertLogic.h`, host-tested in `test/BmsAlertLogicTest.cpp`.
 
 ## Power alert
 
@@ -174,17 +171,11 @@ The BMS value is in `TELEMETRY` (`bmsDesignCapacityMah`, validity
 `BmsCapacity`); `CFG_GET POWER` returns the configured value. Decision logic is
 host-tested in `test/BmsCapacitySyncLogicTest.cpp`.
 
-## Wireless Throttle (ESP-NOW)
+## Wireless remote (removed)
 
-An optional second ESP32 (the **remote throttle**, firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) reads a Hall sensor + button and sends them to the controller over **ESP-NOW** (channel 1, coexisting with BLE on the C3's single radio; WiFi runs in STA mode only to carry ESP-NOW). The wire contract (`src/RemoteLink/RemoteLinkProtocol.h`) is duplicated byte-for-byte in the fly-throttle repo (its `src/RemoteLinkProtocol.h`) — there is no shared package or submodule. Both copies carry a `REMOTE_LINK_PROTOCOL_VERSION` constant; bump it in both repos whenever the wire format changes, and update `test/RemoteLinkProtocolTest.cpp` in both if the packet layout itself changes size.
+The ESP-NOW remote throttle and WiFi were removed on 2026-11-17 so BLE has the single 2.4 GHz radio to itself. To bring them back, restore from git history: the last commit before the removal PR on branch `remove-remote-ble-link` (`RemoteLink/`, its protocol header and tests, the wireless branches of `Throttle`/`Button`, `Settings` `thrSrc`/`rmtMac`). The firmware is wired-only now; nothing reads the stale `thrSrc`/`rmtMac` NVS keys, so a unit that had wireless saved boots wired.
 
-- **Source selection:** `Settings::getThrottleSource()` (wired/wireless), set from fly-app (`CFG_SET` System). In wireless mode the controller's `Throttle` `ReadFn` returns the last Hall value received over the link, and the existing AceButton runs on the remote's forwarded **raw button state** (via `SourceSwitchButtonConfig::readButton`) — so calibration and the arming gesture are identical wired/wireless. The remote stays "dumb"; the controller owns all logic.
-- **Signal validity & failsafe (`Throttle/ThrottleSignalLogic.h`, host-tested):** a single fault-escalation state machine shared by both wired and wireless throttle sources, parameterized per source. Wireless: no packet for >500 ms → ramp throttle to 0 (stay armed, via the ReadFn feeding 0); >3 s → disarm. Wired: zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately, no ramp-to-zero step. `RemoteLink::isLinkFresh()` supplies the raw "packet arrived recently" signal that feeds the wireless config; `RemoteLink/RemoteLinkLogic.h` no longer exists (absorbed into `ThrottleSignalLogic`). A disarm from either path is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `TELEMETRY.disarmReason` and shown by fly-app as a persistent red chip until the pilot fixes the fault and re-arms.
-- **Pairing:** `REMOTE_PAIR` (from fly-app) arms pairing; the next remote heard is saved (MAC in `Settings`). The remote persists the controller MAC in NVS and enters pairing by holding its button while unpaired.
-- **Radio:** `RemoteLink::setupRadio()` runs WiFi in STA mode (never associated) on channel 1 and moves the softAP MAC (base + 1) onto STA, because remotes paired while the controller still ran a WiFi AP know it by that address. WiFi stays up for the whole session (ESP-NOW shares the radio and must not be torn down). TX power is pinned to 8.5 dBm — the ESP32-C3 Supermini is unstable at full power (commit f06aa0d). If setting the MAC fails it is logged on serial and the link continues on the base MAC (paired remotes would need re-pairing).
-- **Component:** `src/RemoteLink/` (ESP-NOW transport, beep forwarding, pairing; also holds this repo's copy of `RemoteLinkProtocol.h` — see above). Both buzzers stay active — key beeps are forwarded to the remote via `remoteLink.requestBeep()`. The remote's `Armed`/`Stop`/`Disarmed` commands now mirror the controller's own armed+stopped state (`updateSoundState()` in `main.cpp`, using the same `throttle.isEngaged()` hysteresis as `Sound`'s `ArmedIdle` state) — the two used to disagree, with the remote beeping on armed alone.
-
-Remote pinout (ESP32-C3 Supermini): Hall=GPIO0, button=GPIO5, buzzer=GPIO6, red LED=GPIO7 (armed), green LED=GPIO10 (disarmed). Pure decision logic (LED state machine, link-loss, failsafe) lives in host-testable headers tested with `c++ -std=c++17` like `test/PowerTest.cpp`.
+The fly-app contract was **soft-removed**: fields and opcodes are retired, not deleted, so existing app builds keep working. `Capability::RemoteLink` (`0x0008`) is never set; `REMOTE_PAIR`/`REMOTE_FORGET` (`0x24`/`0x25`) answer `ErrBadOp`; `CFG_GET SYSTEM` returns `throttleSource = 0` and a zero `remoteMac`, and `CFG_SET SYSTEM` answers `ErrBadArg` for any `throttleSource != 0`; `DisarmReason::ThrottleLinkLost` (`LINK ERR`) is reserved and never produced. `CONTROL_PROTOCOL_VERSION` was not bumped. The remote's firmware lives in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo, which is unchanged.
 
 ## BLE Control Service (fly-app)
 
@@ -214,6 +205,23 @@ owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
 `BluetoothBms` uses to suppress it during a scan). Without that, Bluedroid
 stops advertising on the first connection and XCTrack and the app can never
 both be connected.
+
+**Link policy** (pure decisions in `src/BleServerHost/BleLinkPolicy.h`, host-tested in
+`test/BleLinkPolicyTest.cpp`; `BleServerHost` wires them to Bluedroid). A body between
+the phone and the controller fades the link for a second or two, and iOS defaults to a
+~720 ms supervision timeout, so on every peripheral-role connect
+(`link_role == 1`) the controller asks the phone for 30-45 ms interval, latency 0 and a
+6 s timeout (`esp_ble_gap_update_conn_params`; inside Apple's accessory rules). If the
+phone later applies a timeout under 6 s the GAP handler re-requests **once** per link,
+never more, so there is no tug-of-war. The BMS client link is opened with its own
+preferred params (60-100 ms, latency 0, 6 s; `esp_ble_gap_set_prefer_conn_params` before
+each `connect()` in the JBD/Daly/JK drivers), since it is polled every 2 s.
+Advertising runs at 20-40 ms with no phone connected and 250-400 ms once one is, which
+cuts its airtime from roughly 10% to 1% while still letting a second central find us.
+Links are counted by **peripheral role only**: BMS client links also fire the server's
+`onConnect`/`onDisconnect`, so `getConnectedCount()` is never used for this. That fixed a
+bug where, with a BMS connected, the "last phone left" MTU reset never ran and a larger
+MTU carried over to the next phone. All start/stop advertising calls stay on the loop task.
 
 Four characteristics for everything but firmware images — a new feature is a new opcode,
 not a new characteristic: `INFO` (read), `TELEMETRY` (notify, a packed 79-byte

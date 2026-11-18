@@ -10,11 +10,9 @@ ESP32-C3 (Lolin C3 Mini) Arduino/PlatformIO firmware for an intelligent drone/UA
 - `lolin_c3_mini_xag` — PWM-only ESC, analog sensors, no CAN bus
 - `lolin_c3_mini_hobbywing` — PWM throttle, receive-only DroneCAN telemetry over CAN bus at 500 kbps (`CONTROLLER_TYPE` 2, `IS_HOBBYWING`)
 
-A wireless remote-throttle firmware that pairs with this controller lives in a separate repo: [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle).
-
 ## Read these next
 
-- [`CLAUDE.md`](./CLAUDE.md) — **source of truth**, detailed. Build system, project structure, key patterns, pinouts, power & safety logic, BLE control service, ESP-NOW remote link. (Other agents: if your tool does not auto-load `CLAUDE.md`, read it manually before doing anything.)
+- [`CLAUDE.md`](./CLAUDE.md) — **source of truth**, detailed. Build system, project structure, key patterns, pinouts, power & safety logic, BLE control service and link policy, the removed wireless remote note. (Other agents: if your tool does not auto-load `CLAUDE.md`, read it manually before doing anything.)
 - [`AGENTS.md`](./AGENTS.md) — cross-agent conventions (build commands, coding rules, file discovery). Start here if you are not Claude Code.
 - [`README.md`](./README.md) — human-facing overview, system architecture, hardware, features.
 - [`platformio.ini`](./platformio.ini) — build environments and library dependencies.
