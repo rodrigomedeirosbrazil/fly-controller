@@ -17,6 +17,11 @@
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
+// Connection-interval hint in the advertising payload, 1.25 ms units
+// (30-45 ms). Matches BleLinkPolicy::kPhoneConnParams; iOS ignores it.
+static const uint16_t PREFERRED_CONN_INTERVAL_MIN = 0x18;
+static const uint16_t PREFERRED_CONN_INTERVAL_MAX = 0x24;
+
 extern Throttle throttle;
 extern Power power;
 extern Temperature motorTemp;
@@ -77,8 +82,8 @@ void Xctod::init() {
     BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);
-    pAdvertising->setMaxPreferred(0x12);
+    pAdvertising->setMinPreferred(PREFERRED_CONN_INTERVAL_MIN);
+    pAdvertising->setMaxPreferred(PREFERRED_CONN_INTERVAL_MAX);
 
     Serial.println("Xctod NUS service registered");
 }

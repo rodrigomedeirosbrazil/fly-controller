@@ -3,6 +3,8 @@
 
 #include <BLEDevice.h>
 #include <BLEServer.h>
+#include <atomic>
+#include <cstdint>
 
 // Owns the BLE radio: device init, TX power caps, the BLEServer, and the
 // advertising policy. Xctod and BleControl each register a service on the
@@ -57,11 +59,27 @@ public:
     // Called from the server callbacks, on the Bluedroid task.
     void resetNegotiatedMtu() { negotiatedMtu_ = 23; }
 
+    // Phone (peripheral-role) links currently up. BMS links, where we are the
+    // central, are not counted. Written on the Bluedroid task, read on the
+    // loop task.
+    uint8_t getPeripheralLinkCount() const { return peripheralLinkCount_.load(); }
+
+    // Called from the server callbacks, on the Bluedroid task.
+    void publishPeripheralLinkCount(uint8_t count) { peripheralLinkCount_.store(count); }
+
 private:
+    // Starts advertising with the interval BleLinkPolicy picks for the current
+    // peripheral link count. Loop task only.
+    void startAdvertisingWithPolicy();
+
     BLEServer* server_ = nullptr;
     bool advertisingEnabled_ = false;
     volatile bool connectionChanged_ = false;
     volatile uint16_t negotiatedMtu_ = 23;
+    std::atomic<uint8_t> peripheralLinkCount_{0};
+    // Last interval handed to the advertiser; 0 until the first start.
+    uint16_t appliedAdvMin_ = 0;
+    uint16_t appliedAdvMax_ = 0;
 };
 
 #endif // BLE_SERVER_HOST_H

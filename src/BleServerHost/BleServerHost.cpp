@@ -1,16 +1,55 @@
 #include "BleServerHost.h"
 #include "../config.h"
 #include "../BleControl/BleControl.h"
+#include "BleLinkPolicy.h"
 #include <esp_bt.h>
+#include <esp_gap_ble_api.h>
 
 namespace {
+
+// Touched only from Bluedroid-task callbacks (GATTS connect/disconnect and GAP
+// events are delivered on the same BTC task), so it needs no lock. The loop
+// task reads only the atomic count published through the host.
+BleLinkPolicy::PeripheralLinks gPeripheralLinks;
+
+void requestPhoneConnParams(esp_bd_addr_t bda) {
+    esp_ble_conn_update_params_t params = {};
+    memcpy(params.bda, bda, sizeof(esp_bd_addr_t));
+    params.min_int = BleLinkPolicy::kPhoneConnParams.minInterval;
+    params.max_int = BleLinkPolicy::kPhoneConnParams.maxInterval;
+    params.latency = BleLinkPolicy::kPhoneConnParams.latency;
+    params.timeout = BleLinkPolicy::kPhoneConnParams.timeout;
+    esp_ble_gap_update_conn_params(&params);
+}
+
+// Re-asks once when the phone's own renegotiation lands under the 6 s timeout.
+void onGapEvent(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t* param) {
+    if (event != ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT || param == nullptr) {
+        return;
+    }
+    if (param->update_conn_params.status != ESP_BT_STATUS_SUCCESS) {
+        return;
+    }
+    if (gPeripheralLinks.shouldReRequest(param->update_conn_params.bda,
+                                         param->update_conn_params.timeout)) {
+        requestPhoneConnParams(param->update_conn_params.bda);
+    }
+}
 
 class HostServerCallbacks : public BLEServerCallbacks {
 public:
     explicit HostServerCallbacks(BleServerHost* host) : host_(host) {}
 
-    void onConnect(BLEServer* server) override {
+    // The library calls both onConnect overloads; only this param overload
+    // acts, because it carries the link role and the peer address.
+    void onConnect(BLEServer* server, esp_ble_gatts_cb_param_t* param) override {
+        if (param == nullptr || param->connect.link_role != BleLinkPolicy::kLinkRolePeripheral) {
+            return;  // a BMS link (we are the central) is not a phone
+        }
         Serial.println("BLE connected");
+        gPeripheralLinks.onConnect(param->connect.remote_bda, param->connect.link_role);
+        host_->publishPeripheralLinkCount(gPeripheralLinks.count());
+        requestPhoneConnParams(param->connect.remote_bda);
         host_->onConnectionChanged();
     }
 
@@ -18,17 +57,19 @@ public:
     // reset needs. The library calls both overloads, so the plain one is left
     // to the no-op base rather than duplicating the work here.
     void onDisconnect(BLEServer* server, esp_ble_gatts_cb_param_t* param) override {
-        Serial.println("BLE disconnected");
-        if (param != nullptr) {
-            bleControl.onCentralDisconnected(param->disconnect.conn_id);
+        if (param == nullptr || param->disconnect.link_role != BleLinkPolicy::kLinkRolePeripheral) {
+            return;  // a BMS link dropping is none of the phone's business
         }
-        // The library fires this callback BEFORE it decrements its connected
-        // count, so "last central leaving" is a count of 1, not 0. Forget the
-        // MTU then: replies are sized from it, and a stale larger value would
-        // make them exceed the next central's link.
-        if (server != nullptr && server->getConnectedCount() <= 1) {
+        Serial.println("BLE disconnected");
+        bleControl.onCentralDisconnected(param->disconnect.conn_id);
+        // Forget the MTU when the last phone leaves: replies are sized from
+        // it, and a stale larger value would make them exceed the next
+        // phone's link. Counting peripheral links only keeps a live BMS link
+        // from masking that.
+        if (gPeripheralLinks.onDisconnect(param->disconnect.remote_bda, param->disconnect.link_role)) {
             host_->resetNegotiatedMtu();
         }
+        host_->publishPeripheralLinkCount(gPeripheralLinks.count());
         host_->onConnectionChanged();
     }
 
@@ -46,20 +87,15 @@ private:
 
 void BleServerHost::init(const char* deviceName) {
     BLEDevice::init(deviceName);
+    BLEDevice::setCustomGapHandler(onGapEvent);
 
-    // Cap BLE TX power. The ESP32-C3 Supermini browns out under full-power
-    // radio (the WiFi TX used by ESP-NOW is already pinned to 8.5 dBm), and the default BLE power
-    // compounds the current spike now that an always-on BMS connection shares
-    // the radio with the advertiser/notifier. All peers (BMS, phone, remote)
-    // sit within ~2 m, but 0 dBm -- below the chip's +3 dBm default -- proved
-    // too little for the phone: the pilot's body and a pocket between the two
-    // cost far more than free-space distance, and the fly-app kept dropping
-    // the connection. Links and advertising run at +9 dBm, level with the
-    // 8.5 dBm WiFi cap already proven stable on this board. Going higher buys
-    // nothing: a phone transmits at roughly that level, so past it the
-    // phone-to-controller direction becomes the limit. Scan stays at 0 dBm
-    // since it only carries scan requests. DEFAULT also applies to connection
-    // handles that aren't set explicitly.
+    // BLE TX power. +9 dBm is the precompiled Arduino C3 default
+    // (CONFIG_BT_CTRL_DFT_TX_POWER_LEVEL_P9), set explicitly here for clarity.
+    // Higher levels risk a brownout on the ESP32-C3 Supermini and were not
+    // measured. Lower power (0 dBm) proved too little for the phone: the
+    // pilot's body and a pocket cost far more than free-space distance.
+    // Scan stays at 0 dBm since it only carries scan requests. DEFAULT also
+    // applies to connection handles that aren't set explicitly.
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,     ESP_PWR_LVL_P9);
     esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,    ESP_PWR_LVL_N0);
@@ -72,6 +108,21 @@ void BleServerHost::init(const char* deviceName) {
     server_->setCallbacks(new HostServerCallbacks(this));
 }
 
+void BleServerHost::startAdvertisingWithPolicy() {
+    const BleLinkPolicy::AdvInterval interval =
+        BleLinkPolicy::advIntervalFor(peripheralLinkCount_.load());
+    BLEAdvertising* advertising = BLEDevice::getAdvertising();
+    if (interval.min != appliedAdvMin_ || interval.max != appliedAdvMax_) {
+        // The new interval only takes effect on a fresh start.
+        BLEDevice::stopAdvertising();
+        advertising->setMinInterval(interval.min);
+        advertising->setMaxInterval(interval.max);
+        appliedAdvMin_ = interval.min;
+        appliedAdvMax_ = interval.max;
+    }
+    BLEDevice::startAdvertising();
+}
+
 void BleServerHost::handle() {
     if (!connectionChanged_) {
         return;
@@ -82,7 +133,7 @@ void BleServerHost::handle() {
     connectionChanged_ = false;
 
     if (advertisingEnabled_) {
-        BLEDevice::startAdvertising();
+        startAdvertisingWithPolicy();
     }
 }
 
@@ -93,7 +144,7 @@ void BleServerHost::setAdvertisingEnabled(bool enabled) {
     advertisingEnabled_ = enabled;
 
     if (enabled) {
-        BLEDevice::startAdvertising();
+        startAdvertisingWithPolicy();
     } else {
         BLEDevice::stopAdvertising();
     }
