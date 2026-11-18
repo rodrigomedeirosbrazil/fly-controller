@@ -78,7 +78,7 @@ O sistema desarma sozinho quando a leitura do acelerador ou da tensão da bateri
 - **Acelerador com fio:** leitura fora da faixa calibrada (cabo do sensor Hall rompido ou solto) ou falha de comunicação com o ADS1115 desarma imediatamente.
 - **Tensão da bateria:** se o sensor estava válido ao armar e fica inválido por 2 segundos seguidos durante o voo, o sistema desarma. Falhas mais curtas são ignoradas.
 
-Nos três casos o buzzer toca um alarme contínuo, mais rápido e agudo que o beep de desarme manual. Ele para quando você arma de novo, ou sozinho depois de 1 minuto. O Fly App mostra o código da falha em vermelho na barra de status até o próximo armamento (veja Painel de voo). Corrija a causa antes de armar de novo.
+Nos dois casos o buzzer toca um alarme contínuo, mais rápido e agudo que o beep de desarme manual. Ele para quando você arma de novo, ou sozinho depois de 1 minuto. O Fly App mostra o código da falha em vermelho na barra de status até o próximo armamento (veja Painel de voo). Corrija a causa antes de armar de novo.
 
 Se o sensor de tensão já estiver inválido no momento de armar, o sistema arma, mas a proteção da bateria fica desligada durante todo o voo.
 
