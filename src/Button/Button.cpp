@@ -4,12 +4,9 @@
 #include "Button.h"
 #include "../Throttle/Throttle.h"
 #include "../Sound/Sound.h"
-#include "../RemoteLink/RemoteLink.h"
-#include "../Settings/Settings.h"
 
 extern Throttle throttle;
 extern Sound sound;
-extern Settings settings;
 
 Button::Button(
   uint8_t pin
@@ -20,7 +17,7 @@ Button::Button(
 void Button::check()
 {
     uint32_t now = millis();
-    ButtonGestureOutput out = logic_.update(now, readRawPressed(now), throttle.isArmed(), throttle.isEngaged());
+    ButtonGestureOutput out = logic_.update(now, readRawPressed(), throttle.isArmed(), throttle.isEngaged());
     powerScale_ = out.powerScale;
     armCharge_ = out.armCharge;
 
@@ -39,13 +36,8 @@ void Button::check()
     }
 }
 
-bool Button::readRawPressed(uint32_t nowMs)
+bool Button::readRawPressed()
 {
-    if (settings.getThrottleSource() == ThrottleSourceWireless) {
-        // A stale link reads as released — the link failsafe stays the sole
-        // owner of that path and cannot race the gesture.
-        return remoteLink.remoteButtonPressed() && remoteLink.isLinkFresh(nowMs);
-    }
     // Active-low to match INPUT_PULLUP: pressed -> LOW.
     return digitalRead(pin) == LOW;
 }

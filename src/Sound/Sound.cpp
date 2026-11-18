@@ -37,10 +37,6 @@ Sound::Sound() :
   logic_.setEventPattern(SoundEvent::ButtonClick,         {kDefaultFreqHz, 50,  0,   1});
   logic_.setEventPattern(SoundEvent::VolumePreview,       {kDefaultFreqHz, 120, 0,   1});
   logic_.setEventPattern(SoundEvent::PowerAlert,          {kPowerFreqHz,   100, 60,  3});
-  // New: audible warning during the wireless failsafe ramp window (500ms-3s
-  // of link loss), where today there is silence. Short and sharp so it's
-  // unmistakably different from every other pattern.
-  logic_.setEventPattern(SoundEvent::LinkLoss,            {kPowerFreqHz,   80,  60,  2});
   // Temperature protection suspended: a long falling "nee-naw", unlike every
   // short same-pitch beep above. Restored: a short rising "bip-bip". Each
   // note is one event (reps=1, so offMs never plays); TempProtectionAlert

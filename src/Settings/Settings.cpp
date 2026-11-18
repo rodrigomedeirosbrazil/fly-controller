@@ -63,8 +63,6 @@ Settings::Settings() {
     bmsAlertDeltaGateMv = BMS_ALERT_DEFAULT_DELTA_GATE_MV;
     bmsAlertMaxDeltaMv = BMS_ALERT_DEFAULT_MAX_DELTA_MV;
     bmsAlertTempLimitC = BMS_ALERT_DEFAULT_TEMP_C;
-    throttleSource = ThrottleSourceWired;
-    remoteMac = "";
     mutex_ = nullptr;
 #if IS_TMOTOR
     motorTempSource = MotorTempSourceCan;
@@ -149,10 +147,6 @@ void Settings::load() {
         bmsAlertTempLimitC = BMS_ALERT_DEFAULT_TEMP_C;
     }
 
-    // Wireless throttle source + paired remote MAC
-    throttleSource = preferences.getUChar("thrSrc", ThrottleSourceWired);
-    if (throttleSource > ThrottleSourceWireless) throttleSource = ThrottleSourceWired;
-    remoteMac = preferences.getString("rmtMac", "");
 #if IS_TMOTOR
     motorTempSource = (MotorTempSource)preferences.getUChar("motTmpSrc", MotorTempSourceCan);
     if (motorTempSource > MotorTempSourceAds1115) motorTempSource = MotorTempSourceCan;
@@ -208,8 +202,6 @@ void Settings::save() {
     preferences.putUInt("bmsAlGateMv", bmsAlertDeltaGateMv);
     preferences.putUInt("bmsAlMaxDMv", bmsAlertMaxDeltaMv);
     preferences.putInt("bmsAlTempC", bmsAlertTempLimitC);
-    preferences.putUChar("thrSrc", throttleSource);
-    preferences.putString("rmtMac", remoteMac);
 #if IS_TMOTOR
     preferences.putUChar("motTmpSrc", (uint8_t)motorTempSource);
 #endif
@@ -365,37 +357,6 @@ uint8_t Settings::getBuzzerVolume() const {
 void Settings::setBuzzerVolume(uint8_t percent) {
     if (percent > 100) percent = 100;
     buzzerVolume = percent;
-}
-
-uint8_t Settings::getThrottleSource() const {
-    return throttleSource;
-}
-
-void Settings::setThrottleSource(uint8_t source) {
-    if (source > ThrottleSourceWireless) {
-        source = ThrottleSourceWired;
-    }
-    throttleSource = source;
-}
-
-String Settings::getRemoteMac() const {
-    // String is a heap-allocated object — protect against concurrent access from another task.
-    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
-    String copy = remoteMac;
-    if (mutex_) xSemaphoreGive(mutex_);
-    return copy;
-}
-
-void Settings::setRemoteMac(const char* mac) {
-    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
-    remoteMac = (mac != nullptr) ? String(mac) : "";
-    if (mutex_) xSemaphoreGive(mutex_);
-}
-
-void Settings::clearRemoteMac() {
-    if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
-    remoteMac = "";
-    if (mutex_) xSemaphoreGive(mutex_);
 }
 
 uint8_t Settings::getDefaultBuzzerVolume() const {

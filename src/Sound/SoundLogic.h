@@ -30,7 +30,6 @@ enum class SoundEvent : uint8_t {
     ButtonClick,
     VolumePreview,
     PowerAlert,
-    LinkLoss,
     // Temperature protection suspended / restored (TempProtectionAlert). Each
     // is a two-note motif played as two queued events: falling for lost,
     // rising for restored -- a shape no other sound in the catalog has.

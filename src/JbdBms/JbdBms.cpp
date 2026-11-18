@@ -7,6 +7,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <esp_gap_ble_api.h>
+#include "../BluetoothBms/BmsLinkParams.h"
 
 struct BleFrame {
     uint8_t data[16];
@@ -176,6 +177,7 @@ void JbdBms::connectTask(void* arg) {
             self->pClient_ = BLEDevice::createClient();
         }
         BLEAddress addr(mac);
+        applyBmsPreferredConnParams(addr);
         bool connectedOk = self->pClient_ != nullptr
             && self->pClient_->connect(addr, BLE_ADDR_TYPE_PUBLIC);
 

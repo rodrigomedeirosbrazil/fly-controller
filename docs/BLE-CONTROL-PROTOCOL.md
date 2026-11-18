@@ -4,7 +4,7 @@ The **Fly Control** GATT service is the controller's own binary protocol, used
 by the [fly-app](https://github.com/rodrigomedeirosbrazil/fly-app) Flutter
 client. It carries telemetry, configuration, flight logs, firmware update and
 one-off actions. It is the only interface the controller has: the WiFi web
-portal no longer exists.
+portal no longer exists, and there is no WiFi at all.
 
 It exists alongside the Nordic UART service documented in
 [XCTOD-PROTOCOL.md](XCTOD-PROTOCOL.md), which is **append-only**: that CSV
@@ -94,7 +94,7 @@ Capability bits:
 | `0x0001` | CAN telemetry (RPM and current are real) |
 | `0x0002` | Battery voltage sensor present |
 | `0x0004` | Motor temp source is selectable |
-| `0x0008` | Remote throttle link supported |
+| `0x0008` | retired — remote throttle link (ESP-NOW remote removed 2026-11-17); reserved, never set |
 
 `protocolVersion` is a **diagnostic, not a compatibility gate.** It is bumped
 only when an existing field moves or changes meaning — precisely the case the
@@ -239,7 +239,7 @@ Non-zero means `powerPct` is below 100 for that reason.
 | 0 | — | never disarmed (internal sentinel) |
 | 1 | `MANUAL` | pilot disarmed |
 | 2 | `THR ERR` | wired throttle reading invalid |
-| 3 | `LINK ERR` | wireless throttle link lost |
+| 3 | `LINK ERR` | reserved — wireless throttle link lost; never sent since the remote was removed |
 | 4 | `MOT ERR` | retired — motor temp sensor lost mid-flight |
 | 5 | `ESC ERR` | retired — ESC temp sensor lost mid-flight |
 | 6 | `BATT ERR` | battery voltage lost mid-flight |
@@ -334,8 +334,8 @@ watchdog and reboot the controller. In flight that cuts the motor.
 | `0x21` | `BMS_SCAN_START` | — → — (`ErrBusy` if already scanning) |
 | `0x22` | `BMS_SCAN_STATUS` | — → see below |
 | `0x23` | `BMS_DETECT` | `[mac 6]` → `[type u8]` |
-| `0x24` | `REMOTE_PAIR` | — → — |
-| `0x25` | `REMOTE_FORGET` | — → — |
+| `0x24` | `REMOTE_PAIR` | retired — answers `ERR_BAD_OP`, never reuse |
+| `0x25` | `REMOTE_FORGET` | retired — answers `ERR_BAD_OP`, never reuse |
 | `0x26` | `BUZZER_PREVIEW` | `[volume u8]` (0–100) → — |
 | `0x27` | `SET_TIME` | `[epochMs i64]` → — (no PIN; refused while armed) |
 | `0x28` | `PIN_CHANGE` | `[curLen u8][cur…][newLen u8][new…]` → — |
@@ -381,7 +381,7 @@ validated as a pair.
 | Power | 0 | 11 | `uint16` capacityMah, `uint16` minVoltageMv, `uint16` maxVoltageMv, `uint8` powerControlEnabled, `uint16` dividerRatioX100, `uint16` referenceCurrentA (offset 9) |
 | Thermal | 1 | 17 | `int32` motorReductionStartMc, `int32` motorMaxMc, `int32` escReductionStartMc, `int32` escMaxMc, `uint8` motorTempSource |
 | Bms | 2 | 13 | `uint8` bmsType, `uint8[6]` bmsMac, `uint16` lowCellDeltaGateMv (offset 7), `uint16` maxDeltaMv (offset 9), `int16` tempLimitC (offset 11) |
-| System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource, `uint8[6]` remoteMac |
+| System | 3 | 8 | `uint8` buzzerVolume, `uint8` throttleSource (retired, always 0), `uint8[6]` remoteMac (retired, always zero) |
 
 While a BMS reports a nominal capacity (telemetry validity `BmsCapacity`) within 1000–65000 mAh, the firmware uses it for coulomb counting instead of the Power group's `capacityMah`. This is runtime only: `capacityMah` is not changed, `CFG_GET` keeps returning the configured value, and a `CFG_SET` of it is stored and used again whenever no BMS reports a capacity. A client should show `bmsDesignCapacityMah` as the capacity in use while the bit is set and the value is in range.
 
@@ -400,7 +400,7 @@ types cannot be sent raw:
 BMS alert thresholds: `lowCellDeltaGateMv` (the low-cell alert only applies while the cell delta exceeds it) default 100, range 20–500 mV; `maxDeltaMv` default 200, range 50–1000 mV; `tempLimitC` default 55, range 30–80 °C. Out of range is `ERR_BAD_ARG`. There is no ordering check between the gate and the max delta. An older client writing only the first 7 bytes leaves the three thresholds at their stored values.
 
 `bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK. A non-zero type requires a non-zero
-MAC or the write is rejected. `throttleSource`: 0 wired, 1 wireless.
+MAC or the write is rejected. `throttleSource` is retired: `CFG_GET` returns 0 (wired) and `CFG_SET` accepts only 0, anything else is `ERR_BAD_ARG`. `remoteMac` is always zero on read and ignored on write.
 `motorTempSource`: 0 CAN, 1 NTC — only meaningful when the capability bit is
 set.
 
@@ -454,12 +454,25 @@ whether it should be playing at all.
 
 ## Coexistence
 
-The controller's single radio runs WiFi in station mode (never associated) for
-ESP-NOW to the remote throttle, a BLE client to the BMS, and this BLE server. `CONFIG_BT_ACL_CONNECTIONS` is 4,
+The controller's single radio is BLE only (WiFi and ESP-NOW were removed on
+2026-11-17): a BLE client to the BMS and this BLE server. `CONFIG_BT_ACL_CONNECTIONS` is 4,
 so XCTrack and the app can both be connected while the BMS link is up.
 
 Advertising restarts on connect, which is what makes a second central possible
-at all — Bluedroid stops advertising once the first one connects.
+at all — Bluedroid stops advertising once the first one connects. Advertising
+runs at 20–40 ms with no phone connected and slows to 250–400 ms while at least
+one is, which a second central still finds quickly.
+
+**Requested phone connection parameters.** On every connection the controller
+accepts as peripheral, it requests an interval of 30–45 ms, latency 0 and a 6 s
+supervision timeout, which satisfies Apple's accessory rules and Android's
+limits. A body between phone and controller can fade the link for a second or
+two; iOS defaults to a timeout well under that. If the phone later applies a
+timeout under 6 s, the controller re-requests the same parameters **once** per
+connection and never again, so the phone keeps the last word. A client may still
+ask for different parameters (for example high priority during a firmware update).
+The link to the BMS, where the controller is the central, is opened at 60–100 ms,
+latency 0, 6 s.
 
 Advertising is suppressed entirely while a BMS scan runs. A client that
 disconnects during a scan will not find the controller until the scan finishes.

@@ -25,12 +25,12 @@ This directory contains hardware documentation and user-facing manuals for the F
 - Battery: 14S LiPo pack; voltage thresholds configured from the fly-app
 - Three supported ESC/motor builds: `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`, `lolin_c3_mini_hobbywing`
 - Optional BMS: JBD, Daly D2 BLE, or JK (JK02 BLE) connected over Bluetooth
-- There is no web interface or WiFi AP: configuration, logs, firmware update and clock sync go through the fly-app over BLE (see `BLE-CONTROL-PROTOCOL.md`). The radio runs WiFi in STA mode only for ESP-NOW to the remote throttle.
+- There is no web interface or WiFi AP: configuration, logs, firmware update and clock sync go through the fly-app over BLE (see `BLE-CONTROL-PROTOCOL.md`). The radio is BLE only: WiFi and the ESP-NOW remote throttle were removed on 2026-11-17.
 - The fly-app also runs in the browser over Web Bluetooth, at https://rodrigomedeirosbrazil.github.io/fly-app/ — on an iPhone through the Bluefy browser, since Safari has no Web Bluetooth. The manual's "O Fly App" section is the pilot-facing description; keep it in step with the fly-app repo's README.
 
 ## Documentation maintenance guidelines
 
 - When firmware adds or renames a configuration field, or changes the telemetry/INFO structs or opcodes, update `BLE-CONTROL-PROTOCOL.md` (and keep it matching `src/BleControl/ControlProtocol.h`).
 - When a user-visible setting or procedure changes, update `manual/README.md` (its "Configurações" section covers the settings screens).
-- When arm/disarm logic, automatic disarm or calibration behavior changes, update `manual/README.md` in the same change. The manual drifted from the firmware twice before (the #72 arm gesture and the wireless failsafe) because it was edited separately.
+- When arm/disarm logic, automatic disarm or calibration behavior changes, update `manual/README.md` in the same change. The manual drifted from the firmware twice before (the #72 arm gesture and the old wireless failsafe) because it was edited separately.
 - The Schematic and PCB images are static artifacts tied to a specific board revision. Do not replace them without also updating the Gerber zip and noting the new revision date in filenames.

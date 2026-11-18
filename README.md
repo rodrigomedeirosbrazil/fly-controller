@@ -209,7 +209,6 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 - ✅ Direct ESC PWM control
 - ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
 - ✅ Bidirectional CAN bus communication (UAVCAN)
-- ✅ Optional wireless throttle + button over ESP-NOW (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo), with a hybrid link-loss failsafe (ramp to zero, then disarm), fly-app pairing, and status LEDs/buzzer on the remote
 
 ### Monitoring
 - ✅ Bluetooth LE telemetry for apps (XCTRACK)
@@ -249,9 +248,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### Build Environments
 
-The project supports three controller types. An optional wireless remote throttle
-(firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle)
-repo) can replace the wired Hall sensor via ESP-NOW.
+The project supports three controller types.
 
 | Firmware | Environment | Protocol | CAN Bus |
 |------------|-------------|----------|---------|
@@ -409,33 +406,6 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 1. On startup, move throttle to maximum position and hold for 3 seconds
 2. Move throttle to minimum position and hold for 3 seconds
 3. Calibration complete - system is ready to arm
-
-### 8. Wireless Throttle (ESP-NOW) — Pairing
-
-The optional wireless throttle (remote firmware in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo) sends throttle + button to the controller over ESP-NOW. The controller keeps all logic; the remote just forwards its Hall reading and raw button state, and shows status on two LEDs (red = armed, green = disarmed). Both devices must be paired once before use.
-
-**Pairing steps:**
-1. Power on both devices. An **unpaired** remote shows the **red LED blinking**.
-2. Open the **fly-app** and connect to the controller over Bluetooth.
-3. In the app's System settings, set **Throttle source** to **Wireless (ESP-NOW)**. Enter the config PIN and save.
-4. In the same screen, start **Pair remote** (the PIN is required).
-5. On the remote, **hold the button** for ~3 seconds. It enters pairing mode — **red and green LEDs alternate**.
-6. The controller captures the remote's MAC and saves it; the remote learns the controller's MAC (persisted in NVS) and **beeps** to confirm. The app then shows the paired MAC.
-7. Done — the remote shows **green solid** (disarmed). Arm/calibrate exactly as with the wired throttle, using the remote's button and Hall.
-
-**LED reference (remote):**
-
-| State | Red | Green |
-|---|---|---|
-| Unpaired | blinking | off |
-| Pairing mode | alternating | alternating |
-| Paired + disarmed | off | solid |
-| Paired + armed | solid | off |
-| Link lost | blinking together | blinking together |
-
-**Unpairing / re-pairing:** in the fly-app, use **Esquecer remote** (`REMOTE_FORGET`) to clear the saved MAC, then pair again. Switching **Fonte do acelerador** back to **Cabeado** (Wired) restores the wired Hall + on-board button without unpairing.
-
-**Failsafe (wireless mode):** if the controller stops receiving packets for >500 ms it ramps the throttle to zero (staying armed); after >3 s it disarms. On the remote, lost link shows both LEDs blinking together.
 
 ## 📊 Usage Example
 

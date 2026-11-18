@@ -34,7 +34,7 @@ struct HourMeterLogic {
     bool wasRunning = false;        // previous running predicate
     // Requested by a command handler, cleared by tick() on the loop task.
     // Volatile so the flag stays correct if a caller ever sits on another
-    // task (same as Throttle::throttleArmed / RemoteLink::hasState_).
+    // task (same as Throttle::throttleArmed).
     volatile bool resetRequested = false;
 
     // Request the session counter be cleared. Applied on the next tick().

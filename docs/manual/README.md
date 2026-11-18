@@ -18,7 +18,6 @@ Principais funções:
 - Estimativa do tempo de motor restante.
 - Alertas sonoros no buzzer para calibração, armamento, falhas e redução de potência.
 - Painel de voo, configuração, registros e atualização de firmware pelo Fly App, via Bluetooth.
-- Acelerador sem fio opcional, via ESP-NOW.
 
 O controlador não tem mais rede Wi-Fi própria nem portal web. Tudo o que antes era feito pelo navegador em 192.168.4.1 agora é feito pelo Fly App.
 
@@ -60,7 +59,7 @@ Para desarmar:
 - **Com o acelerador fechado:** aperte o botão. O sistema desarma na hora.
 - **Com o motor acelerado:** mantenha o botão pressionado. A potência cai até zero em 2 segundos, com um tom que desce, e o sistema desarma. Se você soltar antes, a potência volta aos poucos, também em 2 segundos, e o sistema continua armado.
 
-Ao desarmar pelo botão, o buzzer toca a melodia de desarmado e o motor deixa de receber comando. Com o acelerador sem fio, os mesmos gestos valem para o botão do remote.
+Ao desarmar pelo botão, o buzzer toca a melodia de desarmado e o motor deixa de receber comando.
 
 ### Quando o sistema não arma
 
@@ -77,10 +76,9 @@ Com o sistema armado e o motor parado, o buzzer emite um alerta contínuo (dois 
 O sistema desarma sozinho quando a leitura do acelerador ou da tensão da bateria deixa de ser confiável:
 
 - **Acelerador com fio:** leitura fora da faixa calibrada (cabo do sensor Hall rompido ou solto) ou falha de comunicação com o ADS1115 desarma imediatamente.
-- **Acelerador sem fio (remote):** com meio segundo sem sinal, a potência vai a zero e o buzzer bipa a cada meio segundo, mas o sistema continua armado. Se o sinal voltar estável, a potência volta. Com 3 segundos sem sinal, o sistema desarma.
 - **Tensão da bateria:** se o sensor estava válido ao armar e fica inválido por 2 segundos seguidos durante o voo, o sistema desarma. Falhas mais curtas são ignoradas.
 
-Nos três casos o buzzer toca um alarme contínuo, mais rápido e agudo que o beep de desarme manual. Ele para quando você arma de novo, ou sozinho depois de 1 minuto. O Fly App mostra o código da falha em vermelho na barra de status até o próximo armamento (veja Painel de voo). Corrija a causa antes de armar de novo.
+Nos dois casos o buzzer toca um alarme contínuo, mais rápido e agudo que o beep de desarme manual. Ele para quando você arma de novo, ou sozinho depois de 1 minuto. O Fly App mostra o código da falha em vermelho na barra de status até o próximo armamento (veja Painel de voo). Corrija a causa antes de armar de novo.
 
 Se o sensor de tensão já estiver inválido no momento de armar, o sistema arma, mas a proteção da bateria fica desligada durante todo o voo.
 
@@ -101,7 +99,7 @@ Os limites são configurados no Fly App (veja Configurações).
 A perda de um sensor de temperatura nunca corta o motor. Sem leitura confiável do motor ou do ESC, o sistema:
 
 - para de limitar a potência por aquele sensor;
-- depois de 2 segundos sem o sensor, toca o alarme de proteção de temperatura desligada: duas notas descendentes, uma aguda curta e uma grave longa. O remote toca o seu alerta;
+- depois de 2 segundos sem o sensor, toca o alarme de proteção de temperatura desligada: duas notas descendentes, uma aguda curta e uma grave longa;
 - repete o alarme aos 10 s, 30 s e 60 s, e depois a cada minuto, enquanto o sensor continuar fora;
 - quando todos os sensores voltam por 2 segundos seguidos, toca duas notas ascendentes curtas e a limitação volta a funcionar.
 
@@ -230,7 +228,7 @@ Os alertas aparecem sempre no cartão de alerta, nunca em faixas ou janelas. A c
 | **BMS · TEMPERATURA ALTA** | A temperatura do BMS passou do limite configurado. |
 | **MOTOR ou ESC · PERTO DO LIMITE** | A temperatura está a até 10 °C do início da redução. |
 
-Os três alertas do BMS apenas avisam: eles nunca reduzem a potência nem desarmam o motor. O som toca somente com o sistema armado, no buzzer e no remote. Um alerta só liga ou desliga depois de 3 segundos na mesma condição, e some na hora se a conexão com o BMS cair.
+Os três alertas do BMS apenas avisam: eles nunca reduzem a potência nem desarmam o motor. O som toca somente com o sistema armado. Um alerta só liga ou desliga depois de 3 segundos na mesma condição, e some na hora se a conexão com o BMS cair.
 
 O cartão mostra os alertas do BMS com o sistema armado ou desarmado; só o som depende de estar armado. Eles exigem um firmware com alertas do BMS e uma versão do app que os conheça. Com um firmware mais antigo, nenhum deles aparece.
 
@@ -253,7 +251,6 @@ Quando o controlador desarma por falha, o código aparece em vermelho na barra d
 | Código | Alerta | Causa |
 |---|---|---|
 | **THR ERR** | ACELERADOR · SINAL INVÁLIDO | Leitura do acelerador com fio fora da faixa calibrada ou falha do ADS1115. |
-| **LINK ERR** | ACELERADOR · SEM SINAL | Remote sem sinal por mais de 3 segundos. |
 | **BATT ERR** | BATERIA · SEM TENSÃO | Sensor de tensão inválido por 2 segundos durante o voo. |
 
 Firmwares anteriores também podiam desarmar por falha de temperatura, com os códigos MOT ERR, ESC ERR e MOT SRC. No firmware atual a perda de temperatura gera alarme, não desarme.
@@ -334,7 +331,7 @@ Ver as configurações não pede PIN. O PIN é pedido na primeira gravação de 
 | **Painel de voo, alertas e detalhes** | Não |
 | **Ver configurações** | Não |
 | **Gravar configurações** | Sim |
-| **Buscar BMS, parear ou esquecer remote** | Sim |
+| **Buscar BMS** | Sim |
 | **Zerar o cronômetro de voo** | Sim |
 | **Listar e baixar registros** | Não |
 | **Apagar registros** | Sim |
@@ -418,19 +415,14 @@ Toque num resultado para preencher o endereço. Se o BMS se identificou, o tipo 
 ### Sistema
 
 <p align="center">
-  <img src="img/17_sistema.png" width="300" alt="Sistema: buzzer, acelerador, remote, cronômetro e PIN"><br>
-  <em>Figura 19: Sistema: buzzer, acelerador, remote, cronômetro e PIN</em>
+  <img src="img/17_sistema.png" width="300" alt="Sistema: buzzer, cronômetro e PIN"><br>
+  <em>Figura 19: Sistema: buzzer, cronômetro e PIN</em>
 </p>
 
 | Parâmetro | Descrição | Padrão |
 |---|---|---|
 | **Volume do buzzer** | De 0 a 100 %, em passos de 5 %. Ao soltar o controle, o buzzer toca uma amostra. | 85 % |
-| **Acelerador** | Cabeado ou Sem fio (ESP-NOW): de onde vêm o acelerador e o botão. | — |
 
-**Remote** (acelerador sem fio): mostra o endereço do remote pareado ou NÃO PAREADO.
-
-- **Parear remote:** toque e ligue o remote. O app espera 60 segundos. Se nenhum remote aparecer, o controlador continua aguardando, e o próximo remote ligado por perto será pareado.
-- **Esquecer remote:** apaga o endereço gravado. Um remote já em uso pode continuar funcionando até o controlador reiniciar.
 
 **Cronômetro de voo:** Zerar cronômetro volta o tempo de voo do painel a 00:00. O horímetro não muda.
 

@@ -9,8 +9,7 @@
 // Fires immediately on the transition into the limited state, then once every
 // intervalMs while it persists. Resets when limited is no longer true.
 //
-// A thin wrapper over the general-purpose PeriodicTrigger (see Sound/), which
-// the wireless link-loss warning also uses.
+// A thin wrapper over the general-purpose PeriodicTrigger (see Sound/).
 class PowerAlertLogic {
 public:
     bool update(bool armed, uint8_t activeCauses, uint32_t nowMs, uint32_t intervalMs) {

@@ -3,13 +3,10 @@
 #include "../config.h"
 #include "../Throttle/Throttle.h"
 #include "../Sound/Sound.h"
-#include "../RemoteLink/RemoteLink.h"
-#include "../RemoteLink/RemoteLinkProtocol.h"
 #include "../Telemetry/TelemetryAvailability.h"
 
 extern Throttle throttle;
 extern Sound sound;
-extern RemoteLink remoteLink;
 
 void BmsAlert::handle() {
     // Every BMS driver clears its data flags when the link drops, so
@@ -46,7 +43,6 @@ void BmsAlert::handle() {
 
     if (out.playLost) {
         sound.play(SoundEvent::BmsAlert);
-        remoteLink.requestBeep(RemoteBeep::Alert);
     }
     if (out.playRestored) {
         // The generic rising "all clear" motif.

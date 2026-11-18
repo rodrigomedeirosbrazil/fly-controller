@@ -15,7 +15,6 @@
 #include "Temperature/Temperature.h"
 #include "Buzzer/Buzzer.h"
 #include "Sound/Sound.h"
-#include "Sound/PeriodicTrigger.h"
 #include "Power/Power.h"
 #include "BatteryMonitor/BatteryMonitor.h"
 #include "BluetoothBms/BluetoothBms.h"
@@ -23,7 +22,6 @@
 #include "Xctod/Xctod.h"
 #include "BleControl/BleControl.h"
 #include "TelemetryLogger/TelemetryLogger.h"
-#include "RemoteLink/RemoteLink.h"
 #if USES_CAN_BUS && IS_TMOTOR
 #include "Tmotor/TmotorCan.h"
 #endif
@@ -55,9 +53,6 @@ void setup()
 #if IS_XAG || IS_TMOTOR || IS_HOBBYWING
   batterySensor.setDividerRatio(settings.getVoltageDividerRatio());
 #endif
-
-  // Brings up the radio (STA, channel 1) and ESP-NOW.
-  remoteLink.setup();
 
   // Initialize ADS1115 for all builds (throttle, motor temp; XAG uses Ch2/Ch3 for ESC temp and battery; Tmotor uses Ch3 for battery)
   extern ADS1115 ads1115;
@@ -142,7 +137,6 @@ void setup()
   buzzer.recalibrate();
   buzzer.setVolume(settings.getBuzzerVolume());
   sound.play(SoundEvent::SystemStart);
-  remoteLink.requestBeep(RemoteBeep::SystemStart);
 
   // Enable task watchdog on the main loop task. If loop() stalls for more than
   // WDT_TIMEOUT_S seconds (e.g. a blocking BLE call or infinite loop), the
@@ -170,29 +164,6 @@ void loop()
   checkCanbus();
 #endif
   throttle.handle();
-
-  // Mirror controller state to the remote and send the periodic heartbeat.
-  remoteLink.setArmed(throttle.isArmed());
-  remoteLink.setCalibrating(!throttle.isCalibrated());
-  remoteLink.handle();
-
-  // Audible warning during the wireless ramp-to-zero window (500ms-3s of link
-  // loss), where there would otherwise be silence -- so a pilot not looking at
-  // the remote still knows something is wrong before the 3s disarm lands.
-  //
-  // The failsafe itself no longer lives here: both the ramp and the disarm are
-  // now driven by Throttle::updateSignalValidity() via ThrottleSignalLogic, so
-  // wired and wireless share one escalation path. isSignalForcedZero() is that
-  // state machine's ForceZero output, which for wireless means exactly the old
-  // FailsafeAction::RampToZero.
-  static PeriodicTrigger linkLossTrigger;
-  bool wirelessRampingToZero = settings.getThrottleSource() == ThrottleSourceWireless
-                               && throttle.isArmed()
-                               && throttle.isSignalForcedZero();
-  if (linkLossTrigger.update(wirelessRampingToZero, millis(), SOUND_LINK_LOSS_INTERVAL_MS)) {
-    sound.play(SoundEvent::LinkLoss);
-  }
-
 
   hourMeter.handle(throttle.isArmed(), isMotorRunning());
   motorTemp.handle();
@@ -299,8 +270,6 @@ bool isMotorRunning()
 
 void updateSoundState()
 {
-    static bool wasArmed = false;
-    static bool wasArmedIdle = false;
     static bool wasFaultDisarmed = false;
     static unsigned long faultDisarmedAtMs = 0;
 
@@ -359,22 +328,4 @@ void updateSoundState()
         sound.setStateFreq(SOUND_GESTURE_FREQ_MAX -
             (uint16_t)((uint32_t)(100 - powerScale) * (SOUND_GESTURE_FREQ_MAX - SOUND_GESTURE_FREQ_MIN) / 100));
     }
-
-    // Remote buzzer: requestBeep() is a one-shot command, so it still needs
-    // edge detection. Now mirrors the same armed+stopped rule as the
-    // controller (isMotorRunning() uses the same engage hysteresis), so the
-    // two buzzers agree on when to sound -- previously the remote beeped on
-    // armed alone, ignoring motor state.
-    if (armedIdle && !wasArmedIdle) {
-        remoteLink.requestBeep(RemoteBeep::Armed);
-    }
-    if (!armedIdle && wasArmedIdle && isArmed) {
-        remoteLink.requestBeep(RemoteBeep::Stop);
-    }
-    if (!isArmed && wasArmed) {
-        remoteLink.requestBeep(RemoteBeep::Disarmed);
-    }
-
-    wasArmed = isArmed;
-    wasArmedIdle = armedIdle;
 }

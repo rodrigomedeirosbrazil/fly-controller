@@ -20,6 +20,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `HobbywingCanParserTest.cpp` - Unit tests for `HobbywingCanParser` (`src/Hobbywing/HobbywingCanParser.h`): StatusMsg1 (RPM, direction) and StatusMsg2 (current, ESC temperature) decoding, signed current with negatives clamped to 0, single-frame and exact-length acceptance, and `classifyEscTemp` (`Stale` / `Invalid` / `Valid`).
 - `CapacityRescaleTest.cpp` - Unit tests for `rescaleRemainingMah` (`src/BatteryMonitor/CapacityRescale.h`): percentage kept, unknown old capacity reported full, clamp, no overflow.
 - `BmsAlertLogicTest.cpp` - Unit tests for `BmsAlertLogic` (`src/BmsAlert/BmsAlertLogic.h`): the per-cell cutoff (zero cells disables low cell), low cell needing both the cutoff and the delta gate, enter/exit hysteresis for all three alerts, 3 s debounce on both edges, flapping never raising, an unavailable source clearing immediately and resetting its timer, independent bits, and millis() rollover.
+- `BleLinkPolicyTest.cpp` - Unit tests for `BleLinkPolicy` (`src/BleServerHost/BleLinkPolicy.h`): the phone connection parameters against Apple's accessory rules (and rejection of each violated rule), advertising interval by peripheral-link count, the peripheral-only link table (central/BMS links ignored, duplicates, unknown addresses, 4-link capacity, last-peripheral-leaving), and the once-per-link re-request rule.
 - `README` - Default PlatformIO README for the test directory.
 
 ## How PlatformIO Testing Works

@@ -19,15 +19,9 @@ Sound sound;
 Servo esc;
 Throttle throttle(
     []() -> int {
-        if (settings.getThrottleSource() == ThrottleSourceWireless) {
-            return (int)remoteLink.lastHallRaw();
-        }
         return ads1115.readChannel(ADS1115_THROTTLE_CHANNEL);
     },
     []() -> bool {
-        if (settings.getThrottleSource() == ThrottleSourceWireless) {
-            return remoteLink.isLinkFresh(millis());
-        }
         return ads1115.lastReadOk(ADS1115_THROTTLE_CHANNEL);
     }
 );
@@ -100,4 +94,3 @@ HourMeter hourMeter;
 RemainingTime remainingTime;
 BmsCapacitySync bmsCapacitySync;
 ADS1115 ads1115;
-RemoteLink remoteLink;
