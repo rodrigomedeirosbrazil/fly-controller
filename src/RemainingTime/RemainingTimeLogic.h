@@ -7,11 +7,13 @@
 // drawn while the motor runs. Pure: no Arduino, host-tested in
 // test/RemainingTimeLogicTest.cpp. RemainingTime.{h,cpp} gathers the inputs.
 //
-// The average is an EMA over 10 s blocks of motor-on time (tau = 120 s). It
-// starts from the configured reference current and is frozen whenever the
-// motor is not running, so a glide never drags it toward zero. Without a
-// current measurement it stays frozen and the energy comes from the pack
-// voltage, anchored at rest and dead-reckoned while the motor runs.
+// The average is an EMA over 10 s blocks of motor-on time. It rises with
+// tau 120 s and falls with tau 600 s, so a stretch of light cruise never makes
+// the estimate optimistic. It starts from the configured reference current
+// and is frozen whenever the motor is not running, so a glide never drags it
+// toward zero. Without a current measurement it stays frozen and the energy
+// comes from the pack voltage, anchored at rest and dead-reckoned while the
+// motor runs.
 
 enum class RemainingTimeQuality : uint8_t {
     Unavailable  = 0,
@@ -31,9 +33,10 @@ struct RemainingTimeInput {
 };
 
 static const uint32_t REMAINING_TIME_BLOCK_MS       = 10000;      // one EMA sample per 10 s of motor time
-static const float    REMAINING_TIME_EMA_ALPHA      = 0.0799556f; // 1 - exp(-10 s / 120 s)
+static const float    REMAINING_TIME_EMA_ALPHA_UP   = 0.0799556f; // 1 - exp(-10 s / 120 s), block above the average
+static const float    REMAINING_TIME_EMA_ALPHA_DOWN = 0.0165285f; // 1 - exp(-10 s / 600 s), block at or below it
 static const uint32_t REMAINING_TIME_PUBLISH_MS     = 10000;
-static const uint32_t REMAINING_TIME_REST_SETTLE_MS = 30000;      // matches BATTERY_RECALIBRATION_STABLE_MS
+static const uint32_t REMAINING_TIME_REST_SETTLE_MS = 30000;      // matches BATTERY_REST_SETTLE_MS
 static const uint32_t REMAINING_TIME_LEARN_MIN_MS   = 180000;
 static const uint32_t REMAINING_TIME_MIN_DIVISOR_MA = 1000;       // never divide by less than 1 A
 static const float    REMAINING_TIME_MA_PER_A       = 1000.0f;     // mA per A, as a float
@@ -148,7 +151,9 @@ private:
         sessionMotorMs_ += dt;
         if (blockMs_ >= REMAINING_TIME_BLOCK_MS) {
             const float blockAvgMa = (float) blockMaMs_ / (float) blockMs_;
-            emaMa_ += REMAINING_TIME_EMA_ALPHA * (blockAvgMa - emaMa_);
+            const float alpha = blockAvgMa > emaMa_ ? REMAINING_TIME_EMA_ALPHA_UP
+                                                    : REMAINING_TIME_EMA_ALPHA_DOWN;
+            emaMa_ += alpha * (blockAvgMa - emaMa_);
             blockMaMs_ = 0;
             blockMs_   = 0;
         }

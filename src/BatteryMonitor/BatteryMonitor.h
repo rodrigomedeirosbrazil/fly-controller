@@ -2,6 +2,7 @@
 #define BATTERY_MONITOR_H
 
 #include <Arduino.h>
+#include "BatteryRecalibrationLogic.h"
 
 class BatteryMonitor {
 public:
@@ -11,7 +12,7 @@ public:
     void init();
 
     // Update (call from main loop)
-    void update();
+    void update(bool motorRunning);
 
     // Public SoC access methods
     uint8_t getSoC();                  // Returns 0-100%
@@ -41,11 +42,11 @@ private:
     uint32_t remainingMilliAh;         // Remaining capacity in mAh
     unsigned long lastCoulombTs;       // Timestamp of last Coulomb update
     uint64_t coulombRemainderMaMs;     // Remainder accumulator (mA*ms) for precision
-    unsigned long zeroCurrentStartMs;  // Start time for no-load detection
+    BatteryRecalibrationLogic recalibration;  // Boot / rest recalibration timing
 
     // Internal methods
     void updateCoulombCount();
-    void recalibrateFromVoltage();
+    void recalibrateFromVoltage(bool trustVoltageFully);
     uint8_t estimateSoCFromVoltageLiPo(uint16_t batteryMilliVolts) const;
     uint8_t estimateSoCFromConfiguredVoltageRange(uint16_t batteryMilliVolts) const;
     void getConfiguredSocWindow(uint8_t& socMin, uint8_t& socMax) const;

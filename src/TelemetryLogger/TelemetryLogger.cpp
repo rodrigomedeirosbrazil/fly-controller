@@ -50,7 +50,7 @@ TelemetryLogger::TelemetryLogger() {
 }
 
 void TelemetryLogger::init() {
-    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,disarm_reason,remaining_min");
+    logger.setHeader("battery_percent_cc,battery_percent_voltage,voltage,power_kw,throttle_percent,throttle_raw,power_percent,motor_temp,motor_temp_src,rpm,esc_current,esc_temp,battery_temp_max,cell_voltage_min_mv,cell_voltage_max_mv,disarm_reason,remaining_min,esc_current_ma");
 }
 
 void TelemetryLogger::handle() {
@@ -75,6 +75,7 @@ void TelemetryLogger::handle() {
     writeBmsInfo(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, ","); // disarm_reason: blank on regular rows
     writeRemainingTime(data, sizeof(data), used);
+    writeCurrentMilliAmps(data, sizeof(data), used);
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.log(data);
@@ -91,6 +92,7 @@ void TelemetryLogger::writeDisarmLine() {
     appendToBuffer(data, sizeof(data), used, ",,,,,,,,,,,,,,,");
     appendToBuffer(data, sizeof(data), used, "%s", disarmReasonCode(throttle.getDisarmReason()));
     appendToBuffer(data, sizeof(data), used, ","); // remaining_min: blank on the disarm row
+    appendToBuffer(data, sizeof(data), used, ","); // esc_current_ma: blank on the disarm row
     appendToBuffer(data, sizeof(data), used, "\r\n");
 
     logger.logFinalLine(data);
@@ -193,10 +195,21 @@ void TelemetryLogger::writeBmsInfo(char* data, size_t size, size_t& used) {
 }
 
 void TelemetryLogger::writeRemainingTime(char* data, size_t size, size_t& used) {
-    // Last column, after disarm_reason. Logged next to the real current so
-    // the estimator's tau and reference can be checked against later flights.
+    // Second to last column, after disarm_reason. Logged next to the real
+    // current so the estimator's tau and reference can be checked against
+    // later flights.
     appendToBuffer(data, size, used, ",");
     if (remainingTime.getQuality() != RemainingTimeQuality::Unavailable) {
         appendToBuffer(data, size, used, "%u", (unsigned) remainingTime.getRemainingMin());
+    }
+}
+
+void TelemetryLogger::writeCurrentMilliAmps(char* data, size_t size, size_t& used) {
+    // Last column, after remaining_min. Whole-amp esc_current hides an idle
+    // offset of a few hundred mA, so the same reading is logged at full
+    // resolution here. Blank when the build/ESC reports no current.
+    appendToBuffer(data, size, used, ",");
+    if (isCurrentAvailable()) {
+        appendToBuffer(data, size, used, "%lu", (unsigned long) telemetry.getBatteryCurrentMilliAmps());
     }
 }

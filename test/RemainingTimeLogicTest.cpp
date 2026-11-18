@@ -98,6 +98,28 @@ void test_ema_time_constant_is_two_minutes() {
     cout << "PASS: step response matches tau = 120 s\n";
 }
 
+void test_ema_falls_with_ten_minute_time_constant() {
+    Sim s = coulombSim(90, 30000);
+    s.motor(30000);
+    s.run(600000);                             // 60 blocks = one down-tau
+    // 30 + 60 * e^-1 = 52.07 A
+    assert(near(s.l.averageCurrentMa(), 52073, 30));
+    cout << "PASS: step down matches tau = 600 s\n";
+}
+
+void test_heavy_load_after_cruise_pulls_estimate_down_fast() {
+    Sim s = coulombSim(90, 30000);
+    s.drainCc = true;
+    s.motor(40000);
+    s.run(1200000);                            // 20 min light cruise
+    const uint32_t cruiseAvg = s.l.averageCurrentMa();
+    s.in.currentMa = 100000;
+    s.run(120000);                             // one up-tau of heavy load
+    // rises at least 1 - e^-1 of the gap, minus one block of lag
+    assert(s.l.averageCurrentMa() >= cruiseAvg + (100000 - cruiseAvg) * 58 / 100);
+    cout << "PASS: heavy load after cruise is picked up within one up-tau\n";
+}
+
 void test_average_frozen_while_motor_not_running() {
     Sim s = coulombSim(90, 30000);
     s.motor(150000);
@@ -416,7 +438,10 @@ void test_flight_profile_shape() {
     const uint16_t afterMidClimb = s.l.remainingMin();
 
     assert(afterTakeoff < ground);             // takeoff pulls it down
-    assert(afterCruise > afterClimb);          // cruise brings it back up
+    // The average falls with tau 600 s, so a light cruise no longer lifts the
+    // estimate quickly (the 2026-11 log overestimated that way), but the
+    // cruise must not keep pulling it down either.
+    assert(afterCruise >= afterClimb);
     for (uint16_t v : glideValues) {
         assert(v == glideValues.front());      // a glide leaves it alone
     }
@@ -430,6 +455,8 @@ int main() {
     test_seed_gives_a_ground_estimate();
     test_block_needs_ten_seconds_of_motor_time();
     test_ema_time_constant_is_two_minutes();
+    test_ema_falls_with_ten_minute_time_constant();
+    test_heavy_load_after_cruise_pulls_estimate_down_fast();
     test_average_frozen_while_motor_not_running();
     test_publishes_every_ten_seconds();
     test_quality_change_publishes_immediately();

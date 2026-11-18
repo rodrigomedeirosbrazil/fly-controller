@@ -89,7 +89,7 @@ itself reads invalid.
 
 The CSV log (`TelemetryLogger`) uses the exact same field order and
 values for fields 1-12, 14-16 and 17 above (as CSV columns, same names). It
-differs from the BLE sentence in four ways:
+differs from the BLE sentence in five ways:
 
 1. No `$XCTOD,` prefix / `\r\n`-terminated sentence framing — it's a plain
    CSV row, prefixed with a `timestamp` column by `Logger`.
@@ -101,9 +101,13 @@ differs from the BLE sentence in four ways:
    populated only on one final row, written at the exact armed→disarmed
    transition via `Logger::logFinalLine()`, holding the same fault code
    table as BLE's `system_status` (or `MANUAL` for a manual disarm).
-4. `remaining_min` (field 17 here) is the CSV's **last** column, after
-   `disarm_reason`, so it sits at a different column position. It is
+4. `remaining_min` (field 17 here) is the CSV's **second to last** column,
+   after `disarm_reason`, so it sits at a different column position. It is
    blank on the final disarm row.
+5. `esc_current_ma` is the CSV's **last** column, after `remaining_min`:
+   the battery current as an integer in mA (the `esc_current` column keeps
+   whole amps). Blank without a current reading and on the final disarm
+   row. It has no `$XCTOD` counterpart.
 
 ## Breaking changes
 

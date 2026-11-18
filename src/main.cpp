@@ -192,7 +192,7 @@ void loop()
 
   // Update battery monitor (Coulomb counting, SoC)
   extern BatteryMonitor batteryMonitor;
-  batteryMonitor.update();
+  batteryMonitor.update(isMotorRunning());
 
   handleEsc();
   // After batteryMonitor.update() (reads this tick's coulomb count) and after
