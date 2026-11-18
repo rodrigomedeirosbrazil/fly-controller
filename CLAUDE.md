@@ -148,7 +148,7 @@ The `sessionSec` field in `TELEMETRY` is a **flight-time counter** (shown by fly
 
 ## Remaining flight time
 
-`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ a tau = 120 s EMA of current over 10 s blocks of motor-on time, frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 90 A Hobbywing / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
+`RemainingTime` (`src/RemainingTime/`) estimates **motor-on** minutes left at the regime the pilot is flying now: usable energy ÷ an EMA of current over 10 s blocks of motor-on time (tau 120 s when current rises, 600 s when it falls), frozen off-motor, seeded from the persisted `referenceCurrentA` (factory 90 A Tmotor / 90 A Hobbywing / 75 A XAG) and nudged by each qualifying flight (≥ 180 s measured motor time: `(ref + flightAvg) / 2`; a flight averaging under 10 A is ignored, since that average means a sensor reading zero). Without a current reading it falls back to the pack voltage (anchored at rest, dead-reckoned while running) and reports quality `Voltage`. Published every 10 s in whole minutes to BLE `TELEMETRY`, `$XCTOD` field 17 and the CSV log. Decision logic is host-tested in `test/RemainingTimeLogicTest.cpp`.
 
 ## BMS capacity sync
 

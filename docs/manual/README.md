@@ -110,7 +110,7 @@ O alarme só toca com o sistema armado. Em controladores T-Motor, só a fonte co
 O controlador estima quantos minutos de motor ainda restam no ritmo atual e envia o número ao Fly App, ao XCTrack e ao registro de voo, a cada 10 segundos.
 
 - No chão, a estimativa usa o consumo de referência (de fábrica, 90 A no T-Motor, 90 A no Hobbywing e 75 A no XAG).
-- Em voo, usa o consumo médio, que reage em cerca de 2 minutos. Na decolagem o número cai; no cruzeiro, melhora.
+- Em voo, usa o consumo médio, que sobe rápido (cerca de 2 minutos) e desce devagar (cerca de 10 minutos). Na decolagem o número cai; no cruzeiro, melhora aos poucos, para nunca ficar otimista depois de um trecho leve.
 - Planando com o motor parado, a média fica congelada e o número quase não muda.
 - Depois de cada voo com pelo menos 3 minutos de motor e corrente medida o tempo todo, o consumo de referência é ajustado em direção à média daquele voo.
 - Sem medição de corrente (XAG sem BMS, ou se a corrente cair em voo), a estimativa usa a tensão da bateria e fica aproximada. O app indica esse modo.
