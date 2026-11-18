@@ -12,7 +12,8 @@
 // the estimate optimistic. It starts from the configured reference current
 // and is frozen whenever the motor is not running, so a glide never drags it
 // toward zero. Without a current measurement it stays frozen and the energy
-// comes from the pack voltage, anchored at rest and dead-reckoned while the motor runs.
+// comes from the pack voltage, anchored at rest and dead-reckoned while the
+// motor runs.
 
 enum class RemainingTimeQuality : uint8_t {
     Unavailable  = 0,

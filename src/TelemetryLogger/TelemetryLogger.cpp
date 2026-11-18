@@ -195,8 +195,9 @@ void TelemetryLogger::writeBmsInfo(char* data, size_t size, size_t& used) {
 }
 
 void TelemetryLogger::writeRemainingTime(char* data, size_t size, size_t& used) {
-    // Second to last column, after disarm_reason. Logged next to the real current so
-    // the estimator's tau and reference can be checked against later flights.
+    // Second to last column, after disarm_reason. Logged next to the real
+    // current so the estimator's tau and reference can be checked against
+    // later flights.
     appendToBuffer(data, size, used, ",");
     if (remainingTime.getQuality() != RemainingTimeQuality::Unavailable) {
         appendToBuffer(data, size, used, "%u", (unsigned) remainingTime.getRemainingMin());

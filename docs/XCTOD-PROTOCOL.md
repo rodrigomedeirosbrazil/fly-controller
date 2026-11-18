@@ -89,7 +89,7 @@ itself reads invalid.
 
 The CSV log (`TelemetryLogger`) uses the exact same field order and
 values for fields 1-12, 14-16 and 17 above (as CSV columns, same names). It
-differs from the BLE sentence in four ways:
+differs from the BLE sentence in five ways:
 
 1. No `$XCTOD,` prefix / `\r\n`-terminated sentence framing — it's a plain
    CSV row, prefixed with a `timestamp` column by `Logger`.
