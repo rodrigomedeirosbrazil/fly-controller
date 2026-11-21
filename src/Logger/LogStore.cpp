@@ -84,6 +84,20 @@ size_t read(const char* name, size_t nameLen, uint32_t offset, uint8_t* buf, siz
     return n;
 }
 
+bool append(const char* name, size_t nameLen, const uint8_t* data, size_t len) {
+    char path[LOG_MAX_NAME_LEN + 2];
+    if (len == 0 || data == nullptr || !toPath(name, nameLen, path)) {
+        return false;
+    }
+    File f = LittleFS.open(path, "a");
+    if (!f) {
+        return false;
+    }
+    size_t written = f.write(data, len);
+    f.close();
+    return written == len;
+}
+
 bool remove(const char* name, size_t len) {
     char path[LOG_MAX_NAME_LEN + 2];
     if (!toPath(name, len, path) || !LittleFS.exists(path)) {

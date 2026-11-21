@@ -21,6 +21,10 @@ namespace LogStore {
     // Reads up to `len` bytes at `offset`. Returns the count read.
     size_t read(const char* name, size_t nameLen, uint32_t offset, uint8_t* buf, size_t len);
 
+    // Appends `len` bytes, creating the file if needed. True only if every
+    // byte was written.
+    bool append(const char* name, size_t nameLen, const uint8_t* data, size_t len);
+
     // False if the file does not exist.
     bool remove(const char* name, size_t len);
 
