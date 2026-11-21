@@ -116,6 +116,29 @@ static void test_take_and_commit_roundtrip() {
     assert(b.takePending(out, 3) == 3);
 }
 
+static void test_long_hex_line_is_not_cut() {
+    // A 168-byte status frame as hex is 336 chars; it must come out whole.
+    uint8_t frame[168];
+    for (size_t i = 0; i < sizeof(frame); i++) frame[i] = (uint8_t)(i * 7 + 1);
+    char text[400];
+    int p = snprintf(text, sizeof(text), "status raw ");
+    size_t hexLen = antFormatHex(frame, sizeof(frame), text + p, sizeof(text) - p);
+    assert(hexLen == 336);
+    AntDiagBuffer b;
+    b.begin(0);
+    assert(b.addLine(123456, text));
+    std::string expect = std::string("123456 ") + text + "\n";
+    assert(drain(b) == expect);
+    // The largest assembler buffer (256 bytes, 512 hex chars) fits too.
+    uint8_t big[256];
+    for (size_t i = 0; i < sizeof(big); i++) big[i] = (uint8_t)i;
+    char text2[600];
+    int q = snprintf(text2, sizeof(text2), "asm ");
+    assert(antFormatHex(big, sizeof(big), text2 + q, sizeof(text2) - q) == 512);
+    assert(b.addLine(1, text2));
+    assert(drain(b) == std::string("1 ") + text2 + "\n");
+}
+
 int main() {
     test_hex_format();
     test_line_format();
@@ -123,6 +146,7 @@ int main() {
     test_file_cap_writes_truncated_once();
     test_begin_with_full_file_rejects_all();
     test_take_and_commit_roundtrip();
+    test_long_hex_line_is_not_cut();
     printf("AntDiagBufferTest: all passed\n");
     return 0;
 }

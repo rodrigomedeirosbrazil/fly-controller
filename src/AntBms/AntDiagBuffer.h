@@ -15,7 +15,7 @@
 #define ANT_DIAG_PENDING_CAP 6144
 #define ANT_DIAG_TRUNCATED_MARK "# truncated\n"
 #define ANT_DIAG_TRUNCATED_LEN 12
-#define ANT_DIAG_LINE_MAX 320  // longest single formatted line, marker included
+#define ANT_DIAG_LINE_MAX 640  // fits a 256-byte buffer as hex (512) plus prefix and text
 
 // Lowercase hex pairs, no separator. Always NUL-terminates (when outMax > 0)
 // and truncates on a whole byte. Returns the chars written.
