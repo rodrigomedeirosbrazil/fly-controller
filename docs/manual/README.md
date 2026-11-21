@@ -87,7 +87,7 @@ Se o sensor de tensão já estiver inválido no momento de armar, o sistema arma
 O controlador reduz a potência máxima com base em três fontes: tensão da bateria, temperatura do motor e temperatura do ESC. Vale o limite mais restritivo dos três. Você pode abrir o acelerador todo, mas o ESC recebe no máximo o teto permitido.
 
 - **Bateria:** abaixo da tensão mínima configurada, a potência é reduzida progressivamente. Ao armar, o piso de potência da bateria é reajustado.
-- **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC.
+- **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC. No T-Motor, a temperatura do CAN é suavizada ao longo de alguns segundos, então o limite do motor muda de forma gradual.
 - **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor e Hobbywing) ou do sensor analógico (XAG).
 
 Os limites são configurados no Fly App (veja Configurações).

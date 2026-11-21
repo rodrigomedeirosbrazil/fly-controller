@@ -8,21 +8,15 @@ extern TmotorCan tmotorCan;
 extern Temperature motorTemp;
 extern BatteryVoltageSensor batterySensor;
 
-// Known gap, not fixed here: TmotorCan clamps/truncates a corrupt CAN
-// temperature into its uint8_t storage range before this function ever
-// sees it, which can hide a garbage reading that happens to land inside
-// the plausible range after clamping. The `<= (MOTOR_TEMP_MAX_VALID/1000)`
-// check below only catches the coarse out-of-range cases (including a 255
-// fault sentinel some ESC firmware uses); a subtler corruption at the
-// TmotorCan decode layer is not currently detectable here.
+// Plausibility is per sample inside MotorTempFilter: an implausible Status 5
+// sample is dropped and only ages the reading out (stale after 1 s).
 static MotorTempReading readMotorTemp() {
     const bool forceNtc = settings.getMotorTempSource() == MotorTempSourceAds1115;
-    const bool canFreshAndPlausible = tmotorCan.hasRecentMotorTempFromCan() &&
-                                       tmotorCan.getMotorTemperature() <= (MOTOR_TEMP_MAX_VALID / 1000);
+    const bool canFreshAndPlausible = tmotorCan.hasRecentMotorTempFromCan();
     return selectMotorTempReading(
         forceNtc,
         canFreshAndPlausible,
-        (int32_t)tmotorCan.getMotorTemperature() * 1000,
+        tmotorCan.getMotorTempMilliCelsius(),
         motorTemp.getTemperature(),
         motorTemp.isValid()
     );
