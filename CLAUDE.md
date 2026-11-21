@@ -52,6 +52,7 @@ src/
 ├── DalyBms/                  # Daly BMS (BLE) protocol
 ├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── JbdBms/                   # JBD BMS (BLE) protocol
+├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser + optional diag capture
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
 ├── Power/                    # Available-power calculation + throttle ramp limiting

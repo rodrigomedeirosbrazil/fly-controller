@@ -399,7 +399,7 @@ types cannot be sent raw:
 
 BMS alert thresholds: `lowCellDeltaGateMv` (the low-cell alert only applies while the cell delta exceeds it) default 100, range 20–500 mV; `maxDeltaMv` default 200, range 50–1000 mV; `tempLimitC` default 55, range 30–80 °C. Out of range is `ERR_BAD_ARG`. There is no ordering check between the gate and the max delta. An older client writing only the first 7 bytes leaves the three thresholds at their stored values.
 
-`bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK. A non-zero type requires a non-zero
+`bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK, 4 ANT / JNFN (the new `7E A1` protocol). A BMS scan classifies an ANT by its advertised name, because ANT and JK both serve FFE0 and cannot be told apart by UUID. A non-zero type requires a non-zero
 MAC or the write is rejected. `throttleSource` is retired: `CFG_GET` returns 0 (wired) and `CFG_SET` accepts only 0, anything else is `ERR_BAD_ARG`. `remoteMac` is always zero on read and ignored on write.
 `motorTempSource`: 0 CAN, 1 NTC — only meaningful when the capability bit is
 set.
