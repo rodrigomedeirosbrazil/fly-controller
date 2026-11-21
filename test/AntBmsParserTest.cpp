@@ -181,6 +181,85 @@ static void test_overflow() {
     assert(b.feed(f.data(), f.size()) == AntFeedResult::Frame);
 }
 
+// Offset of the first byte after the cells, probes, MOS and balancer temps
+// for the status fixture (22 cells, 4 probes).
+static size_t statusB(const std::vector<uint8_t>& f) {
+    return 34 + 2 * (size_t)f[9] + 2 * ((size_t)f[8] + 2);
+}
+
+static void test_decode_status_fixture() {
+    auto f = hexToBytes(STATUS_HEX);
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(antDecodeStatus(f.data(), f.size(), &d));
+    assert(d.valid);
+    assert(d.cellCount == 22);
+    assert(d.probeCount == 4);
+    assert(d.packMv == 50880);
+    assert(d.rawCurrentDeciA == 21);
+    assert(d.packCurrentMa == -2100);
+    assert(d.socPercent == 10);
+    assert(d.nominalCapacityMah == 80000);
+    for (int i = 0; i < 4; i++) assert(d.probeC[i] == 29);
+    assert(d.mosC == 30);
+    assert(d.balancerC == 30);
+    assert(d.cellMinMv == 2190);
+    assert(d.cellMaxMv == 2338);
+    assert(d.cellDeltaMv == 148);
+    assert(d.dischargeMos == 1);
+    assert(d.chargeMos == 1);
+    assert(d.batteryStatus == 4);
+    assert(d.cellMv[0] == 0x091e);
+}
+
+static void test_decode_rejects_cell_overrun() {
+    auto f = hexToBytes(STATUS_HEX);
+    f[9] = 32;
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(!antDecodeStatus(f.data(), f.size(), &d));
+    assert(!d.valid);
+}
+
+static void test_decode_rejects_probe_overrun() {
+    auto f = hexToBytes(STATUS_HEX);
+    f[8] = 255;
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(!antDecodeStatus(f.data(), f.size(), &d));
+    assert(!d.valid);
+}
+
+static void test_decode_rejects_wrong_func() {
+    auto f = hexToBytes(STATUS_HEX);
+    f[2] = 0x12;
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(!antDecodeStatus(f.data(), f.size(), &d));
+}
+
+static void test_decode_negative_current() {
+    auto f = hexToBytes(STATUS_HEX);
+    size_t b = statusB(f);
+    f[b + 2] = 0xDD;
+    f[b + 3] = 0xFF;  // raw -35
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(antDecodeStatus(f.data(), f.size(), &d));
+    assert(d.rawCurrentDeciA == -35);
+    assert(d.packCurrentMa == 3500);
+}
+
+static void test_decode_device_info() {
+    auto f = hexToBytes(DEVINFO_HEX);
+    char hw[17], sw[17];
+    assert(antDecodeDeviceInfo(f.data(), f.size(), hw, sw));
+    assert(strcmp(hw, "24BH") == 0);
+    assert(strcmp(sw, "24BHUB00-211026A") == 0);
+    f[2] = 0x11;
+    assert(!antDecodeDeviceInfo(f.data(), f.size(), hw, sw));
+}
+
 int main() {
     test_crc_matches_published_requests();
     test_name_matcher();
@@ -192,6 +271,12 @@ int main() {
     test_crc_error();
     test_length_error();
     test_overflow();
+    test_decode_status_fixture();
+    test_decode_rejects_cell_overrun();
+    test_decode_rejects_probe_overrun();
+    test_decode_rejects_wrong_func();
+    test_decode_negative_current();
+    test_decode_device_info();
     printf("All AntBmsParser tests passed.\n");
     return 0;
 }

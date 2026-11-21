@@ -172,3 +172,98 @@ private:
     size_t frameLen_ = 0;
     bool discard_ = false;
 };
+
+#define ANT_MAX_CELLS 32
+#define ANT_MAX_PROBES 8
+
+#define ANT_STATUS_CELLS_OFFSET 34
+// Bytes the frame carries from B to the end of its data in the real capture
+// (6 + len - B = 164 - 90). Requiring all of it rejects counts that overrun.
+#define ANT_STATUS_TAIL_SIZE 74
+
+struct AntBmsData {
+    bool valid;
+    uint8_t cellCount, probeCount, batteryStatus, permission, dischargeMos, chargeMos;
+    uint16_t cellMv[ANT_MAX_CELLS];
+    int16_t probeC[ANT_MAX_PROBES];
+    int16_t mosC, balancerC;
+    uint32_t packMv;
+    int16_t rawCurrentDeciA;  // as sent by the BMS (ANT: positive = discharge)
+    int32_t packCurrentMa;    // firmware convention: positive = charge
+    uint8_t socPercent;
+    uint32_t nominalCapacityMah;
+    uint16_t cellMinMv, cellMaxMv, cellDeltaMv;
+};
+
+inline uint16_t antReadU16(const uint8_t* p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+inline uint32_t antReadU32(const uint8_t* p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+// Decodes a complete, CRC-checked status frame (func 0x11). Returns false and
+// leaves *out untouched when the counts do not fit the frame length.
+inline bool antDecodeStatus(const uint8_t* f, size_t len, AntBmsData* out) {
+    if (f == nullptr || out == nullptr || len < ANT_FRAME_HEADER_SIZE) return false;
+    if (f[2] != ANT_REPLY_STATUS) return false;
+    const size_t cells = f[9];
+    const size_t probes = f[8];
+    if (cells > ANT_MAX_CELLS || probes > ANT_MAX_PROBES) return false;
+    const size_t b = ANT_STATUS_CELLS_OFFSET + 2 * cells + 2 * (probes + 2);
+    const size_t dataEnd = ANT_FRAME_HEADER_SIZE + (size_t)f[5];
+    if (b + ANT_STATUS_TAIL_SIZE > dataEnd) return false;
+    if (dataEnd > len) return false;
+
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    d.cellCount = (uint8_t)cells;
+    d.probeCount = (uint8_t)probes;
+    d.permission = f[6];
+    d.batteryStatus = f[7];
+
+    uint16_t minMv = 0, maxMv = 0;
+    for (size_t i = 0; i < cells; i++) {
+        uint16_t mv = antReadU16(f + ANT_STATUS_CELLS_OFFSET + 2 * i);
+        d.cellMv[i] = mv;
+        if (mv == 0) continue;
+        if (minMv == 0 || mv < minMv) minMv = mv;
+        if (mv > maxMv) maxMv = mv;
+    }
+    d.cellMinMv = minMv;
+    d.cellMaxMv = maxMv;
+    d.cellDeltaMv = (uint16_t)(maxMv - minMv);
+
+    const uint8_t* p = f + ANT_STATUS_CELLS_OFFSET + 2 * cells;
+    for (size_t i = 0; i < probes; i++) d.probeC[i] = (int16_t)antReadU16(p + 2 * i);
+    d.mosC = (int16_t)antReadU16(p + 2 * probes);
+    d.balancerC = (int16_t)antReadU16(p + 2 * probes + 2);
+
+    const uint8_t* t = f + b;
+    d.packMv = (uint32_t)antReadU16(t) * 10;
+    d.rawCurrentDeciA = (int16_t)antReadU16(t + 2);
+    d.packCurrentMa = -(int32_t)d.rawCurrentDeciA * 100;
+    d.socPercent = (uint8_t)antReadU16(t + 4);
+    d.dischargeMos = t[8];
+    d.chargeMos = t[9];
+    d.nominalCapacityMah = antReadU32(t + 12) / 1000;
+    d.valid = true;
+    *out = d;
+    return true;
+}
+
+// Copies two 16-byte ASCII fields (hardware at 6, software at 22), stopping
+// at the first 0x00/0xFF, NUL-terminated.
+inline bool antDecodeDeviceInfo(const uint8_t* f, size_t len, char hw[17], char sw[17]) {
+    if (f == nullptr || hw == nullptr || sw == nullptr) return false;
+    if (len < 38 || f[2] != ANT_REPLY_DEVICE_INFO) return false;
+    for (int field = 0; field < 2; field++) {
+        char* dst = field == 0 ? hw : sw;
+        const uint8_t* src = f + 6 + 16 * field;
+        size_t n = 0;
+        while (n < 16 && src[n] != 0x00 && src[n] != 0xFF) {
+            dst[n] = (char)src[n];
+            n++;
+        }
+        dst[n] = '\0';
+    }
+    return true;
+}
