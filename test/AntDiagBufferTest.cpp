@@ -151,6 +151,23 @@ static void test_set_existing_file_bytes_keeps_pending() {
     c.setExistingFileBytes(ANT_DIAG_FILE_CAP);
     assert(c.full());
     assert(!c.addLine(2, "late"));
+    // A file already at the cap from an earlier boot gets nothing appended:
+    // the lines queued before its size was known are dropped.
+    assert(drain(c).empty());
+}
+
+// Lines queued before the existing size is known must still respect the cap:
+// keep the whole lines that fit, then the truncated mark, and nothing more.
+static void test_set_existing_file_bytes_trims_queue_to_cap() {
+    AntDiagBuffer b;
+    b.begin(0);
+    assert(b.addLine(1, "aaaa"));   // "1 aaaa\n" = 7 bytes
+    assert(b.addLine(2, "bbbb"));   // 7 bytes
+    const uint32_t limit = ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN;
+    b.setExistingFileBytes(limit - 10);   // room for the first line only
+    assert(b.full());
+    assert(drain(b) == std::string("1 aaaa\n") + ANT_DIAG_TRUNCATED_MARK);
+    assert(!b.addLine(3, "cccc"));
 }
 
 int main() {
@@ -162,6 +179,7 @@ int main() {
     test_take_and_commit_roundtrip();
     test_long_hex_line_is_not_cut();
     test_set_existing_file_bytes_keeps_pending();
+    test_set_existing_file_bytes_trims_queue_to_cap();
     printf("AntDiagBufferTest: all passed\n");
     return 0;
 }

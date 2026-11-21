@@ -94,7 +94,6 @@ const char* BluetoothBms::getConnectionState() const {
     const uint8_t activeType = getActiveType();
     if (activeType == BmsTypeJk) return jkBms.getStateName();
     if (activeType == BmsTypeAnt) return antBms.getStateName();
-    if (activeType == BmsTypeAnt) return antBms.getStateName();
     if (activeType == BmsTypeJbd || activeType == BmsTypeDaly) {
         return isConnected() ? "connected" : "connecting";
     }

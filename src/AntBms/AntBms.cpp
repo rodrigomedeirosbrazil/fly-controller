@@ -125,7 +125,9 @@ void AntBms::diagFlush() {
         if (exists && size > 0) {
             static const char bootMark[] = "# ---- boot ----\n";
             const size_t markLen = sizeof(bootMark) - 1;
-            if (LogStore::append(ANT_DIAG_FILE_NAME, nameLen,
+            // A file already at the cap stays as it is (it ends in "# truncated").
+            if (size + markLen <= (uint32_t)(ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN) &&
+                LogStore::append(ANT_DIAG_FILE_NAME, nameLen,
                                  reinterpret_cast<const uint8_t*>(bootMark), markLen)) {
                 size += (uint32_t)markLen;
             }
@@ -133,6 +135,11 @@ void AntBms::diagFlush() {
         }
         xSemaphoreGive(diagMutex_);
         diagStarted_ = true;
+        // init() runs before the facade sets the MAC, so the header's mac= is
+        // empty; record it here, once it is known.
+        char macLine[48];
+        snprintf(macLine, sizeof(macLine), "diag mac=%s", macAddress_.c_str());
+        diagLine(macLine);
     }
 
     xSemaphoreTake(diagMutex_, portMAX_DELAY);

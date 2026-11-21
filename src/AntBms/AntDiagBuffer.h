@@ -45,9 +45,30 @@ public:
 
     // Records the size of a file that already exists without discarding the
     // lines queued so far (the driver queues lines before LittleFS is read).
+    // Lines were accepted against a file size of 0, so the queue is re-checked
+    // against the real size: a file already at the cap drops them all (it
+    // already ends in "# truncated"); otherwise only whole lines that fit are
+    // kept, followed by the truncated mark.
     void setExistingFileBytes(uint32_t existingFileBytes) {
         fileBytes = existingFileBytes;
-        if (existingFileBytes >= (uint32_t)(ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN)) {
+        const uint32_t limit = (uint32_t)(ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN);
+        if (existingFileBytes >= limit) {
+            pendingLen = 0;
+            isFull = true;
+            return;
+        }
+        if (fileBytes + committed + (uint32_t)pendingLen <= limit) {
+            return;
+        }
+        const uint32_t room = limit - fileBytes - committed;
+        size_t keep = 0;
+        for (size_t i = 0; i < pendingLen && i < room; i++) {
+            if (pending[i] == '\n') keep = i + 1;
+        }
+        pendingLen = keep;
+        if (!isFull) {
+            memcpy(pending + pendingLen, ANT_DIAG_TRUNCATED_MARK, ANT_DIAG_TRUNCATED_LEN);
+            pendingLen += ANT_DIAG_TRUNCATED_LEN;
             isFull = true;
         }
     }
