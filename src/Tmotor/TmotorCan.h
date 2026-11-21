@@ -3,6 +3,8 @@
 
 #include <driver/twai.h>
 
+#include "MotorTempFilter.h"
+
 /**
  * T-Motor ESC Communication Class
  *
@@ -23,15 +25,14 @@
  * - Enable Reporting command to activate ESC status messages
  *
  * Protocol details:
- * - Uses standard DroneCAN message IDs (1030, 1033, 1034, 1039, 1154, 1332)
+ * - Uses standard DroneCAN message IDs (1030, 1033, 1034, 1154, 1332)
  * - Generic Instruction (1000): Enable Reporting command (Internal Protocol Message ID 4670)
  * - ESC_STATUS (1034): ESC telemetry including ESC temperature
- * - Status 5 (1154): Motor temperature, capacitor temperature, and busbar current (single-frame, 10 Hz)
+ * - Status 5 (1154): The only motor temperature source. Motor temperature, capacitor temperature, and busbar current (single-frame, 10 Hz)
  *   Only emitted when the ESC's "Status protocol" is DRONECAN-S (see sendStatusUploadSet() in the
  *   .cpp) — CUBECAN mode sends none of Status 1-5, confirmed by a 150+ second bench capture across
  *   every open/closed and CUBECAN/DRONECAN-S/DRONECAN-M combination. A protocol change only takes
  *   effect after the ESC itself is power-cycled, not just re-detected by this firmware.
- * - PUSHCAN (1039): Additional telemetry (deprecated for motor temperature - use Status 5 instead)
  * - RawCommand (1030): Throttle control
  * - ParamCfg (1033): Deprecated - use Enable Reporting (1000) instead
  */
@@ -59,7 +60,8 @@ public:
     uint16_t getBatteryVoltageMilliVolts() { return batteryVoltageMilliVolts; }
     uint32_t getBatteryCurrent() { return batteryCurrentMilliAmps; }
     uint8_t getEscTemperature() { return escTemperature; }  // ESC temperature in Celsius
-    uint8_t getMotorTemperature() { return motorTemperature; }  // Motor temperature in Celsius
+    // Filtered (EMA) Status 5 motor temperature in millicelsius; see MotorTempFilter.h
+    int32_t getMotorTempMilliCelsius() const { return motorTempFilter.valueMilliCelsius(); }
     uint32_t getErrorCount() { return errorCount; }
     uint8_t getPowerRatingPct() { return powerRatingPct; }
     uint8_t getEscIndex() { return escIndex; }
@@ -67,13 +69,13 @@ public:
     // Connectivity status
     bool isReady();  // Checks if ESC is available on the network (detected via NodeStatus)
     bool hasTelemetry();  // Checks if telemetry data is available
-    /** True if motor temperature was parsed from Status 5 or PUSHCAN within the last second (independent of hasTelemetry). */
+    /** True if a plausible Status 5 sample arrived within the last second (independent of hasTelemetry). */
     bool hasRecentMotorTempFromCan();
 
 private:
     // ESC-specific data
     uint8_t escTemperature;      // ESC temperature in Celsius
-    uint8_t motorTemperature;    // Motor temperature in Celsius
+    MotorTempFilter motorTempFilter;  // Status 5 motor temperature: plausibility, freshness, EMA
     uint32_t batteryCurrentMilliAmps;  // Current in milliamperes (ex: 50000 = 50.000A, max 500A = 500000 mA)
     uint16_t batteryVoltageMilliVolts; // Voltage in millivolts (3 decimal places, ex: 44100 = 44.100V, max 60V = 60000 mV)
     uint16_t rpm;                // RPM
@@ -83,8 +85,6 @@ private:
 
     // Timestamps for connectivity control
     unsigned long lastReadEscStatus;
-    unsigned long lastReadPushCan;
-    unsigned long lastMotorTempFromCanMs;  // Status 5 or PUSHCAN motor temp payload
     unsigned long lastPushSci;
     unsigned long lastThrottleSend;
     unsigned long escDetectedAtMs;        // millis() when ESC was first detected on bus
@@ -101,12 +101,6 @@ private:
     bool escStatusTransferActive;  // Is ESC_STATUS transfer in progress?
     bool escStatusLastToggle;      // Last toggle bit value for ESC_STATUS
 
-    uint8_t pushCanBuffer[64];     // Buffer for accumulating PUSHCAN frames
-    uint8_t pushCanBufferLen;      // Current length of accumulated data
-    uint8_t pushCanTransferId;     // Transfer ID for current PUSHCAN transfer
-    bool pushCanTransferActive;    // Is PUSHCAN transfer in progress?
-    bool pushCanLastToggle;        // Last toggle bit value for PUSHCAN
-
     // CAN bus constants
     const uint8_t escThrottleId = 0x00;  // Default ESC index for throttle
 
@@ -116,7 +110,6 @@ private:
     const uint16_t escStatusDataTypeId = 1034;        // ESC_STATUS
     const uint16_t escStatus5DataTypeId = 1154;      // Status 5 (motor temperature)
     const uint16_t pushSciDataTypeId = 1038;           // PUSHSCI
-    const uint16_t pushCanDataTypeId = 1039;         // PUSHCAN
     const uint16_t paramGetDataTypeId = 1332;         // ParamGet
     const uint16_t genericInstructionDataTypeId = 1000;  // Generic Instruction (Enable Reporting)
 
@@ -130,10 +123,6 @@ private:
     const uint8_t ESC_STATUS_ESC_INDEX_OFFSET = 14;
     const uint8_t ESC_STATUS_MIN_PAYLOAD_SIZE = 14;   // Minimum size for valid ESC_STATUS
     const uint8_t ESC_STATUS_MIN_SIZE_WITH_TEMP = 15; // For RPM/index fields
-
-    // PUSHCAN payload constants
-    const uint8_t PUSHCAN_MOTOR_TEMP_OFFSET = 22;     // Motor temperature at bytes 22-23 (offset from buffer start)
-    const uint8_t PUSHCAN_MIN_PAYLOAD_SIZE = 24;      // Minimum size to reach temperature field
 
     // Status 5 (1154) parsing constants
     const uint8_t STATUS5_FRAME_LENGTH = 8;           // Single frame: 7 bytes + 1 tail
@@ -156,7 +145,6 @@ private:
     // T-Motor-specific parsing methods
     void handleEscStatus(twai_message_t *canMsg);
     void handleEscStatus5(twai_message_t *canMsg);  // Handle Status 5 (Message ID 1154) for motor temperature
-    void handlePushCan(twai_message_t *canMsg);
 
     // Sends a Generic Instruction (DataTypeId 1000) wrapped payload as a
     // multi-frame DroneCAN transfer. Computes CRC, splits into 7-byte chunks,

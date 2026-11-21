@@ -12,7 +12,7 @@ struct MotorTempReading {
 // Pure motor-temperature source-selection decision — no Arduino deps,
 // host-testable. See docs/superpowers/specs/2026-08-01-signal-validity-design.md.
 //
-// Motor temp has two redundant sources on Tmotor: CAN (Status 5/PUSHCAN) and
+// Motor temp has two redundant sources on Tmotor: CAN (Status 5) and
 // a fallback NTC thermistor. The value, state, AND origin returned must
 // always come from the SAME source — returning one source's number next to a
 // different source's health verdict was a real bug this function fixes

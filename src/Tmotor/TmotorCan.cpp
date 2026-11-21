@@ -59,10 +59,8 @@ static uint16_t crcAdd(uint16_t crc_val, const uint8_t* bytes, size_t len) {
     return crc_val;
 }
 
-TmotorCan::TmotorCan() {
+TmotorCan::TmotorCan() : motorTempFilter(MOTOR_TEMP_MAX_VALID) {
     lastReadEscStatus = 0;
-    lastReadPushCan = 0;
-    lastMotorTempFromCanMs = 0;
     lastPushSci = 0;
     lastThrottleSend = 0;
     escDetectedAtMs = 0;
@@ -70,7 +68,6 @@ TmotorCan::TmotorCan() {
     transferId = 0;
 
     escTemperature = 0;
-    motorTemperature = 0;
     batteryCurrentMilliAmps = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
@@ -83,11 +80,6 @@ TmotorCan::TmotorCan() {
     escStatusTransferId = 0xFF;  // Invalid ID
     escStatusTransferActive = false;
     escStatusLastToggle = false;
-
-    pushCanBufferLen = 0;
-    pushCanTransferId = 0xFF;  // Invalid ID
-    pushCanTransferActive = false;
-    pushCanLastToggle = false;
 }
 
 void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
@@ -104,10 +96,6 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
         return;
     }
 
-    if (dataTypeId == pushCanDataTypeId) {
-        handlePushCan(canMsg);
-        return;
-    }
 }
 
 void TmotorCan::handle() {
@@ -150,8 +138,7 @@ bool TmotorCan::hasTelemetry() {
 }
 
 bool TmotorCan::hasRecentMotorTempFromCan() {
-    return lastMotorTempFromCanMs != 0
-        && millis() - lastMotorTempFromCanMs < 1000;
+    return motorTempFilter.isFresh(millis());
 }
 
 bool TmotorCan::isReady() {
@@ -263,82 +250,6 @@ void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
     }
 }
 
-void TmotorCan::handlePushCan(twai_message_t *canMsg) {
-    uint8_t tailByte = CanUtils::getTailByteFromPayload(canMsg->data, canMsg->data_length_code);
-    uint8_t frameTransferId = CanUtils::getTransferId(tailByte);
-    bool isSOF = CanUtils::isStartOfFrame(tailByte);
-    bool isEOF = CanUtils::isEndOfFrame(tailByte);
-    bool isToggle = CanUtils::isToggleFrame(tailByte);
-
-    // Handle multi-frame transfer
-    if (isSOF) {
-        // Start of new transfer - reset buffer
-        pushCanBufferLen = 0;
-        pushCanTransferId = frameTransferId;
-        pushCanTransferActive = true;
-        pushCanLastToggle = false;
-    } else if (!pushCanTransferActive) {
-        // Received non-SOF frame but no active transfer - ignore
-        return;
-    } else if (pushCanTransferId != frameTransferId) {
-        // Transfer ID mismatch - reset
-        pushCanBufferLen = 0;
-        pushCanTransferActive = false;
-        return;
-    }
-
-    // Check toggle bit for intermediate frames (should alternate)
-    if (!isSOF && !isEOF) {
-        if (isToggle == pushCanLastToggle) {
-            pushCanBufferLen = 0;
-            pushCanTransferActive = false;
-            return;
-        }
-        pushCanLastToggle = isToggle;
-    }
-
-    // Extract payload data (excluding tail byte)
-    uint8_t payloadLen = canMsg->data_length_code - 1;  // Exclude tail byte
-    if (pushCanBufferLen + payloadLen > sizeof(pushCanBuffer)) {
-        pushCanBufferLen = 0;
-        pushCanTransferActive = false;
-        return;
-    }
-
-    // Copy payload to buffer
-    memcpy(pushCanBuffer + pushCanBufferLen, canMsg->data, payloadLen);
-    pushCanBufferLen += payloadLen;
-
-    // If this is EOF, process the complete message
-    if (isEOF) {
-        pushCanTransferActive = false;
-
-        // PUSHCAN structure (Based on Manual Page 12, bytes list, NO LENGTH BYTE):
-        // uint32 data_sequence (bytes 0-3)
-        // Raw data value starts at byte 4
-        // Motor temperature at bytes 22-23 of buffer (4 + 18 offset in data array)
-
-        // Minimum size validation
-        if (pushCanBufferLen < PUSHCAN_MIN_PAYLOAD_SIZE) {
-            pushCanBufferLen = 0;
-            return;
-        }
-
-        // Extract motor temperature from offset 22-23
-        uint16_t motorTempValue = parseUint16LE(pushCanBuffer, PUSHCAN_MOTOR_TEMP_OFFSET);
-
-        // Temperature is in float16 format (in Kelvin)
-        float tempKelvin = convertFloat16ToFloat(motorTempValue);
-        motorTemperature = (uint8_t)(tempKelvin - 273.15f + 0.5f);  // Convert Kelvin to Celsius
-
-        lastMotorTempFromCanMs = millis();
-        lastReadPushCan = millis();
-        pushCanBufferLen = 0;  // Reset for next transfer
-    } else {
-        DEBUG_PRINTLN();  // New line for intermediate frames
-    }
-}
-
 void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     // Status 5: Single-frame (7 bytes + tail)
     // Bytes 0-1: idc (int16_t) - Estimated busbar current (0.1A units)
@@ -370,14 +281,12 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     (void)cap_temp_celsius;  // only used in DEBUG_PRINT
     int16_t motor_temp_celsius = (motor_temp_raw >= 0) ? (motor_temp_raw + 5) / 10 : (motor_temp_raw - 5) / 10;
 
-    // Store (convert to uint8_t, with range check)
-    if (motor_temp_celsius < 0) {
-        this->motorTemperature = 0;
-    } else if (motor_temp_celsius > 255) {
-        this->motorTemperature = 255;
-    } else {
-        this->motorTemperature = (uint8_t)motor_temp_celsius;
-    }
+    // A cold motor (< 0 C) is a real, plausible reading: clamp to 0 instead of
+    // dropping it, or protection would suspend. Only samples above the ceiling
+    // are dropped by the filter.
+    const int32_t motorTempMilliCelsius = (motor_temp_raw < 0 ? 0 : (int32_t)motor_temp_raw) * 100;
+    const bool accepted = motorTempFilter.addSample(motorTempMilliCelsius, millis());
+    (void)accepted;  // only used in DEBUG_PRINT
 
     DEBUG_PRINT("[Tmotor] Status5(1154): IDC=");
     DEBUG_PRINT(idc / 10);
@@ -387,10 +296,8 @@ void TmotorCan::handleEscStatus5(twai_message_t *canMsg) {
     DEBUG_PRINT(cap_temp_celsius);
     DEBUG_PRINT("C Motor=");
     DEBUG_PRINT(motor_temp_celsius);
-    DEBUG_PRINTLN("C");
-
-    lastMotorTempFromCanMs = millis();
-    lastReadPushCan = millis();
+    DEBUG_PRINT("C ");
+    DEBUG_PRINTLN(accepted ? "accepted" : "dropped");
 }
 
 

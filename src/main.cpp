@@ -89,7 +89,7 @@ void setup()
     TWAI_MODE_NORMAL
   );
   // TWAI_GENERAL_CONFIG_DEFAULT leaves rx_queue_len at 5 frames, which is too
-  // shallow here: a single ESC_STATUS is a 3-frame transfer, and PUSHCAN,
+  // shallow here: a single ESC_STATUS is a 3-frame transfer, and
   // Status 5 and NodeStatus share the same queue. Any loop iteration slow
   // enough to let 5 frames accumulate (BLE work, an NVS write) overflows it,
   // and one dropped frame discards the whole ESC_STATUS transfer — which
