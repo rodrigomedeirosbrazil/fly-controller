@@ -163,7 +163,7 @@ void Settings::load() {
         bmsMac = "";
     }
 
-    if (bmsType > BmsTypeJk) {
+    if (bmsType > BmsTypeAnt) {
         Serial.println("[Settings] Invalid BMS type in NVS, resetting to None");
         bmsType = BmsTypeNone;
         repaired = true;
@@ -309,7 +309,7 @@ uint8_t Settings::getBmsType() const {
 }
 
 void Settings::setBmsType(uint8_t type) {
-    if (type > BmsTypeJk) {
+    if (type > BmsTypeAnt) {
         type = BmsTypeNone;
     }
     bmsType = type;

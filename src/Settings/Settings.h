@@ -11,12 +11,13 @@
 // values, or the new type is silently coerced to BmsTypeNone:
 //   - Settings::setBmsType() and Settings::validate() (Settings.cpp)
 //   - validateBmsType() (Settings/SettingsValidation.h), which CFG_SET uses
-// BmsTypeJk must remain the highest value.
+// BmsTypeAnt must remain the highest value.
 enum BmsType : uint8_t {
     BmsTypeNone = 0,
     BmsTypeJbd = 1,
     BmsTypeDaly = 2,
-    BmsTypeJk = 3
+    BmsTypeJk = 3,
+    BmsTypeAnt = 4
 };
 
 #if IS_TMOTOR
