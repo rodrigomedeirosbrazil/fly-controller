@@ -6,8 +6,13 @@
 #include "TmotorCan.h"
 #include "../Canbus/CanUtils.h"
 #include "../Throttle/Throttle.h"
+#include "../Settings/SettingsValidation.h"
 
 extern twai_message_t canMsg;
+
+constexpr int32_t MOTOR_TEMP_CEILING_MARGIN_MC = 10000;
+static_assert(MOTOR_TEMP_MAX_VALID >= THERMAL_SETTING_MAX_MC + MOTOR_TEMP_CEILING_MARGIN_MC,
+              "Motor plausibility ceiling must sit above the settable maximum, or an overheated motor reads implausible and derating stops");
 
 namespace {
 // Static payload parser helpers for T-Motor CAN messages

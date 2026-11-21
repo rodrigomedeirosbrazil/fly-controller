@@ -46,12 +46,16 @@ inline SettingsError validateVoltageDividerRatio(float ratio) {
     return SettingsError::None;
 }
 
+// Highest value a motor/ESC temperature setting accepts. The motor plausibility
+// ceiling (MOTOR_TEMP_MAX_VALID) must stay above it; see TmotorCan.cpp.
+constexpr int32_t THERMAL_SETTING_MAX_MC = 150000;
+
 inline SettingsError validateThermal(int32_t motorReductionStartMc, int32_t motorMaxMc,
                                      int32_t escReductionStartMc,   int32_t escMaxMc) {
-    if (motorMaxMc < 0 || motorMaxMc > 150000)                       return SettingsError::MotorTempRange;
-    if (motorReductionStartMc < 0 || motorReductionStartMc > 150000) return SettingsError::MotorTempRange;
-    if (escMaxMc < 0 || escMaxMc > 150000)                           return SettingsError::EscTempRange;
-    if (escReductionStartMc < 0 || escReductionStartMc > 150000)     return SettingsError::EscTempRange;
+    if (motorMaxMc < 0 || motorMaxMc > THERMAL_SETTING_MAX_MC)                       return SettingsError::MotorTempRange;
+    if (motorReductionStartMc < 0 || motorReductionStartMc > THERMAL_SETTING_MAX_MC) return SettingsError::MotorTempRange;
+    if (escMaxMc < 0 || escMaxMc > THERMAL_SETTING_MAX_MC)                           return SettingsError::EscTempRange;
+    if (escReductionStartMc < 0 || escReductionStartMc > THERMAL_SETTING_MAX_MC)     return SettingsError::EscTempRange;
     return SettingsError::None;
 }
 

@@ -140,7 +140,10 @@ extern BmsAlert bmsAlert;
 
 // ========== MOTOR PARAMETERS ==========
 // MOTOR_MAX_TEMP and MOTOR_TEMP_REDUCTION_START are now managed by Settings class
-#define MOTOR_TEMP_MAX_VALID 150000 // 150000 millicelsius = 150.000°C - Maximum valid temperature reading
+// 160000 millicelsius = 160.000°C - Maximum plausible motor temperature reading.
+// 10°C above the highest settable motor maximum (150°C) so a real overtemperature
+// keeps derating at 0% instead of being rejected as implausible.
+#define MOTOR_TEMP_MAX_VALID 160000
 
 // ========== ESC PARAMETERS ==========
 #if IS_TMOTOR
