@@ -12,6 +12,7 @@
 #include "TelemetryLogger/TelemetryLogger.h"
 #include "JbdBms/JbdBms.h"
 #include "JkBms/JkBms.h"
+#include "AntBms/AntBms.h"
 #include "Settings/Settings.h"
 
 Buzzer buzzer(BUZZER_PIN);
@@ -89,6 +90,7 @@ BleControl bleControl;
 TelemetryLogger telemetryLogger;
 JbdBms jbdBms;
 JkBms jkBms;
+AntBms antBms;
 Settings settings;
 HourMeter hourMeter;
 RemainingTime remainingTime;

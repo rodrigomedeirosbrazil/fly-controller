@@ -56,6 +56,7 @@ class Xctod;
 class BleControl;
 class JbdBms;
 class JkBms;
+class AntBms;
 class TelemetryLogger;
 
 extern Buzzer buzzer;
@@ -93,6 +94,7 @@ extern BleControl bleControl;
 extern TelemetryLogger telemetryLogger;
 extern JbdBms jbdBms;
 extern JkBms jkBms;
+extern AntBms antBms;
 extern Settings settings;
 extern HourMeter hourMeter;
 extern RemainingTime remainingTime;

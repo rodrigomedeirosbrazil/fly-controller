@@ -43,6 +43,15 @@ public:
         isFull = existingFileBytes >= (uint32_t)(ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN);
     }
 
+    // Records the size of a file that already exists without discarding the
+    // lines queued so far (the driver queues lines before LittleFS is read).
+    void setExistingFileBytes(uint32_t existingFileBytes) {
+        fileBytes = existingFileBytes;
+        if (existingFileBytes >= (uint32_t)(ANT_DIAG_FILE_CAP - ANT_DIAG_TRUNCATED_LEN)) {
+            isFull = true;
+        }
+    }
+
     // Stores "<ms> <text>\n". Returns false when the line was rejected: the
     // file is full (nothing counted) or the pending RAM is out of room
     // (counted, and reported before the next accepted line).

@@ -139,6 +139,20 @@ static void test_long_hex_line_is_not_cut() {
     assert(drain(b) == std::string("1 ") + text2 + "\n");
 }
 
+static void test_set_existing_file_bytes_keeps_pending() {
+    AntDiagBuffer b;
+    b.begin(0);
+    assert(b.addLine(1, "early"));
+    b.setExistingFileBytes(100);
+    assert(drain(b) == "1 early\n");
+    AntDiagBuffer c;
+    c.begin(0);
+    assert(c.addLine(1, "early"));
+    c.setExistingFileBytes(ANT_DIAG_FILE_CAP);
+    assert(c.full());
+    assert(!c.addLine(2, "late"));
+}
+
 int main() {
     test_hex_format();
     test_line_format();
@@ -147,6 +161,7 @@ int main() {
     test_begin_with_full_file_rejects_all();
     test_take_and_commit_roundtrip();
     test_long_hex_line_is_not_cut();
+    test_set_existing_file_bytes_keeps_pending();
     printf("AntDiagBufferTest: all passed\n");
     return 0;
 }
