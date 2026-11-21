@@ -100,7 +100,6 @@ void TmotorCan::parseEscMessage(twai_message_t *canMsg) {
         handleEscStatus5(canMsg);
         return;
     }
-
 }
 
 void TmotorCan::handle() {
