@@ -52,9 +52,8 @@ value after the prefix). Apps that read by position (e.g. XCTrack's
 
 Fields are **appended at the end only**; fields 1–16 never move or change
 meaning. Consumers must accept trailing fields they do not know: fly-app's
-`xctod_parser.dart` accepts ≥ 16 fields since the release that preceded
-field 17 (fly-app branch `fix/xctod-accept-trailing-fields`; release it
-before this firmware), and XCTrack reads by index, so a new field never
+`xctod_parser.dart` accepts ≥ 16 fields since fly-app `2026-10-12.1`, and
+XCTrack reads by index, so a new field never
 shifts an existing widget. Field 17 is a voltage-based approximation when
 no current is measured — the sentence has no way to say so; the Fly Control
 `TELEMETRY` characteristic carries the quality.
@@ -115,6 +114,4 @@ Inserting, removing or reordering a field is a breaking change for every
 consumer reading by position — XCTrack `WExternalData` `index` values (see
 `xctrack-pages.xcfg`), fly-app's parser, and any tool reading the CSV by
 column index. Appending a field at the end is not, provided the consumers
-accept trailing fields (fly-app does from the release before field 17:
-branch `fix/xctod-accept-trailing-fields`, to be released before this
-firmware).
+accept trailing fields (fly-app does since `2026-10-12.1`).

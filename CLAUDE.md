@@ -175,7 +175,7 @@ host-tested in `test/BmsCapacitySyncLogicTest.cpp`.
 
 ## Wireless remote (removed)
 
-The ESP-NOW remote throttle and WiFi were removed on 2026-11-17 so BLE has the single 2.4 GHz radio to itself. To bring them back, restore from git history: the last commit before the removal PR on branch `remove-remote-ble-link` (`RemoteLink/`, its protocol header and tests, the wireless branches of `Throttle`/`Button`, `Settings` `thrSrc`/`rmtMac`). The firmware is wired-only now; nothing reads the stale `thrSrc`/`rmtMac` NVS keys, so a unit that had wireless saved boots wired.
+The ESP-NOW remote throttle and WiFi were removed on 2026-11-17 so BLE has the single 2.4 GHz radio to itself. To bring them back, restore from git history: commit `2a70920`, the last one before the removal (PR #91, squashed as `5d53652`) (`RemoteLink/`, its protocol header and tests, the wireless branches of `Throttle`/`Button`, `Settings` `thrSrc`/`rmtMac`). The firmware is wired-only now; nothing reads the stale `thrSrc`/`rmtMac` NVS keys, so a unit that had wireless saved boots wired.
 
 The fly-app contract was **soft-removed**: fields and opcodes are retired, not deleted, so existing app builds keep working. `Capability::RemoteLink` (`0x0008`) is never set; `REMOTE_PAIR`/`REMOTE_FORGET` (`0x24`/`0x25`) answer `ErrBadOp`; `CFG_GET SYSTEM` returns `throttleSource = 0` and a zero `remoteMac`, and `CFG_SET SYSTEM` answers `ErrBadArg` for any `throttleSource != 0`; `DisarmReason::ThrottleLinkLost` (`LINK ERR`) is reserved and never produced. `CONTROL_PROTOCOL_VERSION` was not bumped. The remote's firmware lives in the separate [fly-throttle](https://github.com/rodrigomedeirosbrazil/fly-throttle) repo, which is unchanged.
 
@@ -194,9 +194,8 @@ owns `BLEDevice::init`, the TX power caps and advertising — `Xctod` and
   It has two positional consumers, XCTrack's hand-written `.xcfg` and fly-app's
   `xctod_parser.dart`, with no version handshake, so fields 1–16 never move or
   change meaning; new fields go at the end only (field 17 is `remaining_min`),
-  and the fly-app accepts trailing fields since the release before field 17
-  (branch `fix/xctod-accept-trailing-fields`, to be released before this
-  firmware). Anything richer still belongs in Fly Control.
+  and the fly-app accepts trailing fields since its release `2026-10-12.1`.
+  Anything richer still belongs in Fly Control.
 - **Fly Control** (`D4CF0001-9B9D-4BFD-8F7F-40C6989D3EA9`, not advertised) —
   everything the fly-app uses. Not advertised because the 31-byte payload
   cannot hold a second 128-bit UUID; the app discovers it after connecting,
