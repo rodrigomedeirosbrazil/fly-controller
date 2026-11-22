@@ -8,7 +8,6 @@
 #include <freertos/task.h>
 #include "AntBmsParser.h"
 
-
 // ANT BMS BLE: Service 0xFFE0, Characteristic 0xFFE1 (write-without-response + notify)
 #define ANT_SERVICE_UUID "0000ffe0-0000-1000-8000-00805f9b34fb"
 #define ANT_CHAR_UUID    "0000ffe1-0000-1000-8000-00805f9b34fb"
@@ -59,9 +58,7 @@ private:
     BLEClient*               pClient_;
     BLERemoteCharacteristic* pChar_;
     QueueHandle_t     txQueue_;
-    TaskHandle_t      txTaskHandle_;
     QueueHandle_t     connectQueue_;
-    TaskHandle_t      connectTaskHandle_;
     SemaphoreHandle_t stateMutex_;
     uint32_t          connectSessionId_;
     volatile State    state_;
@@ -72,7 +69,7 @@ private:
     unsigned long     lastConnectAttempt_;
     unsigned long     lastRequestMillis_;
     unsigned long     lastStatusMs_;
-    bool              statusSeen_;
+    bool              connectTaskStarted_;
 
     static const unsigned long CONNECT_RETRY_MS    = 10000;
     static const unsigned long REQUEST_INTERVAL_MS = 2000;
@@ -83,7 +80,8 @@ private:
     uint8_t           pendingFrame_[ANT_MAX_FRAME];
     size_t            pendingLen_;
 
-    // Loop task only.
+    // Written by the loop task; also zeroed under stateMutex_ by a reset,
+    // which can run on the connect task.
     AntBmsData data_;
 
     void processPending();
@@ -92,7 +90,6 @@ private:
     void applyResetConnectionLocked();
     static void txTask(void* arg);
     static void connectTask(void* arg);
-
 };
 
 #endif // ANT_BMS_H

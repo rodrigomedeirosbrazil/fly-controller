@@ -217,7 +217,7 @@ the phone and the controller fades the link for a second or two, and iOS default
 phone later applies a timeout under 6 s the GAP handler re-requests **once** per link,
 never more, so there is no tug-of-war. The BMS client link is opened with its own
 preferred params (60-100 ms, latency 0, 6 s; `esp_ble_gap_set_prefer_conn_params` before
-each `connect()` in the JBD/Daly/JK drivers), since it is polled every 2 s.
+each `connect()` in the JBD/Daly/JK/ANT drivers), since it is polled every 2 s.
 Advertising runs at 20-40 ms with no phone connected and 250-400 ms once one is, which
 cuts its airtime from roughly 10% to 1% while still letting a second central find us.
 Links are counted by **peripheral role only**: BMS client links also fire the server's
@@ -255,7 +255,7 @@ are refused while armed. Armed is reported before auth so the app never
 prompts for a PIN to do something that would be refused anyway.
 
 `BMS_DETECT` looks like a read and is not: `detectBmsTypeByMac()` disables all
-three BMS drivers, pauses advertising and performs a **blocking**
+four BMS drivers, pauses advertising and performs a **blocking**
 `BLEClient::connect()` to the supplied MAC. Against an unresponsive address
 that can outlast the 10 s task watchdog (`WDT_TIMEOUT_S`, `panic=true`) and
 reboot the controller — in flight, that cuts the motor. It requires the PIN

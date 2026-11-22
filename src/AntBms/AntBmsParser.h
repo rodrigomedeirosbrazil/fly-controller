@@ -15,7 +15,6 @@
 #define ANT_MAX_FRAME 256
 
 #define ANT_FRAME_HEADER_SIZE 6
-#define ANT_FRAME_OVERHEAD 10  // header 6 + CRC 2 + tail 2
 #define ANT_REQUEST_SIZE 10
 
 // CRC16/Modbus: init 0xFFFF, poly 0xA001 (reflected).
@@ -116,7 +115,6 @@ public:
 
     const uint8_t* frame() const { return frame_; }
     size_t frameLen() const { return frameLen_; }
-    size_t bufferLen() const { return bufLen_; }
 
     void reset() {
         bufLen_ = 0;

@@ -4,9 +4,6 @@
 #include <cstring>
 #include <BLEDevice.h>
 #include <BLEClient.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-#include <esp_gap_ble_api.h>
 #include "../BluetoothBms/BmsLinkParams.h"
 
 struct AntTxFrame {
@@ -15,7 +12,6 @@ struct AntTxFrame {
 };
 
 static AntBms* s_antBms = nullptr;
-
 
 // ---------------------------------------------------------------------------
 // Global notify callback
@@ -31,13 +27,11 @@ void onAntNotifyCallback(BLERemoteCharacteristic* pChar, uint8_t* pData, size_t 
 // ---------------------------------------------------------------------------
 AntBms::AntBms()
     : pClient_(nullptr), pChar_(nullptr),
-      txQueue_(nullptr), txTaskHandle_(nullptr),
-      connectQueue_(nullptr), connectTaskHandle_(nullptr), stateMutex_(nullptr),
+      txQueue_(nullptr), connectQueue_(nullptr), stateMutex_(nullptr),
       connectSessionId_(0),
       state_(Idle), initialized_(false), enabled_(false), connected_(false),
       lastConnectAttempt_(0), lastRequestMillis_(0), lastStatusMs_(0),
-      statusSeen_(false),
-      pendingLen_(0)
+      connectTaskStarted_(false), pendingLen_(0)
 {
     memset(pendingFrame_, 0, sizeof(pendingFrame_));
     memset(&data_, 0, sizeof(data_));
@@ -49,18 +43,27 @@ AntBms::AntBms()
 void AntBms::init() {
     if (initialized_) return;
     s_antBms = this;
-    stateMutex_ = xSemaphoreCreateMutex();
-    connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
-    if (stateMutex_ == nullptr || connectQueue_ == nullptr) {
-        DEBUG_PRINTLN("[ANT] ERROR: mutex or connect queue create failed");
+    // init() is retried on every BluetoothBms::update() until it succeeds, so
+    // each resource is created once and kept: a retry after a partial failure
+    // must not leak the ones that did get created.
+    if (stateMutex_ == nullptr) stateMutex_ = xSemaphoreCreateMutex();
+    if (connectQueue_ == nullptr) connectQueue_ = xQueueCreate(1, sizeof(uint8_t));
+    if (txQueue_ == nullptr) txQueue_ = xQueueCreate(4, sizeof(AntTxFrame));
+    if (stateMutex_ == nullptr || connectQueue_ == nullptr || txQueue_ == nullptr) {
+        DEBUG_PRINTLN("[ANT] ERROR: mutex or queue create failed");
         return;
     }
-    if (xTaskCreate(connectTask, "ant_conn", 4096, this, 1, &connectTaskHandle_) != pdPASS) {
-        DEBUG_PRINTLN("[ANT] ERROR: connect task create failed");
+    if (!connectTaskStarted_) {
+        if (xTaskCreate(connectTask, "ant_conn", 4096, this, 1, nullptr) != pdPASS) {
+            DEBUG_PRINTLN("[ANT] ERROR: connect task create failed");
+            return;
+        }
+        connectTaskStarted_ = true;
+    }
+    if (xTaskCreate(txTask, "ant_tx", 2048, this, 1, nullptr) != pdPASS) {
+        DEBUG_PRINTLN("[ANT] ERROR: tx task create failed");
         return;
     }
-    txQueue_ = xQueueCreate(4, sizeof(AntTxFrame));
-    xTaskCreate(txTask, "ant_tx", 2048, this, 1, &txTaskHandle_);
     state_ = Idle;
     initialized_ = true;
     DEBUG_PRINTLN("[ANT] Init OK");
@@ -104,7 +107,6 @@ void AntBms::applyResetConnectionLocked() {
     }
     connected_           = false;
     pChar_               = nullptr;
-    statusSeen_          = false;
     lastStatusMs_        = 0;
     pendingLen_          = 0;
     assembler_.reset();
@@ -230,7 +232,6 @@ void AntBms::connectTask(void* arg) {
         self->assembler_.reset();
         self->pendingLen_          = 0;
         self->lastRequestMillis_   = 0;
-        self->statusSeen_          = false;
         self->state_               = Subscribed;
         xSemaphoreGive(self->stateMutex_);
         DEBUG_PRINTLN("[ANT] Subscribed, ready for reads");
@@ -299,7 +300,7 @@ void AntBms::update() {
                 sendStatusRequest();
             }
 
-            if (statusSeen_ && data_.valid && (now - lastStatusMs_) >= STALE_TIMEOUT_MS) {
+            if (data_.valid && (now - lastStatusMs_) >= STALE_TIMEOUT_MS) {
                 memset(&data_, 0, sizeof(data_));
                 DEBUG_PRINTLN("[ANT] Status stale, readings cleared");
             }
@@ -355,7 +356,6 @@ void AntBms::processPending() {
     if (!antDecodeStatus(frame, frameLen, &parsed)) return;
     data_ = parsed;
     lastStatusMs_ = millis();
-    statusSeen_ = true;
     DEBUG_PRINT("[ANT] V=");
     DEBUG_PRINT(data_.packMv);
     DEBUG_PRINT("mV I=");

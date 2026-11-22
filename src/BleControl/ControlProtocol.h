@@ -413,7 +413,7 @@ inline bool opAllowedWhileArmed(uint8_t op) {
         case ControlOp::BmsScanResult:
             return true;
         // BmsDetect is deliberately NOT here, despite reading like a query.
-        // BluetoothBms::detectBmsTypeByMac() disables all three BMS drivers,
+        // BluetoothBms::detectBmsTypeByMac() disables all four BMS drivers,
         // pauses advertising, and performs a BLOCKING BLEClient::connect() to
         // the given MAC. On an unresponsive address that can outlast the 10 s
         // task watchdog (WDT_TIMEOUT_S, panic=true), rebooting the controller
