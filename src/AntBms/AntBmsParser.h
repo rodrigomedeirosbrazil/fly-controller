@@ -1,7 +1,7 @@
 #pragma once
 
 // Pure parser pieces for the ANT / JNFN "7E A1" BMS protocol: CRC, request
-// builder, name matcher and notification frame assembler. No Arduino
+// builder, name matcher, notification frame assembler and status decoder. No Arduino
 // dependencies, so it is host-tested (test/AntBmsParserTest.cpp).
 
 #include <stdint.h>
@@ -9,13 +9,9 @@
 #include <string.h>
 
 #define ANT_FUNC_STATUS 0x01
-#define ANT_FUNC_DEVICE_INFO 0x02
 #define ANT_REPLY_STATUS 0x11
-#define ANT_REPLY_DEVICE_INFO 0x12
 #define ANT_STATUS_REQ_ADDR 0x0000
 #define ANT_STATUS_REQ_LEN 0xBE
-#define ANT_DEVINFO_REQ_ADDR 0x026C
-#define ANT_DEVINFO_REQ_LEN 0x20
 #define ANT_MAX_FRAME 256
 
 #define ANT_FRAME_HEADER_SIZE 6
@@ -98,8 +94,7 @@ public:
         if (end == 0) return AntFeedResult::None;
 
         const uint8_t payloadLen = buf_[5];
-        const bool devInfo = buf_[2] == ANT_REPLY_DEVICE_INFO;
-        if (!devInfo && !(buf_[end - 2] == 0xAA && buf_[end - 1] == 0x55)) {
+        if (!(buf_[end - 2] == 0xAA && buf_[end - 1] == 0x55)) {
             bufLen_ = end;
             discard_ = true;
             return AntFeedResult::LengthError;
@@ -121,7 +116,6 @@ public:
 
     const uint8_t* frame() const { return frame_; }
     size_t frameLen() const { return frameLen_; }
-    const uint8_t* buffer() const { return buf_; }
     size_t bufferLen() const { return bufLen_; }
 
     void reset() {
@@ -134,18 +128,10 @@ private:
     bool startsWithHeader() const { return bufLen_ >= 2 && buf_[0] == 0x7E && buf_[1] == 0xA1; }
 
     // Index just past the tail of the frame at the buffer start, or 0 while
-    // the frame is still incomplete. Device info (0x12) carries a wrong
-    // length byte and extra bytes after the CRC: it ends at the first AA 55
-    // at or after crcPos + 2.
+    // the frame is still incomplete.
     size_t expectedEnd() const {
         if (bufLen_ < ANT_FRAME_HEADER_SIZE) return 0;
         const size_t payloadLen = buf_[5];
-        if (buf_[2] == ANT_REPLY_DEVICE_INFO) {
-            for (size_t i = ANT_FRAME_HEADER_SIZE + payloadLen + 2; i + 1 < bufLen_; i++) {
-                if (buf_[i] == 0xAA && buf_[i + 1] == 0x55) return i + 2;
-            }
-            return 0;
-        }
         const size_t need = ANT_FRAME_HEADER_SIZE + payloadLen + 4;
         return bufLen_ >= need ? need : 0;
     }
@@ -177,18 +163,17 @@ private:
 #define ANT_MAX_PROBES 8
 
 #define ANT_STATUS_CELLS_OFFSET 34
-// Bytes the frame carries from B to the end of its data in the real capture
-// (6 + len - B = 164 - 90). Requiring all of it rejects counts that overrun.
+// Bytes from B to the end of the frame's data, the shortest seen in a real
+// capture: 74 for 22S (6 + len - B = 164 - 90); a 14S pack carries 98.
+// Requiring this much rejects cell/probe counts that overrun the frame.
 #define ANT_STATUS_TAIL_SIZE 74
 
 struct AntBmsData {
     bool valid;
-    uint8_t cellCount, probeCount, batteryStatus, permission, dischargeMos, chargeMos;
+    uint8_t cellCount, probeCount;
     uint16_t cellMv[ANT_MAX_CELLS];
     int16_t probeC[ANT_MAX_PROBES];
-    int16_t mosC, balancerC;
     uint32_t packMv;
-    int16_t rawCurrentDeciA;  // as sent by the BMS (ANT: positive = discharge)
     int32_t packCurrentMa;    // firmware convention: positive = charge
     uint8_t socPercent;
     uint32_t nominalCapacityMah;
@@ -217,8 +202,6 @@ inline bool antDecodeStatus(const uint8_t* f, size_t len, AntBmsData* out) {
     memset(&d, 0, sizeof(d));
     d.cellCount = (uint8_t)cells;
     d.probeCount = (uint8_t)probes;
-    d.permission = f[6];
-    d.batteryStatus = f[7];
 
     uint16_t minMv = 0, maxMv = 0;
     for (size_t i = 0; i < cells; i++) {
@@ -233,37 +216,17 @@ inline bool antDecodeStatus(const uint8_t* f, size_t len, AntBmsData* out) {
     d.cellDeltaMv = (uint16_t)(maxMv - minMv);
 
     const uint8_t* p = f + ANT_STATUS_CELLS_OFFSET + 2 * cells;
+    // The MOS and balancer temperatures follow the probes; b skips them.
     for (size_t i = 0; i < probes; i++) d.probeC[i] = (int16_t)antReadU16(p + 2 * i);
-    d.mosC = (int16_t)antReadU16(p + 2 * probes);
-    d.balancerC = (int16_t)antReadU16(p + 2 * probes + 2);
 
+    // From b: pack voltage (x10 mV), current (int16, 0.1 A, the BMS reports
+    // discharge as positive, so it is negated), SoC, ..., capacity in uAh at +12.
     const uint8_t* t = f + b;
     d.packMv = (uint32_t)antReadU16(t) * 10;
-    d.rawCurrentDeciA = (int16_t)antReadU16(t + 2);
-    d.packCurrentMa = -(int32_t)d.rawCurrentDeciA * 100;
+    d.packCurrentMa = -(int32_t)(int16_t)antReadU16(t + 2) * 100;
     d.socPercent = (uint8_t)antReadU16(t + 4);
-    d.dischargeMos = t[8];
-    d.chargeMos = t[9];
     d.nominalCapacityMah = antReadU32(t + 12) / 1000;
     d.valid = true;
     *out = d;
-    return true;
-}
-
-// Copies two 16-byte ASCII fields (hardware at 6, software at 22), stopping
-// at the first 0x00/0xFF, NUL-terminated.
-inline bool antDecodeDeviceInfo(const uint8_t* f, size_t len, char hw[17], char sw[17]) {
-    if (f == nullptr || hw == nullptr || sw == nullptr) return false;
-    if (len < 38 || f[2] != ANT_REPLY_DEVICE_INFO) return false;
-    for (int field = 0; field < 2; field++) {
-        char* dst = field == 0 ? hw : sw;
-        const uint8_t* src = f + 6 + 16 * field;
-        size_t n = 0;
-        while (n < 16 && src[n] != 0x00 && src[n] != 0xFF) {
-            dst[n] = (char)src[n];
-            n++;
-        }
-        dst[n] = '\0';
-    }
     return true;
 }

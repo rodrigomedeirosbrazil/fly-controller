@@ -24,7 +24,7 @@ This directory contains hardware documentation and user-facing manuals for the F
 - MCU: ESP32-C3 (Lolin C3 Mini)
 - Battery: 14S LiPo pack; voltage thresholds configured from the fly-app
 - Three supported ESC/motor builds: `lolin_c3_mini_tmotor`, `lolin_c3_mini_xag`, `lolin_c3_mini_hobbywing`
-- Optional BMS: JBD, Daly D2 BLE, JK (JK02 BLE), or ANT/JNFN (new protocol, pending hardware validation) connected over Bluetooth
+- Optional BMS: JBD, Daly D2 BLE, JK (JK02 BLE), or ANT/JNFN (new `7E A1` protocol) connected over Bluetooth
 - There is no web interface or WiFi AP: configuration, logs, firmware update and clock sync go through the fly-app over BLE (see `BLE-CONTROL-PROTOCOL.md`). The radio is BLE only: WiFi and the ESP-NOW remote throttle were removed on 2026-11-17.
 - The fly-app also runs in the browser over Web Bluetooth, at https://rodrigomedeirosbrazil.github.io/fly-app/ — on an iPhone through the Bluefy browser, since Safari has no Web Bluetooth. The manual's "O Fly App" section is the pilot-facing description; keep it in step with the fly-app repo's README.
 

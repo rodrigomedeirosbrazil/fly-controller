@@ -1,5 +1,6 @@
 // Host tests for src/AntBms/AntBmsParser.h.
-// Fixtures: real captures from aiobmsble tests/bms/test_ant_bms.py.
+// Fixtures: a real 22S capture from aiobmsble tests/bms/test_ant_bms.py, and a
+// real 14S capture from a JNFN pack in the field (2026-11-22).
 // Build: g++ -std=c++17 -Wall test/AntBmsParserTest.cpp -o $TMPDIR/antt && $TMPDIR/antt
 #include <cassert>
 #include <cstdio>
@@ -12,9 +13,9 @@
 // aiobmsble status capture: 22 cells, 4 probes, 168 bytes.
 static const char* STATUS_HEX =
     "7ea11100009e050404160000000000000000000088010000000000000000000000001e091b091e091d091d091e0920091e098f088e0890082209eb08200920091f091e091f091e091f0921091f091d001d001d001d001e001e00e01315000a0064000101000000b4c40486f197003aede8006a000000a1f2c0030000000022090c008e080a009400080900006d006a00af02f3fa4c74e5002866ec00c35d6200ccb39200edc8aa55";
-// aiobmsble device-info capture: 48 bytes, 6 extra bytes after the CRC.
-static const char* DEVINFO_HEX =
-    "7ea1126c02203234424800000000000000000000000032344248554230302d323131303236415796ff0b000041f2aa55";
+// Field capture: 14 cells, 4 probes, 176 bytes, pack at rest, both MOS on.
+static const char* STATUS_14S_HEX =
+    "7ea1110000a60501040e0000000000000000000080010000000000000000000000004b104c104b104d104b104c1048104a1049104b1049104b104c104a101b001a001a001b001b001b00e0160000640064000101000180027503e8017503ed9c000000000000a5070700000000004d1004004810070005004b1000006f006c000a00f1faba3100001f080100ea0700000b0601000000000076030000000000000000ffff0000000000000000fd1baa55";
 
 static const size_t CELL_OFFSET = 34;
 
@@ -125,21 +126,20 @@ static void test_payload_aa55_does_not_end_frame() {
     assert(a.frameLen() == 168);
 }
 
-static void test_devinfo_extra_section_accepted() {
+static void test_14s_fixture_back_to_back() {
+    auto s14 = hexToBytes(STATUS_14S_HEX);
+    auto s22 = hexToBytes(STATUS_HEX);
+    assert(s14.size() == 176);
     AntFrameAssembler a;
-    auto d = hexToBytes(DEVINFO_HEX);
-    assert(d.size() == 48);
-    assert(a.feed(d.data(), d.size()) == AntFeedResult::Frame);
-    assert(a.frameLen() == 48);
-    auto s = hexToBytes(STATUS_HEX);
-    assert(a.feed(s.data(), s.size()) == AntFeedResult::Frame);
+    assert(a.feed(s14.data(), s14.size()) == AntFeedResult::Frame);
+    assert(a.frameLen() == 176);
+    assert(a.feed(s22.data(), s22.size()) == AntFeedResult::Frame);
     assert(a.frameLen() == 168);
     // Same, in 20-byte chunks.
     AntFrameAssembler b;
-    assert(feedAll(b, d, 20) == AntFeedResult::Frame);
-    assert(b.frameLen() == 48);
-    assert(feedAll(b, s, 20) == AntFeedResult::Frame);
-    assert(b.frameLen() == 168);
+    assert(feedAll(b, s14, 20) == AntFeedResult::Frame);
+    assert(b.frameLen() == 176);
+    assert(memcmp(b.frame(), s14.data(), 176) == 0);
 }
 
 static void test_crc_error() {
@@ -196,20 +196,37 @@ static void test_decode_status_fixture() {
     assert(d.cellCount == 22);
     assert(d.probeCount == 4);
     assert(d.packMv == 50880);
-    assert(d.rawCurrentDeciA == 21);
     assert(d.packCurrentMa == -2100);
     assert(d.socPercent == 10);
     assert(d.nominalCapacityMah == 80000);
     for (int i = 0; i < 4; i++) assert(d.probeC[i] == 29);
-    assert(d.mosC == 30);
-    assert(d.balancerC == 30);
     assert(d.cellMinMv == 2190);
     assert(d.cellMaxMv == 2338);
     assert(d.cellDeltaMv == 148);
-    assert(d.dischargeMos == 1);
-    assert(d.chargeMos == 1);
-    assert(d.batteryStatus == 4);
     assert(d.cellMv[0] == 0x091e);
+}
+
+// Values match what the vendor app showed for the same pack: 58.56 V, 100 %,
+// 58.0 Ah, cells 4.168-4.173 V, probes 26-27 C.
+static void test_decode_14s_field_fixture() {
+    auto f = hexToBytes(STATUS_14S_HEX);
+    AntBmsData d;
+    memset(&d, 0, sizeof(d));
+    assert(antDecodeStatus(f.data(), f.size(), &d));
+    assert(d.valid);
+    assert(d.cellCount == 14);
+    assert(d.probeCount == 4);
+    assert(d.packMv == 58560);
+    assert(d.packCurrentMa == 0);
+    assert(d.socPercent == 100);
+    assert(d.nominalCapacityMah == 58000);
+    assert(d.cellMinMv == 4168);
+    assert(d.cellMaxMv == 4173);
+    assert(d.cellDeltaMv == 5);
+    assert(d.cellMv[0] == 4171);
+    assert(d.cellMv[13] == 4170);
+    const int16_t probes[4] = {27, 26, 26, 27};
+    for (int i = 0; i < 4; i++) assert(d.probeC[i] == probes[i]);
 }
 
 static void test_decode_rejects_cell_overrun() {
@@ -246,18 +263,7 @@ static void test_decode_negative_current() {
     AntBmsData d;
     memset(&d, 0, sizeof(d));
     assert(antDecodeStatus(f.data(), f.size(), &d));
-    assert(d.rawCurrentDeciA == -35);
     assert(d.packCurrentMa == 3500);
-}
-
-static void test_decode_device_info() {
-    auto f = hexToBytes(DEVINFO_HEX);
-    char hw[17], sw[17];
-    assert(antDecodeDeviceInfo(f.data(), f.size(), hw, sw));
-    assert(strcmp(hw, "24BH") == 0);
-    assert(strcmp(sw, "24BHUB00-211026A") == 0);
-    f[2] = 0x11;
-    assert(!antDecodeDeviceInfo(f.data(), f.size(), hw, sw));
 }
 
 int main() {
@@ -267,16 +273,16 @@ int main() {
     test_status_fixture_20_byte_chunks();
     test_split_inside_tail_and_header();
     test_payload_aa55_does_not_end_frame();
-    test_devinfo_extra_section_accepted();
+    test_14s_fixture_back_to_back();
     test_crc_error();
     test_length_error();
     test_overflow();
     test_decode_status_fixture();
+    test_decode_14s_field_fixture();
     test_decode_rejects_cell_overrun();
     test_decode_rejects_probe_overrun();
     test_decode_rejects_wrong_func();
     test_decode_negative_current();
-    test_decode_device_info();
     printf("All AntBmsParser tests passed.\n");
     return 0;
 }

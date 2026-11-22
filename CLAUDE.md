@@ -52,7 +52,7 @@ src/
 ├── DalyBms/                  # Daly BMS (BLE) protocol
 ├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── JbdBms/                   # JBD BMS (BLE) protocol
-├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser + optional diag capture
+├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
 ├── Power/                    # Available-power calculation + throttle ramp limiting
@@ -160,9 +160,9 @@ capacity the capacity the coulomb count uses — **always**, no toggle, and
 since the BMS reports the value again on every connection. The configured
 value stays saved and is used whenever no BMS reports one (no BMS, Daly, or
 before the BMS connects after boot); once adopted, the BMS value stays in
-use until reboot even if the BMS link drops, since the pack has not changed. JBD (register 0x03) and JK (cell-info
+use until reboot even if the BMS link drops, since the pack has not changed. JBD (register 0x03), JK (cell-info
 frame, +28 from the pack-voltage field, read only when the pack-voltage scan
-matched the cell sum) report it; Daly does not. Applied once the value has
+matched the cell sum) and ANT (status frame, in µAh) report it; Daly does not. Applied once the value has
 been stable 3 s (`BMS_CAPACITY_STABLE_MS`), is inside the `CFG_SET` range
 (`validateCapacity`, 1000–65000 mAh; outside it is logged once and ignored),
 differs from the BMS value already adopted and the controller is disarmed (pending while

@@ -14,7 +14,7 @@ Principais funções:
 
 - Leitura do acelerador (sensor Hall) e controle do ESC, por PWM ou CAN, conforme o modelo do controlador (XAG, Hobbywing ou T-Motor). No Hobbywing, o acelerador vai ao ESC por PWM e a telemetria (corrente, RPM e temperatura do ESC) chega pelo CAN. O controlador Hobbywing exige a placa com o divisor de tensão da bateria; placas antigas, sem o divisor, não são suportadas.
 - Limitação automática de potência pela tensão da bateria e pelas temperaturas do motor e do ESC.
-- Carga da bateria por contagem de corrente (coulomb counting) e, opcionalmente, integração com um BMS Bluetooth (JBD, Daly ou JK).
+- Carga da bateria por contagem de corrente (coulomb counting) e, opcionalmente, integração com um BMS Bluetooth (JBD, Daly, JK ou ANT/JNFN).
 - Estimativa do tempo de motor restante.
 - Alertas sonoros no buzzer para calibração, armamento, falhas e redução de potência.
 - Painel de voo, configuração, registros e atualização de firmware pelo Fly App, via Bluetooth.
@@ -348,14 +348,14 @@ O relógio do controlador é acertado pelo app automaticamente a cada conexão, 
 
 | Parâmetro | Descrição | Faixa |
 |---|---|---|
-| **Capacidade** | 18, 34 ou 65 Ah, ou um valor personalizado. Com um BMS JBD ou JK conectado, o controlador usa a capacidade informada pelo BMS no lugar desta. | 1 a 65 Ah |
+| **Capacidade** | 18, 34 ou 65 Ah, ou um valor personalizado. Com um BMS JBD, JK ou ANT conectado, o controlador usa a capacidade informada pelo BMS no lugar desta. | 1 a 65 Ah |
 | **Tensão mínima** | Por célula. Abaixo dela, a potência é reduzida. O app mostra o total do pack (14 células). | 2,5 a 63,0 V no pack |
 | **Tensão máxima** | Por célula. Referência de bateria cheia. | 2,5 a 63,0 V no pack |
 | **Ativar Controle de Energia** | Liga ou desliga a limitação de potência por tensão e temperaturas. Desligado, a potência total fica sempre disponível. | Ligado ou desligado |
 
 A tensão mínima precisa ser menor que a máxima. Os campos aceitam vírgula ou ponto como separador decimal.
 
-Com um BMS JBD ou JK conectado, o controlador usa a capacidade que o BMS informa: alguns segundos depois da conexão, com o sistema desarmado, ela passa a valer para o cálculo da carga, mantendo a porcentagem atual. O valor configurado no app não é alterado e volta a valer quando não houver BMS informando a capacidade. Se o BMS informar mais de 65 Ah, vale o valor configurado. O BMS Daly não informa a capacidade, então ela continua manual.
+Com um BMS JBD, JK ou ANT conectado, o controlador usa a capacidade que o BMS informa: alguns segundos depois da conexão, com o sistema desarmado, ela passa a valer para o cálculo da carga, mantendo a porcentagem atual. O valor configurado no app não é alterado e volta a valer quando não houver BMS informando a capacidade. Se o BMS informar mais de 65 Ah, vale o valor configurado. O BMS Daly não informa a capacidade, então ela continua manual.
 
 **Calibração** (quando o controlador tem sensor de tensão):
 
@@ -391,13 +391,15 @@ Esses valores são os traços âmbar e vermelho dos mostradores de temperatura n
 
 | Parâmetro | Descrição |
 |---|---|
-| **Tipo de BMS** | Nenhum, JBD, Daly (D2 BLE) ou JK BMS. |
+| **Tipo de BMS** | Nenhum, JBD, Daly (D2 BLE), JK BMS ou ANT / JNFN. |
 | **Endereço** | Endereço Bluetooth do BMS (AA:BB:CC:DD:EE:FF), escolhido pela busca ou digitado em Digitar manualmente. |
 | **Diferença mínima para célula baixa** | O alerta de célula baixa só vale quando a diferença entre células passa deste valor. Padrão 100 mV, de 20 a 500 mV. |
 | **Diferença máxima entre células** | Acima disto, o alerta de diferença entre células liga. Padrão 200 mV, de 50 a 1000 mV. |
 | **Temperatura máxima do BMS** | Acima disto, o alerta de temperatura alta liga. Padrão 55 °C, de 30 a 80 °C. |
 
 Os alertas do BMS só avisam: não reduzem a potência. Os limites ficam salvos no controlador.
+
+**Feche o app do BMS antes de voar.** Todo BMS Bluetooth tem um app do fabricante, e o BMS atende um aparelho por vez: enquanto esse app estiver conectado, o controlador não recebe os dados do BMS. Encerre o app no celular (não basta deixá-lo em segundo plano) antes de ligar o controlador. Se o app ficar conectado, o controlador pode aparecer ligado ao BMS sem receber nenhum dado, e os alertas do BMS ficam desativados.
 
 Os três limites ficam no cartão Alertas, que só aparece com um firmware que tenha os alertas do BMS. Com um firmware mais antigo, a tela mostra apenas o tipo e o endereço.
 
