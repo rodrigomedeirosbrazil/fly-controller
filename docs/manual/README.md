@@ -285,7 +285,7 @@ Toque no indicador de status para escolher: **Reconectar** tenta de novo sem sai
 Toque na barra CONFIGURAÇÕES no rodapé, ou no cartão de alerta, para abrir a gaveta:
 
 - **Alertas ativos:** cada alerta com uma explicação do que fazer.
-- **Som do controlador:** o celular reproduz os beeps do buzzer, inclusive com o celular no silencioso, sem interromper outro app de áudio (como o vario do XCTrack). Começa ligado sempre que o app abre.
+- **Som do controlador:** o celular reproduz os beeps do buzzer, inclusive com o celular no silencioso, sem interromper outro app de áudio (como o vario do XCTrack). O app lembra a escolha: se você desligar, continua desligado na próxima vez que abrir.
 - **Orientação da tela:** Vertical, Horizontal ou Automático (só no app instalado).
 - **Configurações:** abre as configurações do controlador. Fica indisponível com a aeronave armada.
 
@@ -319,7 +319,7 @@ Abra pela gaveta, em Configurações, com a aeronave desarmada. O topo mostra a 
 
 ### PIN de configuração
 
-Ver as configurações não pede PIN. O PIN é pedido na primeira gravação de cada conexão e não fica guardado no celular. O PIN de fábrica é **0000**; troque-o em Sistema, na seção Segurança.
+Ver as configurações não pede PIN. O PIN é pedido na primeira gravação e o app o guarda no celular, então não pede de novo nas próximas conexões. Se o PIN do controlador mudar (ou você conectar em outro equipamento com outro PIN), o app pede de novo. O PIN de fábrica é **0000**; troque-o em Sistema, na seção Segurança.
 
 <p align="center">
   <img src="img/20_pin.png" width="300" alt="Pedido do PIN na primeira gravação"><br>
