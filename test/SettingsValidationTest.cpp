@@ -54,8 +54,9 @@ void test_motor_temp_source_range() {
 
 void test_bms_type_range() {
     assert(validateBmsType(0) == SettingsError::None);
-    assert(validateBmsType(3) == SettingsError::None);  // BmsTypeJk, the highest
-    assert(validateBmsType(4) == SettingsError::BmsTypeInvalid);
+    assert(validateBmsType(3) == SettingsError::None);  // BmsTypeJk
+    assert(validateBmsType(4) == SettingsError::None);  // BmsTypeAnt, the highest
+    assert(validateBmsType(5) == SettingsError::BmsTypeInvalid);
 }
 
 void test_system_ranges() {

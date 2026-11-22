@@ -65,10 +65,10 @@ inline SettingsError validateMotorTempSource(uint8_t source) {
     return SettingsError::None;
 }
 
-// Highest valid value is BmsTypeJk (3) -- see Settings.h, which notes that
-// BmsTypeJk must remain the highest.
+// Highest valid value is BmsTypeAnt (4) -- see Settings.h, which notes that
+// BmsTypeAnt must remain the highest.
 inline SettingsError validateBmsType(uint8_t type) {
-    if (type > 3) return SettingsError::BmsTypeInvalid;
+    if (type > 4) return SettingsError::BmsTypeInvalid;
     return SettingsError::None;
 }
 

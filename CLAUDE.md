@@ -52,6 +52,7 @@ src/
 ├── DalyBms/                  # Daly BMS (BLE) protocol
 ├── Hobbywing/                # HobbywingCan (receive-only) + HobbywingTelemetry + pure HobbywingCanParser
 ├── JbdBms/                   # JBD BMS (BLE) protocol
+├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
 ├── Power/                    # Available-power calculation + throttle ramp limiting
@@ -159,9 +160,9 @@ capacity the capacity the coulomb count uses — **always**, no toggle, and
 since the BMS reports the value again on every connection. The configured
 value stays saved and is used whenever no BMS reports one (no BMS, Daly, or
 before the BMS connects after boot); once adopted, the BMS value stays in
-use until reboot even if the BMS link drops, since the pack has not changed. JBD (register 0x03) and JK (cell-info
+use until reboot even if the BMS link drops, since the pack has not changed. JBD (register 0x03), JK (cell-info
 frame, +28 from the pack-voltage field, read only when the pack-voltage scan
-matched the cell sum) report it; Daly does not. Applied once the value has
+matched the cell sum) and ANT (status frame, in µAh) report it; Daly does not. Applied once the value has
 been stable 3 s (`BMS_CAPACITY_STABLE_MS`), is inside the `CFG_SET` range
 (`validateCapacity`, 1000–65000 mAh; outside it is logged once and ignored),
 differs from the BMS value already adopted and the controller is disarmed (pending while
@@ -216,7 +217,7 @@ the phone and the controller fades the link for a second or two, and iOS default
 phone later applies a timeout under 6 s the GAP handler re-requests **once** per link,
 never more, so there is no tug-of-war. The BMS client link is opened with its own
 preferred params (60-100 ms, latency 0, 6 s; `esp_ble_gap_set_prefer_conn_params` before
-each `connect()` in the JBD/Daly/JK drivers), since it is polled every 2 s.
+each `connect()` in the JBD/Daly/JK/ANT drivers), since it is polled every 2 s.
 Advertising runs at 20-40 ms with no phone connected and 250-400 ms once one is, which
 cuts its airtime from roughly 10% to 1% while still letting a second central find us.
 Links are counted by **peripheral role only**: BMS client links also fire the server's
@@ -254,7 +255,7 @@ are refused while armed. Armed is reported before auth so the app never
 prompts for a PIN to do something that would be refused anyway.
 
 `BMS_DETECT` looks like a read and is not: `detectBmsTypeByMac()` disables all
-three BMS drivers, pauses advertising and performs a **blocking**
+four BMS drivers, pauses advertising and performs a **blocking**
 `BLEClient::connect()` to the supplied MAC. Against an unresponsive address
 that can outlast the 10 s task watchdog (`WDT_TIMEOUT_S`, `panic=true`) and
 reboot the controller — in flight, that cuts the motor. It requires the PIN

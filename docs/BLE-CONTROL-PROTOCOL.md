@@ -158,7 +158,7 @@ capacity at 74–77 is the fourth: firmware without it sends 74. The BMS alerts 
 | 69 | `uint16` | `remainingMin` | remaining **motor** time, whole minutes (floored); 0 when `remainingQuality` is 0. Updates every 10 s |
 | 71 | `uint8` | `remainingQuality` | 0 unavailable · 1 voltage estimate (no current reading; approximate, does not follow the throttle) · 2 coulomb count; no validity bit |
 | 72 | `uint16` | `avgCurrentDa` | consumption average behind `remainingMin`, 0.1 A; the reference current before the first 10 s of motor time |
-| 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK; Daly never reports it); validity `BmsCapacity`. Once it has been stable 3 s, is within 1000–65000 and the controller is disarmed (pending while armed), the firmware uses it for coulomb counting instead of the `POWER` capacity, at runtime only; outside that range the bit stays set and the configured capacity is used |
+| 74 | `uint32` | `bmsDesignCapacityMah` | the BMS's nominal pack capacity, mAh (JBD, JK, ANT; Daly never reports it); validity `BmsCapacity`. Once it has been stable 3 s, is within 1000–65000 and the controller is disarmed (pending while armed), the firmware uses it for coulomb counting instead of the `POWER` capacity, at runtime only; outside that range the bit stays set and the configured capacity is used |
 | 78 | `uint8` | `bmsAlerts` | active BMS alerts, informational only (they never limit power or disarm); no validity bit. `0x01` low cell, `0x02` high cell delta, `0x04` high BMS temperature. 0 when the BMS reports no cell or temperature data; a dropped BMS link clears the bits at once. Each bit is debounced 3 s on both edges and has hysteresis (low cell clears at cutoff + 50 mV or delta below gate − 10 mV; delta clears 10 mV below the limit; temperature clears 3 °C below the limit). The low-cell cutoff is the pack minimum voltage divided by `bmsCellCount`, and is off while the cell count is 0. Total struct size is 79 |
 
 Temperatures are millicelsius because that is the unit the firmware uses
@@ -399,7 +399,7 @@ types cannot be sent raw:
 
 BMS alert thresholds: `lowCellDeltaGateMv` (the low-cell alert only applies while the cell delta exceeds it) default 100, range 20–500 mV; `maxDeltaMv` default 200, range 50–1000 mV; `tempLimitC` default 55, range 30–80 °C. Out of range is `ERR_BAD_ARG`. There is no ordering check between the gate and the max delta. An older client writing only the first 7 bytes leaves the three thresholds at their stored values.
 
-`bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK. A non-zero type requires a non-zero
+`bmsType`: 0 none, 1 JBD, 2 Daly, 3 JK, 4 ANT / JNFN (the new `7E A1` protocol). A BMS scan classifies an ANT by its advertised name, because ANT and JK both serve FFE0 and cannot be told apart by UUID. A non-zero type requires a non-zero
 MAC or the write is rejected. `throttleSource` is retired: `CFG_GET` returns 0 (wired) and `CFG_SET` accepts only 0, anything else is `ERR_BAD_ARG`. `remoteMac` is always zero on read and ignored on write.
 `motorTempSource`: 0 CAN, 1 NTC — only meaningful when the capability bit is
 set.

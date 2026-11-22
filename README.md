@@ -160,7 +160,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### 10. **BMS Integration** - Battery Management Systems
 ```cpp
-// BLE client for smart battery pack monitoring (Daly, JBD, and JK)
+// BLE client for smart battery pack monitoring (Daly, JBD, JK and ANT/JNFN)
 - Cell voltage monitoring (min, max, delta)
 - Pack voltage, current, and state-of-charge (SoC)
 - Temperature sensors per pack
@@ -215,7 +215,7 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 - ✅ Real-time status
 - ✅ Event logging
 - ✅ Failure diagnosis
-- ✅ Battery Management System support (Daly, JBD, JK via BLE)
+- ✅ Battery Management System support (Daly, JBD, JK, ANT/JNFN via BLE)
 - ✅ Cell voltage and balance monitoring
 - ✅ State-of-charge (SoC) tracking
 - ✅ CSV flight logging to LittleFS (auto on arm/disarm)
@@ -457,7 +457,7 @@ src/
 ├── Button/               # User interface (AceButton)
 ├── Buzzer/               # Audible alerts (PWM)
 ├── Xctod/                # BLE telemetry (XCTRACK format)
-├── BluetoothBms/         # BLE BMS facade (auto-detects Daly/JBD/JK)
+├── BluetoothBms/         # BLE BMS facade (auto-detects Daly/JBD/JK/ANT)
 ├── DalyBms/              # Daly BMS protocol implementation
 ├── JbdBms/               # JBD BMS protocol implementation
 ├── JkBms/                # JK BMS (JK02) protocol implementation + parser
