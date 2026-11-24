@@ -378,7 +378,7 @@ Com um BMS JBD, JK ou ANT conectado, o controlador usa a capacidade que o BMS in
 | **ESC: máximo** | Nesta temperatura, a potência é cortada. | 0 a 150 °C |
 | **Origem da temperatura do motor** | CAN ou NTC. Aparece só nos controladores que permitem escolher. | CAN ou NTC |
 
-A redução é linear entre o início e o máximo. O início precisa ser menor que o máximo: valores iguais ou invertidos cortariam a potência a partir do início, e o app recusa gravá-los.
+A redução é linear entre o início e o máximo. O início precisa ser menor que o máximo: o app e o controlador recusam valores iguais ou invertidos. Se o controlador encontrar um par invertido gravado por um firmware antigo, ele usa os valores de fábrica para esse par.
 
 Esses valores são os traços âmbar e vermelho dos mostradores de temperatura no painel.
 
