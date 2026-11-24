@@ -192,11 +192,14 @@ unsigned int Power::calcPower() {
     // tick, and is not affected by this setting.
     if (!settings.getPowerControlEnabled()) {
         activeLimitCauses_ = POWER_LIMIT_NONE;
+        motorTempCeiling_.reset();
+        escTempCeiling_.reset();
         return 100;
     }
+    const uint32_t nowMs = millis();
     unsigned int batteryLimit   = calcBatteryLimit();
-    unsigned int motorTempLimit = calcMotorTempLimit();
-    unsigned int escTempLimit   = calcEscTempLimit();
+    unsigned int motorTempLimit = motorTempCeiling_.update(calcMotorTempLimit(), nowMs);
+    unsigned int escTempLimit   = escTempCeiling_.update(calcEscTempLimit(), nowMs);
 
     uint8_t causes = POWER_LIMIT_NONE;
     if (batteryLimit < 100)   causes |= POWER_LIMIT_BATTERY;
@@ -227,9 +230,10 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    // Not debounced: derating stops on the very sample the configured
-    // source goes bad, and resumes on the first good one. Only the alarm
-    // (TempProtectionMonitor) waits out the debounce window.
+    // The raw target is not debounced: it jumps to 100 on the very sample the
+    // configured source goes bad. The applied ceiling is slewed by
+    // motorTempCeiling_ (fast down, slow up), so it releases gradually. Only
+    // the alarm (TempProtectionMonitor) waits out the debounce window.
     if (!isMotorTempProtecting()) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();

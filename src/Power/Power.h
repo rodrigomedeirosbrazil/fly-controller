@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "SignalArmContract.h"
 #include "TempProtectionMonitor.h"
+#include "ThermalCeilingSlew.h"
 
 enum PowerLimitCause : uint8_t {
     POWER_LIMIT_NONE       = 0,
@@ -90,6 +91,8 @@ private:
     SignalArmContract batteryContract_;
     TempProtectionMonitor motorTempProtection_;
     TempProtectionMonitor escTempProtection_;
+    ThermalCeilingSlew motorTempCeiling_;
+    ThermalCeilingSlew escTempCeiling_;
 
     bool isMotorTempProtecting() const;
     bool isEscTempProtecting() const;

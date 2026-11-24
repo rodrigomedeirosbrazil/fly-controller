@@ -88,6 +88,8 @@ O controlador reduz a potência máxima com base em três fontes: tensão da bat
 
 - **Bateria:** abaixo da tensão mínima configurada, a potência é reduzida progressivamente. Ao armar, o piso de potência da bateria é reajustado.
 - **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC. No T-Motor, a temperatura do CAN é suavizada ao longo de alguns segundos, então o limite do motor muda de forma gradual.
+
+O teto de potência por temperatura desce rápido quando esquenta e volta devagar quando esfria, cerca de 2 % por segundo, para a potência não oscilar com pequenas variações da leitura.
 - **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor e Hobbywing) ou do sensor analógico (XAG).
 
 Os limites são configurados no Fly App (veja Configurações).
@@ -98,7 +100,7 @@ Os limites são configurados no Fly App (veja Configurações).
 
 A perda de um sensor de temperatura nunca corta o motor. Sem leitura confiável do motor ou do ESC, o sistema:
 
-- para de limitar a potência por aquele sensor;
+- libera aos poucos o limite daquele sensor, cerca de 2 % por segundo, sem saltar para a potência total;
 - depois de 2 segundos sem o sensor, toca o alarme de proteção de temperatura desligada: duas notas descendentes, uma aguda curta e uma grave longa;
 - repete o alarme aos 10 s, 30 s e 60 s, e depois a cada minuto, enquanto o sensor continuar fora;
 - quando todos os sensores voltam por 2 segundos seguidos, toca duas notas ascendentes curtas e a limitação volta a funcionar.
