@@ -120,7 +120,7 @@ while (canbus.receive(&msg)) {
 
 - **Battery voltage:** Progressive reduction below nominal (configurable via Settings)
 - **Motor temp:** Linear reduction between two configurable thresholds. Defaults: 80°C → 100°C (`Settings::getDefaultMotorTempReductionStart()` / `getDefaultMotorMaxTemp()`, stored in millicelsius).
-- **T-Motor CAN motor temp:** EMA-filtered (tau 5 s) before derating, display and log; an out-of-range sample is dropped, and the reading goes stale after 1 s without a plausible one.
+- **T-Motor CAN motor temp:** EMA-filtered (tau 2 s) before derating, display and log (5 s lagged ~10 °C behind a 2 °C/s takeoff ramp, and above ~3 s the noise no longer improved, per a simulation on `20261121_002.csv`); an out-of-range sample is dropped, and the reading goes stale after 1 s without a plausible one.
 - **ESC temp:** Linear reduction between two configurable thresholds, defaults per board (`BoardConfig`): Tmotor 80°C → 110°C, Hobbywing 80°C → 110°C, XAG 70°C → 80°C.
 - All four thresholds are editable from fly-app (`CFG_SET` Thermal) and persist in NVS, so the numbers above are only the factory values. Anything that draws or documents a derating range must read `Settings`, never hardcode these.
 - **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
