@@ -16,6 +16,7 @@ Power::Power() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+    throttleClipped_ = false;
 }
 
 void Power::onArmed() {
@@ -82,6 +83,7 @@ unsigned int Power::getPwm() {
     unsigned int resultPwm = ESC_MIN_PWM;
     if (!throttle.isCalibrated()) {
         resetMotorState();
+        throttleClipped_ = false;
         resultPwm = ESC_MIN_PWM;
     } else {
         unsigned int powerLimit  = getPower();
@@ -90,6 +92,7 @@ unsigned int Power::getPwm() {
         unsigned int throttleRaw = throttle.isEngaged() ? throttle.getThrottleRaw() : throttleMin;
 
         unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+        throttleClipped_ = throttle.isEngaged() && throttleRaw > allowedMax;
         unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
         unsigned int range = throttleMax - throttleMin;
@@ -174,6 +177,7 @@ void Power::resetMotorState() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+    throttleClipped_ = false;
 }
 
 unsigned int Power::getPower() {
@@ -192,11 +196,14 @@ unsigned int Power::calcPower() {
     // tick, and is not affected by this setting.
     if (!settings.getPowerControlEnabled()) {
         activeLimitCauses_ = POWER_LIMIT_NONE;
+        motorTempCeiling_.reset();
+        escTempCeiling_.reset();
         return 100;
     }
+    const uint32_t nowMs = millis();
     unsigned int batteryLimit   = calcBatteryLimit();
-    unsigned int motorTempLimit = calcMotorTempLimit();
-    unsigned int escTempLimit   = calcEscTempLimit();
+    unsigned int motorTempLimit = motorTempCeiling_.update(calcMotorTempLimit(), nowMs);
+    unsigned int escTempLimit   = escTempCeiling_.update(calcEscTempLimit(), nowMs);
 
     uint8_t causes = POWER_LIMIT_NONE;
     if (batteryLimit < 100)   causes |= POWER_LIMIT_BATTERY;
@@ -227,9 +234,10 @@ unsigned int Power::calcBatteryLimit() {
 }
 
 unsigned int Power::calcMotorTempLimit() {
-    // Not debounced: derating stops on the very sample the configured
-    // source goes bad, and resumes on the first good one. Only the alarm
-    // (TempProtectionMonitor) waits out the debounce window.
+    // The raw target is not debounced: it jumps to 100 on the very sample the
+    // configured source goes bad. The applied ceiling is slewed by
+    // motorTempCeiling_ (fast down, slow up), so it releases gradually. Only
+    // the alarm (TempProtectionMonitor) waits out the debounce window.
     if (!isMotorTempProtecting()) return 100;
 
     int32_t motorTempMilliCelsius = telemetry.getMotorTempMilliCelsius();

@@ -78,7 +78,7 @@ This mirrors the same per-signal validity check the Fly Control
 ### `motor_temp_src` (field 9)
 
 Reports which sensor fed the (possibly blank) `motor_temp` reading in
-field 8 — `can` (T-Motor ESC's CAN Status 5, EMA-filtered with tau 5 s; field 8 and the CSV `motor_temp` carry the filtered value) or `ntc` (thermistor
+field 8 — `can` (T-Motor ESC's CAN Status 5, EMA-filtered with tau 2 s; field 8 and the CSV `motor_temp` carry the filtered value) or `ntc` (thermistor
 fallback). Always blank on XAG and Hobbywing builds, which have a single motor temp
 source. Independent of the field 8 validity check: it's populated
 whenever a source has been selected, even on a tick where the reading

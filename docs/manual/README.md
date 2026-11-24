@@ -90,6 +90,10 @@ O controlador reduz a potência máxima com base em três fontes: tensão da bat
 - **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC. No T-Motor, a temperatura do CAN é suavizada ao longo de alguns segundos, então o limite do motor muda de forma gradual.
 - **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor e Hobbywing) ou do sensor analógico (XAG).
 
+O teto de potência por temperatura desce rápido quando esquenta e volta devagar quando esfria, cerca de 2 % por segundo, para a potência não oscilar com pequenas variações da leitura.
+
+O controlador só apita enquanto está de fato cortando o acelerador, ou seja, quando você pede mais potência do que o teto permite. Se o teto está ativo mas o acelerador está abaixo dele, o app mostra a limitação e não há som. Voando junto ao teto, o aviso se repete no máximo a cada 10 segundos.
+
 Os limites são configurados no Fly App (veja Configurações).
 
 **ESC T-Motor recém-instalado sem temperatura no app:** o controlador configura o ESC para reportar a temperatura pelo CAN poucos segundos depois de detectá-lo, mas a configuração só vale depois que o próprio ESC é desligado e religado. Reiniciar só o Fly Controller não basta.
@@ -98,7 +102,7 @@ Os limites são configurados no Fly App (veja Configurações).
 
 A perda de um sensor de temperatura nunca corta o motor. Sem leitura confiável do motor ou do ESC, o sistema:
 
-- para de limitar a potência por aquele sensor;
+- libera aos poucos o limite daquele sensor, cerca de 2 % por segundo, sem saltar para a potência total;
 - depois de 2 segundos sem o sensor, toca o alarme de proteção de temperatura desligada: duas notas descendentes, uma aguda curta e uma grave longa;
 - repete o alarme aos 10 s, 30 s e 60 s, e depois a cada minuto, enquanto o sensor continuar fora;
 - quando todos os sensores voltam por 2 segundos seguidos, toca duas notas ascendentes curtas e a limitação volta a funcionar.
@@ -378,7 +382,7 @@ Com um BMS JBD, JK ou ANT conectado, o controlador usa a capacidade que o BMS in
 | **ESC: máximo** | Nesta temperatura, a potência é cortada. | 0 a 150 °C |
 | **Origem da temperatura do motor** | CAN ou NTC. Aparece só nos controladores que permitem escolher. | CAN ou NTC |
 
-A redução é linear entre o início e o máximo. O início precisa ser menor que o máximo: valores iguais ou invertidos cortariam a potência a partir do início, e o app recusa gravá-los.
+A redução é linear entre o início e o máximo. O início precisa ser menor que o máximo: o app e o controlador recusam valores iguais ou invertidos. Se o controlador encontrar um par invertido gravado por um firmware antigo, ele usa os valores de fábrica para esse par.
 
 Esses valores são os traços âmbar e vermelho dos mostradores de temperatura no painel.
 

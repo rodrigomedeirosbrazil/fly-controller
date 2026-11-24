@@ -82,7 +82,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 
 **Supported Messages:**
 - ESC_STATUS (1034): RPM, voltage, current
-- Status 5 (1154): motor temperature (the only CAN source of it; EMA-filtered, tau 5 s) — only sent when the ESC's "Status protocol" is set to `DRONECAN-S` (CloudLink); `CUBECAN` mode does not send it. A protocol change takes effect only after the ESC itself is power-cycled.
+- Status 5 (1154): motor temperature (the only CAN source of it; EMA-filtered, tau 2 s) — only sent when the ESC's "Status protocol" is set to `DRONECAN-S` (CloudLink); `CUBECAN` mode does not send it. A protocol change takes effect only after the ESC itself is power-cycled.
 - RawCommand (1030): throttle command
 
 *XAG uses XagTelemetry with analog sensors (PWM-only, no CAN).*

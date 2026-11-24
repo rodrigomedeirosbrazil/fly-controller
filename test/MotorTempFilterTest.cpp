@@ -25,7 +25,7 @@ void test_not_fresh_before_any_sample() {
 void test_step_response_one_tau() {
     MotorTempFilter f(CEILING);
     f.addSample(100000, 0);
-    for (uint32_t t = 100; t <= 5000; t += 100) f.addSample(130000, t);
+    for (uint32_t t = 100; t <= MOTOR_TEMP_FILTER_TAU_MS; t += 100) f.addSample(130000, t);
     int32_t v = f.valueMilliCelsius();
     assert(v >= 118000 && v <= 120000);
     cout << "PASS: step response is ~63% after one tau\n";

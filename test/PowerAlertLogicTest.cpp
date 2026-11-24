@@ -20,70 +20,70 @@ int main() {
     // Not armed, active causes — should never beep
     {
         PowerAlertLogic logic;
-        assert(!logic.update(false, POWER_LIMIT_BATTERY, 0, INTERVAL_MS));
-        assert(!logic.update(false, POWER_LIMIT_BATTERY, 5000, INTERVAL_MS));
-        assert(!logic.update(false, POWER_LIMIT_BATTERY, 15000, INTERVAL_MS));
+        assert(!logic.update(false, POWER_LIMIT_BATTERY, true, 0, INTERVAL_MS));
+        assert(!logic.update(false, POWER_LIMIT_BATTERY, true, 5000, INTERVAL_MS));
+        assert(!logic.update(false, POWER_LIMIT_BATTERY, true, 15000, INTERVAL_MS));
         cout << "PASS: not armed never beeps\n";
     }
 
     // Armed, no causes — should never beep
     {
         PowerAlertLogic logic;
-        assert(!logic.update(true, POWER_LIMIT_NONE, 0, INTERVAL_MS));
-        assert(!logic.update(true, POWER_LIMIT_NONE, 15000, INTERVAL_MS));
+        assert(!logic.update(true, POWER_LIMIT_NONE, true, 0, INTERVAL_MS));
+        assert(!logic.update(true, POWER_LIMIT_NONE, true, 15000, INTERVAL_MS));
         cout << "PASS: armed but no causes never beeps\n";
     }
 
     // Armed + cause: beep immediately on entry
     {
         PowerAlertLogic logic;
-        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, 1000, INTERVAL_MS));
+        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 1000, INTERVAL_MS));
         cout << "PASS: entry beep fires immediately\n";
     }
 
     // No re-beep before interval
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_MOTOR_TEMP, 0, INTERVAL_MS);  // entry
-        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, 100, INTERVAL_MS));
-        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, 9999, INTERVAL_MS));
+        logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);  // entry
+        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 100, INTERVAL_MS));
+        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 9999, INTERVAL_MS));
         cout << "PASS: no re-beep before interval\n";
     }
 
     // Beep again exactly at interval
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_MOTOR_TEMP, 0, INTERVAL_MS);   // entry at t=0
-        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, 9999, INTERVAL_MS));
-        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, 10000, INTERVAL_MS));
+        logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);   // entry at t=0
+        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 9999, INTERVAL_MS));
+        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 10000, INTERVAL_MS));
         cout << "PASS: beep again at interval\n";
     }
 
     // Periodic: beep again at 2x interval
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_MOTOR_TEMP, 0, INTERVAL_MS);    // entry t=0
-        logic.update(true, POWER_LIMIT_MOTOR_TEMP, 10000, INTERVAL_MS); // periodic t=10s
-        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, 19999, INTERVAL_MS));
-        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, 20000, INTERVAL_MS));
+        logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);    // entry t=0
+        logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 10000, INTERVAL_MS); // periodic t=10s
+        assert(!logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 19999, INTERVAL_MS));
+        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 20000, INTERVAL_MS));
         cout << "PASS: periodic continues at 2x interval\n";
     }
 
     // Causes clear -> no more beeps, state reset
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_ESC_TEMP, 0, INTERVAL_MS);     // entry
-        assert(!logic.update(true, POWER_LIMIT_NONE, 100, INTERVAL_MS)); // causes gone
-        assert(!logic.update(true, POWER_LIMIT_NONE, 15000, INTERVAL_MS));
+        logic.update(true, POWER_LIMIT_ESC_TEMP, true, 0, INTERVAL_MS);     // entry
+        assert(!logic.update(true, POWER_LIMIT_NONE, true, 100, INTERVAL_MS)); // causes gone
+        assert(!logic.update(true, POWER_LIMIT_NONE, true, 15000, INTERVAL_MS));
         cout << "PASS: causes clear stops beeps\n";
     }
 
     // Re-entry after clearing: beeps immediately again
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_BATTERY, 0, INTERVAL_MS);       // entry
-        logic.update(true, POWER_LIMIT_NONE, 1000, INTERVAL_MS);       // clear
-        assert(logic.update(true, POWER_LIMIT_BATTERY, 2000, INTERVAL_MS)); // re-entry
+        logic.update(true, POWER_LIMIT_BATTERY, true, 0, INTERVAL_MS);       // entry
+        logic.update(true, POWER_LIMIT_NONE, true, 1000, INTERVAL_MS);       // clear
+        assert(logic.update(true, POWER_LIMIT_BATTERY, true, 2000, INTERVAL_MS)); // re-entry
         cout << "PASS: re-entry beeps immediately\n";
     }
 
@@ -91,20 +91,65 @@ int main() {
     {
         PowerAlertLogic logic;
         uint8_t multi = POWER_LIMIT_BATTERY | POWER_LIMIT_MOTOR_TEMP | POWER_LIMIT_ESC_TEMP;
-        assert(logic.update(true, multi, 0, INTERVAL_MS));              // entry
-        assert(!logic.update(true, multi, 5000, INTERVAL_MS));          // mid-interval
-        assert(logic.update(true, multi, 10000, INTERVAL_MS));          // periodic
+        assert(logic.update(true, multi, true, 0, INTERVAL_MS));              // entry
+        assert(!logic.update(true, multi, true, 5000, INTERVAL_MS));          // mid-interval
+        assert(logic.update(true, multi, true, 10000, INTERVAL_MS));          // periodic
         cout << "PASS: multi-cause single limited state\n";
     }
 
     // Disarm mid-limited: stops immediately, re-arm re-entry beeps
     {
         PowerAlertLogic logic;
-        logic.update(true, POWER_LIMIT_MOTOR_TEMP, 0, INTERVAL_MS);    // entry
-        assert(!logic.update(false, POWER_LIMIT_MOTOR_TEMP, 5000, INTERVAL_MS)); // disarm
-        assert(!logic.update(false, POWER_LIMIT_MOTOR_TEMP, 15000, INTERVAL_MS));
-        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, 20000, INTERVAL_MS));  // re-arm
+        logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);    // entry
+        assert(!logic.update(false, POWER_LIMIT_MOTOR_TEMP, true, 5000, INTERVAL_MS)); // disarm
+        assert(!logic.update(false, POWER_LIMIT_MOTOR_TEMP, true, 15000, INTERVAL_MS));
+        assert(logic.update(true, POWER_LIMIT_MOTOR_TEMP, true, 20000, INTERVAL_MS));  // re-arm
         cout << "PASS: disarm stops; re-arm triggers entry beep\n";
+    }
+
+    // Limited but never clipped: silent
+    {
+        PowerAlertLogic l;
+        for (uint32_t t = 0; t <= 60000; t += 1000)
+            assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, t, INTERVAL_MS));
+        cout << "PASS: limited but not clipped is silent\n";
+    }
+
+    // Clip beeps on entry, then every interval
+    {
+        PowerAlertLogic l;
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 9999, INTERVAL_MS));
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 10000, INTERVAL_MS));
+        cout << "PASS: clip beeps on entry then every interval\n";
+    }
+
+    // Hovering at the ceiling (clip toggles every second): beeps at 0, 10, 20, 30 s only
+    {
+        PowerAlertLogic l;
+        int beeps = 0;
+        for (uint32_t t = 0; t <= 30000; t += 1000)
+            beeps += l.update(true, POWER_LIMIT_MOTOR_TEMP, (t / 1000) % 2 == 0, t, INTERVAL_MS);
+        assert(beeps == 4);
+        cout << "PASS: hover at ceiling does not spam\n";
+    }
+
+    // Hold expires after an interval without clipping; a new clip is a new episode
+    {
+        PowerAlertLogic l;
+        l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 10000, INTERVAL_MS));
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 15000, INTERVAL_MS));
+        cout << "PASS: clip ends after interval without clipping\n";
+    }
+
+    // Hold survives millis() rollover
+    {
+        PowerAlertLogic l;
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0xFFFFF000, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 0x00000800, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 0x00001F00, INTERVAL_MS));
+        cout << "PASS: clip hold survives rollover\n";
     }
 
     cout << "\nAll tests passed.\n";

@@ -21,7 +21,7 @@
 //
 // Pure and header-only: host-tested in test/MotorTempFilterTest.cpp.
 
-constexpr uint32_t MOTOR_TEMP_FILTER_TAU_MS = 5000;
+constexpr uint32_t MOTOR_TEMP_FILTER_TAU_MS = 2000;
 constexpr uint32_t MOTOR_TEMP_FILTER_FRESH_MS = 1000;
 
 class MotorTempFilter {

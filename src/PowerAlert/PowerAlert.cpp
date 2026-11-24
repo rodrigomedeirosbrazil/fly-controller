@@ -13,7 +13,7 @@ PowerAlert::PowerAlert() : activeCauses_(0) {}
 void PowerAlert::handle() {
     activeCauses_ = power.getActiveLimitCauses();
 
-    if (logic_.update(throttle.isArmed(), activeCauses_, millis(), POWER_ALERT_BEEP_INTERVAL_MS)) {
+    if (logic_.update(throttle.isArmed(), activeCauses_, power.isThrottleClipped(), millis(), POWER_ALERT_BEEP_INTERVAL_MS)) {
         sound.play(SoundEvent::PowerAlert);
     }
 }

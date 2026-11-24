@@ -41,9 +41,15 @@ void test_thermal_ranges() {
     assert(validateThermal(80000, 100000, -1,    110000) == SettingsError::EscTempRange);
 }
 
-void test_thermal_does_not_check_ordering() {
-    // Same reasoning as the voltage pair: not a rule enforced today.
-    assert(validateThermal(100000, 80000, 110000, 80000) == SettingsError::None);
+void test_thermal_checks_ordering() {
+    assert(isThermalRangeOrdered(130000, 150000));
+    assert(!isThermalRangeOrdered(150000, 150000));
+    assert(!isThermalRangeOrdered(150000, 130000));
+    assert(validateThermal(100000, 80000, 80000, 110000)  == SettingsError::MotorTempRange);
+    assert(validateThermal(100000, 100000, 80000, 110000) == SettingsError::MotorTempRange);
+    assert(validateThermal(80000, 100000, 110000, 80000)  == SettingsError::EscTempRange);
+    assert(validateThermal(80000, 100000, 110000, 110000) == SettingsError::EscTempRange);
+    assert(validateThermal(149000, 150000, 0, 1000)       == SettingsError::None); // 1 C span is allowed
 }
 
 void test_motor_temp_source_range() {
@@ -118,7 +124,7 @@ int main() {
     test_power_does_not_check_voltage_ordering();
     test_voltage_divider_ratio_range();
     test_thermal_ranges();
-    test_thermal_does_not_check_ordering();
+    test_thermal_checks_ordering();
     test_motor_temp_source_range();
     test_bms_type_range();
     test_system_ranges();

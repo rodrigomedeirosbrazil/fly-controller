@@ -91,6 +91,19 @@ void Settings::load() {
     escMaxTemp = preferences.getInt("escMaxT", getDefaultEscMaxTemp());
     escTempReductionStart = preferences.getInt("escRedT", getDefaultEscTempReductionStart());
 
+    // An inverted pair saved by an older firmware would disable the protection:
+    // use the factory values for that pair. RAM only, NVS is left untouched.
+    if (!isThermalRangeOrdered(motorTempReductionStart, motorMaxTemp)) {
+        DEBUG_PRINTLN("Settings: inverted motor temp range in NVS, using defaults");
+        motorTempReductionStart = getDefaultMotorTempReductionStart();
+        motorMaxTemp = getDefaultMotorMaxTemp();
+    }
+    if (!isThermalRangeOrdered(escTempReductionStart, escMaxTemp)) {
+        DEBUG_PRINTLN("Settings: inverted ESC temp range in NVS, using defaults");
+        escTempReductionStart = getDefaultEscTempReductionStart();
+        escMaxTemp = getDefaultEscMaxTemp();
+    }
+
     // Load power control enabled (default: true)
     powerControlEnabled = preferences.getBool("pwrCtrl", getDefaultPowerControlEnabled());
 
