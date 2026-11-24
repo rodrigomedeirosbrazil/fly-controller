@@ -143,7 +143,7 @@ Sound plays only while armed, reusing `TempProtectionAlertLogic`'s cadence (0, 1
 
 ## Power alert
 
-The `PowerAlert` component reports which limiters are cutting power via `TELEMETRY.limitCauses` (battery voltage, motor temp, ESC temp). It exposes `getActiveCauses()` only: its 10 s re-fire (beeps) is driven by `PowerAlertLogic`'s `PeriodicTrigger`, and there is no sequence counter for clients. See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
+The `PowerAlert` component reports which limiters are cutting power via `TELEMETRY.limitCauses` (battery voltage, motor temp, ESC temp). The alert beeps only while the throttle is actually clipped (`Power::isThrottleClipped()`: pilot demand above the ceiling), held for 10 s so hovering at the ceiling does not re-beep; `limitCauses` still reports any ceiling below 100 %. It exposes `getActiveCauses()` only: its 10 s re-fire (beeps) is driven by `PowerAlertLogic`'s `PeriodicTrigger`, and there is no sequence counter for clients. See `PowerAlert/` for the component and `PowerAlertLogic.h` for the host-testable timing logic.
 
 ## Flight time
 

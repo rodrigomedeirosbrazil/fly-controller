@@ -90,6 +90,8 @@ O controlador reduz a potência máxima com base em três fontes: tensão da bat
 - **Motor:** entre a temperatura de início de redução e a temperatura máxima, a potência cai de forma linear. A temperatura vem do CAN (T-Motor) ou do sensor NTC. No T-Motor, a temperatura do CAN é suavizada ao longo de alguns segundos, então o limite do motor muda de forma gradual.
 
 O teto de potência por temperatura desce rápido quando esquenta e volta devagar quando esfria, cerca de 2 % por segundo, para a potência não oscilar com pequenas variações da leitura.
+
+O controlador só apita enquanto está de fato cortando o acelerador, ou seja, quando você pede mais potência do que o teto permite. Se o teto está ativo mas o acelerador está abaixo dele, o app mostra a limitação e não há som. Voando junto ao teto, o aviso se repete no máximo a cada 10 segundos.
 - **ESC:** igual ao motor, com os limites do ESC. A temperatura vem do CAN (T-Motor e Hobbywing) ou do sensor analógico (XAG).
 
 Os limites são configurados no Fly App (veja Configurações).

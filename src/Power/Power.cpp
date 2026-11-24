@@ -16,6 +16,7 @@ Power::Power() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+    throttleClipped_ = false;
 }
 
 void Power::onArmed() {
@@ -82,6 +83,7 @@ unsigned int Power::getPwm() {
     unsigned int resultPwm = ESC_MIN_PWM;
     if (!throttle.isCalibrated()) {
         resetMotorState();
+        throttleClipped_ = false;
         resultPwm = ESC_MIN_PWM;
     } else {
         unsigned int powerLimit  = getPower();
@@ -90,6 +92,7 @@ unsigned int Power::getPwm() {
         unsigned int throttleRaw = throttle.isEngaged() ? throttle.getThrottleRaw() : throttleMin;
 
         unsigned int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
+        throttleClipped_ = throttle.isEngaged() && throttleRaw > allowedMax;
         unsigned int clampedRaw = constrain(throttleRaw, throttleMin, allowedMax);
 
         unsigned int range = throttleMax - throttleMin;

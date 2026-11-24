@@ -22,6 +22,9 @@ public:
     unsigned int getPwm();
     unsigned int getPower();
     uint8_t getActiveLimitCauses() const { return activeLimitCauses_; }
+    // True when the last getPwm() was calibrated, engaged and the pilot's
+    // throttle was above the limiter ceiling (i.e. power is actually cut).
+    bool isThrottleClipped() const { return throttleClipped_; }
     void resetBatteryPowerFloor();
     void resetMotorState();
 
@@ -86,6 +89,7 @@ private:
     unsigned long idleBeganAt;
 
     uint8_t activeLimitCauses_;
+    bool throttleClipped_ = false;
     uint8_t disarmScale_;
 
     SignalArmContract batteryContract_;
