@@ -177,6 +177,7 @@ void Power::resetMotorState() {
     startState = StartState::IDLE;
     startingBeganAt = 0;
     idleBeganAt = 0;
+    throttleClipped_ = false;
 }
 
 unsigned int Power::getPower() {

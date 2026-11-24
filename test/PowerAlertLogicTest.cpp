@@ -107,6 +107,51 @@ int main() {
         cout << "PASS: disarm stops; re-arm triggers entry beep\n";
     }
 
+    // Limited but never clipped: silent
+    {
+        PowerAlertLogic l;
+        for (uint32_t t = 0; t <= 60000; t += 1000)
+            assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, t, INTERVAL_MS));
+        cout << "PASS: limited but not clipped is silent\n";
+    }
+
+    // Clip beeps on entry, then every interval
+    {
+        PowerAlertLogic l;
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 9999, INTERVAL_MS));
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 10000, INTERVAL_MS));
+        cout << "PASS: clip beeps on entry then every interval\n";
+    }
+
+    // Hovering at the ceiling (clip toggles every second): beeps at 0, 10, 20, 30 s only
+    {
+        PowerAlertLogic l;
+        int beeps = 0;
+        for (uint32_t t = 0; t <= 30000; t += 1000)
+            beeps += l.update(true, POWER_LIMIT_MOTOR_TEMP, (t / 1000) % 2 == 0, t, INTERVAL_MS);
+        assert(beeps == 4);
+        cout << "PASS: hover at ceiling does not spam\n";
+    }
+
+    // Hold expires after an interval without clipping; a new clip is a new episode
+    {
+        PowerAlertLogic l;
+        l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0, INTERVAL_MS);
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 10000, INTERVAL_MS));
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 15000, INTERVAL_MS));
+        cout << "PASS: clip ends after interval without clipping\n";
+    }
+
+    // Hold survives millis() rollover
+    {
+        PowerAlertLogic l;
+        assert(l.update(true, POWER_LIMIT_MOTOR_TEMP, true, 0xFFFFF000, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 0x00000800, INTERVAL_MS));
+        assert(!l.update(true, POWER_LIMIT_MOTOR_TEMP, false, 0x00001F00, INTERVAL_MS));
+        cout << "PASS: clip hold survives rollover\n";
+    }
+
     cout << "\nAll tests passed.\n";
     return 0;
 }
