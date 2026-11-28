@@ -71,7 +71,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Calibrated on every boot: hold full throttle for 3 s, then rest for 3 s. Not saved.
 - The motor only engages above 2% of the calibrated range and releases below 1%.
 - Pilot demand (0-100%) is a continuous rescale from the engage point to the top; the top 3% of travel reads 100%. The same value feeds the PWM, the log, `$XCTOD`, BLE telemetry and the arming check (arming is refused while the gate is engaged).
-- Calibration accepts any stable 3 s hold as the maximum, then a stable hold at least 600 counts below it as the minimum; a rest reading that is too close to the maximum restarts the calibration (silently if the throttle never moved, with a warning beep after a partial squeeze).
+- Calibration accepts a stable 3 s hold as the maximum only if it is at least 600 counts above the lowest reading seen since power-on (an untouched throttle stays silent; a throttle held open at power-on must be released and squeezed again), then a stable hold at least 600 counts below it as the minimum. A partial release restarts the calibration with a warning beep.
 - The motor command goes through the throttle output stage (see section 6): soft start, instant response while running, bounded fall rate.
 - Any invalid reading (outside the calibrated band, or repeated I2C failures) disarms at once.
 
@@ -400,7 +400,7 @@ Order of operations: demand, running offset, start limit, limiter ceiling and bu
 | Wake-up wait | 0 | 1500 ms at 5% | - |
 | Start ramp | to 20%, ~3 s | 5% to 20%, ~2 s | - |
 | Release | RPM >= 600, or 4 s once at the ramp top | output at the ramp top | - |
-| Running offset | 15% | 0 | 0 |
+| Running offset | 0 | 0 | 0 |
 | Decel (full to min) | ~1 s | ~1 s | ~1 s |
 | Stop detection | RPM = 0 for 500 ms (coast 3 s if stale) | coast 800 ms | RPM = 0 for 500 ms (coast 3 s if stale) |
 
@@ -410,11 +410,11 @@ Order of operations: demand, running offset, start limit, limiter ceiling and bu
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
 
 **Calibration Process:**
-1. On startup, move throttle to maximum position and hold for 3 seconds (any stable hold is accepted; no absolute threshold)
+1. After power-on, with the throttle at rest, move it to maximum and hold for 3 seconds; two short beeps mean the maximum was captured: release
 2. Move throttle to minimum position and hold for 3 seconds (at least 600 counts below the maximum)
 3. Calibration complete - system is ready to arm
 
-If the throttle was untouched at power-on, or the maximum was not the top of the travel, the calibration restarts (with a warning beep when the rest hold is too close to the maximum, or silently when the throttle never moved).
+Nothing sounds while the throttle stays untouched. If it was held open at power-on, release it and squeeze again. A partial release after the maximum restarts the calibration with a warning beep.
 
 ## 📊 Usage Example
 

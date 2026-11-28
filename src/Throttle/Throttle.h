@@ -35,6 +35,10 @@ class Throttle {
         const static int samples = 8;
 
         int pinValues[samples];
+        // Reads taken since boot, saturating at `samples`. Calibration waits
+        // for a full filter window: the zero-initialized window would
+        // otherwise hand ThrottleCalibrationLogic a falsely low reading.
+        uint8_t samplesRead;
         int pinValueFiltered;
         ThrottleEngagementLogic engagement;
         unsigned long lastThrottleRead;

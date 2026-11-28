@@ -9,9 +9,13 @@
 // reading must stay within STABILITY_BAND of the hold's first sample for
 // HOLD_MS, and the captured value is the mean of the hold's samples.
 //
-// Step 1 rejects captures that are not far enough from max (MIN_SPAN). When the
-// throttle never moved (rest captured as max) the restart is silent; a partial
-// squeeze restarts with a beep. Squeezing again during step 1 re-captures max.
+// Step 0 only accepts a hold at least MIN_SPAN above the lowest reading seen
+// since reset, so an untouched throttle never captures "max" and stays silent
+// (no rest reference needs to exist beforehand: the lowest sample is enough).
+// A throttle held open at power-on is never accepted until it has been
+// released once and squeezed again. Step 1 rejects captures that are not far
+// enough from max (MIN_SPAN): still at max restarts silently, a partial
+// release restarts with a beep. Squeezing again during step 1 re-captures max.
 
 enum class CalibrationEvent : uint8_t {
     None,
@@ -28,6 +32,7 @@ public:
 
     CalibrationEvent update(int filtered, uint32_t nowMs) {
         if (calibrated_) return CalibrationEvent::None;
+        if (filtered < lowest_) lowest_ = filtered;
 
         if (step_ == 1 && filtered > pinMax_ + RESQUEEZE_MARGIN) {
             step_ = 0;
@@ -48,6 +53,9 @@ public:
         holding_ = false;
 
         if (step_ == 0) {
+            // Not a squeeze: the throttle was untouched, or held open since
+            // power-on (lowest_ is still that position). Stay silent.
+            if (mean < lowest_ + MIN_SPAN) return CalibrationEvent::None;
             pinMax_ = mean;
             step_ = 1;
             return CalibrationEvent::MaxCaptured;
@@ -73,6 +81,7 @@ public:
         pinMax_ = 0;
         sum_ = 0;
         count_ = 0;
+        lowest_ = LOWEST_UNSET;
     }
 
     bool isCalibrated() const { return calibrated_; }
@@ -81,6 +90,7 @@ public:
     uint8_t step() const { return step_; }
 
 private:
+    enum : int { LOWEST_UNSET = 0x7FFFFFFF - MIN_SPAN };
     static int abs32(int v) { return v < 0 ? -v : v; }
 
     void startHold(int value, uint32_t nowMs) {
@@ -97,6 +107,7 @@ private:
     int anchor_ = 0;
     int pinMin_ = 0;
     int pinMax_ = 0;
+    int lowest_ = LOWEST_UNSET;
     uint32_t holdStartMs_ = 0;
     uint32_t sum_ = 0;
     uint32_t count_ = 0;

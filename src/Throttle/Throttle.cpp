@@ -15,6 +15,7 @@ Throttle::Throttle(ReadFn readFn, ReadOkFn readOkFn) : readFn(readFn), readOkFn(
   );
 
   pinValueFiltered = 0;
+  samplesRead = 0;
   lastThrottleRead = 0;
 
   throttleArmed = false;
@@ -42,7 +43,9 @@ void Throttle::handle()
 
   // Handle calibration if not yet calibrated
   if (!calibrated) {
-    handleCalibration(now);
+    if (samplesRead >= samples) {
+      handleCalibration(now);
+    }
     return; // band isn't established yet — signal-validity checks need it
   }
 
@@ -114,6 +117,9 @@ void Throttle::readThrottlePin()
   // fed unconditionally (the output stage ignores demand once disarmed and
   // ramps the motor down at its decel rate).
   pinValues[samples - 1] = readFn();
+  if (samplesRead < samples) {
+    samplesRead++;
+  }
   // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
   // only needs to observe the same channel readFn() just read — no ordering
   // dependency on other components reading other channels.

@@ -18,10 +18,12 @@ static const BoardConfig s_config = {
 // Tmotor: current via CAN, soft start, 18Ah, 110/80°C ESC, 90 A reference
 static const BoardConfig s_config = {
     true, {
-        // T-Motor: ramp to 20%, release by RPM or time; offset 15%. Provisional, see spec section 8.
+        // T-Motor: ramp to 20%, release by RPM or time; no running offset (15% on the
+        // bench 2026-11-28 jumped after release and kept the motor turning on a
+        // rest reading that drifted above the release point). Provisional, see spec section 8.
         true, 0, 0, 200000, 66667,
         true, 600, 4000,
-        150000, 1000000,
+        0, 1000000,
         true, 500, 3000
     }, true,
     18000, 110000, 80000,

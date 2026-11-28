@@ -35,12 +35,14 @@ Este manual foi elaborado com base no firmware 2026-10-12.1 e no Fly App 2026-10
 
 A calibração define o mínimo e o máximo do curso do acelerador e precisa ser feita toda vez que o sistema é ligado.
 
-1. Leve o acelerador à posição máxima e mantenha por 3 segundos. O buzzer emite três beeps curtos: o máximo foi memorizado.
-2. Leve o acelerador à posição mínima e mantenha por 3 segundos. O buzzer toca a melodia de calibração concluída.
+1. Com o sistema ligado e o acelerador solto, leve o acelerador à posição máxima e mantenha por 3 segundos. O buzzer emite dois beeps curtos: o máximo foi memorizado, pode soltar.
+2. Solte o acelerador e deixe em repouso por 3 segundos. O buzzer toca três beeps longos: calibração concluída.
+
+Enquanto você não mexe no acelerador, o buzzer fica em silêncio. Se o sistema foi ligado com o acelerador apertado, solte e aperte de novo: a calibração só começa a contar depois que o acelerador passou pelo repouso.
 
 Se você soltar o acelerador antes dos 3 segundos, aquele passo é cancelado. Basta repeti-lo.
 
-Se o buzzer tocar o aviso (três tons repetidos) durante o segundo passo, a calibração recomeça do máximo. Isso acontece quando o máximo memorizado não foi o curso inteiro. Se você ligar o sistema sem tocar no acelerador, a calibração recomeça em silêncio até você apertar. Aperte o acelerador até o fim por 3 segundos e depois solte por 3 segundos. Sempre aperte até o fim: um máximo parcial é aceito, mas em voo o acelerador cheio passa da faixa memorizada e o sistema desarma.
+Se o buzzer tocar o aviso (cinco beeps rápidos) durante o segundo passo, a calibração recomeça do máximo. Isso acontece quando o acelerador não voltou ao repouso. Se você continuar segurando no máximo depois dos dois beeps, eles tocam de novo: é só soltar. Aperte o acelerador até o fim por 3 segundos e depois solte por 3 segundos. Sempre aperte até o fim: um máximo parcial é aceito, mas em voo o acelerador cheio passa da faixa memorizada e o sistema desarma.
 
 ### Armar e desarmar
 
