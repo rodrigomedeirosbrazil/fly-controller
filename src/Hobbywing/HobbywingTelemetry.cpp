@@ -19,7 +19,8 @@ void HobbywingTelemetry::update() {
         cachedBatteryCurrentMilliAmps = 0;
         cachedEscTempMilliCelsius = 0;
     }
-    cachedRpm = hobbywingCan.hasRpm() ? hobbywingCan.getRpm() : 0;
+    cachedRpmFresh = hobbywingCan.hasRpm();
+    cachedRpm = cachedRpmFresh ? hobbywingCan.getRpm() : 0;
     cachedEscTempState = HobbywingCanParser::classifyEscTemp(
         hasStatus, hobbywingCan.getEscTemperature(), ESC_TEMP_MAX_VALID / 1000);
 
@@ -31,6 +32,7 @@ bool HobbywingTelemetry::hasData() const { return cachedHasData; }
 uint16_t HobbywingTelemetry::getBatteryVoltageMilliVolts() const { return cachedBatteryVoltageMilliVolts; }
 uint32_t HobbywingTelemetry::getBatteryCurrentMilliAmps() const { return cachedBatteryCurrentMilliAmps; }
 uint16_t HobbywingTelemetry::getRpm() const { return cachedRpm; }
+bool HobbywingTelemetry::isRpmFresh() const { return cachedRpmFresh; }
 int32_t HobbywingTelemetry::getMotorTempMilliCelsius() const { return cachedMotorTempMilliCelsius; }
 int32_t HobbywingTelemetry::getEscTempMilliCelsius() const { return cachedEscTempMilliCelsius; }
 unsigned long HobbywingTelemetry::getLastUpdate() const { return cachedLastUpdate; }

@@ -4,6 +4,7 @@
 #include <driver/twai.h>
 
 #include "MotorTempFilter.h"
+#include "EscStatusRpm.h"
 
 /**
  * T-Motor ESC Communication Class
@@ -69,6 +70,8 @@ public:
     // Connectivity status
     bool isReady();  // Checks if ESC is available on the network (detected via NodeStatus)
     bool hasTelemetry();  // Checks if telemetry data is available
+    /** True if an RPM-bearing ESC_STATUS arrived within the last second. */
+    bool hasRpm();
     /** True if a plausible Status 5 sample arrived within the last second (independent of hasTelemetry). */
     bool hasRecentMotorTempFromCan();
 
@@ -79,6 +82,8 @@ private:
     uint32_t batteryCurrentMilliAmps;  // Current in milliamperes (ex: 50000 = 50.000A, max 500A = 500000 mA)
     uint16_t batteryVoltageMilliVolts; // Voltage in millivolts (3 decimal places, ex: 44100 = 44.100V, max 60V = 60000 mV)
     uint16_t rpm;                // RPM
+    unsigned long lastRpmAtMs;   // millis() of the last ESC_STATUS that carried RPM (0 = never)
+    static const unsigned long RPM_FRESH_MS = 1000;
     uint32_t errorCount;         // Error count
     uint8_t powerRatingPct;      // Power rating percentage
     uint8_t escIndex;             // ESC index (for multi-ESC support)

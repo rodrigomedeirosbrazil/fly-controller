@@ -18,6 +18,7 @@ public:
     uint16_t getBatteryVoltageMilliVolts() const;
     uint32_t getBatteryCurrentMilliAmps() const;
     uint16_t getRpm() const;
+    bool isRpmFresh() const;
     int32_t getMotorTempMilliCelsius() const;
     int32_t getEscTempMilliCelsius() const;
     unsigned long getLastUpdate() const;
@@ -32,6 +33,7 @@ private:
     uint16_t cachedBatteryVoltageMilliVolts = 0;
     uint32_t cachedBatteryCurrentMilliAmps = 0;
     uint16_t cachedRpm = 0;
+    bool cachedRpmFresh = false;
     int32_t cachedMotorTempMilliCelsius = 0;
     int32_t cachedEscTempMilliCelsius = 0;
     unsigned long cachedLastUpdate = 0;
