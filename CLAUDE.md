@@ -46,7 +46,7 @@ src/
 ├── BatteryMonitor/           # Coulomb counting + SoC from voltage
 ├── BluetoothBms/             # BLE BMS integration
 ├── BmsAlert/                 # BMS alerts (low cell, high delta, high temp): BmsAlertLogic (pure) + BmsAlert component
-├── Button/                   # AceButton single-click (arm) + long-press (cruise)
+├── Button/                   # Gesture logic: click + hold (arm), hold (disarm ramp)
 ├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
@@ -55,13 +55,13 @@ src/
 ├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
-├── Power/                    # Available-power calculation + throttle ramp limiting
+├── Power/                    # Available-power calculation + limiter ceilings
 ├── Sensors/                  # BatteryVoltageSensor (XAG voltage divider)
 ├── Settings/                 # Persistent config via ESP32 Preferences
 ├── Sound/                    # Layered audio policy: event queue + persistent state
 ├── Telemetry/                # Facade (delegates to *Telemetry) + TelemetryData struct
 ├── Temperature/              # NTC thermistor via ReadFn
-├── Throttle/                 # Hall sensor via ReadFn + calibration + cruise
+├── Throttle/                 # Hall sensor via ReadFn + calibration + engage gate
 ├── Tmotor/                   # TmotorCan + TmotorTelemetry
 ├── Xag/                      # XagTelemetry (analog sensors, PWM-only)
 └── Xctod/                    # BLE telemetry output for XCTRACK app

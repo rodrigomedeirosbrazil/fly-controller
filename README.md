@@ -22,7 +22,7 @@ Fly Controller is an advanced firmware that implements a complete flight control
 
 Fly Controller is a modular ESP32-based flight control system that offers:
 
-- **Intelligent Throttle Control**: With automatic calibration, cruise control, and safety protections.
+- **Intelligent Throttle Control**: With automatic calibration, an engage gate against idle drift, and safety protections.
 - **CAN Bus Communication**: Complete UAVCAN interface with T-Motor ESCs.
 - **Bluetooth LE Telemetry**: Real-time data transmission to monitoring apps like XCTRACK via the Xctod module.
 - **Power Management**: Dynamic power calculation based on battery voltage and component temperature.
@@ -61,16 +61,17 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 // Main features
 - Automatic Hall sensor calibration on startup
 - System arming/disarming
-- Cruise control mode
+- Engage gate (hysteresis) so idle drift never spins the motor
 - Noise filtering with moving average
 - Sensor failure protection
 ```
 
 **Technical Specifications:**
-- Hall sensor reading is calibrated automatically.
-- 30 samples for filtering.
-- Automatic calibration completes in 3 seconds.
-- Cruise mode activated with 30%+ throttle.
+- Read every 10 ms through the ADS1115; 8-sample moving average (80 ms window).
+- Calibrated on every boot: hold full throttle for 3 s, then rest for 3 s. Not saved.
+- The motor only engages above 2% of the calibrated range and releases below 1%.
+- Throttle position maps linearly to PWM; there is no acceleration ramp.
+- Any invalid reading (outside the calibrated band, or repeated I2C failures) disarms at once.
 
 ### 2. **TmotorCan** - UAVCAN Interface
 ```cpp
@@ -95,15 +96,14 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Battery voltage-based limitation
 - Motor thermal protection
 - Battery power floor
-- ESC PWM conversion
-- Throttle ramp limiting (smooth acceleration/deceleration)
+- ESC PWM conversion (throttle position caps at the allowed ceiling)
 ```
 
 **Protection Algorithms:**
 - Minimum voltage limitation (42.0V)
 - Thermal protection (60°C motor, 110°C ESC)
 - Progressive power reduction based on motor and ESC temperature
-- Throttle ramp limiting: 4 μs/tick acceleration, 8 μs/tick deceleration (prevents jerky movements)
+- The limits act as a ceiling on the throttle position; there is no acceleration ramp
 
 ### 4. **Temperature** - Thermal Monitoring
 ```cpp
@@ -133,9 +133,9 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ### 7. **Button** - User Interface
 ```cpp
 // Single button control
-- Single click: Arming/Disarming
-- Long press: Cruise activation
-- Tactile feedback with buzzer
+- Arm: short click, release, then hold for 2 s (throttle at rest)
+- Disarm: hold; power ramps down over 2 s (immediate with the throttle at rest)
+- Audio feedback with the buzzer
 ```
 
 ### 8. **Xctod** - Bluetooth LE Telemetry
@@ -203,10 +203,9 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### Control
 - ✅ Automatic throttle calibration
-- ✅ Intelligent cruise control
 - ✅ Button arming/disarming
 - ✅ Direct ESC PWM control
-- ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
+- ✅ Throttle engage gate against idle drift
 - ✅ Bidirectional CAN bus communication (UAVCAN)
 
 ### Monitoring
@@ -355,9 +354,8 @@ The project supports three controller types, each with its own build environment
 - PWM-only control (no CAN bus required)
 - Analog temperature sensors (NTC)
 - Battery voltage monitoring via voltage divider
-- Throttle ramp limiting for smooth acceleration/deceleration
 
-**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period, the firmware sends 5% PWM; after 1.5 s, the ramp runs from 5% to the throttle target. Ramp rates: `THROTTLE_RAMP_UP_US_PER_MS` (2 μs/ms), `THROTTLE_RAMP_DOWN_US_PER_MS` (6 μs/ms).
+**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period the firmware sends 5% PWM; after 1.5 s it jumps directly to the throttle target (there is no ramp).
 
 ### 5. Pin Configuration
 ```cpp
@@ -383,20 +381,18 @@ The project supports three controller types, each with its own build environment
 #define CAN_RX_PIN 3  // GPIO3 - CAN RX
 ```
 
-### 6. Throttle Ramp Limiting Configuration
+### 6. Motor Start Configuration
 ```cpp
-// src/config.h - Throttle ramp limiting parameters
-#define THROTTLE_RAMP_UP_US_PER_MS   2.0f   // Acceleration rate (μs/ms)
-#define THROTTLE_RAMP_DOWN_US_PER_MS 6.0f   // Deceleration rate (μs/ms)
-// XAG (useSmoothStart): 1.5s wake-up at 5% PWM before ramp
-#define XAG_MOTOR_REACTION_DELAY_MS  1500
-#define XAG_WAKEUP_PWM_PERCENT      5
+// src/config.h - motor start timing
+#define THROTTLE_DEADBAND_US           20    // XAG start: throttle counts as active above ESC_MIN_PWM + 20 us
+#define MOTOR_STOP_TIME_MS             800   // XAG: throttle at rest this long returns to the wake-up stage
+#define XAG_MOTOR_REACTION_DELAY_MS    1500  // XAG wake-up duration
+#define XAG_WAKEUP_PWM_PERCENT         5     // XAG wake-up PWM
 ```
 
 **Behavior:**
-- Acceleration: Limited to 2 μs/ms (smooth ramp-up)
-- Deceleration: Limited to 6 μs/ms (responsive braking)
-- XAG: 1.5 s at 5% PWM when starting from stopped; then ramp from 5% to target
+- No acceleration ramp: PWM follows the throttle position directly once the engage gate opens.
+- XAG: 1.5 s at 5% PWM when starting from stopped, then a direct jump to the target.
 
 ### 7. Calibration
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
@@ -410,10 +406,9 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 
 ### Operation Sequence
 1. **Initialization**: Automatic throttle calibration, CAN bus setup (if applicable).
-2. **Arming**: Press the button to arm the system (throttle must be at minimum).
-3. **Operation**: Adjust the throttle; the system calculates and delivers safe power with smooth ramp limiting.
-4. **Cruise**: Maintain throttle >30% for a few seconds to activate cruise control.
-5. **Disarm**: Press the button again to disarm.
+2. **Arming**: Click, release, then hold the button for 2 s (throttle must be at rest).
+3. **Operation**: Adjust the throttle; the system delivers it directly, capped by the battery and temperature limits.
+4. **Disarm**: Hold the button; power ramps down over 2 s and the system disarms.
 
 ### Controller-Specific Notes
 
@@ -432,7 +427,7 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 - No CAN bus required
 - Temperature sensors must be connected (motor and ESC)
 - Battery voltage divider must be connected
-- Motor has ~1.5 s reaction delay when stopped; firmware sends 5% PWM during wake-up, then ramps to target
+- Motor has ~1.5 s reaction delay when stopped; firmware sends 5% PWM during wake-up, then jumps to the target
 
 ## 🛠️ Development
 
@@ -445,7 +440,7 @@ src/
 ├── ADS1115/              # I2C 16-bit ADC (primary sensor interface, all builds)
 ├── Throttle/             # Throttle control (ReadFn via ADS1115)
 ├── Temperature/          # Thermal sensor (ReadFn via ADS1115)
-├── Power/                # Power management & throttle ramp limiting
+├── Power/                # Power management & limiter ceilings
 ├── Canbus/               # CAN receive() API (Tmotor, Hobbywing)
 ├── Tmotor/               # TmotorCan, TmotorTelemetry
 ├── Hobbywing/            # HobbywingCan (receive-only), HobbywingTelemetry, HobbywingCanParser
