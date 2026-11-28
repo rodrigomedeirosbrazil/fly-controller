@@ -5,6 +5,8 @@
 #include "SignalArmContract.h"
 #include "TempProtectionMonitor.h"
 #include "ThermalCeilingSlew.h"
+#include "../BoardConfig.h"
+#include "../ThrottleOutput/ThrottleOutputLogic.h"
 
 enum PowerLimitCause : uint8_t {
     POWER_LIMIT_NONE       = 0,
@@ -22,14 +24,15 @@ public:
     unsigned int getPwm();
     unsigned int getPower();
     uint8_t getActiveLimitCauses() const { return activeLimitCauses_; }
-    // True when the last getPwm() was calibrated, engaged and the pilot's
-    // throttle was above the limiter ceiling (i.e. power is actually cut).
-    bool isThrottleClipped() const { return throttleClipped_; }
+    // True when the last getPwm() had a pilot demand above the limiter
+    // ceiling (i.e. power is actually cut).
+    bool isThrottleClipped() const { return output_.isClipped(); }
+    // True when the output stage is driving the ESC above ESC_MIN_PWM.
+    bool isOutputAboveMinimum() const { return output_.isAboveMinimum(); }
     void resetBatteryPowerFloor();
-    void resetMotorState();
 
-    // Scales the final PWM by the button's disarm ramp (0..100). Applied at
-    // the single exit of getPwm(), over the span above ESC_MIN_PWM. Not part
+    // Scales the output target by the button's disarm ramp (0..100), inside
+    // the output stage (before its decel limit). Not part
     // of activeLimitCauses_ — including it would make a normal disarm beep
     // the limiter alert and paint the telemetry cards red.
     void setDisarmScale(uint8_t scale) { disarmScale_ = scale; }
@@ -74,22 +77,13 @@ public:
     uint8_t getSuspendedTempProtections() const;
 
 private:
-    enum class StartState {
-        IDLE,
-        STARTING,
-        RUNNING,
-    };
-
     long lastPowerCalculationTime;
     unsigned int power;
     unsigned int batteryPowerFloor;
 
-    StartState startState;
-    unsigned long startingBeganAt;
-    unsigned long idleBeganAt;
+    ThrottleOutputLogic output_{getBoardConfig().throttleOutput};
 
     uint8_t activeLimitCauses_;
-    bool throttleClipped_ = false;
     uint8_t disarmScale_;
 
     SignalArmContract batteryContract_;
@@ -105,7 +99,6 @@ private:
     unsigned int calcBatteryLimit();
     unsigned int calcMotorTempLimit();
     unsigned int calcEscTempLimit();
-    unsigned int applyDisarmScale(unsigned int pwm);
 };
 
 #endif // POWER_H

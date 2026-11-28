@@ -24,7 +24,7 @@ enum class RemainingTimeQuality : uint8_t {
 struct RemainingTimeInput {
     uint32_t nowMs;
     bool     armed;
-    bool     motorRunning;      // armed && throttle engaged (isMotorRunning())
+    bool     motorRunning;      // armed && stage output above minimum (isMotorRunning())
     bool     currentAvailable;  // isCurrentAvailable()
     uint32_t currentMa;
     uint32_t ccRemainingMah;    // BatteryMonitor::getRemainingMah(): usable, above the reserve

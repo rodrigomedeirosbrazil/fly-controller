@@ -111,8 +111,8 @@ void Throttle::readThrottlePin()
   );
 
   // Always poll the sensor so lastSampleOk stays live; the real reading is
-  // fed unconditionally (the motor is already forced to ESC_MIN_PWM by
-  // handleEsc()'s throttle.isArmed() check the instant it disarms).
+  // fed unconditionally (the output stage ignores demand once disarmed and
+  // ramps the motor down at its decel rate).
   pinValues[samples - 1] = readFn();
   // lastReadOk() is tracked per ADS1115 channel (see ADS1115.h), so this
   // only needs to observe the same channel readFn() just read — no ordering
