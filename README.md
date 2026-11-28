@@ -398,7 +398,7 @@ Order of operations: demand, running offset, start limit, limiter ceiling and bu
 |---|---|---|---|
 | Soft start | yes | yes | no |
 | Wake-up wait | 0 | 1500 ms at 5% | - |
-| Start ramp | to 20%, ~3 s | 5% to 20%, ~3 s | - |
+| Start ramp | to 20%, ~3 s | 5% to 20%, ~2 s | - |
 | Release | RPM >= 600, or 4 s once at the ramp top | output at the ramp top | - |
 | Running offset | 15% | 0 | 0 |
 | Decel (full to min) | ~1 s | ~1 s | ~1 s |

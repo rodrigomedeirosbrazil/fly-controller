@@ -67,7 +67,7 @@ Ao desarmar pelo botão, o buzzer toca a melodia de desarmado e o motor deixa de
 
 O controlador não leva o motor direto para a potência pedida. Ele suaviza a partida e a descida:
 
-- **Partida com o motor parado:** ao acelerar, a potência sobe devagar, em cerca de 3 segundos, até o motor girar (T-Motor: até a hélice estar girando; XAG: depois do tempo de despertar do ESC, cerca de 1,5 segundo). Se o acelerador pedir mais que isso, a potência espera a partida terminar. Passada a partida, o motor responde na hora ao acelerador, sem atraso.
+- **Partida com o motor parado:** ao acelerar, a potência sobe devagar até o motor girar (T-Motor: em cerca de 3 segundos, até a hélice estar girando; XAG: cerca de 1,5 segundo de despertar do ESC e depois cerca de 2 segundos de subida). Se o acelerador pedir mais que isso, a potência espera a partida terminar. Passada a partida, o motor responde na hora ao acelerador, sem atraso.
 - **Reinício em voo:** se o motor parou por completo (acelerador solto até a hélice parar), a nova aceleração passa pela partida suave de novo, cerca de 3 segundos. Uma soltada rápida que não para o motor não repete a partida.
 - **Ao soltar o acelerador:** a potência cai de forma gradual, em cerca de 1 segundo do máximo ao zero, e não de uma vez. Isso protege o ESC (principalmente o do XAG) da tensão devolvida pelo motor.
 - **Ao desarmar, por qualquer motivo:** a potência também desce em cerca de 1 segundo até zero, inclusive nos desarmes por falha. O desarme pelo botão com o acelerador aberto continua com a rampa de 2 segundos descrita acima.
