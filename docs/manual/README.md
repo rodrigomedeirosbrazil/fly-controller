@@ -71,8 +71,8 @@ O controlador não leva o motor direto para a potência pedida. Ele suaviza a pa
 
 - **Partida com o motor parado:** ao acelerar, a potência sobe devagar até o motor girar (T-Motor: em cerca de 3 segundos, até a hélice estar girando; XAG: cerca de 1,5 segundo de despertar do ESC e depois cerca de 2 segundos de subida). Se o acelerador pedir mais que isso, a potência espera a partida terminar. Passada a partida, o motor responde na hora ao acelerador, sem atraso.
 - **Reinício em voo:** se o motor parou por completo (acelerador solto até a hélice parar), a nova aceleração passa pela partida suave de novo, cerca de 3 segundos. Uma soltada rápida que não para o motor não repete a partida.
-- **Ao soltar o acelerador:** a potência cai de forma gradual, em cerca de 1 segundo do máximo ao zero, e não de uma vez. Isso protege o ESC (principalmente o do XAG) da tensão devolvida pelo motor.
-- **Ao desarmar, por qualquer motivo:** a potência também desce em cerca de 1 segundo até zero, inclusive nos desarmes por falha. O desarme pelo botão com o acelerador aberto continua com a rampa de 2 segundos descrita acima.
+- **Ao soltar o acelerador:** a potência cai de forma gradual, e não de uma vez: do máximo ao zero leva cerca de 1 segundo (2 segundos no XAG); de acelerações menores, proporcionalmente menos. Isso protege o ESC (principalmente o do XAG) da tensão devolvida pelo motor.
+- **Ao desarmar, por qualquer motivo:** a potência também desce gradualmente até zero (até 1 segundo, 2 no XAG), inclusive nos desarmes por falha. O desarme pelo botão com o acelerador aberto continua com a rampa de 2 segundos descrita acima.
 
 O Hobbywing já faz a partida suave no próprio ESC, então o controlador não acrescenta outra.
 

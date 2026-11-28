@@ -136,7 +136,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ```cpp
 // Single button control
 - Arm: short click, release, then hold for 2 s (throttle at rest)
-- Disarm: hold; power ramps down over 2 s (with the throttle at rest it disarms at once and any residual output falls over ~1 s)
+- Disarm: hold; power ramps down over 2 s (with the throttle at rest it disarms at once and any residual output falls at the decel rate)
 - Audio feedback with the buzzer
 ```
 
@@ -401,7 +401,7 @@ Order of operations: demand, running offset, start limit, limiter ceiling and bu
 | Start ramp | to 20%, ~3 s | 5% to 20%, ~2 s | - |
 | Release | RPM >= 600, or 4 s once at the ramp top | output at the ramp top | - |
 | Running offset | 0 | 0 | 0 |
-| Decel (full to min) | ~1 s | ~1 s | ~1 s |
+| Decel (full to min) | ~1 s | ~2 s | ~1 s |
 | Stop detection | RPM = 0 for 500 ms (coast 3 s if stale) | coast 800 ms | RPM = 0 for 500 ms (coast 3 s if stale) |
 
 `isMotorRunning()` is armed and the stage output above minimum, so it includes the start and decel ramps.
