@@ -46,7 +46,7 @@ src/
 ├── BatteryMonitor/           # Coulomb counting + SoC from voltage
 ├── BluetoothBms/             # BLE BMS integration
 ├── BmsAlert/                 # BMS alerts (low cell, high delta, high temp): BmsAlertLogic (pure) + BmsAlert component
-├── Button/                   # AceButton single-click (arm) + long-press (cruise)
+├── Button/                   # Gesture logic: click + hold (arm), hold (disarm ramp)
 ├── Buzzer/                   # LEDC PWM tone driver (hardware only)
 ├── Canbus/                   # TWAI receive() — returns raw frames to main.cpp
 ├── DalyBms/                  # Daly BMS (BLE) protocol
@@ -55,13 +55,14 @@ src/
 ├── AntBms/                   # ANT/JNFN BMS (BLE, `7E A1` protocol) + frame parser
 ├── JkBms/                    # JK BMS (BLE, JK02) protocol + frame parser
 ├── Logger/                   # CSV logging to LittleFS + LogListing (pure) / LogStore (LittleFS) for BLE log access
-├── Power/                    # Available-power calculation + throttle ramp limiting
+├── Power/                    # Available-power calculation + limiter ceilings
 ├── Sensors/                  # BatteryVoltageSensor (XAG voltage divider)
 ├── Settings/                 # Persistent config via ESP32 Preferences
 ├── Sound/                    # Layered audio policy: event queue + persistent state
 ├── Telemetry/                # Facade (delegates to *Telemetry) + TelemetryData struct
 ├── Temperature/              # NTC thermistor via ReadFn
-├── Throttle/                 # Hall sensor via ReadFn + calibration + cruise
+├── Throttle/                 # Hall sensor via ReadFn + calibration + engage gate + pilot demand
+├── ThrottleOutput/           # ThrottleOutputLogic (pure): soft start, running offset, decel limit
 ├── Tmotor/                   # TmotorCan + TmotorTelemetry
 ├── Xag/                      # XagTelemetry (analog sensors, PWM-only)
 └── Xctod/                    # BLE telemetry output for XCTRACK app
@@ -123,12 +124,12 @@ while (canbus.receive(&msg)) {
 - **T-Motor CAN motor temp:** EMA-filtered (tau 2 s) before derating, display and log (5 s lagged ~10 °C behind a 2 °C/s takeoff ramp, and above ~3 s the noise no longer improved, per a simulation on `20261121_002.csv`); an out-of-range sample is dropped, and the reading goes stale after 1 s without a plausible one.
 - **ESC temp:** Linear reduction between two configurable thresholds, defaults per board (`BoardConfig`): Tmotor 80°C → 110°C, Hobbywing 80°C → 110°C, XAG 70°C → 80°C.
 - All four thresholds are editable from fly-app (`CFG_SET` Thermal) and persist in NVS, so the numbers above are only the factory values. Anything that draws or documents a derating range must read `Settings`, never hardcode these.
-- **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. There is no acceleration ramp; PWM tracks the mapped throttle position directly.
-- **XAG wake-up:** 1.5 s at 5% PWM before jumping directly to target when starting from stopped (`XAG_MOTOR_REACTION_DELAY_MS`)
+- **Throttle engage gate:** motor output stays at `ESC_MIN_PWM` until the filtered throttle clears `throttlePinMin + 2%` of the calibrated range, and releases back below `throttlePinMin + 1%` (hysteresis) — see `ThrottleEngagementLogic`. The gate also decides the pilot demand (0-100 %, continuous rescale above the gate, top 3 % of travel = 100 %), the single `throttlePct` for PWM, log, `$XCTOD`, BLE and the arming check; arming is refused while the gate is engaged (from 2 %).
+- **Throttle output stage:** `ThrottleOutputLogic` (`src/ThrottleOutput/`, pure, host-tested in `test/ThrottleOutputLogicTest.cpp`) sits between the demand and the PWM, with per-board parameters in `BoardConfig::throttleOutput`. States Stopped / Starting / Running: Starting limits the upward slew from the current output up to a ramp top (T-Motor to 20 % over ~3 s, released by fresh RPM >= 600 or a 4 s fallback once at the top; XAG 1.5 s at 5 % then 5 % to 20 % over ~2 s; Hobbywing has no soft start since its ESC does it); Running responds instantly with a running offset (0 on every board: 15 % on T-Motor jumped after the start and kept the motor turning on a drifting rest reading, bench 2026-11-28) and returns to Stopped only with the output at minimum and the motor confirmed stopped (RPM = 0 for 500 ms, or a coast time: XAG 800 ms, 3 s when RPM is stale). Order: offset, start limit, limiter ceiling and button disarm scale, then a downward-only decel limiter (full to minimum in ~1 s, ~2 s on XAG) on every drop, **including every disarm, fault disarms too** (it ramps from the last output and never follows the faulty reading). There is no acceleration ramp: increases pass through on the same tick while Running. All per-board values are provisional until the bench measurements (spec section 8); nothing is hardware-validated.
 - **Sensor validity:** motor temp, ESC temp, and battery voltage each have a real validity check (`Temperature`/`BatteryVoltageSensor`'s `isValid()`, `SensorReadingValidity`, host-tested) instead of trusting every reading. The T-Motor CAN motor-temperature ceiling is 160 °C, 10 °C above the settable maximum, enforced by a `static_assert`; the ESC ceiling (120 °C) is still below the settable ESC maximum (known gap, not addressed).
 - **Temperature ceiling slew:** the linear motor/ESC temperature curves give a target, and `ThermalCeilingSlew` (`src/Power/`) moves the applied ceiling toward it at most 10 %/s down and 2 %/s up (the first update seeds to the target; power control off resets it). It still reaches 0 % at the configured maximum; the battery limiter is not slewed.
 - **Temperature sensors never cut the motor:** motor/ESC temp derating applies only while the *configured* source reads valid — for motor temp on Tmotor that is `Settings::getMotorTempSource()` (CAN, or NTC when forced); the CAN→NTC fallback is shown to the pilot but never used for derating. Because the ceilings are slewed (see the bullet above), when the trusted reading stops its ceiling releases at the up-rate rather than jumping to 100 %; and `TempProtectionMonitor` (host-tested) flips the protection to *suspended* after 2 s (`TEMP_PROTECTION_DEBOUNCE_MS`, both edges). `TempProtectionAlert` (host-tested `TempProtectionAlertLogic`) then alarms while armed: a falling two-note motif at 0, 10, 30, 60 s and every 60 s after, and a rising motif once when every protection is back. Suspended state is in `TELEMETRY.flags` (`MotorTempProtectionOff`/`EscTempProtectionOff`). `MOT ERR`/`ESC ERR`/`MOT SRC` are retired and never emitted.
-- **Wired throttle failsafe:** zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately through `ThrottleSignalLogic` (host-tested; generic, kept for the day a second source returns). The disarm is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `TELEMETRY.disarmReason` and shown by fly-app as a persistent red chip until the pilot fixes the fault and re-arms.
+- **Wired throttle failsafe:** zero tolerance — any invalid reading (see `Throttle/ThrottleWiredValidity.h`) disarms immediately through `ThrottleSignalLogic` (the motor output then falls through the output stage's decel limiter, ~1 s from full, ~2 s on XAG) (host-tested; generic, kept for the day a second source returns). The disarm is latched as a `DisarmReason` (`src/DisarmReason.h`), surfaced via `TELEMETRY.disarmReason` and shown by fly-app as a persistent red chip until the pilot fixes the fault and re-arms.
 - **Battery arm-time contract:** arming opens `SignalArmContract` (host-tested) for battery voltage only: valid at arm and later invalid mid-flight disarms (`DisarmReason::BatteryVoltageLost`); invalid at arm disables battery limiting for the whole session. The snapshot is taken by the first `Power::checkSignalLoss()` rather than inside `onArmed()` (so it can't straddle two telemetry samples), and the disarm is debounced by `SIGNAL_LOSS_GRACE_MS` (2 s) — see `src/CLAUDE.md` under Power.
 
 ## Settings (Persistent)

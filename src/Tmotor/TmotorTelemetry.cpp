@@ -41,11 +41,13 @@ void TmotorTelemetry::update() {
 
     if (tmotorCan.hasTelemetry()) {
         cachedBatteryCurrentMilliAmps = tmotorCan.getBatteryCurrent();
-        cachedRpm = tmotorCan.getRpm();
+        cachedRpmFresh = tmotorCan.hasRpm();
+        cachedRpm = cachedRpmFresh ? tmotorCan.getRpm() : 0;
         cachedEscTempMilliCelsius = (int32_t)tmotorCan.getEscTemperature() * 1000;
     } else {
         cachedBatteryCurrentMilliAmps = 0;
         cachedRpm = 0;
+        cachedRpmFresh = false;
         cachedEscTempMilliCelsius = 0;
     }
     cachedHasData = tmotorCan.hasTelemetry();
@@ -59,6 +61,7 @@ bool TmotorTelemetry::hasData() const { return cachedHasData; }
 uint16_t TmotorTelemetry::getBatteryVoltageMilliVolts() const { return cachedBatteryVoltageMilliVolts; }
 uint32_t TmotorTelemetry::getBatteryCurrentMilliAmps() const { return cachedBatteryCurrentMilliAmps; }
 uint16_t TmotorTelemetry::getRpm() const { return cachedRpm; }
+bool TmotorTelemetry::isRpmFresh() const { return cachedRpmFresh; }
 int32_t TmotorTelemetry::getMotorTempMilliCelsius() const { return cachedMotorTempMilliCelsius; }
 int32_t TmotorTelemetry::getEscTempMilliCelsius() const { return cachedEscTempMilliCelsius; }
 unsigned long TmotorTelemetry::getLastUpdate() const { return cachedLastUpdate; }

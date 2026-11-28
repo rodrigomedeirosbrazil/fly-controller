@@ -208,15 +208,9 @@ void loop()
 
 void handleEsc()
 {
-  if (!throttle.isArmed())
-  {
-    power.resetMotorState();
-    esc.writeMicroseconds(ESC_MIN_PWM);
-    return;
-  }
-
-  int pulseWidth = power.getPwm();
-  esc.writeMicroseconds(pulseWidth);
+  // The output stage ramps down after a disarm itself (decel limit), so
+  // there is no disarm branch here.
+  esc.writeMicroseconds(power.getPwm());
 }
 
 void checkCanbus()
@@ -261,11 +255,11 @@ void checkCanbus()
 
 bool isMotorRunning()
 {
-    // Uses the same 2%/1% engage hysteresis Power already gates on
-    // (ThrottleEngagementLogic), instead of a raw 1% threshold. The raw
-    // threshold let Hall-sensor noise at idle flip this repeatedly, which
-    // re-triggered the armed alert from scratch on every flip.
-    return throttle.isArmed() && throttle.isEngaged();
+    // The output stage never leaves minimum until the engage gate has
+    // released it (demand is 0 below the gate), so the Hall-sensor noise flip
+    // the raw threshold suffered at idle cannot return, and the stage keeps
+    // reporting running through its decel ramp.
+    return throttle.isArmed() && power.isOutputAboveMinimum();
 }
 
 void updateSoundState()

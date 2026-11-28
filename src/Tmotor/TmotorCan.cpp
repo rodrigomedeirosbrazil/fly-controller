@@ -76,6 +76,7 @@ TmotorCan::TmotorCan() : motorTempFilter(MOTOR_TEMP_MAX_VALID) {
     batteryCurrentMilliAmps = 0;
     batteryVoltageMilliVolts = 0;
     rpm = 0;
+    lastRpmAtMs = 0;
     errorCount = 0;
     powerRatingPct = 0;
     escIndex = 0;
@@ -139,6 +140,10 @@ bool TmotorCan::hasTelemetry() {
     // Consider telemetry available if we've received ESC_STATUS within the last second
     return lastReadEscStatus != 0
         && millis() - lastReadEscStatus < 1000;
+}
+
+bool TmotorCan::hasRpm() {
+    return lastRpmAtMs != 0 && millis() - lastRpmAtMs < RPM_FRESH_MS;
 }
 
 bool TmotorCan::hasRecentMotorTempFromCan() {
@@ -230,15 +235,11 @@ void TmotorCan::handleEscStatus(twai_message_t *canMsg) {
         }
 
         // Extract RPM (int18, bytes 12-14, signed 3-byte value, little-endian)
-        if (escStatusBufferLen >= ESC_STATUS_MIN_SIZE_WITH_TEMP) {
-            int32_t rpmRaw = parseInt32LE(escStatusBuffer, ESC_STATUS_RPM_OFFSET) & 0x3FFFF;  // Only 18 bits
-            // Sign extend from 18 bits to 32 bits
-            if (rpmRaw & 0x20000) {  // Check sign bit (bit 17)
-                rpmRaw |= 0xFFFC0000;  // Sign extend
-            }
-            rpm = (uint16_t)abs(rpmRaw);
-        } else {
-            rpm = 0;
+        // A transfer too short to hold the field keeps the previous RPM and does
+        // not count as fresh RPM (a false zero would make the output stage think
+        // the motor stopped).
+        if (parseEscStatusRpm(escStatusBuffer, escStatusBufferLen, &rpm)) {
+            lastRpmAtMs = millis();
         }
 
         // Extract power_rating_pct and esc_index (bytes 13-14)

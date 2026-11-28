@@ -23,6 +23,7 @@ struct TelemetryBackend {
     SignalState (*getEscTempState)(void);
     SignalState (*getBatteryVoltageState)(void);
     MotorTempOrigin (*getMotorTempOrigin)(void);
+    bool (*isRpmFresh)(void);
 };
 
 #endif // TELEMETRY_BACKEND_H

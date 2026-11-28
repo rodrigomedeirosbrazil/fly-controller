@@ -27,6 +27,8 @@ public:
     SignalState getEscTempState() const;
     SignalState getBatteryVoltageState() const;
     MotorTempOrigin getMotorTempOrigin() const;
+    /** True while the ESC reports RPM fresh enough to trust (always false on XAG). */
+    bool isRpmFresh() const;
     bool isMotorTempValid() const { return getMotorTempState() == SignalState::Valid; }
     bool isEscTempValid() const { return getEscTempState() == SignalState::Valid; }
     bool isBatteryVoltageValid() const { return getBatteryVoltageState() == SignalState::Valid; }

@@ -22,7 +22,7 @@ Fly Controller is an advanced firmware that implements a complete flight control
 
 Fly Controller is a modular ESP32-based flight control system that offers:
 
-- **Intelligent Throttle Control**: With automatic calibration, cruise control, and safety protections.
+- **Intelligent Throttle Control**: With automatic calibration, an engage gate against idle drift, and safety protections.
 - **CAN Bus Communication**: Complete UAVCAN interface with T-Motor ESCs.
 - **Bluetooth LE Telemetry**: Real-time data transmission to monitoring apps like XCTRACK via the Xctod module.
 - **Power Management**: Dynamic power calculation based on battery voltage and component temperature.
@@ -61,16 +61,19 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 // Main features
 - Automatic Hall sensor calibration on startup
 - System arming/disarming
-- Cruise control mode
+- Engage gate (hysteresis) so idle drift never spins the motor
 - Noise filtering with moving average
 - Sensor failure protection
 ```
 
 **Technical Specifications:**
-- Hall sensor reading is calibrated automatically.
-- 30 samples for filtering.
-- Automatic calibration completes in 3 seconds.
-- Cruise mode activated with 30%+ throttle.
+- Read every 10 ms through the ADS1115; 8-sample moving average (80 ms window).
+- Calibrated on every boot: hold full throttle for 3 s, then rest for 3 s. Not saved.
+- The motor only engages above 2% of the calibrated range and releases below 1%.
+- Pilot demand (0-100%) is a continuous rescale from the engage point to the top; the top 3% of travel reads 100%. The same value feeds the PWM, the log, `$XCTOD`, BLE telemetry and the arming check (arming is refused while the gate is engaged).
+- Calibration accepts a stable 3 s hold as the maximum only if it is at least 600 counts above the lowest reading seen since power-on (an untouched throttle stays silent; a throttle held open at power-on must be released and squeezed again), then a stable hold at least 600 counts below it as the minimum. A partial release restarts the calibration with a warning beep.
+- The motor command goes through the throttle output stage (see section 6): soft start, instant response while running, bounded fall rate.
+- Any invalid reading (outside the calibrated band, or repeated I2C failures) disarms at once.
 
 ### 2. **TmotorCan** - UAVCAN Interface
 ```cpp
@@ -95,15 +98,14 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Battery voltage-based limitation
 - Motor thermal protection
 - Battery power floor
-- ESC PWM conversion
-- Throttle ramp limiting (smooth acceleration/deceleration)
+- ESC PWM conversion (throttle position caps at the allowed ceiling)
 ```
 
 **Protection Algorithms:**
 - Minimum voltage limitation (42.0V)
 - Thermal protection (60°C motor, 110°C ESC)
 - Progressive power reduction based on motor and ESC temperature
-- Throttle ramp limiting: 4 μs/tick acceleration, 8 μs/tick deceleration (prevents jerky movements)
+- The limits act as a ceiling on the throttle output stage's target; only the downward fall rate is limited (no acceleration ramp)
 
 ### 4. **Temperature** - Thermal Monitoring
 ```cpp
@@ -133,9 +135,9 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ### 7. **Button** - User Interface
 ```cpp
 // Single button control
-- Single click: Arming/Disarming
-- Long press: Cruise activation
-- Tactile feedback with buzzer
+- Arm: short click, release, then hold for 2 s (throttle at rest)
+- Disarm: hold; power ramps down over 2 s (with the throttle at rest it disarms at once and any residual output falls at the decel rate)
+- Audio feedback with the buzzer
 ```
 
 ### 8. **Xctod** - Bluetooth LE Telemetry
@@ -203,10 +205,9 @@ See docs/BLE-CONTROL-PROTOCOL.md for the wire contract.
 
 ### Control
 - ✅ Automatic throttle calibration
-- ✅ Intelligent cruise control
 - ✅ Button arming/disarming
 - ✅ Direct ESC PWM control
-- ✅ Smooth throttle ramp limiting (acceleration/deceleration control)
+- ✅ Throttle engage gate against idle drift
 - ✅ Bidirectional CAN bus communication (UAVCAN)
 
 ### Monitoring
@@ -355,9 +356,8 @@ The project supports three controller types, each with its own build environment
 - PWM-only control (no CAN bus required)
 - Analog temperature sensors (NTC)
 - Battery voltage monitoring via voltage divider
-- Throttle ramp limiting for smooth acceleration/deceleration
 
-**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period, the firmware sends 5% PWM; after 1.5 s, the ramp runs from 5% to the throttle target. Ramp rates: `THROTTLE_RAMP_UP_US_PER_MS` (2 μs/ms), `THROTTLE_RAMP_DOWN_US_PER_MS` (6 μs/ms).
+**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. The throttle output stage holds 5% PWM for that wake-up, then ramps to 20% over ~3 s before releasing to full response (see section 6).
 
 ### 5. Pin Configuration
 ```cpp
@@ -383,37 +383,46 @@ The project supports three controller types, each with its own build environment
 #define CAN_RX_PIN 3  // GPIO3 - CAN RX
 ```
 
-### 6. Throttle Ramp Limiting Configuration
-```cpp
-// src/config.h - Throttle ramp limiting parameters
-#define THROTTLE_RAMP_UP_US_PER_MS   2.0f   // Acceleration rate (μs/ms)
-#define THROTTLE_RAMP_DOWN_US_PER_MS 6.0f   // Deceleration rate (μs/ms)
-// XAG (useSmoothStart): 1.5s wake-up at 5% PWM before ramp
-#define XAG_MOTOR_REACTION_DELAY_MS  1500
-#define XAG_WAKEUP_PWM_PERCENT      5
-```
+### 6. Throttle Output Stage
+`src/ThrottleOutput/ThrottleOutputLogic.h` (pure, host-tested in `test/ThrottleOutputLogicTest.cpp`) turns the pilot demand into the ESC command. Per-board parameters live in `BoardConfig` (`ThrottleOutputConfig`); all values are provisional until the bench measurements.
 
-**Behavior:**
-- Acceleration: Limited to 2 μs/ms (smooth ramp-up)
-- Deceleration: Limited to 6 μs/ms (responsive braking)
-- XAG: 1.5 s at 5% PWM when starting from stopped; then ramp from 5% to target
+**States:**
+- **Stopped**: output at minimum. When the engage gate opens (armed) it goes to Starting, or straight to Running on a board with the soft start off.
+- **Starting**: the output rises at most at the start ramp rate from its current value, up to the ramp top (XAG: held at the wake level during the wake-up wait first). No running offset. It releases to Running by fresh RPM at or above the release RPM (T-Motor), or after the time fallback once the output has reached the ramp top. If the gate releases it returns to Stopped.
+- **Running**: instant response to increases, with the running offset (`offset + (1 - offset) * demand`). It returns to Stopped only with the output at minimum and the motor confirmed stopped (fresh RPM = 0 for 500 ms, or the coast time when RPM is stale or absent). RPM = 0 while the motor is commanded never counts as stopped.
+- **Any disarm** (button, fault, battery lost): the target is minimum and the decel limiter brings the output down from the last value; the stage keeps running until it reaches minimum. A fault disarm never follows the faulty reading.
+
+Order of operations: demand, running offset, start limit, limiter ceiling and button disarm scale, decel limiter (downward only), PWM.
+
+| | T-Motor | XAG | Hobbywing |
+|---|---|---|---|
+| Soft start | yes | yes | no |
+| Wake-up wait | 0 | 1500 ms at 5% | - |
+| Start ramp | to 20%, ~3 s | 5% to 20%, ~2 s | - |
+| Release | RPM >= 600, or 4 s once at the ramp top | output at the ramp top | - |
+| Running offset | 0 | 0 | 0 |
+| Decel (full to min) | ~1 s | ~2 s | ~1 s |
+| Stop detection | RPM = 0 for 500 ms (coast 3 s if stale) | coast 800 ms | RPM = 0 for 500 ms (coast 3 s if stale) |
+
+`isMotorRunning()` is armed and the stage output above minimum, so it includes the start and decel ramps.
 
 ### 7. Calibration
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
 
 **Calibration Process:**
-1. On startup, move throttle to maximum position and hold for 3 seconds
-2. Move throttle to minimum position and hold for 3 seconds
+1. After power-on, with the throttle at rest, move it to maximum and hold for 3 seconds; two short beeps mean the maximum was captured: release
+2. Move throttle to minimum position and hold for 3 seconds (at least 600 counts below the maximum)
 3. Calibration complete - system is ready to arm
+
+Nothing sounds while the throttle stays untouched. If it was held open at power-on, release it and squeeze again. A partial release after the maximum restarts the calibration with a warning beep.
 
 ## 📊 Usage Example
 
 ### Operation Sequence
 1. **Initialization**: Automatic throttle calibration, CAN bus setup (if applicable).
-2. **Arming**: Press the button to arm the system (throttle must be at minimum).
-3. **Operation**: Adjust the throttle; the system calculates and delivers safe power with smooth ramp limiting.
-4. **Cruise**: Maintain throttle >30% for a few seconds to activate cruise control.
-5. **Disarm**: Press the button again to disarm.
+2. **Arming**: Click, release, then hold the button for 2 s (throttle must be at rest).
+3. **Operation**: Adjust the throttle; start from stopped is soft, then the system responds instantly, capped by the battery and temperature limits. Releases fall over about 1 s.
+4. **Disarm**: Hold the button; power ramps down over 2 s and the system disarms.
 
 ### Controller-Specific Notes
 
@@ -432,7 +441,7 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 - No CAN bus required
 - Temperature sensors must be connected (motor and ESC)
 - Battery voltage divider must be connected
-- Motor has ~1.5 s reaction delay when stopped; firmware sends 5% PWM during wake-up, then ramps to target
+- Motor has ~1.5 s reaction delay when stopped; firmware holds 5% PWM during wake-up, then ramps to 20% over ~3 s (throttle output stage)
 
 ## 🛠️ Development
 
@@ -445,7 +454,7 @@ src/
 ├── ADS1115/              # I2C 16-bit ADC (primary sensor interface, all builds)
 ├── Throttle/             # Throttle control (ReadFn via ADS1115)
 ├── Temperature/          # Thermal sensor (ReadFn via ADS1115)
-├── Power/                # Power management & throttle ramp limiting
+├── Power/                # Power management & limiter ceilings
 ├── Canbus/               # CAN receive() API (Tmotor, Hobbywing)
 ├── Tmotor/               # TmotorCan, TmotorTelemetry
 ├── Hobbywing/            # HobbywingCan (receive-only), HobbywingTelemetry, HobbywingCanParser

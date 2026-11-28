@@ -130,7 +130,7 @@ capacity at 74–77 is the fourth: firmware without it sends 74. The BMS alerts 
 | 6 | `uint8` | `motorTempSrc` | 0 = none, 1 = CAN, 2 = NTC |
 | 7 | `uint8` | `socCc` | % — coulomb counting |
 | 8 | `uint8` | `socVolt` | % — from voltage |
-| 9 | `uint8` | `throttlePct` | |
+| 9 | `uint8` | `throttlePct` | pilot demand 0-100 % (engage gate, continuous rescale, top 3 % of travel = 100 %), not the limited output; no 0 to 5 % jump |
 | 10 | `uint8` | `powerPct` | available power after derating |
 | 11 | `uint8` | `powerScale` | disarm-ramp scale |
 | 12 | `uint8` | `armCharge` | arming-gesture progress |

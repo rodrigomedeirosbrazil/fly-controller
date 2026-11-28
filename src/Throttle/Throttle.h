@@ -3,6 +3,8 @@
 
 #include "../config.h"
 #include "../DisarmReason.h"
+#include "ThrottleCalibrationLogic.h"
+#include "ThrottleDemand.h"
 #include "ThrottleEngagementLogic.h"
 #include "ThrottleSignalLogic.h"
 #include "ThrottleWiredValidity.h"
@@ -21,19 +23,22 @@ class Throttle {
 
         DisarmReason getDisarmReason() const { return lastDisarmReason; }
 
+        uint32_t getDemandPpm();
         unsigned int getThrottlePercentage();
         unsigned int getThrottleRaw();
         unsigned int getThrottlePinMin() { return throttlePinMin; }
         unsigned int getThrottlePinMax() { return throttlePinMax; }
         int getPinValueFiltered() { return pinValueFiltered; }
-        unsigned int getCalibratingStep() { return calibratingStep; }
+        unsigned int getCalibratingStep() { return calibrationLogic.step(); }
 
     private:
         const static int samples = 8;
-        const unsigned int calibrationTime = 3000; // 3 seconds for calibration
-        const int calibrationThreshold = 2000; // Threshold for detecting throttle movement
 
         int pinValues[samples];
+        // Reads taken since boot, saturating at `samples`. Calibration waits
+        // for a full filter window: the zero-initialized window would
+        // otherwise hand ThrottleCalibrationLogic a falsely low reading.
+        uint8_t samplesRead;
         int pinValueFiltered;
         ThrottleEngagementLogic engagement;
         unsigned long lastThrottleRead;
@@ -41,14 +46,7 @@ class Throttle {
         volatile bool throttleArmed;
 
         bool calibrated;
-        unsigned int calibratingStep;
-        unsigned long calibrationStartTime;
-        int calibrationMaxValue;
-        int calibrationMinValue;
-        unsigned long calibrationSumMax;
-        unsigned int calibrationCountMax;
-        unsigned long calibrationSumMin;
-        unsigned int calibrationCountMin;
+        ThrottleCalibrationLogic calibrationLogic;
 
         unsigned int armingTries;
 

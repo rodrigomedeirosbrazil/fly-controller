@@ -50,22 +50,6 @@ public:
         batteryPowerFloor = 100;
     }
 
-    unsigned int getPwm() {
-        unsigned int throttleRaw = throttle.getThrottleRaw();
-        unsigned int powerLimit = getPower();
-        int throttleMin = throttle.getThrottlePinMin();
-        int throttleMax = throttle.getThrottlePinMax();
-        int allowedMax = throttleMin + ((throttleMax - throttleMin) * powerLimit) / 100;
-        unsigned int effectiveRaw = constrain(throttleRaw, throttleMin, allowedMax);
-        return map(
-            effectiveRaw,
-            throttleMin,
-            throttleMax,
-            ESC_MIN_PWM,
-            ESC_MAX_PWM
-        );
-    }
-
     unsigned int getPower() {
         // For test, always recalc
         power = calcPower();
@@ -218,27 +202,10 @@ void test_calcPower() {
     std::cout << "test_calcPower passed\n";
 }
 
-void test_getPwm() {
-    Power p;
-    p.throttle.min = 1000;
-    p.throttle.max = 2000;
-    p.throttle.raw = 2000;
-    p.canbus.ready = true;
-    p.canbus.batteryVoltageMilliVolts = BATTERY_MAX_VOLTAGE; // well above minimum: no battery limiting
-    p.motorTemp.temp = 25;
-    assert(p.getPwm() == ESC_MAX_PWM);
-    p.throttle.raw = 1500;
-    assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
-    p.canbus.batteryVoltageMilliVolts = BATTERY_MIN_VOLTAGE + 1000; // still above minimum: PWM unaffected
-    assert(p.getPwm() == (ESC_MIN_PWM + (ESC_MAX_PWM - ESC_MIN_PWM) / 2));
-    std::cout << "test_getPwm passed\n";
-}
-
 int main() {
     test_calcBatteryLimit();
     test_calcMotorTempLimit();
     test_calcPower();
-    test_getPwm();
     std::cout << "All tests passed!\n";
     return 0;
 }

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "ThrottleOutput/ThrottleOutputLogic.h"
 
 /**
  * Runtime board/controller configuration.
@@ -10,7 +11,7 @@
  */
 struct BoardConfig {
     bool hasCurrentSensor;         // false=XAG, true=Tmotor/Hobbywing (Coulomb counting)
-    bool useSmoothStart;           // true=XAG
+    ThrottleOutputConfig throttleOutput;  // soft start, offset, decel, stop rules (spec section 6.3)
     bool useBatteryLimit;
     uint16_t defaultBatteryCapacity;
     int32_t defaultEscMaxTemp;
