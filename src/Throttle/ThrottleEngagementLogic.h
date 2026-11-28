@@ -36,9 +36,14 @@ public:
     bool isEngaged() const { return engaged_; }
     void reset() { engaged_ = false; }
 
-private:
-    static const int ENGAGE_THRESHOLD_PERCENT  = 2;
-    static const int RELEASE_THRESHOLD_PERCENT = 1;
+    // Unnamed enum, not `static const` data members: an in-class `static const`
+    // needs an out-of-line definition once it is odr-used. Public so the demand
+    // mapping (ThrottleDemand.h) starts exactly at the gate's engage point.
+    enum : int {
+        ENGAGE_THRESHOLD_PERCENT  = 2,
+        RELEASE_THRESHOLD_PERCENT = 1
+    };
 
+private:
     bool engaged_;
 };
