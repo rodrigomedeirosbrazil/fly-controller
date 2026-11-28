@@ -15,7 +15,7 @@ static const BoardConfig s_config = {
     75
 };
 #elif IS_TMOTOR
-// Tmotor: current via CAN, no soft start, 18Ah, 110/80°C ESC, 90 A reference
+// Tmotor: current via CAN, soft start, 18Ah, 110/80°C ESC, 90 A reference
 static const BoardConfig s_config = {
     true, {
         // T-Motor: ramp to 20%, release by RPM or time; offset 15%. Provisional, see spec section 8.

@@ -71,7 +71,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Calibrated on every boot: hold full throttle for 3 s, then rest for 3 s. Not saved.
 - The motor only engages above 2% of the calibrated range and releases below 1%.
 - Pilot demand (0-100%) is a continuous rescale from the engage point to the top; the top 3% of travel reads 100%. The same value feeds the PWM, the log, `$XCTOD`, BLE telemetry and the arming check (arming is refused while the gate is engaged).
-- Calibration accepts any stable 3 s hold as the maximum, then a stable hold at least 600 counts below it as the minimum; a rest reading that is too close to the maximum restarts the calibration with a warning beep.
+- Calibration accepts any stable 3 s hold as the maximum, then a stable hold at least 600 counts below it as the minimum; a rest reading that is too close to the maximum restarts the calibration (silently if the throttle never moved, with a warning beep after a partial squeeze).
 - The motor command goes through the throttle output stage (see section 6): soft start, instant response while running, bounded fall rate.
 - Any invalid reading (outside the calibrated band, or repeated I2C failures) disarms at once.
 

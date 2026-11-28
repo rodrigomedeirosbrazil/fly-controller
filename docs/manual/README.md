@@ -40,7 +40,7 @@ A calibração define o mínimo e o máximo do curso do acelerador e precisa ser
 
 Se você soltar o acelerador antes dos 3 segundos, aquele passo é cancelado. Basta repeti-lo.
 
-Se o buzzer tocar o aviso (três tons repetidos) durante o segundo passo, a calibração recomeça do máximo. Isso acontece quando o acelerador estava em repouso ao ligar, ou quando o máximo memorizado não foi o curso inteiro. Aperte o acelerador até o fim por 3 segundos e depois solte por 3 segundos. Sempre aperte até o fim: um máximo parcial é aceito, mas em voo o acelerador cheio passa da faixa memorizada e o sistema desarma.
+Se o buzzer tocar o aviso (três tons repetidos) durante o segundo passo, a calibração recomeça do máximo. Isso acontece quando o máximo memorizado não foi o curso inteiro. Se você ligar o sistema sem tocar no acelerador, a calibração recomeça em silêncio até você apertar. Aperte o acelerador até o fim por 3 segundos e depois solte por 3 segundos. Sempre aperte até o fim: um máximo parcial é aceito, mas em voo o acelerador cheio passa da faixa memorizada e o sistema desarma.
 
 ### Armar e desarmar
 

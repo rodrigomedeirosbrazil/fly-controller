@@ -4,7 +4,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 
 ## Contents
 
-- `PowerTest.cpp` - Unit tests for the `Power` class, covering battery limit calculation, motor temperature limiting, combined power limiting, and PWM output mapping.
+- `PowerTest.cpp` - Unit tests for the `Power` class, covering battery limit calculation, motor temperature limiting, and combined power limiting (PWM mapping is covered by `ThrottleOutputLogicTest.cpp`).
 - `PeriodicTriggerTest.cpp` - Unit tests for `PeriodicTrigger` (`src/Sound/PeriodicTrigger.h`), covering fire-on-entry, periodic re-fire, reset-on-clear, and millis() rollover.
 - `SoundLogicTest.cpp` - Unit tests for `SoundLogic` (`src/Sound/SoundLogic.h`), covering the continuous state layer never expiring, event preemption and state resumption, `setState()` idempotency, queued-event ordering, queue-overflow drop policy, and millis() rollover across both layers.
 - `ControlProtocolTest.cpp` - Unit tests for `ControlProtocol` (`src/BleControl/ControlProtocol.h`), covering the CMD/RSP frame codec, the pinned 78-byte telemetry and 53-byte INFO layouts, the log/scan-result opcodes and their gating, the MTU-bounded reply limits, the two-bit signal-state packing, the append rule in both directions of version skew, the auth/armed dispatch gate, the config group structs (including the 9-byte older ConfigPower keeping the reference current), the remaining-time quality values, the deferred request queue's FIFO and drop-newest policy, and the beep high-water mark.
@@ -28,7 +28,7 @@ This directory contains unit tests for the fly-controller firmware. It is the st
 - `MotorTempFilterTest.cpp` - Unit tests for `MotorTempFilter` (`src/Tmotor/MotorTempFilter.h`): seeding on the first sample, the tau step response and its independence from the sample rate, attenuation of alternating noise, zero-dt no-op, samples above the ceiling dropped (inclusive limit, negatives rejected), staleness 1 s after the last plausible sample, re-seed after a gap and not inside the window, millis() rollover, and reset.
 - `ThrottleOutputLogicTest.cpp` - Unit tests for `ThrottleOutputLogic` (`src/ThrottleOutput/ThrottleOutputLogic.h`): state transitions per board config, the start slew and ramp-top cap, release by RPM and by time (only at the ramp top), stale-RPM fallback, RPM 0 under command not stopping, re-open before stop confirmation, the decel limiter (down rate, instant up), ceiling placement and clip detection, disarm and fault-disarm ramps, uncalibrated, millis() rollover and the safety invariants.
 - `ThrottleDemandTest.cpp` - Unit tests for the pilot-demand mapping (`src/Throttle/ThrottleDemand.h`): the engage gate, continuous rescale without a 0 to 5 % jump, the top 3 % of travel reading 100 %.
-- `ThrottleCalibrationLogicTest.cpp` - Unit tests for `ThrottleCalibrationLogic` (`src/Throttle/ThrottleCalibrationLogic.h`): the normal procedure, throttle untouched at power-on (restart with beep), re-squeeze during the min step, span too small, stability band.
+- `ThrottleCalibrationLogicTest.cpp` - Unit tests for `ThrottleCalibrationLogic` (`src/Throttle/ThrottleCalibrationLogic.h`): the normal procedure, throttle untouched at power-on (silent restart), partial squeeze (restart with beep), re-squeeze during the min step, span too small, stability band.
 - `EscStatusRpmTest.cpp` - Unit tests for `EscStatusRpm` (`src/Tmotor/EscStatusRpm.h`): short ESC_STATUS frames keep the previous RPM and do not count as fresh RPM.
 - `README` - Default PlatformIO README for the test directory.
 

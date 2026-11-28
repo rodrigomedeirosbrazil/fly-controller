@@ -243,7 +243,6 @@ static void test_rearmDuringDecelSlewsFromCurrentOutput() {
         uint32_t o = h.tick();
         assert(h.l.state() == ThrottleOutputState::Starting);
         if (prev > 200000) assert(o <= prev);
-        assert(o >= 200000 || o == prev - 0 || true);
         prev = o;
     }
     assert(h.l.output() == 200000);
