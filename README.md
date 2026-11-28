@@ -70,7 +70,9 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Read every 10 ms through the ADS1115; 8-sample moving average (80 ms window).
 - Calibrated on every boot: hold full throttle for 3 s, then rest for 3 s. Not saved.
 - The motor only engages above 2% of the calibrated range and releases below 1%.
-- Throttle position maps linearly to PWM; there is no acceleration ramp.
+- Pilot demand (0-100%) is a continuous rescale from the engage point to the top; the top 3% of travel reads 100%. The same value feeds the PWM, the log, `$XCTOD`, BLE telemetry and the arming check (arming is refused while the gate is engaged).
+- Calibration accepts any stable 3 s hold as the maximum, then a stable hold at least 600 counts below it as the minimum; a rest reading that is too close to the maximum restarts the calibration with a warning beep.
+- The motor command goes through the throttle output stage (see section 6): soft start, instant response while running, bounded fall rate.
 - Any invalid reading (outside the calibrated band, or repeated I2C failures) disarms at once.
 
 ### 2. **TmotorCan** - UAVCAN Interface
@@ -103,7 +105,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 - Minimum voltage limitation (42.0V)
 - Thermal protection (60°C motor, 110°C ESC)
 - Progressive power reduction based on motor and ESC temperature
-- The limits act as a ceiling on the throttle position; there is no acceleration ramp
+- The limits act as a ceiling on the throttle output stage's target; only the downward fall rate is limited (no acceleration ramp)
 
 ### 4. **Temperature** - Thermal Monitoring
 ```cpp
@@ -134,7 +136,7 @@ Fly Controller is a modular ESP32-based flight control system that offers:
 ```cpp
 // Single button control
 - Arm: short click, release, then hold for 2 s (throttle at rest)
-- Disarm: hold; power ramps down over 2 s (immediate with the throttle at rest)
+- Disarm: hold; power ramps down over 2 s (with the throttle at rest it disarms at once and any residual output falls over ~1 s)
 - Audio feedback with the buzzer
 ```
 
@@ -355,7 +357,7 @@ The project supports three controller types, each with its own build environment
 - Analog temperature sensors (NTC)
 - Battery voltage monitoring via voltage divider
 
-**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. During this wake-up period the firmware sends 5% PWM; after 1.5 s it jumps directly to the throttle target (there is no ramp).
+**Note:** The XAG motor has a ~1.5 s reaction delay when stopped. The throttle output stage holds 5% PWM for that wake-up, then ramps to 20% over ~3 s before releasing to full response (see section 6).
 
 ### 5. Pin Configuration
 ```cpp
@@ -381,33 +383,45 @@ The project supports three controller types, each with its own build environment
 #define CAN_RX_PIN 3  // GPIO3 - CAN RX
 ```
 
-### 6. Motor Start Configuration
-```cpp
-// src/config.h - motor start timing
-#define THROTTLE_DEADBAND_US           20    // XAG start: throttle counts as active above ESC_MIN_PWM + 20 us
-#define MOTOR_STOP_TIME_MS             800   // XAG: throttle at rest this long returns to the wake-up stage
-#define XAG_MOTOR_REACTION_DELAY_MS    1500  // XAG wake-up duration
-#define XAG_WAKEUP_PWM_PERCENT         5     // XAG wake-up PWM
-```
+### 6. Throttle Output Stage
+`src/ThrottleOutput/ThrottleOutputLogic.h` (pure, host-tested in `test/ThrottleOutputLogicTest.cpp`) turns the pilot demand into the ESC command. Per-board parameters live in `BoardConfig` (`ThrottleOutputConfig`); all values are provisional until the bench measurements.
 
-**Behavior:**
-- No acceleration ramp: PWM follows the throttle position directly once the engage gate opens.
-- XAG: 1.5 s at 5% PWM when starting from stopped, then a direct jump to the target.
+**States:**
+- **Stopped**: output at minimum. When the engage gate opens (armed) it goes to Starting, or straight to Running on a board with the soft start off.
+- **Starting**: the output rises at most at the start ramp rate from its current value, up to the ramp top (XAG: held at the wake level during the wake-up wait first). No running offset. It releases to Running by fresh RPM at or above the release RPM (T-Motor), or after the time fallback once the output has reached the ramp top. If the gate releases it returns to Stopped.
+- **Running**: instant response to increases, with the running offset (`offset + (1 - offset) * demand`). It returns to Stopped only with the output at minimum and the motor confirmed stopped (fresh RPM = 0 for 500 ms, or the coast time when RPM is stale or absent). RPM = 0 while the motor is commanded never counts as stopped.
+- **Any disarm** (button, fault, battery lost): the target is minimum and the decel limiter brings the output down from the last value; the stage keeps running until it reaches minimum. A fault disarm never follows the faulty reading.
+
+Order of operations: demand, running offset, start limit, limiter ceiling and button disarm scale, decel limiter (downward only), PWM.
+
+| | T-Motor | XAG | Hobbywing |
+|---|---|---|---|
+| Soft start | yes | yes | no |
+| Wake-up wait | 0 | 1500 ms at 5% | - |
+| Start ramp | to 20%, ~3 s | 5% to 20%, ~3 s | - |
+| Release | RPM >= 600, or 4 s once at the ramp top | output at the ramp top | - |
+| Running offset | 15% | 0 | 0 |
+| Decel (full to min) | ~1 s | ~1 s | ~1 s |
+| Stop detection | RPM = 0 for 500 ms (coast 3 s if stale) | coast 800 ms | RPM = 0 for 500 ms (coast 3 s if stale) |
+
+`isMotorRunning()` is armed and the stage output above minimum, so it includes the start and decel ramps.
 
 ### 7. Calibration
 The system automatically calibrates the Hall sensor for the throttle on every startup. No manual configuration is needed.
 
 **Calibration Process:**
-1. On startup, move throttle to maximum position and hold for 3 seconds
-2. Move throttle to minimum position and hold for 3 seconds
+1. On startup, move throttle to maximum position and hold for 3 seconds (any stable hold is accepted; no absolute threshold)
+2. Move throttle to minimum position and hold for 3 seconds (at least 600 counts below the maximum)
 3. Calibration complete - system is ready to arm
+
+If the throttle was untouched at power-on, or the maximum was not the top of the travel, the calibration restarts (with a warning beep when the rest hold is too close to the maximum, or silently when the throttle never moved).
 
 ## 📊 Usage Example
 
 ### Operation Sequence
 1. **Initialization**: Automatic throttle calibration, CAN bus setup (if applicable).
 2. **Arming**: Click, release, then hold the button for 2 s (throttle must be at rest).
-3. **Operation**: Adjust the throttle; the system delivers it directly, capped by the battery and temperature limits.
+3. **Operation**: Adjust the throttle; start from stopped is soft, then the system responds instantly, capped by the battery and temperature limits. Releases fall over about 1 s.
 4. **Disarm**: Hold the button; power ramps down over 2 s and the system disarms.
 
 ### Controller-Specific Notes
@@ -427,7 +441,7 @@ The system automatically calibrates the Hall sensor for the throttle on every st
 - No CAN bus required
 - Temperature sensors must be connected (motor and ESC)
 - Battery voltage divider must be connected
-- Motor has ~1.5 s reaction delay when stopped; firmware sends 5% PWM during wake-up, then jumps to the target
+- Motor has ~1.5 s reaction delay when stopped; firmware holds 5% PWM during wake-up, then ramps to 20% over ~3 s (throttle output stage)
 
 ## 🛠️ Development
 

@@ -40,6 +40,8 @@ A calibração define o mínimo e o máximo do curso do acelerador e precisa ser
 
 Se você soltar o acelerador antes dos 3 segundos, aquele passo é cancelado. Basta repeti-lo.
 
+Se o buzzer tocar o aviso (três tons repetidos) durante o segundo passo, a calibração recomeça do máximo. Isso acontece quando o acelerador estava em repouso ao ligar, ou quando o máximo memorizado não foi o curso inteiro. Aperte o acelerador até o fim por 3 segundos e depois solte por 3 segundos. Sempre aperte até o fim: um máximo parcial é aceito, mas em voo o acelerador cheio passa da faixa memorizada e o sistema desarma.
+
 ### Armar e desarmar
 
 **Armar** libera a potência para o motor: o acelerador passa a comandar o ESC. **Desarmar** corta a potência e deixa o sistema em modo seguro.
@@ -47,7 +49,7 @@ Se você soltar o acelerador antes dos 3 segundos, aquele passo é cancelado. Ba
 Para armar:
 
 1. Confirme que a calibração foi concluída.
-2. Deixe o acelerador na posição mínima (0 %).
+2. Deixe o acelerador na posição mínima (0 %). O sistema não arma com o acelerador a partir de 2 % do curso.
 3. Dê um toque curto no botão. Um bip confirma.
 4. Em até meio segundo, aperte de novo e mantenha pressionado por 2 segundos. Um tom sobe enquanto carrega e, ao completar, o sistema arma.
 5. Armado, o sistema emite bips enquanto o motor estiver parado, avisando que está pronto para acelerar.
@@ -61,9 +63,20 @@ Para desarmar:
 
 Ao desarmar pelo botão, o buzzer toca a melodia de desarmado e o motor deixa de receber comando.
 
+### Partida suave e redução de potência
+
+O controlador não leva o motor direto para a potência pedida. Ele suaviza a partida e a descida:
+
+- **Partida com o motor parado:** ao acelerar, a potência sobe devagar, em cerca de 3 segundos, até o motor girar (T-Motor: até a hélice estar girando; XAG: depois do tempo de despertar do ESC, cerca de 1,5 segundo). Se o acelerador pedir mais que isso, a potência espera a partida terminar. Passada a partida, o motor responde na hora ao acelerador, sem atraso.
+- **Reinício em voo:** se o motor parou por completo (acelerador solto até a hélice parar), a nova aceleração passa pela partida suave de novo, cerca de 3 segundos. Uma soltada rápida que não para o motor não repete a partida.
+- **Ao soltar o acelerador:** a potência cai de forma gradual, em cerca de 1 segundo do máximo ao zero, e não de uma vez. Isso protege o ESC (principalmente o do XAG) da tensão devolvida pelo motor.
+- **Ao desarmar, por qualquer motivo:** a potência também desce em cerca de 1 segundo até zero, inclusive nos desarmes por falha. O desarme pelo botão com o acelerador aberto continua com a rampa de 2 segundos descrita acima.
+
+O Hobbywing já faz a partida suave no próprio ESC, então o controlador não acrescenta outra.
+
 ### Quando o sistema não arma
 
-O sistema só arma com o acelerador em zero. Se você tentar armar acelerado, ele não arma e o buzzer toca um alerta (três tons repetidos). Solte o acelerador por completo e tente de novo.
+O sistema só arma com o acelerador em zero (abaixo de 2 % do curso). Se você tentar armar acelerado, ele não arma e o buzzer toca um alerta (três tons repetidos). Solte o acelerador por completo e tente de novo.
 
 Se você tentar armar acelerado pela terceira vez, o sistema apaga a calibração. Será preciso calibrar de novo antes de armar.
 

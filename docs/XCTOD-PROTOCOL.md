@@ -34,7 +34,7 @@ value after the prefix). Apps that read by position (e.g. XCTrack's
 | 2 | `battery_percent_voltage` | integer % | `batteryMonitor.getSoCFromVoltage()` | never |
 | 3 | `voltage` | `V.mmm` | `telemetry.getBatteryVoltageMilliVolts()` | battery voltage signal not `Valid` |
 | 4 | `power_kw` | `kW.d` | computed from voltage × current | voltage invalid, or current unavailable |
-| 5 | `throttle_percent` | integer % | `throttle.getThrottlePercentage()` | never |
+| 5 | `throttle_percent` | integer % | `throttle.getThrottlePercentage()` (pilot demand: continuous from the engage point, no 0 to 5 % jump, top 3 % = 100) | never |
 | 6 | `throttle_raw` | integer | `throttle.getThrottleRaw()` | never |
 | 7 | `power_percent` | integer % | `power.getPower()` | never |
 | 8 | `motor_temp` | integer °C | `telemetry.getMotorTempMilliCelsius()` | motor temp signal not `Valid` |
